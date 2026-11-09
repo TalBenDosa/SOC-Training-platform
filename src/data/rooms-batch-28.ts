@@ -9,8 +9,8 @@
  * Room in this batch:
  *  1. edr-detection-investigation — CrowdStrike Falcon + Microsoft Defender
  *     for Endpoint fields (Tactic, Technique, SeverityName,
- *     PatternDispositionDescription, ContextBaseFileName, CommandLine,
- *     SHA256HashData, DesiredAccess, ImageHash module loads, mde.* equivalents),
+ *     PatternDispositionDescription, FileName, ParentImageFileName, CommandLine,
+ *     SHA256String / SHA256HashData, DesiredAccess, ImageHash module loads, mde.* equivalents),
  *     the six-step investigation workflow, process-tree anomaly reading,
  *     sibling-alert / AggregateId correlation, and severity reassessment
  *     (tool severity vs. analyst verdict).
@@ -181,7 +181,7 @@ const edrDetectionInvestigationRoom = {
   id: "edr-detection-investigation",
   title: "Investigating an EDR Detection: End to End",
   description:
-    "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextBaseFileName, CommandLine, SHA256HashData, DesiredAccess, ImageHash module loads), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
+    "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, FileName, ParentImageFileName, CommandLine, SHA256String and the telemetry's SHA256HashData, DesiredAccess, ImageHash module loads), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
   difficulty: "advanced" as const,
   category: "Endpoint Security",
   estimatedMinutes: 75,
@@ -221,22 +221,28 @@ const edrDetectionInvestigationRoom = {
       content:
         "Every major EDR platform reduces 'what happened' down to a specific, learnable set of fields. Reading them fluently (instead of skimming a detection's title and severity color) is the actual difference between an analyst who investigates and one who just reacts to labels.\n\n" +
         "**CrowdStrike Falcon's core fields.** Tactic and Technique are the MITRE ATT&CK category and specific method Falcon's behavioral engine matched, useful for framing what kind of goal the activity serves, but not a verdict by itself, since a single technique like System Binary Proxy Execution fires just as reliably against a benign internal deployment script as against a real attacker. SeverityName is Falcon's own automatic rating (Critical, High, Medium, Low), assigned the instant the behavior pattern matches, before any human has added context, which is exactly why Reading 6 later spends a full reading on why this field is not the analyst's final word. PatternDispositionDescription answers a different, sharper question: what did Falcon actually do about it. A value like 'Detection, standard detection.' means the behavior was only observed; 'Prevention, process killed.' means Falcon actually intervened. Severity tells you how seriously the tool rated the pattern; PatternDispositionDescription tells you whether the potentially malicious action already ran to completion.\n\n" +
-        "**The process-identity fields.** ContextBaseFileName is the process that actually performed the action on a network or file event (on Falcon's handle-operation record, FalconProcessHandleOpDetectInfo, the acting process is ImageFileName instead), and ParentBaseFileName is the process that launched it: one link of the process tree, readable without opening the full graphical view. On a process-access event, two more fields matter: DesiredAccess is the access mask the acting process requested against the target process (0x1FFFFF means full control), and the acting process's own module loads (Falcon ImageHash events with the same ContextProcessId, each naming one DLL in ImageFileName) show which libraries it pulled in just before (dbghelp.dll points at the MiniDumpWriteDump routine). CommandLine is the exact string of arguments the flagged process executed with, including any Base64 encoding, unusual file paths, or suspicious destination arguments. FileName, FilePath, and SHA256HashData identify the specific binary, where it lives on disk, and its cryptographic fingerprint: the fingerprint being the single most useful field for pivoting entirely outside the console, into hash-reputation lookups and fleet-wide hunting, which Reading 7 builds on directly.\n\n" +
-        "**Microsoft Defender for Endpoint's equivalents.** The underlying questions are identical; only the field names change. mde.AlertTitle and mde.Category summarize what fired and its broad classification. mde.InitiatingProcessFileName and mde.InitiatingProcessCommandLine describe the process that LAUNCHED the flagged one, Defender's version of ParentBaseFileName; the flagged process's own name, command line and hash are FileName, ProcessCommandLine and SHA256, and every InitiatingProcess* column (InitiatingProcessSHA256 included) points one level up the tree. mde.SHA256 and mde.DeviceName complete the identification, and mde.DetectionSource tells you which Defender component (the EDR behavioral engine, the antivirus scanning engine, or another) actually generated the alert in the first place. What Defender did about it is recorded separately, in the action and remediation status of the alert, which is the counterpart of PatternDispositionDescription.\n\n" +
+        "**The process-identity fields.** On a Falcon detection, FileName and FilePath name the flagged binary and where it lives on disk; FilePath is the full path as the sensor sees the disk, so C:\\ appears as \\Device\\HarddiskVolume3\\. ParentImageFileName is the process that launched it (ParentImageFilePath and ParentCommandLine give its path and arguments): one link of the process tree, readable without opening the full graphical view. CommandLine is the exact string of arguments the flagged process executed with, including any Base64 encoding, unusual file paths, or suspicious destination arguments. UserName and LogonDomain name the account it ran as. SHA256String is the binary's cryptographic fingerprint, the single most useful field for pivoting entirely outside the console, into hash-reputation lookups and fleet-wide hunting, which Reading 7 builds on directly.\n\n" +
+        "**The telemetry behind the detection.** The sensor events you pivot through use their own names. The same hash is SHA256HashData; a process-start event names its launcher ParentBaseFileName; a network or file event names the process that acted ContextBaseFileName. A process reaching into another process is Falcon's handle-operation record, FalconProcessHandleOpDetectInfo: ImageFileName is the acting process, TargetProcessImageFileName the process being opened, and DesiredAccess the access mask the acting process requested (0x1FFFFF means full control). The acting process's own module loads (Falcon ImageHash events with the same ContextProcessId, each naming one DLL in ImageFileName) show which libraries it pulled in just before (dbghelp.dll points at the MiniDumpWriteDump routine).\n\n" +
+        "**Microsoft Defender for Endpoint's equivalents.** The underlying questions are identical; only the field names change. mde.AlertTitle and mde.Category summarize what fired and its broad classification. mde.InitiatingProcessFileName and mde.InitiatingProcessCommandLine describe the process that LAUNCHED the flagged one, Defender's version of ParentImageFileName; the flagged process's own name, command line and hash are FileName, ProcessCommandLine and SHA256, and every InitiatingProcess* column (InitiatingProcessSHA256 included) points one level up the tree. mde.SHA256 and mde.DeviceName complete the identification, and mde.DetectionSource tells you which Defender component (the EDR behavioral engine, the antivirus scanning engine, or another) actually generated the alert in the first place. What Defender did about it is recorded separately, in the action and remediation status of the alert, which is the counterpart of PatternDispositionDescription.\n\n" +
         "**Why this matters before anything else in the room.** Whichever vendor's console is open in front of you, the questions are the same: what ran, launched by what, with what exact arguments, identified by what hash, and what did the tool actually do in response. Every later reading in this room builds directly on top of these fields.",
       codeExample:
-        "CrowdStrike Falcon                         Microsoft Defender for Endpoint\n" +
+        "CrowdStrike Falcon detection                 Microsoft Defender for Endpoint\n" +
         "-----------------------------------------------------------------------\n" +
-        "Tactic / Technique                          mde.Category\n" +
-        "SeverityName                                mde.Severity (alert severity)\n" +
+        "Tactic / Technique                           mde.Category\n" +
+        "SeverityName                                 mde.Severity (alert severity)\n" +
         "PatternDispositionDescription                mde.RemediationStatus (alert evidence)\n" +
-        "ParentBaseFileName                           mde.InitiatingProcessFileName (process creation: the launcher)\n" +
-        "ContextBaseFileName                          mde.InitiatingProcessFileName (network/file events: the actor)\n" +
+        "ParentImageFileName                          mde.InitiatingProcessFileName (the launcher)\n" +
         "CommandLine                                  mde.ProcessCommandLine\n" +
         "FileName / FilePath                          mde.FileName / mde.FolderPath\n" +
-        "SHA256HashData                               mde.SHA256\n" +
-        "ComputerName                                 mde.DeviceName\n" +
-        "AggregateId                                  mde.IncidentId",
+        "SHA256String                                 mde.SHA256\n" +
+        "Hostname                                     mde.DeviceName\n" +
+        "AggregateId                                  mde.IncidentId\n\n" +
+        "Falcon sensor telemetry (what you pivot through)\n" +
+        "-----------------------------------------------------------------------\n" +
+        "SHA256HashData                               the same file hash\n" +
+        "ParentBaseFileName                           the launcher, on a process start\n" +
+        "ContextBaseFileName                          the actor, on a network or file event\n" +
+        "ImageFileName / TargetProcessImageFileName   actor / target, on a handle-operation record",
       checkpoint: {
         question:
           "A Falcon detection shows SeverityName ‘Critical’ and PatternDispositionDescription ‘Detection, standard detection.’. What do these two fields tell you together?",
@@ -275,7 +281,7 @@ const edrDetectionInvestigationRoom = {
       heading: "Match the EDR Field to What It Actually Tells You",
       instructions: "Match each CrowdStrike Falcon / Microsoft Defender field to what it records or reveals during an investigation.",
       pairs: [
-        { id: "context", left: "ParentBaseFileName", right: "The process that launched the one being flagged: one link of the process tree, without opening the full graphical view" },
+        { id: "context", left: "ParentImageFileName", right: "The process that launched the one being flagged: one link of the process tree, without opening the full graphical view" },
         { id: "cmdline", left: "CommandLine", right: "The exact arguments the flagged process ran with, including any encoding or unusual destination paths" },
         { id: "hash", left: "SHA256HashData", right: "The binary's cryptographic fingerprint: the field used to pivot into hash-reputation lookups and fleet-wide hunting" },
         { id: "tactic", left: "Tactic", right: "The MITRE ATT&CK category describing the broad adversary goal behind the matched behavior pattern" },
