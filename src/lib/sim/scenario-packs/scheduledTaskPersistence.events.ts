@@ -243,7 +243,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
     withProc(sysmonNetwork({
       ...cx, id: "evt_stp_07b_net_c2", ts: T(D2 + 11_000), processName: "netfix_agent.exe", processPath: AGENT, pid: 2016,
       remoteIp: c2Ip, remotePort: 443, remoteHost: c2, severity: "high",
-      description: "The relaunched netfix_agent.exe opened a TCP/443 connection to 46.246.90.12.",
+      description: "The relaunched netfix_agent.exe opened a TCP/443 connection to 203.0.113.13.",
     }), "netfix_agent.exe", 2016, AGENT, { name: "svchost.exe", pid: 1148 }),
     panConnection({
       ...cx, id: "evt_stp_07c_beacon", ts: T(D2 + 13_000), domain: c2, dstIp: c2Ip, remotePort: 443,

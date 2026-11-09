@@ -4323,7 +4323,7 @@ export function mfaFatigueScenarioEvents() {
     id: `mfa_06_mail_access_${b.n}`, ts: T(b.t), source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "cloud_api_call",
     severity: "high", ...(b.n === 1 ? { mitre_technique: "T1114.002" } : {}),
     hostname: "graph.microsoft.com", user_email: EMAIL, src_ip: ATT,
-    description: `MailItemsAccessed (Sync) read ${b.count} items from ${b.folder} in j.chen's mailbox through Microsoft Graph from 91.108.4.33.`,
+    description: `MailItemsAccessed (Sync) read ${b.count} items from ${b.folder} in j.chen's mailbox through Microsoft Graph from 203.0.113.84.`,
     raw: {
       "data.office365.Operation": "MailItemsAccessed", "data.office365.UserId": EMAIL, "data.office365.ClientInfoString": "Client=REST;Client=RESTSystem;;",
       "data.office365.AppId": OFFICE_APP_ID, "data.office365.ClientIPAddress": ATT, "data.office365.Workload": "Exchange", "data.office365.MailboxOwnerUPN": EMAIL,
@@ -4341,7 +4341,7 @@ export function mfaFatigueScenarioEvents() {
     id: `mfa_07_sharepoint_download_${String(i + 1).padStart(2, "0")}`, ts: T(16 * MIN + i * 28 * SEC), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "sharepoint_download", severity: "high", ...(i === 0 ? { mitre_technique: "T1530" } : {}),
     hostname: "nexacorp.sharepoint.com", user_email: EMAIL, src_ip: ATT,
-    description: `FileDownloaded: ${f.name} from the ${f.site} SharePoint site, from 91.108.4.33.`,
+    description: `FileDownloaded: ${f.name} from the ${f.site} SharePoint site, from 203.0.113.84.`,
     raw: {
       "data.office365.Operation": "FileDownloaded", "data.office365.UserId": EMAIL, "data.office365.Workload": "SharePoint", "data.office365.ClientIPAddress": ATT,
       "data.office365.SiteUrl": `https://nexacorp.sharepoint.com/sites/${f.site}`, "data.office365.SourceFileName": f.name, "data.office365.UserAgent": CHROME,
@@ -4399,7 +4399,7 @@ export function mfaFatigueScenarioEvents() {
     }, { mitre_technique: "T1098.005", description: "A Windows device named DESKTOP-MOSCOW-99 was enrolled as a factor on j.chen's Okta account 27 seconds after the push was approved." }),
     okta("mfa_05a_okta_sso_o365", 13 * MIN + 10 * SEC, "user.authentication.sso", "SUCCESS", "auth_success", "medium", CHROME, {
       "okta.target.displayName": "Microsoft Office 365",
-    }, { description: "j.chen's Okta session single-signed-on to the Microsoft Office 365 app from 91.108.4.33." }),
+    }, { description: "j.chen's Okta session single-signed-on to the Microsoft Office 365 app from 203.0.113.84." }),
     entraSignIn,
     ...mailBatches,
     ...files,
@@ -4416,7 +4416,7 @@ export function mfaFatigueScenarioEvents() {
       hostname: "aad.nexacorp.com", user_email: EMAIL, src_ip: ATT,
       // Okta is the IdP; Microsoft 365 is federated to it, and the M365 tenant
       // still enforces its own Entra Conditional Access after the Okta SSO.
-      description: "In the Okta-federated Microsoft 365 tenant, j.chen's account (Conditional Access Administrator) modified the Require Compliant Device Conditional Access policy to add DESKTOP-MOSCOW-99 to its device exclusion list, from 91.108.4.33.",
+      description: "In the Okta-federated Microsoft 365 tenant, j.chen's account (Conditional Access Administrator) modified the Require Compliant Device Conditional Access policy to add DESKTOP-MOSCOW-99 to its device exclusion list, from 203.0.113.84.",
       raw: {
         "data.office365.Operation": "Update conditional access policy.",
         "data.office365.AzureActiveDirectoryEventType": 1,
@@ -5436,7 +5436,7 @@ export function k8sPodEscapeScenarioEvents() {
     {
       id: "k8s_05z_guardduty", ts: T(5 * MIN + 30 * SEC), source: "cloudtrail", vendor: "AWS GuardDuty", event_type: "cloud_api_call", severity: "high",
       src_ip: ATT, is_detection: true, mitre_technique: "T1552.005", mitre_tactic: "Credential Access",
-      description: "GuardDuty raised UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS (severity 8) for credentials of instance role eks-node-role used from 193.233.48.71.",
+      description: "GuardDuty raised UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS (severity 8) for credentials of instance role eks-node-role used from 203.0.113.71.",
       cloud: { provider: "aws", service: "sts", api_call: "GetCallerIdentity", region: "eu-west-1" },
       raw: {
         "aws.guardduty.type": "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", "aws.guardduty.severity": "8",
@@ -5456,7 +5456,7 @@ export function k8sPodEscapeScenarioEvents() {
     ct("k8s_07_describe_instances", 7 * MIN, "cloud_api_call", "high", "DescribeInstances", "ec2", "ec2.amazonaws.com",
       "DescribeInstances was called using the same assumed role, requesting up to 1000 results.", { "aws.cloudtrail.requestParameters.maxResults": 1000 }, { mitre_technique: "T1580" }),
     ct("k8s_08_secrets_access", 9 * MIN, "cloud_storage_access", "critical", "GetObject", "s3", "s3.amazonaws.com",
-      "GetObject retrieved s3://rocketstack-secrets-prod/db-passwords.json (4,218 bytes) using the same assumed role from 193.233.48.71.",
+      "GetObject retrieved s3://rocketstack-secrets-prod/db-passwords.json (4,218 bytes) using the same assumed role from 203.0.113.71.",
       { "aws.cloudtrail.requestParameters.bucketName": "rocketstack-secrets-prod", "aws.cloudtrail.requestParameters.key": "db-passwords.json" },
       { mitre_technique: "T1530", cloud: { provider: "aws", service: "s3", api_call: "GetObject", region: "eu-west-1", resource: "rocketstack-secrets-prod" }, network: { bytes_out: 4218 } }),
 
@@ -5494,7 +5494,7 @@ export function k8sPodEscapeScenarioEvents() {
 
     // ── Cloud persistence: an IAM user with admin rights and an access key ──
     ct("k8s_10_iam_backdoor", 15 * MIN, "account_create", "critical", "CreateUser", "iam", "iam.amazonaws.com",
-      "CreateUser created IAM user svc-monitoring-backup, called with the eks-node-role assumed role from 193.233.48.71.",
+      "CreateUser created IAM user svc-monitoring-backup, called with the eks-node-role assumed role from 203.0.113.71.",
       { "aws.cloudtrail.requestParameters.userName": "svc-monitoring-backup", "aws.cloudtrail.requestParameters.path": "/",
         "aws.cloudtrail.responseElements.user.arn": `arn:aws:iam::${ACCT}:user/svc-monitoring-backup` }, { mitre_technique: "T1136.003" }),
     ct("k8s_11_iam_policy_attach", 15 * MIN + 11_000, "cloud_role_change", "critical", "AttachUserPolicy", "iam", "iam.amazonaws.com",
@@ -5607,8 +5607,8 @@ export function oauthConsentPhishingScenarioEvents() {
 
     // ── The app works as j.chen, with her token, from its own backend ──
     mailBatch(1, 55 * MIN, 500, "Inbox", "MailItemsAccessed: 500 items read from j.chen's Inbox by AppId a3f9b1c2 through Microsoft Graph from 203.0.113.40, 55 minutes after the consent."),
-    mailBatch(2, 56 * MIN, 400, "Sent Items", "MailItemsAccessed: 400 items read from j.chen's Sent Items by AppId a3f9b1c2 from 20.50.142.37."),
-    mailBatch(3, 57 * MIN, 347, "Archive", "MailItemsAccessed: 347 items read from j.chen's Archive folder by AppId a3f9b1c2 from 20.50.142.37."),
+    mailBatch(2, 56 * MIN, 400, "Sent Items", "MailItemsAccessed: 400 items read from j.chen's Sent Items by AppId a3f9b1c2 from 203.0.113.40."),
+    mailBatch(3, 57 * MIN, 347, "Archive", "MailItemsAccessed: 347 items read from j.chen's Archive folder by AppId a3f9b1c2 from 203.0.113.40."),
     {
       id: "oauth_04_inbox_rule",
       ts: T(58 * MIN),
@@ -5634,7 +5634,7 @@ export function oauthConsentPhishingScenarioEvents() {
       },
     },
     ...files,
-    mailBatch(4, 65 * MIN, 847, "Calendar", "MailItemsAccessed: 847 calendar items read from j.chen's Calendar folder by AppId a3f9b1c2 from 20.50.142.37."),
+    mailBatch(4, 65 * MIN, 847, "Calendar", "MailItemsAccessed: 847 calendar items read from j.chen's Calendar folder by AppId a3f9b1c2 from 203.0.113.40."),
 
     // ── Detection: Purview on the contract, then Defender for Cloud Apps on the app ──
     {
@@ -5907,7 +5907,7 @@ export function kerberoastingScenarioEvents() {
       source: "firewall", vendor: "FortiGate", event_type: "net_connection",
       hostname: attackerHost, src_ip: attackerIp, dst_ip: c2Ip, dst_port: 80,
       severity: "low",
-      description: "WS-DEV-4412 opened an outbound TCP/80 session to 91.243.85.117.",
+      description: "WS-DEV-4412 opened an outbound TCP/80 session to 203.0.113.120.",
       raw: {
         "data.type": "traffic", "data.subtype": "forward",
         "data.srcip": attackerIp, "data.dstip": c2Ip, "data.dstport": "80", "data.proto": "6",
@@ -5967,7 +5967,7 @@ export function kerberoastingScenarioEvents() {
       source: "firewall", vendor: "FortiGate", event_type: "net_connection",
       hostname: attackerHost, src_ip: attackerIp, dst_ip: c2Ip, dst_port: 80,
       severity: "low",
-      description: "WS-DEV-4412 opened a second outbound TCP/80 session to 91.243.85.117.",
+      description: "WS-DEV-4412 opened a second outbound TCP/80 session to 203.0.113.120.",
       raw: {
         "data.type": "traffic", "data.subtype": "forward",
         "data.srcip": attackerIp, "data.dstip": c2Ip, "data.dstport": "80", "data.proto": "6",
@@ -6261,7 +6261,7 @@ export function kerberoastingScenarioEvents() {
       id: "evt_kerb_fw_c2_b1", ts: T(19 * MIN + 30 * SEC),
       source: "firewall", vendor: "FortiGate", event_type: "net_connection", severity: "high",
       hostname: dbHost, src_ip: dbIp, dst_ip: c2Ip, dst_port: 443,
-      description: "srv-db01 opened another outbound TCP/443 session to 91.243.85.117.",
+      description: "srv-db01 opened another outbound TCP/443 session to 203.0.113.120.",
       raw: {
         "data.type": "traffic", "data.subtype": "forward",
         "data.srcip": dbIp, "data.dstip": c2Ip, "data.dstport": "443", "data.proto": "6",
@@ -6272,7 +6272,7 @@ export function kerberoastingScenarioEvents() {
       id: "evt_kerb_fw_c2_b2", ts: T(21 * MIN + 10 * SEC),
       source: "firewall", vendor: "FortiGate", event_type: "net_connection", severity: "high",
       hostname: dbHost, src_ip: dbIp, dst_ip: c2Ip, dst_port: 443,
-      description: "srv-db01 opened a third outbound TCP/443 session to 91.243.85.117.",
+      description: "srv-db01 opened a third outbound TCP/443 session to 203.0.113.120.",
       raw: {
         "data.type": "traffic", "data.subtype": "forward",
         "data.srcip": dbIp, "data.dstip": c2Ip, "data.dstport": "443", "data.proto": "6",

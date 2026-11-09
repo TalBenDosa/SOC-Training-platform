@@ -151,7 +151,7 @@ export function buildS3ExfilExposureScenario(
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.BlockPublicPolicy": "false",
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.RestrictPublicBuckets": "false",
       },
-      description: "PutBucketPublicAccessBlock on medcore-patient-exports-prod set all four BlockPublicAcls / IgnorePublicAcls / BlockPublicPolicy / RestrictPublicBuckets flags to false, by the reporting-export-svc key from 91.242.217.35.",
+      description: "PutBucketPublicAccessBlock on medcore-patient-exports-prod set all four BlockPublicAcls / IgnorePublicAcls / BlockPublicPolicy / RestrictPublicBuckets flags to false, by the reporting-export-svc key from 203.0.113.98.",
     }),
 
     // 3. CONFIG ORIGIN #2, PutBucketPolicy attaches an allow-anyone policy (T1686.001).
@@ -165,7 +165,7 @@ export function buildS3ExfilExposureScenario(
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Action": "s3:GetObject",
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Resource": `arn:aws:s3:::${bucket}/*`,
       },
-      description: "PutBucketPolicy on medcore-patient-exports-prod attached a statement with Principal \"*\" allowing s3:GetObject on every object, by the reporting-export-svc key from 91.242.217.35.",
+      description: "PutBucketPolicy on medcore-patient-exports-prod attached a statement with Principal \"*\" allowing s3:GetObject on every object, by the reporting-export-svc key from 203.0.113.98.",
     }),
 
     // 4. CONFIG ORIGIN #3, PutBucketAcl grants the AllUsers group READ (T1686.001).
@@ -177,7 +177,7 @@ export function buildS3ExfilExposureScenario(
         "aws.cloudtrail.requestParameters.AccessControlPolicy.AccessControlList.Grant.Grantee.URI": "http://acs.amazonaws.com/groups/global/AllUsers",
         "aws.cloudtrail.requestParameters.AccessControlPolicy.AccessControlList.Grant.Permission": "READ",
       },
-      description: "PutBucketAcl on medcore-patient-exports-prod added a grant giving the AllUsers group (http://acs.amazonaws.com/groups/global/AllUsers) READ, by the reporting-export-svc key from 91.242.217.35.",
+      description: "PutBucketAcl on medcore-patient-exports-prod added a grant giving the AllUsers group (http://acs.amazonaws.com/groups/global/AllUsers) READ, by the reporting-export-svc key from 203.0.113.98.",
     }),
 
     // 4b. THE OPENING IS USED, an unauthenticated GetObject from a second internet address (T1530).
@@ -238,7 +238,7 @@ export function buildS3ExfilExposureScenario(
 
     // 7. THE DRAIN, GetObject calls pull the objects down from outside AWS (T1530); the volume is in the metric and GuardDuty.
     keyGet("s3exfil_07_getobject_burst", 12 * MIN, "exports/2026-08-30/patients-000001.parquet", 2_201_170,
-      "One of the GetObject calls across the exports/ prefix on medcore-patient-exports-prod by the reporting-export-svc key from 91.242.217.35."),
+      "One of the GetObject calls across the exports/ prefix on medcore-patient-exports-prod by the reporting-export-svc key from 203.0.113.98."),
     keyGet("s3exfil_07b_getobject", 12 * MIN + 1 * SEC, "exports/2026-08-30/patients-000003.parquet", 2_198_342,
       "The next GetObject, one second later, on the next object of the same prefix."),
     keyGet("s3exfil_07c_getobject", 12 * MIN + 2 * SEC, "exports/2026-08-30/patients-000004.parquet", 2_204_911,
@@ -252,7 +252,7 @@ export function buildS3ExfilExposureScenario(
         api: "GetObject", serviceName: "s3.amazonaws.com", callerType: "Remote IP", remoteCountry: "Netherlands", asnOrg: "Serverius Holding B.V.",
         resourceType: "S3Bucket", bucketName: bucket, userType: "IAMUser", userName: iamUser, accessKeyId, count: 20000,
         mitre: "T1567", tactic: "Exfiltration", severity: "high", incidentId: INCIDENT,
-        description: "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual (severity 8) on medcore-patient-exports-prod: the reporting-export-svc identity read objects at a volume and from a location outside its established pattern, sourced from 91.242.217.35.",
+        description: "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual (severity 8) on medcore-patient-exports-prod: the reporting-export-svc identity read objects at a volume and from a location outside its established pattern, sourced from 203.0.113.98.",
       }),
       edr_scope: "non_edr",
     },
@@ -269,7 +269,7 @@ export function buildS3ExfilExposureScenario(
       api: "ListObjectsV2", serviceName: "s3.amazonaws.com", callerType: "Remote IP", resourceType: "AccessKey",
       userType: "IAMUser", userName: iamUser, accessKeyId, count: 20,
       mitre: "T1526", tactic: "Discovery", severity: "medium", incidentId: INCIDENT,
-      description: "GuardDuty raised Discovery:S3/AnomalousBehavior (severity 6) on the reporting-export-svc key: an S3 API pattern, bucket listing then broad object listing, outside the key's established behaviour, from 91.242.217.35.",
+      description: "GuardDuty raised Discovery:S3/AnomalousBehavior (severity 6) on the reporting-export-svc key: an S3 API pattern, bucket listing then broad object listing, outside the key's established behaviour, from 203.0.113.98.",
     }),
   ];
 
@@ -410,7 +410,7 @@ export function buildS3ExfilExposureScenario(
 
 The incident begins with a credential that should never have left the account. A long-lived IAM access key for the reporting-export-svc service account was committed to a public repository, medcore/reporting-tools, on 28 August, and GitHub secret scanning raised an alert at 11:42; the key was over-permissioned and was never rotated. On 31 August at 02:58 that key made its first calls from 203.0.113.98, an internet address: a GetCallerIdentity to check what it was, and at 03:00 a ListBuckets to survey the account. Three minutes later it began stripping the bucket's protections: PutBucketPublicAccessBlock flipped all four Block Public Access guards to false, PutBucketPolicy attached a statement allowing anyone (Principal "*") to read every object, and PutBucketAcl granted the AllUsers group READ. With Block Public Access off, those permissive grants took effect and the bucket was open to the world. It was used at once: at 03:07 a GetObject with accountId anonymous, from a second address (203.0.113.233) and no credential at all, was answered.
 
-GuardDuty caught the changes (Policy:S3/BucketBlockPublicAccessDisabled at 03:08 and Policy:S3/BucketAnonymousAccessGranted at 03:09). Meanwhile the same key enumerated the bucket with ListObjectsV2, page after page of up to 1,000 keys under the exports prefix, and from 03:12 ran GetObject calls that pulled those objects down, every request sourced from 91.242.217.35. One CloudTrail record carries one object; the scale is in the aggregates: GuardDuty counted 20,000 object reads and the CloudWatch BytesDownloaded alarm on the bucket reached 44,023,414,784 bytes (41 GB) by 03:20. At 03:20 GuardDuty raised Exfiltration:S3/ObjectRead.Unusual on the drain, and a minute later Discovery:S3/AnomalousBehavior tied the enumeration and reads together as one out-of-pattern run on the key.
+GuardDuty caught the changes (Policy:S3/BucketBlockPublicAccessDisabled at 03:08 and Policy:S3/BucketAnonymousAccessGranted at 03:09). Meanwhile the same key enumerated the bucket with ListObjectsV2, page after page of up to 1,000 keys under the exports prefix, and from 03:12 ran GetObject calls that pulled those objects down, every request sourced from 203.0.113.98. One CloudTrail record carries one object; the scale is in the aggregates: GuardDuty counted 20,000 object reads and the CloudWatch BytesDownloaded alarm on the bucket reached 44,023,414,784 bytes (41 GB) by 03:20. At 03:20 GuardDuty raised Exfiltration:S3/ObjectRead.Unusual on the drain, and a minute later Discovery:S3/AnomalousBehavior tied the enumeration and reads together as one out-of-pattern run on the key.
 
 Read as a whole, the case has a clean shape: the CloudTrail management events are the origin, the config change that opened the bucket, and the object reads plus the GuardDuty findings are the blast radius. The constant across every step is the from-outside-AWS source address on a service key whose real work never leaves the account.`,
     learning_objectives: [

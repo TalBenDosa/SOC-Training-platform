@@ -264,7 +264,7 @@ export function helpdeskMfaResetScenarioEvents() {
       operation: "New-InboxRule", workload: "Exchange", sessionId: attackerSessionId, userAgent: UA_ATTACKER,
       mitre: "T1114.003", tactic: "Collection", severity: "high",
       extra: { "RecordType": "1", "UserType": "0", "ResultStatus": "True", "Parameters.Name": ".", "Parameters.ForwardTo": forwardTo, "Parameters.DeleteMessage": "True", "Parameters.SubjectOrBodyContainsWords": "settlement;SSI;wire" },
-      description: `A new inbox rule on l.ferreira's mailbox forwards mail containing settlement, SSI or wire to ${forwardTo} and deletes the original, created at 10:04:30 from 5.181.234.19.`,
+      description: `A new inbox rule on l.ferreira's mailbox forwards mail containing settlement, SSI or wire to ${forwardTo} and deletes the original, created at 10:04:30 from 203.0.113.35.`,
     }),
 
     // 8a. The same address opens a virtual desktop (Entra sign-in to Azure Virtual Desktop).

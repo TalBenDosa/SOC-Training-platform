@@ -167,7 +167,7 @@ export function infostealerSessionTheftScenarioEvents() {
       companyId: cx, id: "evt_ist_06c_net_c2", ts: T(3 * HOUR + 47 * MIN + 22 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
       remoteIp: c2Ip, remotePort: 443, domain: c2Domain, application: "tls", processName: "PDF_Converter_Pro_Setup.exe", processPath: STEALER, pid: 7188,
       parentName: "explorer.exe", parentPid: 3844, sha256: installerHash, severity: "high", incidentId: INCIDENT,
-      description: "PDF_Converter_Pro_Setup.exe opened a TCP/443 connection to 45.88.97.214.",
+      description: "PDF_Converter_Pro_Setup.exe opened a TCP/443 connection to 203.0.113.214.",
     }),
 
     // 7. It leaves the building, a POST to the collection endpoint (T1041).

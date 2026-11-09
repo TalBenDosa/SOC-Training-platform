@@ -155,7 +155,7 @@ export function impossibleTravelBasicScenarioEvents() {
       src_ip: victim.homeIp,
       severity: "informational",
       description:
-        "d.harel connected to the corporate remote-access VPN from 198.51.100.44 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 194.90.7.20.",
+        "d.harel connected to the corporate remote-access VPN from 198.51.100.44 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 192.0.2.150.",
       raw: {
         "event.action": "vpn-session-established",
         "cisco.asa.message_id": "722022",
@@ -600,7 +600,7 @@ export function impossibleTravelBasicScenarioEvents() {
       mitre_technique: "T1114.002",
       mitre_tactic: "Collection",
       description:
-        "Exchange recorded a MailItemsAccessed sync of 812 items from the Vendor Banking folder in the d.harel mailbox, from 146.190.62.117.",
+        "Exchange recorded a MailItemsAccessed sync of 812 items from the Vendor Banking folder in the d.harel mailbox, from 203.0.113.117.",
       raw: {
         "data.office365.Operation": "MailItemsAccessed",
         "data.office365.Workload": "Exchange",
@@ -633,7 +633,7 @@ export function impossibleTravelBasicScenarioEvents() {
       src_ip: attackerIp,
       severity: "critical",
       description:
-        "A message with the subject \"Updated remittance details - June invoices\" and a PDF attached was sent from the d.harel mailbox to accounts@ridgeline-supply.com from 146.190.62.117.",
+        "A message with the subject \"Updated remittance details - June invoices\" and a PDF attached was sent from the d.harel mailbox to accounts@ridgeline-supply.com from 203.0.113.117.",
       raw: {
         "data.office365.Operation": "Send",
         "data.office365.Workload": "Exchange",

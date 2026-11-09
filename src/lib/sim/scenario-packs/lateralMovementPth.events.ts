@@ -218,7 +218,7 @@ export function lateralMovementPthScenarioEvents() {
       companyId: cxNexa, id: "evt_lm_07a_payload_dns", ts: T(5 * MIN + 13 * SEC), host: fileSrv.hostname, user: null, srcIp: fileSrv.ip,
       processName: "powershell.exe", processPath: PS, pid: 8260, domain: "cdn-winupdate.net", resolvedIp: "203.0.113.27", severity: "medium",
       incidentId: INCIDENT, mitre: "T1105", tactic: "Command and Control",
-      description: "Sysmon Event 22 on SRV-FILE-03: powershell.exe resolved cdn-winupdate.net to 185.174.137.26.",
+      description: "Sysmon Event 22 on SRV-FILE-03: powershell.exe resolved cdn-winupdate.net to 203.0.113.27.",
     })), process: loaderProc },
     { ...asSystem(sysmonNetwork({
       companyId: cxNexa, id: "evt_lm_07b_payload_download", ts: T(5 * MIN + 14 * SEC), host: fileSrv.hostname, user: null, srcIp: fileSrv.ip,

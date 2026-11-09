@@ -93,7 +93,7 @@ export function bruteForceSingleAccountScenarioEvents() {
       logonType: 3, workstation: attackerWs, srcPort: "49712", recordId: "3310442",
       severity: "low", mitre: "T1110.001", tactic: "Credential Access", geo: RU,
       description:
-        "The first logon failure on SRV-RDS-02 was a 4625 for the account name swolfe, over NTLM from 194.26.192.77.",
+        "The first logon failure on SRV-RDS-02 was a 4625 for the account name swolfe, over NTLM from 203.0.113.79.",
     }),
     fwSession("evt_bf_02b_fw_session", T(2 * MIN + 2_000), "49712", {
       end: true, sec: 2, bytesOut: 3180, bytesIn: 4966,
@@ -158,7 +158,7 @@ export function bruteForceSingleAccountScenarioEvents() {
       workstation: attackerWs, logonId: "0x2F91A44", srcPort: "51377", recordId: "3312194",
       severity: "high", mitre: "T1078", tactic: "Initial Access", geo: RU_GEO,
       description:
-        "A successful 4624 network logon for s.wolfe on SRV-RDS-02 at 09:20:00, LogonType 3 over NTLM, from 194.26.192.77.",
+        "A successful 4624 network logon for s.wolfe on SRV-RDS-02 at 09:20:00, LogonType 3 over NTLM, from 203.0.113.79.",
     }),
     winTerminalServices({ host: rds.hostname, account: victim.sam, accountEmail: victim.email, clientIp: attackerIp, geo: RU_GEO,
       id: "evt_bf_05c_rdp_auth", ts: T(20 * MIN + 1_000), code: "1149",
@@ -184,7 +184,7 @@ export function bruteForceSingleAccountScenarioEvents() {
     }),
     winTerminalServices({ host: rds.hostname, account: victim.sam, accountEmail: victim.email, clientIp: attackerIp, geo: RU_GEO,
       id: "evt_bf_06b_rdp_session_logon", ts: T(20 * MIN + 9_000), code: "21",
-      description: "SRV-RDS-02 recorded Remote Desktop Services event 21 for NEXACORP\\s.wolfe: session 2 logon succeeded, source 194.26.192.77.",
+      description: "SRV-RDS-02 recorded Remote Desktop Services event 21 for NEXACORP\\s.wolfe: session 2 logon succeeded, source 203.0.113.79.",
     }),
 
     // 6c. What the desktop session starts: the shell, then a command prompt.

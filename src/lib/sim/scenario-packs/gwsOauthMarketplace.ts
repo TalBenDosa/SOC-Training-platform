@@ -331,7 +331,7 @@ export function buildGwsOauthMarketplaceScenario(
     gmailCall("evt_oauth_04_gmail_api_read", 19 * MIN, "list",
       "A token audit 'activity' shows Docs Merge Pro calling gmail.users.messages.list for m.varga from 203.0.113.33 (Frankfurt), authenticated by the offline token, no interactive sign-in."),
     gmailCall("evt_oauth_04b_gmail_api_read", 21 * MIN, "get",
-      "Docs Merge Pro called gmail.users.messages.get for m.varga from 45.87.43.19."),
+      "Docs Merge Pro called gmail.users.messages.get for m.varga from 203.0.113.33."),
     gmailCall("evt_oauth_04c_gmail_api_read", 23 * MIN, "get",
       "A further gmail.users.messages.get call from 203.0.113.33 under the same token."),
 
@@ -340,9 +340,9 @@ export function buildGwsOauthMarketplaceScenario(
     //    the same hosting ASN. Data from Cloud Storage (T1530).
     // ─────────────────────────────────────────────────────────────────────
     download("evt_oauth_05_drive_download_burst", 27 * MIN, "FY26_Revenue_Forecast.xlsx", "spreadsheet", "high",
-      "The Drive audit records a download of FY26_Revenue_Forecast.xlsx under m.varga's account, attributed to the Docs Merge Pro client id, from 45.87.43.19."),
+      "The Drive audit records a download of FY26_Revenue_Forecast.xlsx under m.varga's account, attributed to the Docs Merge Pro client id, from 203.0.113.33."),
     download("evt_oauth_05b_drive_download", 28 * MIN, "Q3_Pipeline_by_Region.xlsx", "spreadsheet", "high",
-      "A second download under the same client id from 45.87.43.19."),
+      "A second download under the same client id from 203.0.113.33."),
     download("evt_oauth_05c_drive_download", 30 * MIN, "Customer_Renewals_2026.xlsx", "spreadsheet", "high",
       "A third download under the same client id."),
     download("evt_oauth_05d_drive_download", 33 * MIN, "FY26_Board_Deck.pptx", "presentation", "high",

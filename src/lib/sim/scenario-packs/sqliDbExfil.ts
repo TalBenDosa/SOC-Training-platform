@@ -781,7 +781,7 @@ export function buildSqliDbExfilScenario(
       xp: 65,
       kind: "single",
       prompt:
-        "In every attack-related database event the db.user is app_shop from WEB-APP-02 (10.30.4.15), never the attacker's 194.36.191.47. How should that shape how you read the DAM logs?",
+        "In every attack-related database event the db.user is app_shop from WEB-APP-02 (10.30.4.15), never the attacker's 203.0.113.51. How should that shape how you read the DAM logs?",
       hint: "Think about where SQL injection executes and whose session it borrows once it reaches the database.",
       options: [
         { value: "rides_app", label: "The injection runs inside the web app's own DB session, so DAM sees app_shop from the app tier; the real origin is upstream, tied in via WAF and app logs" },

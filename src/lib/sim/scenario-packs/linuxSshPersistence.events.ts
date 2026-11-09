@@ -112,7 +112,7 @@ export function linuxSshPersistenceScenarioEvents() {
       src_ip: "198.51.100.77",
       severity: "informational",
       description:
-        "d.okonkwo connected to the Northwind remote-access VPN from 198.51.100.77 and was assigned 10.99.3.21. The gateway VPN-GW-01 egresses from the public address 82.166.44.9.",
+        "d.okonkwo connected to the Northwind remote-access VPN from 198.51.100.77 and was assigned 10.99.3.21. The gateway VPN-GW-01 egresses from the public address 192.0.2.60.",
       raw: {
         "event.action": "vpn-session-established",
         "cisco.asa.message_id": "722022",
@@ -230,7 +230,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "auditd on nix-bkp-01 recorded a failed sshd PAM authentication for the existing account svc-backup from 92.118.39.73.",
+        "auditd on nix-bkp-01 recorded a failed sshd PAM authentication for the existing account svc-backup from 203.0.113.101.",
       authentication: { method: "password", result: "failure" },
       raw: {
         "data.program_name": "sshd",

@@ -323,7 +323,7 @@ export function aiLlmJackingScenarioEvents() {
           "aws.cloudtrail.tlsDetails.clientProvidedHostHeader": hostMgmt(pilotRegion),
           "aws.cloudtrail.requestID": uuid("platform-entitlement"),
         },
-        description: "PutFoundationModelEntitlement (bedrock.amazonaws.com) for anthropic.claude-sonnet-4-20250514-v1:0 in us-east-1 by t.wagner through the AWSReservedSSO_PlatformAdmin role - ASIA session key, MFA-authenticated session, Chrome user agent, sourced from 213.144.152.30.",
+        description: "PutFoundationModelEntitlement (bedrock.amazonaws.com) for anthropic.claude-sonnet-4-20250514-v1:0 in us-east-1 by t.wagner through the AWSReservedSSO_PlatformAdmin role - ASIA session key, MFA-authenticated session, Chrome user agent, sourced from 203.0.113.32.",
       }),
       expected_verdict: "fp",
       fp_explanation:
@@ -401,7 +401,7 @@ export function aiLlmJackingScenarioEvents() {
       id: "aiw1_lj_09", ts: J(6 * MIN, "lj09"), eventName: "CreateFoundationModelAgreement", srcIp: ipA, region: pilotRegion,
       userAgent: boto3Ua, readOnly: false, mitre: "T1098", tactic: "Persistence", severity: "high",
       extra: atkExtra("lj09", hostMgmt(pilotRegion), { "aws.cloudtrail.requestParameters.modelId": modelBase }),
-      description: "CreateFoundationModelAgreement for anthropic.claude-opus-4-20250514-v1:0 in us-east-1 by the svc-build-release access key from 80.94.92.41.",
+      description: "CreateFoundationModelAgreement for anthropic.claude-opus-4-20250514-v1:0 in us-east-1 by the svc-build-release access key from 203.0.113.43.",
     }),
     ct({
       id: "aiw1_lj_10", ts: J(7 * MIN, "lj10"), eventName: "PutFoundationModelEntitlement", srcIp: ipA, region: pilotRegion,
@@ -494,7 +494,7 @@ export function aiLlmJackingScenarioEvents() {
         },
         eventType: "ueba_anomaly",
         mitre: "T1685.002", tactic: "Defense Impairment", severity: "high", incidentId: INCIDENT,
-        description: "GuardDuty raised DefenseEvasion:IAMUser/AnomalousBehavior (severity 5, Medium) in us-east-1 for DeleteModelInvocationLoggingConfiguration, called by the svc-build-release access key AKIAXQ7PL2MD4EXAMPLE from 80.94.92.41.",
+        description: "GuardDuty raised DefenseEvasion:IAMUser/AnomalousBehavior (severity 5, Medium) in us-east-1 for DeleteModelInvocationLoggingConfiguration, called by the svc-build-release access key AKIAXQ7PL2MD4EXAMPLE from 203.0.113.43.",
       }),
       edr_scope: "non_edr",
     },

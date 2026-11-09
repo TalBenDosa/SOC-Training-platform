@@ -142,7 +142,7 @@ export function buildUebaCompromisedAccountScenario(
       extra: { "azure.signinlogs.properties.networkLocationDetails": [{ networkType: "trustedNamedLocation", networkNames: ["NexaCorp VPN Singapore"] }] },
       description: "Interactive Entra sign-in for r.laurent from 198.51.100.12 (Singapore) over the NexaCorp VPN Singapore named location, same managed laptop, MFA satisfied.",
     }), it_verify_result: "confirmed",
-      it_verify_message: "Travel request TR-0418: Renée Laurent, Sales offsite in Singapore 30 Aug to 2 Sep, approved by her manager; the NexaCorp VPN Singapore gateway egresses at 203.116.40.12." },
+      it_verify_message: "Travel request TR-0418: Renée Laurent, Sales offsite in Singapore 30 Aug to 2 Sep, approved by her manager; the NexaCorp VPN Singapore gateway egresses at 198.51.100.12." },
 
     // 0. BENIGN CONTROL: the same ImpossibleTravel anomaly raised for r.laurent, resolves BENIGN.
     sentinelUeba({
@@ -184,7 +184,7 @@ export function buildUebaCompromisedAccountScenario(
     mdeDns({
       companyId: "nexacorp", id: "evt_uca_00s3_c2_dns", ts: T(-48 * MIN - 5_000), host: victim.host, user: victim.email,
       domain: c2Domain, resolvedIp: c2Ip, severity: "medium", incidentId: INCIDENT,
-      description: "FIN-LT-Almeida resolved static-cdn-sync.net to 185.225.73.141.",
+      description: "FIN-LT-Almeida resolved static-cdn-sync.net to 203.0.113.141.",
     }),
     mdeNetwork({
       companyId: "nexacorp", id: "evt_uca_00s4_c2_connect", ts: T(-48 * MIN), host: victim.host, user: victim.email,
@@ -304,7 +304,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Forecast" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: FY26_Q3_Forecast_v4.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: FY26_Q3_Forecast_v4.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05c_dl", ts: T(12 * MIN + 70 * 1_000),
@@ -315,7 +315,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Treasury" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Treasury_Cash_Position_Aug.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Treasury_Cash_Position_Aug.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05d_dl", ts: T(12 * MIN + 115 * 1_000),
@@ -326,7 +326,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/AP" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: AP_Vendor_Master_2026.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: AP_Vendor_Master_2026.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05e_dl", ts: T(12 * MIN + 160 * 1_000),
@@ -337,7 +337,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Payroll" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Payroll_Summary_Jul26.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Payroll_Summary_Jul26.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05f_dl", ts: T(12 * MIN + 200 * 1_000),
@@ -348,7 +348,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Board" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Board_Pack_Q2_Finance.pptx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Board_Pack_Q2_Finance.pptx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05g_dl", ts: T(12 * MIN + 245 * 1_000),
@@ -359,7 +359,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Treasury" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Wire_Approval_Matrix_2026.pdf from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Wire_Approval_Matrix_2026.pdf from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05h_dl", ts: T(12 * MIN + 290 * 1_000),
@@ -370,7 +370,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Audit" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Audit_Workpapers_FY25.zip from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Audit_Workpapers_FY25.zip from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05i_dl", ts: T(12 * MIN + 330 * 1_000),
@@ -381,7 +381,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Intercompany" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Intercompany_Recon_Aug.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Intercompany_Recon_Aug.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05j_dl", ts: T(12 * MIN + 335 * 1_000),
@@ -392,7 +392,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Credit" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Customer_Credit_Limits_2026.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Customer_Credit_Limits_2026.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
 
     // 6. THE FORWARDING RULE, New-InboxRule (T1114.003).

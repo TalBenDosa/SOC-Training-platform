@@ -821,7 +821,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       is_detection: true,
       edr_scope: "non_edr", // cloud control-plane only, no host process to walk
       description:
-        "Event Threat Detection raised Persistence: Service Account Key Created (severity LOW) on data-pipeline-sa: a user-managed key was created by t.levy@rocketstack.io from 185.129.62.66.",
+        "Event Threat Detection raised Persistence: Service Account Key Created (severity LOW) on data-pipeline-sa: a user-managed key was created by t.levy@rocketstack.io from 203.0.113.66.",
       raw: {
         // Security Command Center Pub/Sub notification: an Event Threat Detection Finding.
         "notificationConfigName": `organizations/${orgId}/notificationConfigs/scc-to-siem`,

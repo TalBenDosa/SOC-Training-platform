@@ -125,7 +125,7 @@ export function buildCicdSupplyChainScenario(
           "github.pull_request.review_decision": "approved", "github.pull_request.approving_reviewer": "s.rahman",
           "github.protected_branch.name": "main", "github.protected_branch.required_reviews": "1", "github.protected_branch.checks_passed": "true",
         },
-        description: "pull_request.merge on rocketstack/payments-api: PR #806 ('ci: pin actions/checkout to v4.2.2') editing .github/workflows/ci.yml, approved by a reviewer and merged by d.pereira from 94.188.12.44.",
+        description: "pull_request.merge on rocketstack/payments-api: PR #806 ('ci: pin actions/checkout to v4.2.2') editing .github/workflows/ci.yml, approved by a reviewer and merged by d.pereira from 198.51.100.45.",
       }),
       expected_verdict: "fp",
       fp_explanation: "This is the control case for the whole scenario, and what every later workflow change should be measured against. The SAME file (.github/workflows/ci.yml) is edited, but it reaches main the sanctioned way: through pull request #806, reviewed and approved by a second engineer (review_decision=approved), with branch protection satisfied (checks_passed=true, required_reviews met), merged by the author from an ordinary corporate IP during business hours. There is a review record, a second human in the loop, and no branch-protection override. An analyst who alerts on 'a workflow file was modified' alone will flag this and be wrong, the event is not the edit, it is HOW the edit reached main.",
@@ -136,7 +136,7 @@ export function buildCicdSupplyChainScenario(
     oktaMfa({
       companyId: cx, id: "cicd_00b_okta_push_sent", ts: "2026-08-30T19:41:20.000Z", user: attacker.email, srcIp: attackerIp,
       result: "sent", userAgent: aiTmUa, os: "Windows 10", browser: "CHROME", asn: 9009, asOrg: "M247 Europe SRL", severity: "medium",
-      description: "Okta sent an Okta Verify push to m.duarte for a sign-in attempt from 45.156.128.19.",
+      description: "Okta sent an Okta Verify push to m.duarte for a sign-in attempt from 203.0.113.28.",
     }),
     oktaMfa({
       companyId: cx, id: "cicd_00c_okta_push_approved", ts: "2026-08-30T19:41:33.000Z", user: attacker.email, srcIp: attackerIp,
@@ -171,7 +171,7 @@ export function buildCicdSupplyChainScenario(
       companyId: cx, id: "cicd_02_runner_register", ts: T(2 * MIN), action: "self_hosted_runner.register", actor: attacker.actor, actorIp: attackerIp,
       org, repo, category: "configuration", user: attacker.email, mitre: "T1078", tactic: "Persistence", severity: "high",
       extra: { "github.runner.name": runnerName, "github.runner.id": "77", "github.runner.labels": "self-hosted,linux,deploy", "github.runner.os": "Linux", "github.runner.group": "Default" },
-      description: "self_hosted_runner.register on rocketstack/payments-api: a new runner 'rs-deploy-runner-x' with labels self-hosted,linux,deploy was added by m.duarte from 45.156.128.19.",
+      description: "self_hosted_runner.register on rocketstack/payments-api: a new runner 'rs-deploy-runner-x' with labels self-hosted,linux,deploy was added by m.duarte from 203.0.113.28.",
     }),
 
     // 3. THE SUPPLY-CHAIN COMPROMISE, workflow file changed on main via a branch-protection override (T1195.002).
@@ -180,7 +180,7 @@ export function buildCicdSupplyChainScenario(
       userAgent: "git/2.44.0", org, repo, category: "configuration", user: attacker.email, incidentId: INCIDENT,
       mitre: "T1195.002", tactic: "Initial Access", severity: "critical",
       extra: { "github.ref": "refs/heads/main", "github.protected_branch.name": "main", "github.before": "b7950aa3f95fb50bb308d71821fbc3f7c3e88302", "github.after": "9c4d71e0a2f3b8c6d5e40917a2b3c4d5e6f70819", "github.head_commit.message": "ci: cache node_modules", "github.head_commit.modified": ".github/workflows/ci.yml", "github.programmatic_access_type": "Fine-grained personal access token" },
-      description: "protected_branch.policy_override on rocketstack/payments-api: a push to refs/heads/main modified .github/workflows/ci.yml, bypassing the required review, commit message 'ci: cache node_modules', actor m.duarte from 45.156.128.19.",
+      description: "protected_branch.policy_override on rocketstack/payments-api: a push to refs/heads/main modified .github/workflows/ci.yml, bypassing the required review, commit message 'ci: cache node_modules', actor m.duarte from 203.0.113.28.",
     }),
 
     // 4. THE OUT-OF-BAND CHANNEL, a repository webhook to an external host (T1567).
@@ -213,7 +213,7 @@ export function buildCicdSupplyChainScenario(
       eventSource: "sts.amazonaws.com", actorType: "WebIdentityUser", actorName: "repo:rocketstack/payments-api:ref:refs/heads/main", userAgent: SDK_UA, readOnly: false, user: attacker.email,
       mitre: "T1078.004", tactic: "Stealth", severity: "high", incidentId: INCIDENT,
       extra: { "aws.cloudtrail.userIdentity.identityProvider": oidcProviderArn, "aws.cloudtrail.requestParameters.roleArn": deployRoleArn, "aws.cloudtrail.requestParameters.roleSessionName": "github-actions-payments-deploy", "aws.cloudtrail.requestParameters.durationSeconds": 3600, "aws.cloudtrail.responseElements.assumedRoleUser.arn": assumedRoleArn, "aws.cloudtrail.responseElements.credentials.accessKeyId": sessionKeyId, "aws.cloudtrail.responseElements.credentials.expiration": "Aug 31, 2026, 10:08:20 AM", "aws.cloudtrail.requestID": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" },
-      description: "AssumeRoleWithWebIdentity (sts.amazonaws.com): the GitHub OIDC subject repo:rocketstack/payments-api:ref:refs/heads/main exchanged its token for github-actions-deploy, sourced from 45.156.128.19.",
+      description: "AssumeRoleWithWebIdentity (sts.amazonaws.com): the GitHub OIDC subject repo:rocketstack/payments-api:ref:refs/heads/main exchanged its token for github-actions-deploy, sourced from 203.0.113.28.",
     }),
 
     // 6b. The first thing an operator does with a new session: who am I (T1087.004).
@@ -222,7 +222,7 @@ export function buildCicdSupplyChainScenario(
         companyId: cx, id: "cicd_06b_get_caller_identity", ts: T(9 * MIN), eventName: "GetCallerIdentity", eventSource: "sts.amazonaws.com", srcIp: attackerIp, region, accountId: awsAccount,
         actorType: "AssumedRole", arn: assumedRoleArn, accessKeyId: sessionKeyId, sessionIssuerName: "github-actions-deploy", readOnly: true, userAgent: CLI_UA, user: attacker.email,
         mitre: "T1087.004", tactic: "Discovery", severity: "medium", incidentId: INCIDENT,
-        description: "GetCallerIdentity (sts.amazonaws.com) by the github-actions-deploy assumed-role session, from 45.156.128.19.",
+        description: "GetCallerIdentity (sts.amazonaws.com) by the github-actions-deploy assumed-role session, from 203.0.113.28.",
       }),
       hostname: "github-actions-deploy",
     },
@@ -232,7 +232,7 @@ export function buildCicdSupplyChainScenario(
       companyId: cx, id: "cicd_07_s3_list", ts: T(15 * MIN), eventName: "ListObjectsV2", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "AssumedRole", arn: assumedRoleArn, accessKeyId: sessionKeyId, sessionIssuerName: "github-actions-deploy", s3Bucket: artifactBucket, readOnly: true, userAgent: CLI_UA, user: attacker.email,
       mitre: "T1530", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "ListObjectsV2 on the rocketstack-deploy-artifacts bucket by the github-actions-deploy assumed-role session, from 45.156.128.19.",
+      description: "ListObjectsV2 on the rocketstack-deploy-artifacts bucket by the github-actions-deploy assumed-role session, from 203.0.113.28.",
     }),
 
     // 8. S3 object read, a secrets file is pulled out of the bucket (T1552.004).
@@ -249,7 +249,7 @@ export function buildCicdSupplyChainScenario(
         companyId: cx, id: "cicd_08b_list_secrets", ts: T(17 * MIN), eventName: "ListSecrets", srcIp: attackerIp, region, accountId: awsAccount,
         actorType: "AssumedRole", arn: assumedRoleArn, accessKeyId: sessionKeyId, sessionIssuerName: "github-actions-deploy", readOnly: true, userAgent: CLI_UA, user: attacker.email,
         mitre: "T1555.006", tactic: "Credential Access", severity: "high", incidentId: INCIDENT,
-        description: "ListSecrets (secretsmanager.amazonaws.com) by the github-actions-deploy assumed-role session, from 45.156.128.19.",
+        description: "ListSecrets (secretsmanager.amazonaws.com) by the github-actions-deploy assumed-role session, from 203.0.113.28.",
       }),
       hostname: "github-actions-deploy",
     },
@@ -260,7 +260,7 @@ export function buildCicdSupplyChainScenario(
       actorType: "AssumedRole", arn: assumedRoleArn, accessKeyId: sessionKeyId, sessionIssuerName: "github-actions-deploy", readOnly: true, userAgent: CLI_UA, user: attacker.email,
       mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
       extra: { "aws.cloudtrail.requestParameters.secretId": secretId },
-      description: "GetSecretValue (secretsmanager.amazonaws.com) on prod/payments/db by the github-actions-deploy assumed-role session, from 45.156.128.19.",
+      description: "GetSecretValue (secretsmanager.amazonaws.com) on prod/payments/db by the github-actions-deploy assumed-role session, from 203.0.113.28.",
     }),
 
     // 10. THE DETECTION, GuardDuty flags the deploy role's temp creds used outside AWS (T1078.004).
@@ -350,7 +350,7 @@ export function buildCicdSupplyChainScenario(
       ],
       answer: "override_noreview",
       explanation:
-        "The event is not 'a workflow file was edited', it is HOW the edit reached main and WHO made it. cicd_00 is the sanctioned path: pull request #806, a second engineer's approval (review_decision=approved), branch protection satisfied, merged from an ordinary corporate IP. cicd_03 is a protected_branch.policy_override, a push straight to refs/heads/main that bypassed the required review, by the m.duarte account from 45.156.128.19. The override and the absent review, not the file type, are the tell. (b) over-reads: workflow edits are routine and cicd_00 proves it. (c) ignores the override field that distinguishes them. (d) is backwards, a reviewed PR is the safe path; the direct override is the dangerous one.",
+        "The event is not 'a workflow file was edited', it is HOW the edit reached main and WHO made it. cicd_00 is the sanctioned path: pull request #806, a second engineer's approval (review_decision=approved), branch protection satisfied, merged from an ordinary corporate IP. cicd_03 is a protected_branch.policy_override, a push straight to refs/heads/main that bypassed the required review, by the m.duarte account from 203.0.113.28. The override and the absent review, not the file type, are the tell. (b) over-reads: workflow edits are routine and cicd_00 proves it. (c) ignores the override field that distinguishes them. (d) is backwards, a reviewed PR is the safe path; the direct override is the dangerous one.",
     },
     {
       id: "cicd_q2",

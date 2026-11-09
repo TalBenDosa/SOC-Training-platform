@@ -27,7 +27,7 @@ const SERVICE_PREFIXES = [
   "54.240.", "149.72.", "168.245.", "170.10.", "198.37.150.", "108.174.", "185.70.4", // mail relays (SES, SendGrid, Mimecast, LinkedIn, Proton)
   "64.39.",                                                                      // Qualys ASV scanner
 ];
-const IP = /(?<![\d.\/A-Za-z_-])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?![\d.])/g;
+const IP = /(?<![\d.\/A-Za-z_-])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?!\d|\.\d)/g;
 function isAllowed(a: number, b: number, c: number, d: number, s: string): boolean {
   if ([a, b, c, d].some(x => x > 255)) return true;
   if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return true;
@@ -43,18 +43,23 @@ function* strings(o: unknown): Generator<string> {
 }
 // A client version ("cisco.asa.client_version": "5.1.2.42") looks like an address and is not one.
 const ipFields = (e: TelemetryEvent) => ({
-  src: e.src_ip, dst: e.dst_ip, net: e.network, dns: e.dns,
+  src: e.src_ip, dst: e.dst_ip, net: e.network, dns: e.dns, desc: e.description, fp: e.fp_explanation,
   raw: Object.fromEntries(Object.entries(e.raw ?? {}).filter(([k]) => !/version/i.test(k))),
 });
 
 describe("scenario log realism (R3, R5, R8, R10)", () => {
   it("R5: no real third-party public address outside a well-known service", () => {
     const bad: string[] = [];
-    for (const { sc, b } of all) for (const e of b.events) for (const s of strings(ipFields(e))) {
+    const scan = (where: string, s: string) => {
       for (const m of s.matchAll(IP)) {
         // a version string inside a user agent ("Chrome/124.0.0.0") is not an address
-        if (!isAllowed(+m[1], +m[2], +m[3], +m[4], m[0])) bad.push(`${sc.slug} ${e.id}: ${m[0]}`);
+        if (!isAllowed(+m[1], +m[2], +m[3], +m[4], m[0])) bad.push(`${where}: ${m[0]}`);
       }
+    };
+    for (const { sc, b } of all) {
+      for (const e of b.events) for (const s of strings(ipFields(e))) scan(`${sc.slug} ${e.id}`, s);
+      // the debrief text cites the same addresses (questions, narrative, IOCs, kill chain)
+      for (const s of strings({ br: b.briefing, n: b.narrative, q: b.questions, kc: b.killchain, iocs: b.iocs })) scan(`${sc.slug} debrief`, s);
     }
     expect([...new Set(bad)]).toEqual([]);
   });

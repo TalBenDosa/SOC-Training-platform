@@ -318,7 +318,7 @@ export function goldenSamlScenarioEvents() {
       operation: "MailItemsAccessed", workload: "Exchange", userAgent: "python-requests/2.31.0", severity: "high",
       mitre: "T1114.002", tactic: "Collection",
       extra: { "RecordType": "50", "ClientInfoString": "Client=REST;Client=RESTSystem;;" },
-      description: "The Exchange audit log recorded MailItemsAccessed for m.abbott from 185.220.101.61.",
+      description: "The Exchange audit log recorded MailItemsAccessed for m.abbott from 203.0.113.61.",
     }), geo: { country: "Germany", city: "Frankfurt" } },
   ];
 

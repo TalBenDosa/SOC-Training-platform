@@ -143,19 +143,19 @@ export function oktaPasswordBurstScenarioEvents() {
 
     // 6. Push 1 is sent to the real user's phone, and she rejects it.
     pushSent("evt_okb_06_factor_challenge", 27 * MIN + 4_000,
-      "system.push.send_factor_verify_push at 02:41:04: an Okta Verify push sent to the account's enrolled device for the session started from 45.132.192.77."),
+      "system.push.send_factor_verify_push at 02:41:04: an Okta Verify push sent to the account's enrolled device for the session started from 203.0.113.81."),
     pushDenied("evt_okb_07_factor_denied", 27 * MIN + 51_000,
       "Forty-seven seconds later user.authentication.auth_via_mfa for the same session: outcome FAILURE, factor OKTA_VERIFY_PUSH, pushOnlyResponseType OV_RESPONSE_DENY."),
 
     // 7. Push 2 and push 3: the same session asks again, twice, and is refused twice.
     pushSent("evt_okb_08_push2_sent", 29 * MIN,
-      "Second system.push.send_factor_verify_push at 02:43:00 for the same session from 45.132.192.77."),
+      "Second system.push.send_factor_verify_push at 02:43:00 for the same session from 203.0.113.81."),
     pushDenied("evt_okb_08_push2_denied", 29 * MIN + 25_000,
       "02:43:25: user.authentication.auth_via_mfa FAILURE (OV_RESPONSE_DENY) for the second push."),
     pushSent("evt_okb_08_push3_sent", 30 * MIN + 30_000,
-      "Third system.push.send_factor_verify_push at 02:44:30 for the same session from 45.132.192.77."),
+      "Third system.push.send_factor_verify_push at 02:44:30 for the same session from 203.0.113.81."),
     pushDenied("evt_okb_08_factor_retry", 31 * MIN,
-      "02:45 user.authentication.auth_via_mfa FAILURE (OV_RESPONSE_DENY) for the third push; the System Log shows no later event from 45.132.192.77."),
+      "02:45 user.authentication.auth_via_mfa FAILURE (OV_RESPONSE_DENY) for the third push; the System Log shows no later event from 203.0.113.81."),
 
     // 10. The correlation that opened the ticket, with the account context.
     {

@@ -272,7 +272,7 @@ export function buildMacosStealerDmgScenario(
       companyId: cx, id: "msd_08d_curl_dns", ts: T(4 * MIN + 27 * SEC), host: host.name, srcIp: host.ip, user: user.email,
       domain: exfilDomain, resolvedIp: exfilIp, processName: "curl", processPath: "/usr/bin/curl", pid: 4186, parentName: "PixelForge Pro", parentPid: 4102,
       severity: "medium", incidentId: INCIDENT,
-      description: "curl resolved gate-collect.top to 45.147.230.88.",
+      description: "curl resolved gate-collect.top to 203.0.113.95.",
     }),
     csNetwork({
       companyId: cx, id: "msd_08e_curl_connect", ts: T(4 * MIN + 28 * SEC), host: host.name, srcIp: host.ip, user: user.email,
