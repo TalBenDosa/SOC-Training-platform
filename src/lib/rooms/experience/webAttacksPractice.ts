@@ -27,6 +27,14 @@ export const WEB_ATTACKS_PRACTICE: RoomExperience = {
   look: { primary: "#fb923c", secondary: "#a3e635", warn: "#f43f5e" },
   scene: "opensesame",
   layout: "stage",
+  story: {
+    intro: { title: "Tour Day", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-intro-1fc9e8d2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-intro-066c8079.jpg" },
+    afterStation: {
+      log: { title: "One 200", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-ch2-9123b67d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-ch2-7addb8a8.jpg" },
+      one200: { title: "Two Witnesses", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-ch3-493b15fd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-ch3-f0e5c6f2.jpg" },
+      shell: { title: "Open Sesame", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-finale-212becac.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-finale-da116868.jpg" },
+    },
+  },
   stations: [
     {
       id: "log",
