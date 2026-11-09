@@ -44,6 +44,14 @@ export const RMM_ABUSE_REMOTE_ACCESS_TOOLS: RoomExperience = {
   look: { primary: "#f6bd60", secondary: "#84dcc6", warn: "#ef476f" },
   scene: "facilityhelpinghand",
   layout: "facility",
+  story: {
+    intro: { title: "The Thank-You Note", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-intro-887cb13c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-intro-83c5c040.jpg" },
+    afterStation: {
+      wayin: { title: "Nobody Called", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-ch2-94c74abc.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-ch2-8e45c7c4.jpg" },
+      allowlist: { title: "Only One?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-ch3-d9d14a23.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-ch3-b4faffc4.jpg" },
+      lastcall: { title: "Helping Hand", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-finale-80b8becd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/rmm-abuse-remote-access-tools/helpinghand-finale-2e351300.jpg" },
+    },
+  },
   stations: [
     {
       id: "session",
