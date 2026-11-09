@@ -34,11 +34,15 @@ export function leaves(v: unknown, prefix = "", out: [string, unknown][] = []): 
   return out;
 }
 
-/** Leaf path set of a row's record (string raw: the key=value keys of the line, else empty). */
+/**
+ * Leaf path set of a row's record (string raw: the key=value keys of the line, else empty). A key a
+ * record prints with an empty string is present (the learner sees `"deviceId": ""`, as Entra writes
+ * it for an unregistered device); null and missing values are not.
+ */
 export function fieldSet(row: LogRow): Set<string> {
   if (typeof row.raw === "string") return new Set(kvKeys(row.raw));
   const s = new Set<string>();
-  for (const [p, v] of leaves(row.raw)) if (v !== null && v !== "" && v !== undefined) s.add(p);
+  for (const [p, v] of leaves(row.raw)) if (v !== null && v !== undefined) s.add(p);
   return s;
 }
 
