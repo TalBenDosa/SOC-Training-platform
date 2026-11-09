@@ -44,10 +44,10 @@ const teamViewerProxyEvent: TelemetryEvent = {
   user_email: "d.abara@cascadiafreight.example",
   user_title: "Accounts Receivable Specialist",
   src_ip: "10.44.6.118",
-  dst_port: 5938,
+  dst_port: 443,
   protocol: "tcp",
   description:
-    "Zscaler recorded an outbound TCP/5938 connection from WKS-CF-118 to master7.teamviewer.com, three minutes after d.abara's line received an inbound call routed through the company switchboard requesting IT assistance. Cascadia Freight's only sanctioned remote-support tool is ConnectWise ScreenConnect.",
+    "Zscaler recorded an outbound TCP/443 connection from WKS-CF-118 to master7.teamviewer.com (TeamViewer falls back to 443 when its native port 5938 has no direct way out), three minutes after d.abara's line received an inbound call routed through the company switchboard requesting IT assistance. Cascadia Freight's only sanctioned remote-support tool is ConnectWise ScreenConnect.",
   raw: {
     "zscaler.action": "Allowed",
     "zscaler.reason": "Category allowed",
@@ -57,9 +57,8 @@ const teamViewerProxyEvent: TelemetryEvent = {
     "zscaler.appname": "TeamViewer",
     "zscaler.cip": "10.44.6.118",
     "zscaler.serverip": "203.0.113.14",
-    "zscaler.destport": "5938",
+    "zscaler.destport": "443",
     "zscaler.respsize": 96420,
-    "session.bytes": 96420,
     "user.name": "d.abara",
     "user.email": "d.abara@cascadiafreight.example",
   },
@@ -97,7 +96,6 @@ const screenConnectSanctionedEvent: TelemetryEvent = {
     "zscaler.serverip": "198.51.100.4",
     "zscaler.destport": "443",
     "zscaler.respsize": 41280,
-    "session.bytes": 41280,
     "user.name": "r.tolentino",
     "user.email": "r.tolentino@cascadiafreight.example",
   },
@@ -416,12 +414,12 @@ const rmmAbuseRoom = {
           options: [
             "zscaler.action, reading \"Allowed\"",
             "zscaler.appname, reading \"TeamViewer\"",
-            "zscaler.destport, reading \"5938\"",
+            "zscaler.destport, reading \"443\"",
             "zscaler.urlcategory, reading \"Remote Access Tools\"",
           ],
           answer: 1,
           explanation:
-            "zscaler.appname naming TeamViewer is the direct tool-identity mismatch: the allowlist names only ScreenConnect. zscaler.action \"Allowed\" just means the proxy permitted this category: the same value appears on the benign ScreenConnect control case, so it names no product. Port 5938 corroborates that this is TeamViewer but is a property of the traffic, not the field that states the product's identity. The urlcategory \"Remote Access Tools\" is accurate yet also describes Cascadia's own sanctioned ScreenConnect sessions, so it does not single out a mismatch.",
+            "zscaler.appname naming TeamViewer is the direct tool-identity mismatch: the allowlist names only ScreenConnect. zscaler.action \"Allowed\" just means the proxy permitted this category: the same value appears on the benign ScreenConnect control case, so it names no product. Port 443 is TeamViewer's fallback and is shared by almost all web traffic, so it identifies no product at all. The urlcategory \"Remote Access Tools\" is accurate yet also describes Cascadia's own sanctioned ScreenConnect sessions, so it does not single out a mismatch.",
           xp: 15,
         },
         {
