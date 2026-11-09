@@ -195,7 +195,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Keychains/login.keychain-db", sha256: null,
       actorProcess: "security", actorPath: "/usr/bin/security", actorPid: 4131, actorParentName: "PixelForge Pro", actorParentPid: 4102, runAsUser: user.sam,
       mitre: "T1555.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "crowdstrike.CommandLine": "/usr/bin/security find-generic-password -wa Chrome", "threat.technique.id": "T1555", "threat.technique.subtechnique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx, "crowdstrike.CommandLine": "/usr/bin/security find-generic-password -wa Chrome" },
       description: "The payload invoked /usr/bin/security to read ~/Library/Keychains/login.keychain-db and extract the Chrome Safe Storage key.",
     }),
 
@@ -205,7 +205,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/Cookies", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1539", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "threat.technique.id": "T1539", "threat.technique.name": "Steal Web Session Cookie", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx },
       description: "The payload read the Chrome Cookies database under ~/Library/Application Support/Google/Chrome/Default.",
     }),
     csFile({
@@ -213,7 +213,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/Login Data", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1555.003", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "threat.technique.id": "T1555", "threat.technique.subtechnique.id": "T1555.003", "threat.technique.name": "Credentials from Password Stores: Credentials from Web Browsers", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx },
       description: "The payload read the Chrome Login Data database (saved passwords).",
     }),
     csFile({
@@ -221,7 +221,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1539", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "threat.technique.id": "T1539", "threat.technique.name": "Steal Web Session Cookie", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx },
       description: "The payload read the Safari cookie store from the Safari container.",
     }),
 
@@ -231,7 +231,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Application Support/Exodus/exodus.wallet", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "threat.technique.id": "T1552", "threat.technique.subtechnique.id": "T1552.001", "threat.technique.name": "Unsecured Credentials: Credentials In Files", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx },
       description: "The payload read ~/Library/Application Support/Exodus/exodus.wallet.",
     }),
     csFile({
@@ -239,7 +239,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/.electrum/wallets/default_wallet", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "threat.technique.id": "T1552", "threat.technique.subtechnique.id": "T1552.001", "threat.technique.name": "Unsecured Credentials: Credentials In Files", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx },
       description: "The payload read ~/.electrum/wallets/default_wallet.",
     }),
 

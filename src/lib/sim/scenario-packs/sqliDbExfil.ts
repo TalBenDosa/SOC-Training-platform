@@ -135,8 +135,6 @@ export function buildSqliDbExfilScenario(
       "rule.category": "SQL Injection",
       "action_result": "alerted",
       "threat.signature": "api.threats.sqli",
-      "threat.technique.id": "T1190",
-      "threat.technique.name": "Exploit Public-Facing Application",
     },
   });
 
@@ -168,8 +166,6 @@ export function buildSqliDbExfilScenario(
       "source.hostname": app.webTier,
       "destination.ip": dbIp,
       "host.name": dbInstance,
-      "threat.technique.id": o.mitre,
-      "threat.technique.name": o.techName,
     },
   });
 
@@ -266,8 +262,6 @@ export function buildSqliDbExfilScenario(
         "rule.category": "SQL Injection",
         "action_result": "blocked",
         "threat.signature": "api.threats.sqli",
-        "threat.technique.id": "T1190",
-        "threat.technique.name": "Exploit Public-Facing Application",
       },
     },
 
@@ -321,8 +315,6 @@ export function buildSqliDbExfilScenario(
         "rule.category": "SQL Injection",
         "action_result": "alerted",
         "threat.signature": "api.threats.sqli",
-        "threat.technique.id": "T1190",
-        "threat.technique.name": "Exploit Public-Facing Application",
       },
     },
 
@@ -382,8 +374,6 @@ export function buildSqliDbExfilScenario(
         "rule.category": "SQL Injection",
         "action_result": "alerted",
         "threat.signature": "api.threats.sqli",
-        "threat.technique.id": "T1190",
-        "threat.technique.name": "Exploit Public-Facing Application",
       },
     },
 
@@ -425,8 +415,6 @@ export function buildSqliDbExfilScenario(
         "source.ip": app.webTierIp,
         "source.hostname": app.webTier,
         "host.name": dbInstance,
-        "threat.technique.id": "T1190",
-        "threat.technique.name": "Exploit Public-Facing Application",
       },
     },
 
@@ -471,8 +459,6 @@ export function buildSqliDbExfilScenario(
         "source.ip": app.webTierIp,
         "source.hostname": app.webTier,
         "host.name": dbInstance,
-        "threat.technique.id": "T1190",
-        "threat.technique.name": "Exploit Public-Facing Application",
       },
     },
 
@@ -521,8 +507,6 @@ export function buildSqliDbExfilScenario(
         "destination.ip": dbIp,
         "source.hostname": app.webTier,
         "host.name": dbInstance,
-        "threat.technique.id": "T1213",
-        "threat.technique.name": "Data from Information Repositories",
       },
     },
 
