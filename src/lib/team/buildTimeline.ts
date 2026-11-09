@@ -55,8 +55,12 @@ export const BONUS_HOLD_MS = 1_000_000_000_000_000;
 
 /** Share of the visible feed that is ordinary traffic before the first attack row. */
 const WARMUP_MIN = 0.10;
-/** Logs behind the MSEL injects, added after placement: the twist's two or three rows + the decoy's ticket, earlier batch and two uploads. */
-const MSEL_SUPPORT_ROWS = 7;
+/**
+ * Logs behind the MSEL injects, added after placement: the twist's two to four rows (a dropped file,
+ * its DNS lookup, the firewall row and the EDR row) + the decoy's ticket, earlier batch and two uploads.
+ * The most it can be, so the warm-up holds whichever twist is drawn.
+ */
+const MSEL_SUPPORT_ROWS = 8;
 /** Ordinary telemetry (benign pool rows) per attack row in the feed: the floor no load trims below. */
 export const ORDINARY_PER_ATTACK_ROW = 2;
 /** Share of the feed ServiceNow records may take (approvals that prove a decoy first, unrelated tickets after). */
@@ -129,6 +133,50 @@ function isBlockedAttempt(e: TelemetryEvent): boolean {
  * every story event to tp punished the analysts who read them correctly.
  */
 const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
+/** Failed sign-in rows a burst is made of (R7 counts the same kinds). */
+const AUTH_FAIL = new Set(["auth_failure", "ssh_failed", "vpn_failed", "db_failed", "mfa_denied"]);
+/** Story rows authored at most this far apart belong to one run. */
+const BURST_GAP_MS = 45_000;
+/** A run is a burst when it holds this many failed sign-ins. */
+const BURST_MIN_FAILS = 5;
+
+/**
+ * R7: a burst stays a burst (as storyFeed.ts does for the solo feed). A band spreads a story's rows
+ * over a third of the shift, which stretched a spray of 18 failures in 150 seconds over eight minutes.
+ * A run of a story's rows authored at most BURST_GAP_MS apart that holds BURST_MIN_FAILS failed
+ * sign-ins keeps its authored spacing from its first row: every row of the run (a firewall row inside
+ * the spray too, so the story's time map stays monotone) is shown at the run's start plus its authored
+ * offset, never at or past the story's next row. Positions do not change, so nothing else in the
+ * timeline moves (the feed is sorted by time afterwards).
+ */
+function keepAuthBursts(timed: { p: { ev: TelemetryEvent; origin: string; incident?: string; held?: boolean }; at: number }[]): void {
+  const byIncident = new Map<string, { k: number; ms: number }[]>();
+  timed.forEach((x, k) => {
+    if (x.p.origin !== "story" || !x.p.incident) return;
+    const ms = Date.parse(x.p.ev.ts);
+    if (!Number.isFinite(ms)) return;
+    const key = `${x.p.held ? "bonus" : "feed"}|${x.p.incident}`;
+    (byIncident.get(key) ?? byIncident.set(key, []).get(key)!).push({ k, ms });
+  });
+  for (const rows of byIncident.values()) {
+    const s = [...rows].sort((a, b) => a.ms - b.ms || a.k - b.k);
+    for (let i = 0; i < s.length;) {
+      let j = i;
+      while (j + 1 < s.length && s[j + 1].ms - s[j].ms <= BURST_GAP_MS) j++;
+      const run = s.slice(i, j + 1);
+      if (run.length > 1 && run.filter(r => AUTH_FAIL.has(timed[r.k].p.ev.event_type)).length >= BURST_MIN_FAILS) {
+        const head = run[0];
+        const start = timed[head.k].at;
+        const span = run[run.length - 1].ms - head.ms;
+        const limit = j + 1 < s.length ? timed[s[j + 1].k].at - 1_000 : Infinity;
+        const f = span > 0 ? Math.max(0, Math.min(1, (limit - start) / span)) : 1;
+        for (const r of run) timed[r.k].at = start + Math.round((r.ms - head.ms) * f);
+      }
+      i = j + 1;
+    }
+  }
+}
 export function classifyStoryEvent(ev: TelemetryEvent): TeamVerdict {
   if (ev.is_baseline) return "benign";
   // One rule for context rows in every story (expert review P0-6): a user's ordinary internal
@@ -828,6 +876,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     if (prev) timed[k].at = Math.max(prev.at + 1, prev.at + Math.min(700, Math.floor((timed[k].at - prev.at) / 2)));
     if (e.source === "waf") last.set(key, { at: timed[k].at, n: k });
   }
+  keepAuthBursts(timed);
   const span = timed.length ? timed[timed.length - 1].at : 0;
   // A change ticket's window, now that times are final: minutes around the alert it covers (or around
   // the record itself). Written relative to the record's own time, since the public row is re-timed

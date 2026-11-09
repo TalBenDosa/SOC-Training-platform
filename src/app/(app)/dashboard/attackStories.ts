@@ -116,6 +116,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
 import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
 import { attackName } from "./attackNames";
+import { withAuthBurst } from "./authBursts";
 
 /**
  * Real difficulty for STORY SELECTION - how simple the attack itself is for a
@@ -1450,6 +1451,9 @@ function serverOs(h: string, events: TelemetryEvent[]): "linux" | "windows" | un
 // timeline passes its seeded stream so a session seed always replays the same people.
 export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string, rnd: () => number = Math.random): AttackStory {
   const targetNs = edrNsOfVendor(companyEdr);
+  // R7: a spray / brute-force story carries its failure burst as rows, the sprayed accounts drawn
+  // from this company's people (authBursts.ts), before people and hosts are re-homed below.
+  s = { ...s, events: withAuthBurst(s.id, s.events, companyPool) };
   // Before any vendor reshape drops the authored keys: a hash-only alert names its file; one
   // client IP keeps one place / network owner and one login flow keeps one session id across rows.
   s = { ...s, events: threadIdentityContext(threadFilesByHash(s.events)) };
@@ -1828,6 +1832,8 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       cloud: rep(e.cloud),
       user: rep(e.user),
       raw: rep(e.raw),
+      // The domain controller's side of a spray (windows_security companions) names the same people as the feed rows.
+      ...((e as { _burst?: unknown })._burst ? { _burst: rep((e as { _burst?: unknown })._burst) } : {}),
       ...(office && e.geo ? { geo: rep(e.geo) } : {}),
     };
     // A row from NexaCorp's office now comes from this company's office: its place goes with the address.

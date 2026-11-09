@@ -31,18 +31,25 @@ function chainD(seed: string) {
     stack: CONFIG.stack as never, tenant, env: envFromConfig(CONFIG), opts: { bonus: false }, roster,
   });
   const identity = tenantIdentity(tenant);
-  const rows = timeline.filter(r => r.channel === "feed" && /^nx_d\d/.test(String((r.answer as { original_id?: string })?.original_id ?? "")));
-  const byId = (n: number) => rows.find(r => String((r.answer as { original_id?: string }).original_id).startsWith(`nx_d${n}_`))!;
-  const view = (n: number) => nativeView(byId(n).body as unknown as TelemetryEvent, "nexacorp", CONFIG.stack as never, identity)!.log.record as Record<string, unknown>;
-  const burst = (NATIVE_SOURCES.windows_security!.companions!(authoredOf(byId(3).body as unknown as TelemetryEvent), makeCtx("nexacorp", identity ?? {})) ?? [])
+  const oid = (r: (typeof timeline)[number]) => String((r.answer as { original_id?: string })?.original_id ?? "");
+  const story = timeline.filter(r => r.channel === "feed" && /^nx_d\d/.test(oid(r)));
+  // The authored rows, and the spray they close: since R7 (realism phase 3) every attempt is a feed row
+  // of its own (nx_d4_b01..), the accounts drawn from the organization's people (authBursts.ts).
+  const rows = story.filter(r => !/_b\d+(?:__\d+)?$/.test(oid(r)));
+  const byId = (n: number) => rows.find(r => oid(r).startsWith(`nx_d${n}_`))!;
+  const render = (r: (typeof timeline)[number]) => nativeView(r.body as unknown as TelemetryEvent, "nexacorp", CONFIG.stack as never, identity)!.log.record as Record<string, unknown>;
+  const view = (n: number) => render(byId(n));
+  const burst = story.filter(r => /_b\d+(?:__\d+)?$/.test(oid(r))).map(render);
+  // The domain controller's side of each attempt (4776) stays with the 4740 for the XDR tables.
+  const dcSide = (NATIVE_SOURCES.windows_security!.companions!(authoredOf(byId(3).body as unknown as TelemetryEvent), makeCtx("nexacorp", identity ?? {})) ?? [])
     .map(l => l.record as Record<string, unknown>);
-  return { rows, view, burst };
+  return { rows, view, burst, dcSide };
 }
 
 describe("nexacorp-chain-d is provable as a password spray in the Sdema config", () => {
   for (const seed of ["sdema-1", "sdema-a", "sdema-b", "sdema-c"]) {
     it(`seed ${seed}`, () => {
-      const { rows, view, burst } = chainD(seed);
+      const { rows, view, burst, dcSide } = chainD(seed);
       expect(rows).toHaveLength(5);
       const fails = burst.filter(r => r.EventID === 4625);
       // 10 to 20 failures across 8 to 12 accounts in 2 to 3 minutes, all from one client.
@@ -64,6 +71,10 @@ describe("nexacorp-chain-d is provable as a password spray in the Sdema config",
       expect(lockedFails).toHaveLength(3);
       expect(Date.parse(String(locked.TimeCreated))).toBeGreaterThan(Math.max(...lockedFails.map(r => Date.parse(String(r.TimeCreated)))));
       expect(view(4)).toMatchObject({ EventID: 4625, TargetUserName: locked.TargetUserName, Status: "0xc0000234" });
+      // The DC validated every attempt (4776) and no longer re-logs the member server's 4625s.
+      expect(dcSide.filter(r => r.EventID === 4776)).toHaveLength(burst.length);
+      expect(dcSide.some(r => r.EventID === 4625)).toBe(false);
+      expect(new Set(dcSide.map(r => r.TargetUserName))).toEqual(new Set(burst.map(r => r.TargetUserName)));
       const success = burst.filter(r => r.EventID === 4624);
       expect(success).toHaveLength(1);
       expect(view(5)).toMatchObject({ EventID: 4624, LogonType: "10", TargetUserName: success[0].TargetUserName, IpAddress: "185.220.101.45" });
