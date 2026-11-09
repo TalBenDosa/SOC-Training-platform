@@ -594,7 +594,7 @@ export function webShellRceScenarioEvents() {
       mitre_technique: "T1213",
       mitre_tactic: "Collection",
       description:
-        "SQL Server Audit recorded an inventory lookup SELECT extended with a UNION against dbo.Customers, run as shopportal_app and returning 42,318 rows.",
+        "SQL Server Audit recorded an inventory lookup SELECT extended with a UNION reading CustomerId and Email from dbo.Customers, run as shopportal_app from WEB-SHOP-01.",
       raw: {
         event_time: "2026-03-17 09:38:11.2840000",
         sequence_number: "1",
@@ -613,9 +613,6 @@ export function webShellRceScenarioEvents() {
         client_ip: "10.40.12.21",
         application_name: ".Net SqlClient Data Provider",
         host_name: "WEB-SHOP-01",
-        duration_milliseconds: "11041",
-        response_rows: "42318",
-        affected_rows: "0",
         audit_file_offset: "58880",
         file_name: "F:\\SQLAudit\\ShopDB_Audit_A47C_1.sqlaudit",
       },
@@ -637,7 +634,7 @@ export function webShellRceScenarioEvents() {
       mitre_technique: "T1552",
       mitre_tactic: "Credential Access",
       description:
-        "Six minutes later the same statement pattern returned SettingKey and SettingValue from dbo.AppSettings, 37 rows, again as shopportal_app.",
+        "Six minutes later the same statement pattern read SettingKey and SettingValue from dbo.AppSettings, again as shopportal_app.",
       raw: {
         event_time: "2026-03-17 09:44:00.6120000",
         sequence_number: "1",
@@ -656,9 +653,6 @@ export function webShellRceScenarioEvents() {
         client_ip: "10.40.12.21",
         application_name: ".Net SqlClient Data Provider",
         host_name: "WEB-SHOP-01",
-        duration_milliseconds: "38",
-        response_rows: "37",
-        affected_rows: "0",
         audit_file_offset: "61952",
         file_name: "F:\\SQLAudit\\ShopDB_Audit_A47C_1.sqlaudit",
       },
