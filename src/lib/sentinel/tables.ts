@@ -416,6 +416,13 @@ const SCHEMAS: Record<string, Compact> = {
     int: "SrcPortNumber DstPortNumber",
     dynamic: "RawData",
   },
+  // Custom log: the MySQL Enterprise Audit JSON file, collected by the Azure Monitor Agent. Name and columns are this workspace's
+  MySQLAudit_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
   // Custom log for any other product a Logic App forwards. Name and columns are this workspace's
   ThirdPartyLogs_CL: {
     datetime: "TimeGenerated",
@@ -564,7 +571,7 @@ export const TABLE_SCHEMAS: Record<string, KqlColumn[]> = Object.fromEntries(Obj
 export const TABLE_NAMES: string[] = Object.keys(SCHEMAS);
 
 /** Custom-log tables of this workspace: the ones with no published column list. */
-export const CUSTOM_LOG_TABLES = new Set<string>(["ZPA_CL","ThinkstCanaryIncidents_CL","F5Telemetry_ASM_CL","GitHubAdvancedSecurityAlerts_CL","BV_ClaudeCompliance_ComplianceActivities_CL","ServiceNow_CL","EpiqEMRAudit_CL","DHCP_CL","Exabeam_CL","Securonix_CL","ThirdPartyLogs_CL"]);
+export const CUSTOM_LOG_TABLES = new Set<string>(["ZPA_CL","ThinkstCanaryIncidents_CL","F5Telemetry_ASM_CL","GitHubAdvancedSecurityAlerts_CL","BV_ClaudeCompliance_ComplianceActivities_CL","ServiceNow_CL","EpiqEMRAudit_CL","DHCP_CL","Exabeam_CL","Securonix_CL","MySQLAudit_CL","ThirdPartyLogs_CL"]);
 
 const COLUMN_TYPES = new Map(Object.entries(TABLE_SCHEMAS).map(([n, cols]) => [n, new Map(cols.map(c => [c.name, c.type]))]));
 

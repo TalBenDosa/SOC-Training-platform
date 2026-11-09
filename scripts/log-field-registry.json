@@ -9983,7 +9983,7 @@
     },
     "microsoft-sql-audit": {
       "label": "Microsoft SQL Server Audit",
-      "sourceNote": "event_time/sequence_number/action_id/succeeded/class_type/session_id/server_principal_name/database_principal_name/server_instance_name/database_name/schema_name/object_name/statement/client_ip/application_name/host_name/duration_milliseconds/response_rows/affected_rows/audit_file_offset/file_name are the genuine column names returned by SQL Server's own sys.fn_get_audit_file() table-valued function — the raw format an analyst reads directly off a .sqlaudit file, as documented by Microsoft. Added 2026-08-25.",
+      "sourceNote": "event_time/sequence_number/action_id/succeeded/class_type/session_id/server_principal_name/database_principal_name/server_instance_name/database_name/schema_name/object_name/statement/client_ip/application_name/host_name/duration_milliseconds/response_rows/affected_rows/audit_file_offset/file_name are the genuine column names returned by SQL Server's own sys.fn_get_audit_file() table-valued function: the raw format an analyst reads directly off a .sqlaudit file, as documented by Microsoft. Added 2026-08-25. Caveat (Microsoft Learn, sys.fn_get_audit_file, Tables returned): duration_milliseconds and response_rows apply to Azure SQL Database and SQL Managed Instance only, affected_rows to Azure SQL Database only; an on-premises SQL Server .sqlaudit file has none of the three, so the native renderer (src/lib/logs/native/sources/mssql_audit.ts) does not print them.",
       "aliases": [
         "MSSQL Audit",
         "Microsoft SQL Audit",

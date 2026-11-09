@@ -19,17 +19,19 @@
  *      arriving on the web app's own DB login (app_shop, from WEB-APP-02), an
  *      error-based enumeration that leaks a table name in a CONVERT error, then a
  *      UNION dump of INFORMATION_SCHEMA, then the payoff: a bulk
- *      `SELECT ... FROM dbo.Customers` returning 248,915 rows of PII. Microsoft
- *      SQL Server's own audit corroborates that same SELECT and its response_rows.
+ *      `SELECT ... FROM dbo.Customers` of the PII columns, whose 41.5 MB answer the WAF
+ *      record of the same request shows. Microsoft SQL Server's own audit corroborates
+ *      that same SELECT (neither DB record carries a row count: Guardium's syslog alert
+ *      template and an on-premises .sqlaudit file have no such field).
  *   4. Because app_shop is (mis)configured as sysadmin, the operator flips
  *      xp_cmdshell on via sp_configure and reaches OS command execution, then uses
  *      it to POST the staged customer dump to an external host.
  *
  * BENIGN CONTROL (evt 0): a scheduled Power BI gateway service account running a
- * parameterized aggregate SELECT that returns 184,920 rows from a reporting view.
- * Same "big database read" shape as the exfil, large rows_returned, but
+ * parameterized aggregate SELECT over the whole revenue history of a reporting view.
+ * Same "big database read at night" shape as the exfil, but
  * authorized, scheduled, parameterized, and against a reporting view, not the
- * live PII table. The discriminator is never "a lot of rows came back"; it is WHO,
+ * live PII table. The discriminator is never "a big read happened"; it is WHO,
  * from WHERE, WHICH object, and WHETHER the query is parameterized.
  *
  * SOURCES (registry keys): imperva-waf (the WAF injection detections, blocked vs
@@ -171,7 +173,7 @@ export function buildSqliDbExfilScenario(
 
   const events: TelemetryEvent[] = [
     // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL, a scheduled BI aggregate read. Big rows_returned,
+    // 0. BENIGN CONTROL, a scheduled BI aggregate read. A big nightly read,
     //    but a service account, parameterized, against a reporting view.
     //    Same "large database read" shape as the exfil; opposite verdict.
     // ─────────────────────────────────────────────────────────────────────
@@ -185,9 +187,9 @@ export function buildSqliDbExfilScenario(
       severity: "informational",
       expected_verdict: "fp",
       description:
-        "svc_powerbi ran a GROUP BY over the reporting view vw_DailyRevenueSummary on SalesDW (MSSQL-RPT-01), returning 184,920 rows.",
+        "svc_powerbi ran a GROUP BY over the reporting view vw_DailyRevenueSummary on SalesDW (MSSQL-RPT-01) at 03:00.",
       fp_explanation:
-        "This is the control case for the whole scenario, and it looks alarming for exactly one reason: a very large rows_returned (184,920). Every other attribute clears it. The db.user is svc_powerbi, a Power BI gateway service account whose job is bulk reporting reads; it runs on schedule at 03:00 every night; the query is parameterized (@from / @to bind variables, no literal string concatenation); and it targets a reporting VIEW (vw_DailyRevenueSummary), not the live customer PII table. The exfil read later in the timeline shares only the row count, it comes from the web app's login, is unparameterized, and pulls dbo.Customers directly. Students who alert on 'a query returned a lot of rows' alone will flag this and be wrong: the discriminator is who, from where, which object, and whether it is parameterized.",
+        "This is the control case for the whole scenario, and it looks alarming for exactly one reason: a non-human account reading the company's whole revenue history in the middle of the night. Every other attribute clears it. The db.user is svc_powerbi, a Power BI gateway service account whose job is bulk reporting reads; it runs on schedule at 03:00 every night; the query is parameterized (@from / @to bind variables, no literal string concatenation); and it targets a reporting VIEW (vw_DailyRevenueSummary), not the live customer PII table. The exfil read later in the timeline shares only the 'big read at night' shape, it comes from the web app's login, is unparameterized, and pulls dbo.Customers directly. Students who alert on 'a big read at night' alone will flag this and be wrong: the discriminator is who, from where, which object, and whether it is parameterized.",
       raw: {
         "event.category": "database",
         "event.action": "query_execute",
@@ -323,7 +325,7 @@ export function buildSqliDbExfilScenario(
       severity: "high", type: "SELECT", db: "ShopDB", mitre: "T1190", tactic: "Initial Access", techName: "Exploit Public-Facing Application",
       text: "SELECT id,name,price FROM Products WHERE name LIKE '%laptop' UNION SELECT null,table_name,null FROM information_schema.tables-- -%'",
       rows: "181",
-      desc: "Guardium recorded the UNION against information_schema.tables on login app_shop from WEB-APP-02, 181 rows returned.",
+      desc: "Guardium recorded the UNION against information_schema.tables on login app_shop from WEB-APP-02.",
     }),
 
     // ─────────────────────────────────────────────────────────────────────
@@ -439,7 +441,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "A UNION SELECT appended to the product query returned 612 rows from INFORMATION_SCHEMA.COLUMNS on login app_shop, a full table-and-column map of ShopDB.",
+        "A UNION SELECT of TABLE_NAME and COLUMN_NAME from INFORMATION_SCHEMA.COLUMNS appended to the product query ran on login app_shop: a full table-and-column map of ShopDB.",
       raw: {
         "event.category": "database",
         "event.action": "query_execute",
@@ -466,8 +468,8 @@ export function buildSqliDbExfilScenario(
     wafPass("sqli_05b_waf_union_customers", T(7 * MIN + 58 * SEC), UNION_CUSTOMERS, "4471920395008112", dumpSize),
 
     // ─────────────────────────────────────────────────────────────────────
-    // 6. DB, THE PAYOFF. A bulk SELECT of the customer PII table returns
-    //    248,915 rows on the app login. This is the data actually leaving.
+    // 6. DB, THE PAYOFF. A bulk SELECT of the customer PII table runs on the
+    //    app login (its 41.5 MB answer is on the WAF record sqli_05b). This is the data actually leaving.
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "sqli_06_db_bulk_pii_dump",
@@ -482,7 +484,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "Guardium recorded the product query on login app_shop with a UNION SELECT of dbo.Customers appended (email, password hash and card-last-four columns), returning 248,915 rows with 41.5 MB moved in the session.",
+        "Guardium recorded the product query on login app_shop from WEB-APP-02 with a UNION SELECT of dbo.Customers appended (email, password hash and card-last-four columns), and no error.",
       raw: {
         "event.category": "database",
         "event.action": "query_execute",
@@ -512,7 +514,7 @@ export function buildSqliDbExfilScenario(
 
     // ─────────────────────────────────────────────────────────────────────
     // 7. DB (native), SQL Server's own audit corroborates the same bulk
-    //    SELECT and its response_rows. Read straight off the .sqlaudit file.
+    //    SELECT. Read straight off the .sqlaudit file (on-premises: no row counts).
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "sqli_07_mssql_audit_dump",
@@ -527,7 +529,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "SQL Server's native audit logged the same statement as a SELECT (action_id SL) by principal app_shop from client 10.30.4.15, succeeded=true, response_rows 248,915: an independent record of the read at the engine.",
+        "SQL Server's native audit logged the same statement as a SELECT (action_id SL) on dbo.Customers by principal app_shop from client 10.30.4.15, succeeded 1: an independent record of the read at the engine.",
       raw: {
         "event_time": T(8 * MIN + 1 * SEC),
         "sequence_number": "1",
@@ -545,9 +547,6 @@ export function buildSqliDbExfilScenario(
         "client_ip": app.webTierIp,
         "application_name": ".Net SqlClient Data Provider",
         "host_name": app.webTier,
-        "response_rows": "248915",
-        "affected_rows": "0",
-        "duration_milliseconds": "88342",
         "session_id": "88",
         "audit_file_offset": "512000",
         "file_name": "ShopDB_Audit_0A3F.sqlaudit",
@@ -765,16 +764,16 @@ export function buildSqliDbExfilScenario(
       kind: "single",
       prompt:
         "You are writing the incident up. A WAF SQLi alert on its own would be scored as an attempt. Which evidence proves customer data actually left the database rather than the injection merely being tried?",
-      hint: "Look for a successful read of a real data table, with a row count and an independent corroboration.",
+      hint: "Look for a successful read of a real data table, how much came back, and an independent corroboration.",
       options: [
-        { value: "bulk_select", label: "The successful SELECT of dbo.Customers returning 248,915 rows, corroborated by SQL Server's own audit response_rows for the same statement" },
-        { value: "union_schema", label: "The UNION query against INFORMATION_SCHEMA.COLUMNS that returned 612 rows mapping every table and column, showing the database was read out" },
+        { value: "bulk_select", label: "The successful SELECT of the dbo.Customers PII columns with a 41.5 MB answer at the WAF, corroborated by SQL Server's own audit of the same statement" },
+        { value: "union_schema", label: "The UNION query against INFORMATION_SCHEMA.COLUMNS that mapped every table and column name, showing the database was read out" },
         { value: "waf_alert", label: "The Imperva alert on the UNION SELECT, which recorded the injection reaching the origin with HTTP 200 and is the first proof of success" },
         { value: "convert_err", label: "The CONVERT() error whose SQL error 245 message leaked the Customers table name back to the caller, proving customer data came out of the DB" },
       ],
       answer: "bulk_select",
       explanation:
-        "Data leaving is a successful read of real rows, not a probe. sqli_06 is a query.status=success product query with a UNION SELECT of dbo.Customers appended, query.rows_returned=248915 (email, password hash and card-last-four per row) and 41.5 MB of session.bytes, and sqli_07 is SQL Server's native audit of the identical statement with response_rows=248915 and succeeded=true, two independent records of the same bulk read. The UNION against INFORMATION_SCHEMA only enumerated the schema (structure, not customer rows). The WAF alert is what started the investigation but says nothing about what the query returned. And the CONVERT() error leaked a single table name, not the data itself.",
+        "Data leaving is a successful read of real rows, not a probe. sqli_06 is Guardium's record of the product query with a UNION SELECT of dbo.Customers appended (sql= names the email, password hash and card-last-four columns; error= is empty, so it ran), the WAF record of that same request (sqli_05b) shows the origin answering HTTP 200 with a 41.5 MB body, and sqli_07 is SQL Server's native audit of the identical statement on Customers with succeeded 1: independent records of the same bulk read. The UNION against INFORMATION_SCHEMA only enumerated the schema (structure, not customer rows). The WAF alert is what started the investigation but says nothing about what the query returned. And the CONVERT() error leaked a single table name, not the data itself.",
     },
     {
       id: "sqli_q3",
@@ -815,7 +814,7 @@ export function buildSqliDbExfilScenario(
       xp: 85,
       kind: "single",
       prompt:
-        "You are scoping containment. Injection reached the DB through a detection-mode WAF rule, 248,915 customer records were read, exported to c.csv and POSTed to 203.0.113.12, and the app login is sysadmin. Which response matches the evidence?",
+        "You are scoping containment. Injection reached the DB through a detection-mode WAF rule, the Customers table was read, exported to c.csv and POSTed to 203.0.113.12, and the app login is sysadmin. Which response matches the evidence?",
       hint: "Address the passthrough, the over-privilege, the OS-command path, the egress, and the confirmed data loss, not just the source IP.",
       options: [
         { value: "full_scope", label: "Set the Imperva SQLi rules to blocking, remove sysadmin from app_shop and rotate it, disable xp_cmdshell, block and hunt egress to 203.0.113.12, and treat the Customers PII as breached" },
@@ -825,7 +824,7 @@ export function buildSqliDbExfilScenario(
       ],
       answer: "full_scope",
       explanation:
-        "The evidence names each fix. The injection succeeded because the matching WAF rules were in detection mode, so they must go to blocking. app_shop being sysadmin is what enabled xp_cmdshell, so remove the role and rotate the credential, and disable xp_cmdshell. The dump was POSTed to 203.0.113.12, so block that egress and hunt for what else reached it. And because 248,915 real customer records (with password hashes and card-last-four) were successfully read and sent off-box, the PII must be handled as a confirmed breach for notification. Blocking only 203.0.113.51 leaves the detection-mode gap, the sysadmin login and xp_cmdshell in place for the next source. Reimaging the web server does not fix an over-privileged DB login or the WAF policy. And svc_powerbi is the benign control, a scheduled parameterized reporting read against a view, not the exfil path.",
+        "The evidence names each fix. The injection succeeded because the matching WAF rules were in detection mode, so they must go to blocking. app_shop being sysadmin is what enabled xp_cmdshell, so remove the role and rotate the credential, and disable xp_cmdshell. The dump was POSTed to 203.0.113.12, so block that egress and hunt for what else reached it. And because the real customer records (with password hashes and card-last-four) were successfully read and sent off-box, the PII must be handled as a confirmed breach for notification. Blocking only 203.0.113.51 leaves the detection-mode gap, the sysadmin login and xp_cmdshell in place for the next source. Reimaging the web server does not fix an over-privileged DB login or the WAF policy. And svc_powerbi is the benign control, a scheduled parameterized reporting read against a view, not the exfil path.",
     },
   ];
 
@@ -840,13 +839,13 @@ export function buildSqliDbExfilScenario(
 
 It did not. The next two payloads, a UNION SELECT against information_schema.tables and an error-based CONVERT() extraction, matched Imperva signatures too, but those rules were sitting in a STAGING policy running in detection (count) mode. They alerted and then forwarded the requests to the origin, which answered HTTP 200. The malicious queries executed. This is the crux of the exercise: "the WAF logged it" is not "the WAF stopped it".
 
-At the database, IBM Guardium recorded the injection arriving on the web application's own DB login, app_shop, from the web tier WEB-APP-02, the attacker's own address never reaches the DB, because injection runs inside the app's session. First an error-based CONVERT() failed with SQL error 245 and leaked a table name ('Customers') in its error text. Then a UNION dumped 612 rows from INFORMATION_SCHEMA.COLUMNS, mapping the schema. Then the payoff: an unparameterized SELECT of dbo.Customers returned 248,915 rows, email, password hashes, card-last-four, moving 41.5 MB in the session. SQL Server's own native audit independently logged the same statement with response_rows 248,915.
+At the database, IBM Guardium recorded the injection arriving on the web application's own DB login, app_shop, from the web tier WEB-APP-02, the attacker's own address never reaches the DB, because injection runs inside the app's session. First an error-based CONVERT() failed with SQL error 245 and leaked a table name ('Customers') in its error text. Then a UNION read every table and column name from INFORMATION_SCHEMA.COLUMNS, mapping the schema. Then the payoff: an unparameterized SELECT of dbo.Customers, email, password hashes, card-last-four, whose answer left through the web tier as a 41.5 MB HTTP 200 body on the WAF record. SQL Server's own native audit independently logged the same statement.
 
-Because app_shop was misconfigured as sysadmin, the operator did not stop at reading. sp_configure turned on xp_cmdshell and EXEC master..xp_cmdshell 'whoami' made sqlservr.exe start cmd.exe on the database host (MSSQL-SHOP-01, 10.30.5.20) as the SQL Server service account: OS command execution reached straight from a web injection. At 22:52 xp_cmdshell ran bcp to export the customer table to C:\\Windows\\Temp\\c.csv (41.5 MB, sha256 on the Sysmon file record), and at 22:53 a new cmd.exe and PowerShell POSTed that file to the external host 203.0.113.12, which the data-centre firewall allowed on tcp/80. Every one of these requests was also logged by Imperva under the detection-mode staging policy. The benign comparison in the data is the 03:00 Power BI job: svc_powerbi returning 184,920 rows from a reporting view, the same "big database read" shape as the exfil, but a scheduled service account, parameterized, against a view, not the live PII table.`,
+Because app_shop was misconfigured as sysadmin, the operator did not stop at reading. sp_configure turned on xp_cmdshell and EXEC master..xp_cmdshell 'whoami' made sqlservr.exe start cmd.exe on the database host (MSSQL-SHOP-01, 10.30.5.20) as the SQL Server service account: OS command execution reached straight from a web injection. At 22:52 xp_cmdshell ran bcp to export the customer table to C:\\Windows\\Temp\\c.csv (41.5 MB, sha256 on the Sysmon file record), and at 22:53 a new cmd.exe and PowerShell POSTed that file to the external host 203.0.113.12, which the data-centre firewall allowed on tcp/80. Every one of these requests was also logged by Imperva under the detection-mode staging policy. The benign comparison in the data is the 03:00 Power BI job: svc_powerbi reading a reporting view, the same "big database read" shape as the exfil, but a scheduled service account, parameterized, against a view, not the live PII table.`,
     learning_objectives: [
       "Distinguish a WAF that blocked an injection (action_result=blocked, 403) from one that only detected it (action_result=alerted, origin 200) and understand that a detection-mode rule still lets the attack through",
-      "Follow SQL injection from the WAF layer into the database and read Guardium / SQL Server audit records, query.text, rows_returned, sql.error, response_rows, as the ground truth of what executed",
-      "Prove data exfiltration from a bulk SELECT of a PII table with a high row count, rather than inferring impact from a WAF alert alone",
+      "Follow SQL injection from the WAF layer into the database and read Guardium / SQL Server audit records (the statement, the login and client, the error, succeeded) as the ground truth of what executed",
+      "Prove data exfiltration from a successful bulk SELECT of a PII table and the size of what came back, rather than inferring impact from a WAF alert alone",
       "Recognise that injection executes inside the application's DB session (app_shop from the web tier), so the attacker's true origin must be correlated in from WAF and app logs",
       "Identify xp_cmdshell abuse enabled by an over-privileged sysadmin app login as the pivot from data theft to OS command execution and web-based exfiltration",
     ],
@@ -854,14 +853,14 @@ Because app_shop was misconfigured as sysadmin, the operator did not stop at rea
     events,
     iocs,
     killchain: [
-      { ts: "2026-07-14T03:00:12.000Z", phase: "Baseline", action: `Scheduled Power BI read: ${biAccount} returns 184,920 rows from a reporting view on MSSQL-RPT-01, parameterized, authorized, the benign high-volume control` },
+      { ts: "2026-07-14T03:00:12.000Z", phase: "Baseline", action: `Scheduled Power BI read: ${biAccount} reads a reporting view on MSSQL-RPT-01, parameterized, authorized, the benign high-volume control` },
       { ts: T(0), phase: "Initial Access", action: `WAF BLOCKS ' OR 1=1 probe from ${attackerIp}, 403 under the production policy (T1190)` },
-      { ts: T(3 * MIN), phase: "Initial Access", action: "UNION SELECT on information_schema.tables alerted-only under a detection-mode staging policy, origin answers 200, 181 rows returned at the database (T1190)" },
+      { ts: T(3 * MIN), phase: "Initial Access", action: "UNION SELECT on information_schema.tables alerted-only under a detection-mode staging policy, origin answers 200, the statement runs at the database (T1190)" },
       { ts: T(5 * MIN), phase: "Initial Access", action: "Error-based CONVERT() extraction also passes through the detection-mode policy (T1190)" },
       { ts: T(5 * MIN + 4 * SEC), phase: "Discovery", action: `Guardium: CONVERT() fails (SQL error 245) on ${dbLogin} from ${app.webTier}, leaking a table name (T1190)` },
-      { ts: T(6 * MIN), phase: "Discovery", action: "UNION dumps 612 rows from INFORMATION_SCHEMA.COLUMNS, full schema map (T1190)" },
-      { ts: T(8 * MIN), phase: "Collection", action: "Product query with a UNION SELECT of dbo.Customers appended returns 248,915 PII rows (email, password hash, card-last-four) (T1213)" },
-      { ts: T(8 * MIN + 1 * SEC), phase: "Collection", action: "SQL Server native audit corroborates the same statement, response_rows 248,915 (T1213)" },
+      { ts: T(6 * MIN), phase: "Discovery", action: "UNION reads INFORMATION_SCHEMA.COLUMNS, full schema map (T1190)" },
+      { ts: T(8 * MIN), phase: "Collection", action: "Product query with a UNION SELECT of dbo.Customers appended reads the PII (email, password hash, card-last-four); the origin answers with 41.5 MB (T1213)" },
+      { ts: T(8 * MIN + 1 * SEC), phase: "Collection", action: "SQL Server native audit corroborates the same statement on dbo.Customers (T1213)" },
       { ts: T(10 * MIN + 20 * SEC), phase: "Execution", action: `Stacked statements: sp_configure enables xp_cmdshell (app login is sysadmin) on ${dbInstance} (T1059)` },
       { ts: T(11 * MIN), phase: "Execution", action: `xp_cmdshell 'whoami': sqlservr.exe starts cmd.exe /c whoami on ${dbInstance} (${dbIp}) (T1059)` },
       { ts: T(12 * MIN + 4 * SEC), phase: "Collection", action: "xp_cmdshell runs bcp: dbo.Customers exported to C:\\Windows\\Temp\\c.csv (41.5 MB) (T1560)" },

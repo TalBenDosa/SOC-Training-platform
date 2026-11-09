@@ -644,6 +644,96 @@ const LINUX_AUDIT: Spec = {
 /** A native key printed `key=value` or `key="value"` in the audit line. */
 const auditField = (key: string) => (key.endsWith("_decoded") ? `extract(@"\\b${key}=""([^""]*)", 1, SyslogMessage)` : `extract(@"\\b${key}=""?([^""' ]*)", 1, SyslogMessage)`);
 
+// ── Database audit and DAM ───────────────────────────────────────────────────
+
+/**
+ * IBM Guardium: the QRadar LEEF alert line arrives over syslog. LEEF is not CEF, so the CEF connector
+ * does not parse it: the Syslog table holds it, sent by the Guardium collector (guard_sender), facility
+ * daemon at the priority of IBM's samples (<30> daemon.info for an INFO rule, <25> daemon.alert above).
+ */
+const GUARDIUM_KEYS = ["ruleID", "ruleDesc", "severity", "devTime", "serverType", "classification", "category", "dbProtocolVersion", "usrName",
+  "sourceProgram", "start", "dbUser", "dst", "dstPort", "src", "srcPort", "protocol", "type", "violationID", "sql", "error"];
+const GUARDIUM: Spec = {
+  table: "Syslog",
+  base: `ProcessName == "guard_sender"`,
+  kindFilter: k => `SyslogMessage has "|type=${k}|"`,
+  cols: {
+    Computer: "hostname", HostName: "hostname", ProcessID: "procId",
+    SeverityLevel: r => (r.severity === "INFO" || r.severity === "LOW" ? "info" : "alert"),
+    SyslogMessage: (_r, log) => log.rawLine?.slice(log.rawLine.indexOf("]: ") + 3),
+  },
+  fixed: { ProcessName: "guard_sender", Facility: "daemon", SourceSystem: "Linux" },
+  exprs: Object.fromEntries(GUARDIUM_KEYS.map(k => [k, k === "error" ? `extract(@"\\|error=(.*)$", 1, SyslogMessage)` : `extract(@"\\|${k}=([^|]*)", 1, SyslogMessage)`])),
+};
+
+/**
+ * SQL Server Audit: an audit written to the Windows Application log is event 33205 from MSSQLSERVER
+ * (MSSQL$<instance> for a named instance), its data the record's own columns as `name:value` lines
+ * (the Sigma rule win_mssql_disable_audit_settings matches `statement:ALTER SERVER AUDIT` in it).
+ * The Windows events connector lands it in Event. A bit prints true / false there.
+ */
+const MSSQL_BITS = new Set(["succeeded", "is_column_permission"]);
+const mssqlData = (r: Rec) => Object.entries(r).map(([k, v]) => `${k}:${v === null || v === undefined ? "" : MSSQL_BITS.has(k) ? (v === 1 || v === "1" || v === true ? "true" : "false") : String(v)}`).join("\n");
+const MSSQL_AUDIT: Spec = {
+  table: "Event",
+  base: `EventID == 33205 and Source startswith "MSSQL"`,
+  kindFilter: k => `RenderedDescription has "action_id:${k}"`,
+  cols: {
+    Computer: r => str(r.server_instance_name)?.split("\\")[0],
+    Source: r => { const inst = str(r.server_instance_name)?.split("\\")[1]; return !inst || /^MSSQLSERVER$/i.test(inst) ? "MSSQLSERVER" : `MSSQL$${inst}`; },
+    RenderedDescription: r => `Audit event: ${mssqlData(r)}`,
+    EventData: r => `<DataItem type="System.XmlData" time="${str(r.event_time)?.replace(" ", "T")}Z" sourceHealthServiceId=""><EventData xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><Data>${esc(mssqlData(r))}</Data></EventData></DataItem>`,
+  },
+  fixed: { EventID: 33205, EventLog: "Application", EventLevelName: "Information", EventLevel: 4, EventCategory: 4, SourceSystem: "OpsManager" },
+};
+for (const k of ["event_time", "action_id", "succeeded", "server_principal_name", "database_principal_name", "server_instance_name", "database_name", "schema_name", "object_name",
+  "statement", "client_ip", "application_name", "host_name", "class_type", "session_id"]) {
+  (MSSQL_AUDIT.exprs ??= {})[k] = `extract(@"(?m)(?:^|\\s)${k}:(.*)$", 1, RenderedDescription)`;
+}
+
+/**
+ * MySQL Enterprise Audit: the JSON audit log file, collected by the Azure Monitor Agent as a custom JSON
+ * log. The table name and its columns are this workspace's (no connector defines one); the record is kept
+ * whole in RawData.
+ */
+const rawData = (keys: string[]): Record<string, string> => Object.fromEntries(keys.map(k => [k, `tostring(RawData.${k})`]));
+const MYSQL_AUDIT: Spec = {
+  table: "MySQLAudit_CL",
+  kindFilter: k => `EventType == "${k}"`,
+  cols: {
+    EventType: (_r, log) => log.kind, ActorUsername: "account.user", SrcIpAddr: "login.ip",
+    EventMessage: r => str(first(r, "general_data.query")),
+    RawData: r => r,
+  },
+  fixed: { EventVendor: "Oracle", EventProduct: "MySQL Enterprise Audit", SourceSystem: "Linux" },
+  exprs: { ...rawData(["timestamp", "class", "event", "connection_id"]), "general_data.query": "EventMessage", "general_data.sql_command": "tostring(RawData.general_data.sql_command)",
+    "general_data.status": "tostring(RawData.general_data.status)", "connection_data.status": "tostring(RawData.connection_data.status)",
+    "query_statistics.rows_examined": "tostring(RawData.query_statistics.rows_examined)" },
+};
+
+// ── UEBA ─────────────────────────────────────────────────────────────────────
+
+/** Exabeam / Securonix forward to this workspace's custom tables (no connector table): the record is RawData. */
+const EXABEAM: Spec = {
+  table: "Exabeam_CL",
+  kindFilter: k => `EventType == "${k}"`,
+  cols: {
+    EventType: (_r, log) => log.kind, ActorUsername: r => str(r.user) ?? str(r.created_by), DvcHostname: "src_host", SrcIpAddr: "src_ip",
+    EventMessage: (_r, log) => log.rawLine, RawData: r => r,
+  },
+  fixed: { EventVendor: "Exabeam", EventProduct: "Exabeam Advanced Analytics", SourceSystem: "RestAPI" },
+  exprs: rawData(["id", "score", "start_time", "status", "user", "accounts", "assets", "reasons", "reasons_count", "events_count", "alerts_count", "job_status", "job_id", "created_by"]),
+};
+const SECURONIX: Spec = {
+  table: "Securonix_CL",
+  kindFilter: k => `EventType == "${k}"`,
+  cols: {
+    EventType: (_r, log) => log.kind, ActorUsername: "accountname", DvcHostname: "resourcename", SrcIpAddr: "ipaddress", EventMessage: "policyname", RawData: r => r,
+  },
+  fixed: { EventVendor: "Securonix", EventProduct: "Securonix SNYPR", SourceSystem: "RestAPI" },
+  exprs: rawData(["violator", "entityid", "u_department", "riskthreatname", "riskscore", "tenantname", "generationtime", "datetime"]),
+};
+
 // ── Selection ────────────────────────────────────────────────────────────────
 
 const MDE_TABLES = new Set(["DeviceProcessEvents", "DeviceNetworkEvents", "DeviceFileEvents", "DeviceRegistryEvents", "DeviceLogonEvents", "DeviceEvents", "DeviceImageLoadEvents", "AlertInfo", "AlertEvidence"]);
@@ -692,6 +782,11 @@ export function specFor(sourceId: SourceId, kind: string, cloud?: SourceId): Spe
     case "k8s_audit": return cloud === "azure_activity" ? AKS_AUDIT : null;
     case "infoblox": return kind === "response" || kind === "query" ? INFOBLOX : null;
     case "linux_auditd": return kind === "sshd" ? LINUX_SSHD : LINUX_AUDIT;
+    case "guardium": return GUARDIUM;
+    case "mssql_audit": return MSSQL_AUDIT;
+    case "mysql_audit": return MYSQL_AUDIT;
+    case "exabeam": return EXABEAM;
+    case "securonix": return SECURONIX;
     // ServiceNow tickets, Workday activity, ZPA, Cloudflare Access: no confirmed table with these records.
     default: return null;
   }

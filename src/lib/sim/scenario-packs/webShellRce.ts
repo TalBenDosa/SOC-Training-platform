@@ -40,7 +40,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     { ts: T(19 * MIN), phase: "Initial Access, Blocked", action: "AWS WAF blocks a tautology injection on /products/search.aspx (403)" },
     { ts: T(24 * MIN), phase: "Initial Access, Blocked", action: "AWS WAF blocks a UNION SELECT on /products/detail.aspx from a rotated IP (403)" },
     { ts: T(38 * MIN), phase: "Initial Access, Success", action: "Injection in a 12,438-byte JSON body passes uninspected; IIS returns 200 with 3.3 MB" },
-    { ts: T(38 * MIN), phase: "Collection", action: "UNION against dbo.Customers returns 42,318 rows as shopportal_app" },
+    { ts: T(38 * MIN), phase: "Collection", action: "UNION against dbo.Customers reads customer ids and emails as shopportal_app; IIS answers that request with 3.3 MB" },
     { ts: T(44 * MIN), phase: "Credential Access", action: "dbo.AppSettings read out through the same injection, deploy key disclosed" },
     { ts: T(47 * MIN), phase: "Persistence", action: "Web shell bootstrap.bundle.aspx written to the webroot by w3wp.exe (IIS APPPOOL\\ShopPortal)" },
     { ts: T(52 * MIN), phase: "Execution", action: "cmd.exe spawned by w3wp.exe as the app pool account; Defender raises its web shell alert at 09:52:20" },
@@ -124,7 +124,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       kind: "multi",
       options: [
         { value: "T1190", label: "T1190, Exploit Public-Facing Application (the injection that IIS answered with 200)" },
-        { value: "T1213", label: "T1213, Data from Information Repositories (42,318 rows read from dbo.Customers)" },
+        { value: "T1213", label: "T1213, Data from Information Repositories (customer ids and emails read from dbo.Customers)" },
         { value: "T1505.003", label: "T1505.003, Server Software Component: Web Shell (bootstrap.bundle.aspx in the webroot)" },
         { value: "T1134.001", label: "T1134.001, Access Token Manipulation: Token Impersonation (SeImpersonate abuse to SYSTEM)" },
         { value: "T1078.002", label: "T1078.002, Valid Accounts: Domain Accounts (reuse of a stolen domain credential)" },
