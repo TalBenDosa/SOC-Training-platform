@@ -7,6 +7,7 @@
 //   • a UAL record's AADSessionId is its sign-in's sessionId, its token never issued before it;
 // plus focused unit checks of the single-record fixes (CA status, PRT, security-info method,
 // Malware never Delivered, first contact, inbound URL rows).
+import { docOwnerOfIp } from "@/lib/sim/docAddresses";
 import { describe, it, expect } from "vitest";
 import { storiesForCompany, instantiateStory, type AttackStory } from "@/app/(app)/dashboard/attackStories";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
@@ -74,7 +75,9 @@ describe("identity consistency across a story (runtime sessions)", { timeout: 30
     let tor = 0;
     for (const r of runs()) for (const e of r.events) {
       const v = nativeView(e, r.company, r.stack);
-      if (v?.log.sourceId !== "okta" || !/^185\.220\.10[0-3]\./.test((v.log.record as Rec).client?.ipAddress ?? "")) continue;
+      // A Tor exit: the kept real one, or a documentation address that stands for one (R5, docAddresses.ts).
+      const cip = (v?.log.record as Rec | undefined)?.client?.ipAddress ?? "";
+      if (v?.log.sourceId !== "okta" || !(/^185\.220\.10[0-3]\./.test(cip) || docOwnerOfIp(cip)?.isp === "tor exit node")) continue;
       tor++;
       expect((v.log.record as Rec).securityContext.isProxy, tag(r, e)).toBe(true);
       expect((v.log.record as Rec).securityContext.isp, tag(r, e)).toBe("tor exit node");

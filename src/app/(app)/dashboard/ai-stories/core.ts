@@ -467,7 +467,7 @@ function claudeEvent(o: ClaudeOpts): TelemetryEvent {
     type: o.type as ClaudeActivityType,
     email: o.email, ip: o.ip, userAgent: o.ua,
     geo: o.ip === OFFICE_IP ? { country: OFFICE_GEO.country, city: OFFICE_GEO.city, lat: OFFICE_GEO.latitude, lon: OFFICE_GEO.longitude }
-      : o.ip === "86.14.203.57" ? { country: "United Kingdom", city: "Manchester", lat: 53.4808, lon: -2.2426 }   // a.kaplan's home ISP
+      : o.ip === "198.51.100.39" ? { country: "United Kingdom", city: "Manchester", lat: 53.4808, lon: -2.2426 }   // a.kaplan's home ISP
       : undefined,
     projectSeed: o.projectId, fileSeed: o.fileId, chatSeed: o.chatId, filename: o.filename,
     severity: o.severity, description: o.description,
@@ -530,7 +530,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
   const cx = "nexacorp" as const;
   const USER = "a.kaplan@nexacorp.com";
   const USER_ID = "user_01Gm4RzXq7NvKc2Bw9LhYt5D";
-  const HOME_IP = "86.14.203.57";
+  const HOME_IP = "198.51.100.39";
   const HOST = "WS-SALES-1876";
   const PROJECT = "proj:renewals-handover";
   const CHAT = "chat:renewals-handover";
@@ -591,7 +591,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
 
     // 3-5. Evening SharePoint downloads to the corporate laptop, from the home connection.
     spDownload("aicld3", "2026-09-24T19:44:52.310Z", F1,
-      "a.kaplan downloaded Enterprise_Accounts_Renewals_FY27.xlsx from the Sales-Operations library at 19:44 on the managed laptop WS-SALES-1876 (Chrome), from the home internet address 86.14.203.57, ten and a half hours after the resignation was recorded."),
+      "a.kaplan downloaded Enterprise_Accounts_Renewals_FY27.xlsx from the Sales-Operations library at 19:44 on the managed laptop WS-SALES-1876 (Chrome), from the home internet address 198.51.100.39, ten and a half hours after the resignation was recorded."),
     spDownload("aicld4", "2026-09-24T19:45:41.775Z", F2,
       "49 seconds later a.kaplan downloaded Top50_Customer_Contracts_Redlines.docx from the Sales-Operations contracts library, same device and address."),
     spDownload("aicld13", "2026-09-24T19:47:09.118Z", F3,
@@ -601,7 +601,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     claudeEvent({
       id: "aicld6", ts: "2026-09-24T20:05:31.480Z", type: "claude_project_created", ...base, ip: HOME_IP, projectId: PROJECT,
       severity: "low",
-      description: "a.kaplan created a Claude Enterprise project at 20:05 from the home address 86.14.203.57, eight and a half hours after the last daytime session from the office. The record carries the project id only.",
+      description: "a.kaplan created a Claude Enterprise project at 20:05 from the home address 198.51.100.39, eight and a half hours after the last daytime session from the office. The record carries the project id only.",
     }),
 
     // 7. First upload - the file just downloaded.

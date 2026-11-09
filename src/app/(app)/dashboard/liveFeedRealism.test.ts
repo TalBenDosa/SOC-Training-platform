@@ -109,4 +109,25 @@ describe("Live Feed realism (played shifts)", () => {
     }
     expect(off).toEqual([]);
   }, 300_000);
+
+  // Noise rows and what the renderers derive. Story data files are checked line by line in liveFeedAddresses.test.ts;
+  // the scenario packs a story may come from belong to the Scenarios surface.
+  it("R5: every public address in the noise is a documentation address, the kept Tor exit, or a well-known service", () => {
+    const SERVICE = /^(13\.107\.|20\.(190|60|73)\.|40\.(97|107|112)\.|52\.(96|101|112|113|114|120|230|84|85|200|28|216)\.|54\.(192|239|175)\.|3\.120\.|142\.250\.|172\.217\.|8\.8\.[48]\.[48]$|34\.(72|107)\.|104\.(1[6-9]|2[0-7])\.|1\.1\.1\.1$|140\.82\.|185\.199\.108\.|192\.30\.252\.|151\.101\.|23\.218\.|152\.199\.|93\.184\.|170\.114\.|31\.13\.|108\.174\.|91\.189\.91\.)/;
+    const OK = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|0\.|255\.|192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)/;
+    const off = new Set<string>();
+    for (const s of shifts) for (const r of s.rows) {
+      if (r.kind !== "noise") continue;
+      const n = nativeOf(r, s.company);
+      const text = JSON.stringify([r.event.src_ip, r.event.dst_ip, r.event.description, r.event.raw, n?.log.record, n?.log.rawLine]);
+      for (const m of text.matchAll(/(?<![\d.\w])(\d{1,3}(?:\.\d{1,3}){3})(?![\d]|\.\d)/g)) {
+        const ip = m[1];
+        if (ip.split(".").some(x => Number(x) > 255) || OK.test(ip) || SERVICE.test(ip) || ip === "185.220.101.45" || /\.0\.0$/.test(ip)) continue;
+        // A version string, an LDAP attribute-syntax OID or an updater's "-from 24.1.2.198" is not an address.
+        if (/^2\.5\./.test(ip) || new RegExp(`(version|Version|/|-from |-to )["':= ]*${ip.replace(/\./g, "\.")}`).test(text)) continue;
+        off.add(`${s.company} ${r.event.id.replace(/_\d{13}.*$/, "")}: ${ip}`);
+      }
+    }
+    expect([...off]).toEqual([]);
+  }, 300_000);
 });

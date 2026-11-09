@@ -22,7 +22,7 @@ import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseC
 import {
   aadObjectId, domainOf, emailFacts, entitySeed, isThreatMail, iso7, rs, syntheticMessageId, userEmail, type EmailFacts, type Raw,
 } from "./collab-email-shared";
-import { egressIp } from "./firewall-shared";
+import { derivedExternalIp, egressIp } from "./firewall-shared";
 import { nameFromLogin } from "./_identity-common";
 
 // ── Schema ───────────────────────────────────────────────────────────────────
@@ -336,9 +336,8 @@ function senderIpv4(ctx: NativeCtx, f: EmailFacts, internalSender: boolean): str
   if (f.senderIp && f.senderIp.includes(":")) return "";
   const dom = domainOf(f.mailFrom ?? f.from) ?? "unknown";
   if (internalSender || f.direction !== "Inbound") return `40.107.${ctx.int(`${ctx.companyId}:exo-relay:a`, 0, 255)}.${ctx.int(`${ctx.companyId}:exo-relay:b`, 10, 250)}`;
-  const k = `dom:${dom.toLowerCase()}:mx-out`;
-  const first = [45, 46, 51, 62, 77, 81, 89, 91, 94, 103, 141, 146, 176, 178, 185, 188, 193, 194, 195, 212, 213][ctx.int(k, 0, 20)];
-  return `${first}.${ctx.int(`${k}:b`, 1, 254)}.${ctx.int(`${k}:c`, 0, 255)}.${ctx.int(`${k}:d`, 2, 254)}`;
+  // R5: the sending domain's relay is a documentation address, never a random real one.
+  return derivedExternalIp(ctx, `dom:${dom}:mx-out`);
 }
 function malwareName(f: EmailFacts): string {
   const ext = f.attachments[0]?.ext ?? "";

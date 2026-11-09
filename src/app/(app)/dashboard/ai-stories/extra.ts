@@ -34,7 +34,7 @@ export interface AiStoryDef {
 
 const CHROME_WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 const CHROME_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
-const RS_OFFICE_IP = "94.188.12.44";
+const RS_OFFICE_IP = "198.51.100.220";
 const RS_OFFICE_GEO = { country: "Israel", city: "Tel Aviv", lat: 32.0853, lon: 34.7818 };   // RocketStack HQ
 
 /** An event with extra fields merged into its raw record. */
@@ -58,7 +58,7 @@ function buildClaudeSharedSecret(): TelemetryEvent[] {
   const CI_USER = "payments-deploy-ci";
   const CI_KEY = "AKIATQ4N7RCX2EXAMPLE";           // the key the .env file holds for the CI user
   const CANARY_KEY = "AKIAYVP4CZ6JQEXAMPLE";       // honeytoken planted in the same file (Thinkst account)
-  const ext = "23.94.37.112";                      // ColoCrossing hosting, New York
+  const ext = "198.51.100.49";                      // ColoCrossing hosting, New York
   const extGeo = { country: "United States", city: "New York" };
   const AWS_CLI = "aws-cli/2.17.43 md/awscrt#0.21.2 ua/2.0 os/linux#6.8.0-45-generic md/arch#x86_64 lang/python#3.12.6 md/pyimpl#CPython cfg/retry-mode#standard md/installer#exe md/distrib#ubuntu.24 md/prompt#off command/sts.get-caller-identity";
   const ciUser = { accountId: ACCOUNT, actorType: "IAMUser" as const, actorName: CI_USER, arn: `arn:aws:iam::${ACCOUNT}:user/${CI_USER}`, accessKeyId: CI_KEY };
@@ -160,10 +160,10 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
   const cx = "rocketstack";
   const org: ClaudeOrg = { key: "rocketstack" };
   const owner = "a.kim@rocketstack.io";
-  const vpnIp = "146.70.117.35";       // commercial VPN exit (M247)
+  const vpnIp = "198.51.100.50";       // commercial VPN exit (M247)
   const vpnGeo = { country: "Netherlands", city: "Amsterdam", lat: 52.3676, lon: 4.9041 };
   const oktaGeo = { country: vpnGeo.country, city: vpnGeo.city, latitude: vpnGeo.lat, longitude: vpnGeo.lon };
-  const hostIp = "5.188.206.18";       // hosting provider
+  const hostIp = "198.51.100.51";       // hosting provider
   const collectorKey = claudeId("apikey", "rs-siem-collector");
   const newKey = claudeId("apikey", "rs-key-0924");
   const ownerCtx = { org, email: owner, ip: vpnIp, geo: vpnGeo, asOrg: "M247 Europe SRL", userAgent: CHROME_WIN };
@@ -181,7 +181,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
     // Push fatigue: two rejected pushes, then one approved.
     oktaMfa({ ...oktaNet, id: "aicak9", ts: "2026-09-24T02:09:40.118Z", result: "denied", transactionId: "Ylq3mXv0aZ8kB1rT", severity: "medium",
       mitre: "T1621", tactic: "Credential Access",
-      description: "At 02:09 a.kim rejected an Okta Verify push for a sign-in from 146.70.117.35 (M247, Amsterdam, flagged as a proxy). The push is only sent after the password step succeeds." }),
+      description: "At 02:09 a.kim rejected an Okta Verify push for a sign-in from 198.51.100.50 (M247, Amsterdam, flagged as a proxy). The push is only sent after the password step succeeds." }),
     oktaMfa({ ...oktaNet, id: "aicak10", ts: "2026-09-24T02:11:31.502Z", result: "denied", transactionId: "Ylq3n7Pd4cQ2wE9s", severity: "medium",
       mitre: "T1621", tactic: "Credential Access",
       description: "Two minutes later a second push for a new sign-in from the same address was rejected." }),
@@ -191,7 +191,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
     oktaSignIn({ ...oktaNet, id: "aicak1", ts: "2026-09-24T02:14:52.220Z", transactionId: "Ylq3pR6tH0vK5mZx", sessionId: SESSION,
       threatSuspected: true, mfaUsed: true, factor: "OKTA_VERIFY_PUSH", severity: "high",
       mitre: "T1078.004", tactic: "Initial Access",
-      description: "Okta started a session for a.kim (Claude Enterprise organization owner) from 146.70.117.35 after the approved push; ThreatInsight marked the request as suspected. a.kim's sign-ins in the last 30 days came from the office or the home ISP." }),
+      description: "Okta started a session for a.kim (Claude Enterprise organization owner) from 198.51.100.50 after the approved push; ThreatInsight marked the request as suspected. a.kim's sign-ins in the last 30 days came from the office or the home ISP." }),
 
     // The correlation rule on the push pattern - the first alert.
     {
@@ -211,7 +211,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
           ThreatInsightSuspected: "true",
           IPSeenForUserLast30d: "false",
         },
-        description: "Microsoft Sentinel raised an MFA push fatigue alert for a.kim at 02:15: two rejected Okta Verify pushes from 146.70.117.35 (M247) at 02:09 and 02:11, then an approved push at 02:14 from the same address.",
+        description: "Microsoft Sentinel raised an MFA push fatigue alert for a.kim at 02:15: two rejected Okta Verify pushes from 198.51.100.50 (M247) at 02:09 and 02:11, then an approved push at 02:14 from the same address.",
       })),
       is_detection: true,
       edr_scope: "non_edr" as const,
@@ -230,10 +230,10 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
     { api_key_id: newKey }),
     claudeActivity({ ...newKeyCtx, id: "aicak6", ts: "2026-09-24T02:24:02.118Z", type: "compliance_api_accessed",
       severity: "medium", mitre: "T1213", tactic: "Collection",
-      description: `A Compliance API call by api_key_id ${newKey}, the key created at 02:18, from 5.188.206.18 (hosting provider) with a python-requests client: the key's first use.` }),
+      description: `A Compliance API call by api_key_id ${newKey}, the key created at 02:18, from 198.51.100.51 (hosting provider) with a python-requests client: the key's first use.` }),
     claudeActivity({ ...newKeyCtx, id: "aicak7", ts: "2026-09-24T02:31:48.207Z", type: "compliance_api_accessed",
       severity: "high", mitre: "T1213", tactic: "Collection",
-      description: `Another Compliance API call by ${newKey} from 5.188.206.18 at 02:31, still with python-requests.` }),
+      description: `Another Compliance API call by ${newKey} from 198.51.100.51 at 02:31, still with python-requests.` }),
 
     // The volume rule on the new key.
     {
@@ -256,7 +256,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
           BaselineKey: collectorKey,
           BaselineRatePerMinute: 7,
         },
-        description: `Microsoft Sentinel raised a Compliance API volume alert at 02:32: ${newKey} produced 1,184 compliance_api_accessed activities from 5.188.206.18 between 02:24 and 02:31, against about 7 per minute from the SIEM collector's key.`,
+        description: `Microsoft Sentinel raised a Compliance API volume alert at 02:32: ${newKey} produced 1,184 compliance_api_accessed activities from 198.51.100.51 between 02:24 and 02:31, against about 7 per minute from the SIEM collector's key.`,
       })),
       is_detection: true,
       edr_scope: "non_edr" as const,
@@ -271,7 +271,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
       description: "The organization data export started at 02:33 completed at 02:51." }),
     claudeActivity({ ...ownerCtx, id: "aicak17", ts: "2026-09-24T02:53:40.817Z", type: "org_data_export_accessed",
       severity: "high", mitre: "T1530", tactic: "Collection",
-      description: "At 02:53 the completed export was accessed from a.kim's session on 146.70.117.35, the VPN exit used since 02:09." }),
+      description: "At 02:53 the completed export was accessed from a.kim's session on 198.51.100.50, the VPN exit used since 02:09." }),
   ];
 }
 

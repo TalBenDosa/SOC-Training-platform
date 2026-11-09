@@ -117,8 +117,6 @@ export function panPrivateLabel(ip: string): string | undefined {
 }
 
 const CO_PREFIX: Record<string, string> = { nexacorp: "10.10", rocketstack: "172.16", medcore: "192.168", globallogis: "10.50", quantumbank: "10.100" };
-const PUB_FIRST = [62, 77, 82, 109, 145, 176, 212, 213, 217];
-const EXT_FIRST = [23, 34, 45, 46, 51, 64, 66, 81, 89, 94, 103, 104, 107, 141, 146, 149, 151, 159, 162, 167, 178, 188, 193, 194, 195, 198, 199, 206, 209];
 
 /** The company's SNAT / hide-NAT egress address (stable per company): the office address the company
  *  profile publishes (companyProfilesMeta office.ip), so the firewall, the SaaS sign-ins and the stories
@@ -126,8 +124,8 @@ const EXT_FIRST = [23, 34, 45, 46, 51, 64, 66, 81, 89, 94, 103, 104, 107, 141, 1
 export function egressIp(ctx: NativeCtx): string {
   const office = COMPANY_ASSETS[ctx.companyId]?.office?.ip;
   if (office) return office;
-  const k = `${ctx.companyId}:egress`;
-  return `${PUB_FIRST[ctx.int(k, 0, PUB_FIRST.length - 1)]}.${ctx.int(k + "b", 1, 254)}.${ctx.int(k + "c", 1, 254)}.10`;
+  // R5: a company without one (a named organization) still egresses from a documentation address.
+  return `192.0.2.${ctx.int(`${ctx.companyId}:egress`, 200, 209)}`;
 }
 /** A published (public) address of the company - used only when the authored event lacks a destination. */
 export function companyVip(ctx: NativeCtx, seed: string): string {
@@ -144,10 +142,17 @@ export function internalIpFor(ctx: NativeCtx, host: string): string {
   const k = `${ctx.companyId}:host:${host.toLowerCase()}`;
   return pre.split(".").length === 2 ? `${pre}.${ctx.int(k, 1, 254)}.${ctx.int(k + "d", 2, 254)}` : `${pre}.${ctx.int(k, 2, 254)}`;
 }
+/**
+ * Stable public address for an external party whose IP the authored event omits (a domain, a mail
+ * relay). R5: a documentation address (192.0.2.160-199, a block no story or company egress uses),
+ * never a real third party's address picked at random.
+ */
+export function derivedExternalIp(ctx: NativeCtx, seed: string): string {
+  return `192.0.2.${ctx.int(`ext:${seed.toLowerCase()}`, 160, 199)}`;
+}
 /** Stable public address for a domain whose IP the authored event omits. */
 export function publicIpForDomain(ctx: NativeCtx, domain: string): string {
-  const k = `dom:${domain.toLowerCase()}`;
-  return `${EXT_FIRST[ctx.int(k, 0, EXT_FIRST.length - 1)]}.${ctx.int(k + "b", 0, 255)}.${ctx.int(k + "c", 0, 255)}.${ctx.int(k + "d", 1, 254)}`;
+  return derivedExternalIp(ctx, `dom:${domain}`);
 }
 
 // ── countries ────────────────────────────────────────────────────────────────

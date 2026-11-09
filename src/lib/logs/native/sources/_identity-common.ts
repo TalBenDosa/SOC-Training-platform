@@ -12,6 +12,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
+import { docOwnerOfIp } from "@/lib/sim/docAddresses";
 import type { NativeCtx } from "../types";
 
 // ── raw-map access ───────────────────────────────────────────────────────────
@@ -186,7 +187,7 @@ export interface AsnFacts { asn: number | null; asOrg: string | null; isp: strin
 /** Network owner of the client IP: authored (structured geo, then Okta / Entra raw) → known operator ranges → the country's carrier. */
 export function asnOf(ev: TelemetryEvent, geo: GeoFacts, ip?: string): AsnFacts {
   if (isPrivateIp(ip)) return { asn: null, asOrg: null, isp: null, domain: null, isProxy: false };
-  const owner = netOwnerOf(ip);
+  const owner = docOwnerOfIp(ip) ?? netOwnerOf(ip);
   const proxyRaw = ev.geo?.anonymous ?? rawAny(ev, "okta.securityContext.isProxy");
   const asnRaw = ev.geo?.asn !== undefined ? String(ev.geo.asn) : rawStr(ev, "okta.securityContext.asNumber", "azure.signinlogs.properties.autonomousSystemNumber");
   const c = countryInfo(geo.iso)!;

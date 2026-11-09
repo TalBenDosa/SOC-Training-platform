@@ -252,7 +252,7 @@ function gd(o: GdOpts): TelemetryEvent {
 // LLMjacking (Sysdig 2024, Permiso, Entro, Wiz JINX-2401; ATLAS case study AML.CS0030).
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const BK_IP = "62.210.71.148";                       // hosting provider, Paris (resolves to France)
+const BK_IP = "198.51.100.11";                       // hosting provider, Paris (resolves to France)
 const BK_GEO = { country: "France", city: "Paris", latitude: 48.8566, longitude: 2.3522 };
 const BK_KEY = "AKIAXH3KQ7NZ6EXAMPLE";
 const BK_RUNNER_IP = "172.16.10.50";                 // the CI runner, remapped to each company's subnet
@@ -263,7 +263,7 @@ const BK_UA_A = "Python/3.11 aiohttp/3.9.5";
 const BK_UA_B = "Python/3.12 aiohttp/3.9.1";
 const BK_SSO_ROLE = "AWSReservedSSO_PlatformAdmin_5d2e8b1c9a047f36";
 const BK_RESP_ROLE = "AWSReservedSSO_SecurityResponder_9a4f0c27b6d81e53";
-const BK_ADMIN_EGRESS = "84.110.42.17";
+const BK_ADMIN_EGRESS = "198.51.100.28";
 
 const bkCi: Ident = {
   type: "IAMUser",
@@ -386,7 +386,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     host: "bedrock.us-east-1.amazonaws.com", requestId: "9e13b6d2-40a7-4c85-8f1e-7d2a05c9b341",
     eventType: "cloud_api_call", severity: "high", mitre: "T1078.004", tactic: "Initial Access",
     description:
-      "GetModelInvocationLoggingConfiguration in us-east-1 by access key AKIAXH3KQ7NZ6EXAMPLE from 62.210.71.148 (Paris, France; a hosting-provider address) with a Python aiohttp user agent, 16 minutes after the secret-scanning alert. First use of the key away from the CI runner: a different address, no VPC endpoint, a scripted agent, and a call the release-notes stage has no reason to make (ATLAS AML.T0012 Valid Accounts).",
+      "GetModelInvocationLoggingConfiguration in us-east-1 by access key AKIAXH3KQ7NZ6EXAMPLE from 198.51.100.11 (Paris, France; a hosting-provider address) with a Python aiohttp user agent, 16 minutes after the secret-scanning alert. First use of the key away from the CI runner: a different address, no VPC endpoint, a scripted agent, and a call the release-notes stage has no reason to make (ATLAS AML.T0012 Valid Accounts).",
   }),
 
   // 5. THE PROBE. A malformed InvokeModel that answers ValidationException (T1526).
@@ -397,7 +397,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     requestId: "2f60d8a5-b1c3-4e97-a052-6c8e19d7f4b0",
     eventType: "cloud_api_call", severity: "high", mitre: "T1526", tactic: "Discovery",
     description:
-      "InvokeModel on anthropic.claude-v2 in us-east-1 by the same key from 62.210.71.148 returned errorCode ValidationException (max_tokens_to_sample: range: 1..1,000,000), 44 seconds after the logging-configuration read. A request that is rejected for a bad parameter only after authentication and authorisation succeeded proves the key can call Bedrock, and no billable completion is generated.",
+      "InvokeModel on anthropic.claude-v2 in us-east-1 by the same key from 198.51.100.11 returned errorCode ValidationException (max_tokens_to_sample: range: 1..1,000,000), 44 seconds after the logging-configuration read. A request that is rejected for a bad parameter only after authentication and authorisation succeeded proves the key can call Bedrock, and no billable completion is generated.",
   }),
 
   // 6. MODEL ENABLEMENT. The use-case form the console submits for a human (T1098).
@@ -406,7 +406,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     host: "bedrock.us-east-1.amazonaws.com", requestId: "a7d45e10-2c98-4b36-8e0f-91b3c6a2d857",
     eventType: "cloud_api_call", severity: "high", mitre: "T1098", tactic: "Persistence",
     description:
-      "PutUseCaseForModelAccess in us-east-1 by access key AKIAXH3KQ7NZ6EXAMPLE from 62.210.71.148: the model-access use-case form the Bedrock console submits on behalf of a human, sent here by an AKIA key with a scripted agent, two minutes after the probe.",
+      "PutUseCaseForModelAccess in us-east-1 by access key AKIAXH3KQ7NZ6EXAMPLE from 198.51.100.11: the model-access use-case form the Bedrock console submits on behalf of a human, sent here by an AKIA key with a scripted agent, two minutes after the probe.",
   }),
 
   // 7. MODEL ENABLEMENT. The entitlement (T1098).
@@ -416,7 +416,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     requestId: "3c8b90e6-d472-41a5-b60f-e5a12d7c8934",
     eventType: "cloud_api_call", severity: "high", mitre: "T1098", tactic: "Persistence",
     description:
-      "PutFoundationModelEntitlement for anthropic.claude-sonnet-4-20250514-v1:0 in us-east-1 by the same key from 62.210.71.148, 37 seconds after the use-case submission. Platform engineers enable models with this same API through an SSO session in the console; the credential class, user agent and address around this call are different.",
+      "PutFoundationModelEntitlement for anthropic.claude-sonnet-4-20250514-v1:0 in us-east-1 by the same key from 198.51.100.11, 37 seconds after the use-case submission. Platform engineers enable models with this same API through an SSO session in the console; the credential class, user agent and address around this call are different.",
   }),
 
   // 8. DEFENSE IMPAIRMENT. The invocation-logging configuration is deleted (T1685.002).
@@ -425,7 +425,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     host: "bedrock.us-east-1.amazonaws.com", requestId: "e1a94c37-8b05-4d62-9f7e-0a6d3b58c412",
     eventType: "policy_modification", severity: "critical", mitre: "T1685.002", tactic: "Defense Impairment",
     description:
-      "DeleteModelInvocationLoggingConfiguration in us-east-1 by the same key from 62.210.71.148, two minutes after the entitlement, deleting the configuration the key read at 07:58. From this call on, Bedrock requests in that region leave metadata in CloudTrail but no request or response content.",
+      "DeleteModelInvocationLoggingConfiguration in us-east-1 by the same key from 198.51.100.11, two minutes after the entitlement, deleting the configuration the key read at 07:58. From this call on, Bedrock requests in that region leave metadata in CloudTrail but no request or response content.",
   }),
 
   // 9. THE WAVE. One representative record of a continuous stream, in a second region (T1496.004, ATLAS AML.T0040).
@@ -435,7 +435,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     requestId: "70d2f5b8-a361-49c4-8e17-b4c093a6d215",
     eventType: "cloud_api_call", severity: "high", mitre: "T1496.004", tactic: "Impact",
     description:
-      "InvokeModelWithResponseStream on eu.anthropic.claude-sonnet-4-20250514-v1:0 in eu-central-1 by the same key from 62.210.71.148, with a different aiohttp version in the user agent, 111 seconds after the logging configuration was deleted. One record from a continuous stream of similar calls (the total belongs in a correlation alert, not in this log). CloudTrail names the caller, model and region but carries no prompt text (ATLAS AML.T0040 AI Model Inference API Access).",
+      "InvokeModelWithResponseStream on eu.anthropic.claude-sonnet-4-20250514-v1:0 in eu-central-1 by the same key from 198.51.100.11, with a different aiohttp version in the user agent, 111 seconds after the logging configuration was deleted. One record from a continuous stream of similar calls (the total belongs in a correlation alert, not in this log). CloudTrail names the caller, model and region but carries no prompt text (ATLAS AML.T0040 AI Model Inference API Access).",
   }),
 
   // 10. DETECTION. GuardDuty anomaly detection on a defense-impairment API (T1685.002, formerly T1562.008).
@@ -447,7 +447,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     seen: "2026-09-22T08:03:54.037Z",
     detail: "An API commonly used to evade defensive measures was invoked in an anomalous way.",
     description:
-      "GuardDuty raised DefenseEvasion:IAMUser/AnomalousBehavior (severity 5, Medium) in us-east-1 for DeleteModelInvocationLoggingConfiguration called by access key AKIAXH3KQ7NZ6EXAMPLE from 62.210.71.148 (SCALEWAY S.A.S.). The finding lands about 5 minutes after the call it describes.",
+      "GuardDuty raised DefenseEvasion:IAMUser/AnomalousBehavior (severity 5, Medium) in us-east-1 for DeleteModelInvocationLoggingConfiguration called by access key AKIAXH3KQ7NZ6EXAMPLE from 198.51.100.11 (SCALEWAY S.A.S.). The finding lands about 5 minutes after the call it describes.",
   }),
 
   // 11. DETECTION. GuardDuty anomaly detection: the key's Bedrock use is outside its learned baseline.
@@ -459,7 +459,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     seen: "2026-09-22T08:05:44.902Z",
     detail: "An API commonly used in impact tactics was invoked in an anomalous way.",
     description:
-      "GuardDuty raised Impact:IAMUser/AnomalousBehavior (severity 8, High) in eu-central-1 for InvokeModelWithResponseStream by access key AKIAXH3KQ7NZ6EXAMPLE from 62.210.71.148: the API, source network and user agent fall outside what GuardDuty learned for svc-ci-artifacts.",
+      "GuardDuty raised Impact:IAMUser/AnomalousBehavior (severity 8, High) in eu-central-1 for InvokeModelWithResponseStream by access key AKIAXH3KQ7NZ6EXAMPLE from 198.51.100.11: the API, source network and user agent fall outside what GuardDuty learned for svc-ci-artifacts.",
   }),
 
   // 12. CONTAINMENT. The key is deactivated, 54 minutes after first abuse.
@@ -469,7 +469,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     params: { userName: "svc-ci-artifacts", accessKeyId: BK_KEY, status: "Inactive" },
     requestId: "b6f3a09d-5e12-4c78-a4d1-38c7e0f92b64",
     description:
-      "UpdateAccessKey: an MFA-authenticated AWSReservedSSO_SecurityResponder session set access key AKIAXH3KQ7NZ6EXAMPLE of svc-ci-artifacts to Inactive, 54 minutes after its first use from 62.210.71.148. Deactivation stops the abuse and keeps the key's history; deleting it, re-enabling invocation logging, and adding guardrails on Bedrock regions and entitlements come next.",
+      "UpdateAccessKey: an MFA-authenticated AWSReservedSSO_SecurityResponder session set access key AKIAXH3KQ7NZ6EXAMPLE of svc-ci-artifacts to Inactive, 54 minutes after its first use from 198.51.100.11. Deactivation stops the abuse and keeps the key's history; deleting it, re-enabling invocation logging, and adding guardrails on Bedrock regions and entitlements come next.",
   }),
 ];
 
@@ -479,7 +479,7 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
 // metadata service, indiscriminate credential collection, and a decoy that trips.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const AG_IP = "159.89.212.66";                       // DigitalOcean, Bangalore (resolves to India)
+const AG_IP = "198.51.100.29";                       // DigitalOcean, Bangalore (resolves to India)
 const AG_GEO = { country: "India", city: "Bangalore", latitude: 12.9716, longitude: 77.5946 };
 const AG_UA_HTTP = "python-httpx/0.27.2";
 const AG_UA_BOTO =
@@ -492,7 +492,7 @@ const AG_ALB_HOST = "customer-api-alb-1058823391.us-east-1.elb.amazonaws.com";
 const AG_WEB_ACL = `arn:aws:wafv2:us-east-1:${AWS_ACCOUNT}:regional/webacl/customer-api-acl/6d0b1f4e-3c92-4a7b-8e15-a2f9c7d04b31`;
 const AG_ALB_ID = `${AWS_ACCOUNT}-app/customer-api-alb/9d1b3e6f7a2c4085`;
 const AG_RESP_ROLE = "AWSReservedSSO_SecurityResponder_4c7e1a92d0b35f68";
-const AG_ADMIN_EGRESS = "84.110.42.17";
+const AG_ADMIN_EGRESS = "198.51.100.28";
 
 const agRole: Ident = {
   type: "AssumedRole",
@@ -602,7 +602,7 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
     id: "aiag2", ts: "2026-09-23T02:31:04.118Z", uri: "/api/v1/openapi.json", args: "",
     requestId: "1-6ab339e8-3c1f5a7d9e2b40860d4c7a13", severity: "low", mitre: "T1595.002", tactic: "Reconnaissance",
     description:
-      "AWS WAF allowed GET /api/v1/openapi.json on the customer API load balancer from 159.89.212.66 (Bangalore, India; a DigitalOcean address) with a python-httpx user agent. First request from this address; the web ACL's default action allowed it.",
+      "AWS WAF allowed GET /api/v1/openapi.json on the customer API load balancer from 198.51.100.29 (Bangalore, India; a DigitalOcean address) with a python-httpx user agent. First request from this address; the web ACL's default action allowed it.",
   }),
 
   // 3. RECON. An endpoint named in that specification is called 353 ms later (T1595.002; ATLAS AML.T0053).
@@ -639,7 +639,7 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
     host: "secretsmanager.us-east-1.amazonaws.com", requestId: "8f1a56c3-e047-4d92-b3a8-5c90d21e7f64",
     eventType: "cloud_api_call", severity: "critical", mitre: "T1078.004", tactic: "Initial Access",
     description:
-      "ListSecrets by the customer-api-instance-role session (access key ASIAXH3KQ7NZHEXAMPLE) from 159.89.212.66 in India with a Boto3 Linux user agent: the same session key the instance itself used at 02:02 from 172.16.10.30. Instance-role credentials are being used off the instance, 21 seconds after the metadata request.",
+      "ListSecrets by the customer-api-instance-role session (access key ASIAXH3KQ7NZHEXAMPLE) from 198.51.100.29 in India with a Boto3 Linux user agent: the same session key the instance itself used at 02:02 from 172.16.10.30. Instance-role credentials are being used off the instance, 21 seconds after the metadata request.",
   }),
 
   // 7. Secrets, immediately (T1555.006).
@@ -649,7 +649,7 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
     host: "secretsmanager.us-east-1.amazonaws.com", requestId: "1c73e08b-9a24-4f51-86d0-b7e5a3c2194d",
     eventType: "cloud_api_call", severity: "high", mitre: "T1555.006", tactic: "Credential Access",
     description:
-      "GetSecretValue for prod/customer-api/db-reader by the same session from 159.89.212.66, 0.43 seconds after ListSecrets returned. The role is allowed to read this secret because the API needs it, which is why the call succeeds.",
+      "GetSecretValue for prod/customer-api/db-reader by the same session from 198.51.100.29, 0.43 seconds after ListSecrets returned. The role is allowed to read this secret because the API needs it, which is why the call succeeds.",
   }),
 
   // 8. Secrets, everything in the list: including one nothing legitimate reads (T1555.006; ATLAS AML.T0053).
@@ -673,7 +673,7 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
     requestId: "a90f3c26-d158-4b74-8e05-c62b17e4d983",
     eventType: "cloud_api_call", severity: "critical", mitre: "T1078.004", tactic: "Initial Access",
     description:
-      "ListBuckets by IAM user svc-reporting-sync (access key AKIAXH3KQ7NZ5EXAMPLE) from 159.89.212.66 returned AccessDenied, 0.88 seconds after the decoy secret was read, with the same Boto3 user agent as the role's calls. The decoy user has no permissions and its key exists in only one place, the secret read at 02:35:10, so this call can only come from whoever read that secret.",
+      "ListBuckets by IAM user svc-reporting-sync (access key AKIAXH3KQ7NZ5EXAMPLE) from 198.51.100.29 returned AccessDenied, 0.88 seconds after the decoy secret was read, with the same Boto3 user agent as the role's calls. The decoy user has no permissions and its key exists in only one place, the secret read at 02:35:10, so this call can only come from whoever read that secret.",
   }),
 
   // 10. COLLECTION. A large object read that is not the daily export (T1530).
@@ -684,7 +684,7 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
     requestId: "5d2e81b4-c709-4a36-9f18-63e0a4d7b215",
     eventType: "cloud_storage_access", severity: "critical", mitre: "T1530", tactic: "Collection",
     description:
-      "GetObject on customer-api-exports/exports/full/customer-ledger-2026-09.csv.gz by the same instance-role session from 159.89.212.66, 412,096,512 bytes transferred out. The 02:02 read from the instance was a 3 MB daily export; this is a different object, more than a hundred times larger, and the caller is off the instance.",
+      "GetObject on customer-api-exports/exports/full/customer-ledger-2026-09.csv.gz by the same instance-role session from 198.51.100.29, 412,096,512 bytes transferred out. The 02:02 read from the instance was a 3 MB daily export; this is a different object, more than a hundred times larger, and the caller is off the instance.",
   }),
 
   // 11. DETECTION. GuardDuty InstanceCredentialExfiltration.OutsideAWS (T1552.005).
@@ -701,7 +701,7 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
       "aws.guardduty.resource.instanceDetails.imageId": "ami-0c8f2d1a94b7e3560",
     },
     description:
-      "GuardDuty raised UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS (severity 8, High): credentials created for EC2 instance i-0b7e41c93a5d28f60 through its role are being used from an external address, 159.89.212.66. Raised 12 minutes after the first off-instance call; by then the secrets and the export object had already been read.",
+      "GuardDuty raised UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS (severity 8, High): credentials created for EC2 instance i-0b7e41c93a5d28f60 through its role are being used from an external address, 198.51.100.29. Raised 12 minutes after the first off-instance call; by then the secrets and the export object had already been read.",
   }),
 
   // 12. CONTAINMENT. AWSRevokeOlderSessions invalidates the stolen session.
@@ -739,7 +739,7 @@ const CP_HOST_IP = "10.10.20.82";
 const CP_EGRESS_IP = testNetIp(makeCtx("nexacorp"), "nexacorp:egress");
 const CP_SENDER = "accounts@brightline-procurement.com";
 const CP_SENDER_DISPLAY = "Brightline Procurement Desk";
-const CP_SENDER_IP = "62.210.148.77";               // hosting provider, Paris (resolves to France)
+const CP_SENDER_IP = "198.51.100.38";               // hosting provider, Paris (resolves to France)
 const CP_SENDER_GEO = { country: "France", city: "Paris", latitude: 48.8566, longitude: 2.3522 };
 const CP_LABEL_ID = "a3c5e7b9-2d14-4f68-9e0a-6b8d1c3f5a72";
 const CP_PROXY_HOST = "eu-prod.asyncgw.teams.microsoft.com";
@@ -941,7 +941,7 @@ const AI_COPILOT_INDIRECT_INJECTION: TelemetryEvent[] = [
   cpMail({
     id: "aicp2", ts: "2026-09-24T09:12:37.214Z", mail: CP_MAIL1,
     description:
-      "accounts@brightline-procurement.com (mail server 62.210.148.77, France) delivered 'Supplier onboarding: updated remittance checklist' to d.cohen at 09:12: first contact from this sender, SPF, DKIM and DMARC pass, no URLs, no attachments, delivered to the inbox.",
+      "accounts@brightline-procurement.com (mail server 198.51.100.38, France) delivered 'Supplier onboarding: updated remittance checklist' to d.cohen at 09:12: first contact from this sender, SPF, DKIM and DMARC pass, no URLs, no attachments, delivered to the inbox.",
   }),
 
   // 3. DELIVERY. Second message, unrelated topic, 26 seconds later (T1566).

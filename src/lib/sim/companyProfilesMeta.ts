@@ -216,6 +216,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     ],
     serviceAccounts: ["svc-deploy", "svc-backup"],
     dc: "VNT-SRV-DC01", fileServer: "VNT-SRV-FS01",
+    office: { ip: "192.0.2.250", country: "United States", city: "Pittsburgh" },
   },
   nexacorp: {
     hosts: ["WS-HR-1182", "WS-OPS-2214", "WS-MKT-3301", "WS-ACC-4477", "WS-ENG-2093",
