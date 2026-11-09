@@ -91,8 +91,8 @@ describe("Live Feed and the EDR console show one story", () => {
   it("R4: a process starts in the console at the time the feed shows its first row", () => {
     expect(live.filter(d => category(d) === "time").map(d => `${d.where}: ${d.what}`)).toEqual([]);
   });
-  it("R3: the console's host is a feed host and its address is the host's own internal one", () => {
-    expect(live.filter(d => category(d) === "host").map(d => `${d.where}: ${d.what}`)).toEqual([]);
+  it("R3: the console's host is a feed host, its address the host's own internal one, its users in the feed's realm", () => {
+    expect(live.filter(d => ["host", "user"].includes(category(d))).map(d => `${d.where}: ${d.what}`)).toEqual([]);
     expect(liveHosts).toEqual([]);
   });
   it("R6: RTR ps lists every process of the tree under its pid", () => {
@@ -157,7 +157,7 @@ describe("Team Training: XDR, EDR and the workbench show one story", () => {
     expect(team.filter(d => category(d) === "time").map(d => `${d.where}: ${d.what}`)).toEqual([]);
   });
   it("R6: XDR's DeviceProcessEvents and the workbench name each process as the EDR console does", () => {
-    expect(team.filter(d => ["xdr-image", "workbench", "host"].includes(category(d))).map(d => `${d.where}: ${d.what}`)).toEqual([]);
+    expect(team.filter(d => ["xdr-image", "workbench", "host", "user"].includes(category(d))).map(d => `${d.where}: ${d.what}`)).toEqual([]);
     expect(xdrChecked).toBeGreaterThan(0);
   });
 });
@@ -165,8 +165,22 @@ describe("Team Training: XDR, EDR and the workbench show one story", () => {
 describe("shared-module disagreements only go down", () => {
   it("pid, command line and hash disagreements stay within the reviewed baseline", () => {
     const all = tally([...live, ...team]);
-    const over = Object.entries(all).filter(([k]) => !["time", "host", "rtr", "xdr-image", "workbench"].includes(k))
+    const over = Object.entries(all).filter(([k]) => !["time", "host", "user", "rtr", "xdr-image", "workbench"].includes(k))
       .filter(([k, n]) => n > (KNOWN_SHARED[k] ?? 0)).map(([k, n]) => `${k}: ${n} > ${KNOWN_SHARED[k] ?? 0}`);
     expect(over, JSON.stringify(all)).toEqual([]);
+  });
+});
+
+describe("R3: the console's account realm is the company's own", () => {
+  it("a MedCore user reads MEDCORE\\user (medcorehealth.org), not MEDCOREHEALTH\\user", () => {
+    const ev = (o: Partial<TelemetryEvent>): TelemetryEvent => ({
+      id: o.id ?? "e", ts: "2026-11-09T10:00:00Z", source: "edr", event_type: "process_create", severity: "medium",
+      hostname: "WS-NURS-044", user_email: "m.verhoeven@medcorehealth.org", ...o,
+    } as TelemetryEvent);
+    const inv = buildInvestigationFromStory({ id: "realm", title: "realm", events: [
+      ev({ id: "a", process: { pid: 4100, name: "winword.exe", user: "m.verhoeven", cmdline: "WINWORD.EXE" } as TelemetryEvent["process"] }),
+      ev({ id: "b", ts: "2026-11-09T10:01:00Z", process: { pid: 4200, parent_pid: 4100, parent_name: "winword.exe", name: "powershell.exe", user: "m.verhoeven", cmdline: "powershell.exe -nop" } as TelemetryEvent["process"] }),
+    ] })!;
+    expect(inv.processes.find(p => p.pid === 4200)?.user).toBe("MEDCORE\\m.verhoeven");
   });
 });

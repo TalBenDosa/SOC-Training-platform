@@ -80,6 +80,18 @@ export function compareEdrToFeed(inv: EdrInvestigation, feed: { ev: TelemetryEve
   }
   // The console names the host and its user as the feed does.
   if (!onHost.length) out.push({ where, what: `host: console host ${inv.host.name} is on no feed row` });
+  // R3: the account realm the console prints ("MEDCORE\m.verhoeven") is one the host's records print,
+  // as a DOMAIN\user value or a domain field of its own.
+  const text = onHost.map(r => JSON.stringify(r.log?.record ?? {})).join("\n").toLowerCase();
+  // Only records that print accounts as DOMAIN\user can be compared (Falcon's UserName is the bare name).
+  const printed = new Set([...text.matchAll(/"([a-z][\w-]{1,14})\\\\[a-z0-9._$-]+"/g)].map(m => m[1]));
+  if (printed.size) {
+    const realms = new Set(seenProcesses(inv).map(p => /^([^\\]+)\\/.exec(p.user)?.[1]).filter((r): r is string => !!r && !/^(nt authority|builtin|nt service|font driver|window manager|iis apppool)$/i.test(r)));
+    for (const r of realms) {
+      const lc = r.toLowerCase();
+      if (!text.includes(`"${lc}\\\\`) && !text.includes(`"${lc}"`)) out.push({ where, what: `user: console realm ${r} is printed by no record of ${inv.host.name}` });
+    }
+  }
   return out;
 }
 

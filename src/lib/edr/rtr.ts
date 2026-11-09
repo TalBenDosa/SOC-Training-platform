@@ -147,7 +147,11 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
       const hit = inv.processes.some(p =>
         (p.path ?? "").toLowerCase() === path.toLowerCase() ||
         (p.files ?? []).some(f => f.path.toLowerCase() === path.toLowerCase()));
-      return { out: `Queued "${path}" for upload to the cloud (password: infected).${hit ? " File captured." : " (path not seen on host: check spelling)"}` };
+      // R1: what the shell itself answers. A path that is not on the host fails the way the OS says
+      // so; a found file is uploaded and listed with the archive password RTR / Live Response use.
+      if (!hit) return { out: linux ? `get: ${path}: No such file or directory` : `Cannot find path '${path}' because it does not exist.` };
+      const sha = inv.processes.find(p => (p.path ?? "").toLowerCase() === path.toLowerCase())?.sha256;
+      return { out: [`Uploading "${path}" to the cloud ...`, `Upload complete.${sha ? ` SHA256: ${sha}` : ""}`, "Retrieve it from the Files tab (7z archive, password: infected)."].join("\n") };
     }
 
     case "cat": {

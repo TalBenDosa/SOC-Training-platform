@@ -17,6 +17,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { describeEvent as describeRow } from "@/lib/sim/describeEvent";
 import { lookupHash } from "@/lib/sim/hashDatabase";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { classifyScope } from "./classifyScope";
 import { baselinePid, edrAgentFor, isServerHost } from "./hostBaseline";
 import type { IocTruth } from "./iocIntel";
@@ -566,7 +567,22 @@ export function buildInvestigationFromStory(
 
   // R-13: one user format across the whole tree (DOMAIN\user on Windows, bare on unix).
   const caseDomain = mostCommon(events.map(e => e.user_email?.includes("@") ? e.user_email.split("@")[1] : undefined));
-  const netbios = (caseDomain?.split(".")[0] ?? "").toUpperCase();
+  // R3: the NetBIOS realm the rows themselves print ("MEDCORE\m.verhoeven"), else the company's own
+  // (medcorehealth.org is MEDCORE, not MEDCOREHEALTH), else the first label of the mail domain.
+  const SKIP_REALM = /^(nt authority|builtin|nt service|nt virtual|window manager|font driver|workgroup|-)$/i;
+  const rawRealm = mostCommon(events.flatMap(e => {
+    const out: string[] = [];
+    const take = (v: unknown) => { const m = typeof v === "string" ? /^([A-Za-z][\w-]{0,14})\\[^\\\s]+$/.exec(v.trim()) : null; if (m && !SKIP_REALM.test(m[1])) out.push(m[1].toUpperCase()); };
+    take(e.process?.user);
+    for (const k of ["winlog.event_data.User", "User", "crowdstrike.UserName", "UserName", "username", "src.process.user", "user.name"]) take(e.raw?.[k]);
+    for (const k of ["winlog.event_data.TargetDomainName", "winlog.event_data.SubjectDomainName", "AccountDomain", "user.domain"]) {
+      const v = e.raw?.[k];
+      if (typeof v === "string" && /^[A-Za-z][\w-]{0,14}$/.test(v) && !SKIP_REALM.test(v)) out.push(v.toUpperCase());
+    }
+    return out;
+  }));
+  const ownRealm = caseDomain ? Object.values(COMPANY_ASSETS).find(a => a.domain?.toLowerCase() === caseDomain.toLowerCase())?.netbios : undefined;
+  const netbios = (rawRealm ?? ownRealm ?? caseDomain?.split(".")[0] ?? "").toUpperCase();
   const normUser = (u?: string): string => {
     if (!u || !u.trim()) return "unknown";
     const v = u.trim();
