@@ -94,7 +94,9 @@ export function dbFacts(ev: TelemetryEvent): DbFacts {
   const failed = action === "LGIF" || outcome === "failure" || outcome === "error" || outcome === "false" || outcome === "0" || et === "auth_failure" || et === "login_failure";
   const userEmail = ev.user_email ?? ev.user?.email;
   const login = s("server_principal_name", "db.user", "mysql.audit.login.user") ?? (userEmail ? userEmail.split("@")[0] : undefined);
-  const server = (instance ?? ev.hostname ?? s("host.name"))?.split("\\")[0]?.split(":")[0];
+  // The row's host is the database server (the feed re-homes it to the company's own server); an authored
+  // instance name can be a stale story host or, in the DAM rows, a database name (db.instance "PharmacyDB").
+  const server = (ev.hostname ?? s("host.name") ?? instance)?.split("\\")[0]?.split(":")[0]?.split(".")[0];
   const clientIp = s("client_ip", "source.ip", "mysql.audit.login.ip") ?? ev.src_ip;
   return {
     login,
