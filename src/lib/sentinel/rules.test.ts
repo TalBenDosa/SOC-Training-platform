@@ -15,6 +15,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { mapRow, specFor } from "./mapRow";
 import { NOISE_RULES } from "./noise";
 import { compileUseCase, stackUseCases } from "./rules";
+import { leefLine } from "@/lib/logs/native/sources/guardium";
 import { emptyTable, TABLE_NAMES } from "./tables";
 
 const roster = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, { role: "mgr" }];
@@ -205,11 +206,15 @@ const KIND_FIELDS: Record<string, (kind: string) => Record<string, unknown>> = {
   windows_dns: k => ({ EventID: Number(k) }), okta: k => ({ eventType: k }), paloalto: k => ({ type: k }), globalprotect: k => ({ eventid: k, type: "GLOBALPROTECT" }),
   checkpoint: k => ({ product: { firewall: "VPN-1 & FireWall-1", ips: "SmartDefense", url_filtering: "URL Filtering", app_control: "Application Control", anti_bot: "Anti-Bot" }[k] }),
   aws_cloudtrail: k => ({ eventType: k }), google_workspace: k => ({ id: { applicationName: k } }),
+  mssql_audit: k => ({ action_id: k, server_instance_name: "SQL01" }), guardium: k => ({ type: k }),
+  mysql_audit: k => ({ class: k.split("/")[0], event: k.split("/")[1] }),
 };
 
 /** Text sources keep their fields in the line. */
 function rawLineOf(uc: UseCase, rec: Record<string, unknown>, kind: string): string | undefined {
   if (uc.sourceId === "linux_auditd") return `node=host type=${kind} msg=audit(1767255495.147:1): ${Object.entries(rec).map(([k, v]) => `${k.replace(/_decoded$/, "")}="${v}"`).join(" ")}`;
   if (uc.sourceId === "infoblox") return `<30>Jan  1 09:16:28 ns1 named[1]: 01-Jan-2026 09:16:28.455 client ${rec.client_ip ?? "10.0.0.1"}#1: UDP: query: ${rec.qname ?? "a.example"} IN ${rec.qtype ?? "A"} response: ${rec.rcode ?? "NOERROR"} +ED`;
+  if (uc.sourceId === "guardium") return leefLine({ timestamp: "Jan  1 10:00:00", hostname: "gcoll01", appName: "guard_sender", procId: "1", LEEFVersion: "1.0", DeviceVendor: "IBM", DeviceProduct: "Guardium", DeviceVersion: "12.0", EventID: "rule",
+    ...Object.fromEntries(Object.entries(rec).map(([k, v]) => [k, String(v)])) });
   return undefined;
 }
