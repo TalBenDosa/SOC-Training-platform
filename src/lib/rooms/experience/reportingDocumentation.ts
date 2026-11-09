@@ -40,6 +40,14 @@ export const REPORTING_DOCUMENTATION: RoomExperience = {
   look: { primary: "#e9d8a6", secondary: "#7dd3fc", warn: "#f43f5e" },
   scene: "facilitypapertrail",
   layout: "facility",
+  story: {
+    intro: { title: "One Thin Note", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-intro-6dfaf462.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-intro-a97959f8.jpg" },
+    afterStation: {
+      handover: { title: "The Morning After", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-ch2-a7fa48f1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-ch2-73de4573.jpg" },
+      hold: { title: "What the Disk Kept", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-ch3-00c364fb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-ch3-ab523536.jpg" },
+      signoff: { title: "A Year Later", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-finale-5877fe04.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/reporting-documentation/papertrail-finale-46cf749c.jpg" },
+    },
+  },
   stations: [
     {
       id: "casenotes",
