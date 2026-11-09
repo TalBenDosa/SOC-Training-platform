@@ -179,7 +179,9 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
     }),
     // 12. DETECTION: Sentinel ties the abused key back to the developer host.
     sentinelAlert({
-      companyId: cx, id: "aimcp12", ts: "2026-10-06T14:55:03.000Z", host, srcIp: attackerIp, user,
+      // The host entity is the developer laptop with its own address (host.ip); the abuse source stays in
+      // the alert's own properties, never as the laptop's address (R3: one host, one IP).
+      companyId: cx, id: "aimcp12", ts: "2026-10-06T14:55:03.000Z", host, srcIp: hostIp, user,
       alertName: "AWS access key abused from a new network was last read on a developer endpoint",
       eventType: "cloud_api_call", severity: "high", mitre: "T1552.001", tactic: "Credential Access",
       detail: "A scheduled analytics rule joined the CloudTrail access-key activity from the hosting provider with the endpoint telemetry for the same key's owner.",

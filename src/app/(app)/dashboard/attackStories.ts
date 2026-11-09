@@ -1558,15 +1558,19 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     const own = new Set(COMPANY_ASSETS[companyId].roster.map(r => r.name));
     const foreign = new Set(Object.entries(COMPANY_ASSETS).filter(([c]) => c !== companyId).flatMap(([, a]) => a.roster.map(r => r.name)));
     const taken = new Set([replacement?.split("@")[0]]);
-    for (const e of s.events) {
-      const local = e.user_email?.split("@")[0];
-      if (!local || e.user_email === victim || own.has(local) || !foreign.has(local) || !isRehomeablePerson(e.user_email) || taken.has(local)) continue;
+    // The row's user, and a person a record names in its own fields (a ticket's requested_by, an
+    // approver): "m.levi@nexacorp.com" on a RocketStack change ticket named another company's person.
+    const foreignMail = new RegExp(`\\b([a-z][a-z0-9.-]*)@(${Object.entries(COMPANY_ASSETS).filter(([c]) => c !== companyId).map(([, a]) => a.domain.replace(/\./g, "\\.")).join("|")})\\b`, "gi");
+    const named = (e: TelemetryEvent) => [e.user_email, ...[...JSON.stringify(e.raw ?? {}).matchAll(foreignMail)].map(m => m[0])];
+    for (const e of s.events) for (const mail of named(e)) {
+      const local = mail?.split("@")[0];
+      if (!mail || !local || mail === victim || own.has(local) || !foreign.has(local) || !isRehomeablePerson(mail) || taken.has(local)) continue;
       taken.add(local);
       const free = COMPANY_ASSETS[companyId].roster.map(r => r.name).filter(n => !taken.has(n));
       if (!free.length) continue;
       const name = free[Math.abs(local.length * 31 + local.charCodeAt(0)) % free.length];
       taken.add(name);
-      pairs.push([e.user_email!, `${name}@${COMPANY_ASSETS[companyId].domain}`], [local, name]);
+      pairs.push([mail, `${name}@${COMPANY_ASSETS[companyId].domain}`], [local, name]);
     }
   }
 
@@ -1719,7 +1723,10 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     };
     for (const e of s.events) {
       // A logon or share record's IpAddress is the client, never the computer that logged it.
-      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !HOSTISH.has(e.source) || inbound(e) || isPeerAddressedRecord(e) || ipMap.has(e.src_ip)) continue;
+      // A SIEM alert about a host carries that host's own address as host.ip (the emitter draws one when the
+      // pack names none): it is the host's address like any host telemetry, so it takes the company's (R3).
+      const selfAddressed = (e.source === "siem" || e.source === "soar") && e.raw?.["host.ip"] === e.src_ip;
+      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !(HOSTISH.has(e.source) || selfAddressed) || inbound(e) || isPeerAddressedRecord(e) || ipMap.has(e.src_ip)) continue;
       const target = hostMap.get(e.hostname) ?? e.hostname;
       const t = canonicalIp(target);
       ipMap.set(e.src_ip, t);
