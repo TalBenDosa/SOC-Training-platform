@@ -39,7 +39,9 @@ const localAdminEnumEvent: TelemetryEvent = {
   raw: {
     "event.code": "4799",
     "winlog.channel": "Security",
-    "winlog.computer_name": "WKS-FIN22",
+    "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+    "winlog.computer_name": "WKS-FIN22.meridiancap.local",
+    "winlog.event_data.SubjectUserSid": "S-1-5-21-3471920584-1180264317-2905518846-2318",
     "winlog.event_data.SubjectUserName": "j.ramos",
     "winlog.event_data.SubjectDomainName": "MERIDIANCAP",
     "winlog.event_data.SubjectLogonId": "0x8a3f21",
@@ -48,7 +50,7 @@ const localAdminEnumEvent: TelemetryEvent = {
     "winlog.event_data.TargetSid": "S-1-5-32-544",
     "winlog.event_data.CallerProcessId": "0x1a04",
     "winlog.event_data.CallerProcessName": "C:\\Windows\\System32\\net1.exe",
-    "winlog.event_id": 4799,
+    "winlog.event_id": "4799",
   },
 };
 
@@ -69,10 +71,13 @@ const cloudDescribeEvent: TelemetryEvent = {
   description:
     "The first EC2 DescribeInstances call in a sequence of Describe/List API calls made by the lambda-reporting-role IAM role overnight.",
   raw: {
+    "aws.cloudtrail.eventVersion": "1.10",
+    "aws.cloudtrail.eventTime": "2026-06-03T02:06:08Z",
     "aws.cloudtrail.eventName": "DescribeInstances",
     "aws.cloudtrail.eventSource": "ec2.amazonaws.com",
     "aws.cloudtrail.awsRegion": "us-east-1",
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
+    "aws.cloudtrail.userIdentity.principalId": "AROA2X7KQ4M9TB3VZL5PN:cost-report-generator",
     "aws.cloudtrail.userIdentity.arn":
       "arn:aws:sts::719400852261:assumed-role/lambda-reporting-role/cost-report-generator",
     "aws.cloudtrail.userIdentity.accountId": "719400852261",
@@ -80,12 +85,12 @@ const cloudDescribeEvent: TelemetryEvent = {
     "aws.cloudtrail.userAgent": "aws-cli/2.15.2 Python/3.11.6 Linux/6.1.0",
     "aws.cloudtrail.requestParameters": {},
     "aws.cloudtrail.responseElements": null,
-    "aws.cloudtrail.errorCode": "",
-    "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.requestID": "9B7C2D4E1A6F3081",
+    "aws.cloudtrail.requestID": "9b7c2d4e-1a6f-4308-b1d2-6e5f0c7a9d34",
+    "aws.cloudtrail.eventID": "e41a7c20-5b9d-4f36-8c02-7d1e9a4b6f58",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": true,
+    "aws.cloudtrail.recipientAccountId": "719400852261",
   },
 };
 
@@ -121,14 +126,18 @@ const nightlyAuditEvent: TelemetryEvent = {
   raw: {
     "event.code": "1",
     "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-    "winlog.computer_name": "SRV-ITAUDIT01",
+    "winlog.provider_name": "Microsoft-Windows-Sysmon",
+    "winlog.computer_name": "SRV-ITAUDIT01.meridiancap.local",
+    "winlog.event_data.UtcTime": "2026-04-02 03:00:11.204",
+    "winlog.event_data.ProcessId": "4412",
+    "winlog.event_data.ParentProcessId": "3390",
     "winlog.event_data.Image": "C:\\Windows\\System32\\net.exe",
     "winlog.event_data.CommandLine": "C:\\Windows\\System32\\net.exe user /domain",
     "winlog.event_data.ParentImage":
       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
     "winlog.event_data.User": "MERIDIANCAP\\svc-itaudit",
     "winlog.event_data.IntegrityLevel": "Medium",
-    "winlog.event_id": 1,
+    "winlog.event_id": "1",
   },
 };
 
@@ -332,7 +341,7 @@ const discoveryEnumerationRoom = {
         "**T1619 -- Cloud Storage Object Discovery** is narrower still: not 'does this bucket exist' but 'what objects are actually inside it.' Defining calls: AWS S3's ListObjectsV2 and Azure's List Blobs. This is the step that turns a discovered bucket into a worthwhile exfiltration target.\n\n" +
         "A single CloudTrail record for one of these calls is completely unremarkable on its own -- Terraform, cost dashboards, and CI/CD pipelines call DescribeInstances constantly, and readOnly: true confirms nothing was changed. What turns it into a Discovery-tactic finding is the SAME identity making dozens of Describe*/List* calls across multiple services within minutes, especially from a role that has never previously called half of them.\n\n" +
         "The identity fields need the same care. In a CloudTrail record, userIdentity shows which credentials were presented, not who is holding them. Type AssumedRole only means temporary role credentials were used, and the session name at the end of the ARN was set when those credentials were issued, so it stays the same wherever they are used. Whoever holds them can call AWS from any machine until they expire, which is why you compare userAgent (the client software) and sourceIPAddress (where the call came from) with how that role normally runs.\n\n" +
-        "AWS GuardDuty ships purpose-built findings for exactly this: **Discovery:S3/MaliciousIPCaller** (an S3 ListObjectsV2-family call from a known-malicious IP), **Discovery:IAMUser/AnomalousBehavior** (behavioral anomaly on enumeration-style API usage), and **Recon:IAMUser/MaliciousIPCaller** (account-level reconnaissance from a threat-listed IP).",
+        "AWS GuardDuty ships purpose-built findings for exactly this: **Discovery:S3/MaliciousIPCaller** (an S3 API commonly used for discovery, such as ListBuckets, GetBucketAcl, ListObjects or GetObjectAcl, invoked from a known-malicious IP; which technique it is depends on the call, so read the matching CloudTrail record), **Discovery:IAMUser/AnomalousBehavior** (behavioral anomaly on enumeration-style API usage), and **Recon:IAMUser/MaliciousIPCaller** (account-level reconnaissance from a threat-listed IP).",
       checkpoint: {
         question: "What is the actual difference between T1580 and T1619, per this reading?",
         options: [
@@ -355,13 +364,13 @@ const discoveryEnumerationRoom = {
         "GuardDuty raises Discovery:S3/MaliciousIPCaller against an IAM role in your AWS account. What activity did it observe, and what is the right next question for the investigation?",
       options: [
         "Bucket enumeration (T1580) from a Tor exit node -- next, list which buckets the role can reach",
-        "Object listing (T1619) from a threat-listed IP -- next, check whether GetObject downloads followed",
+        "S3 discovery calls from a threat-listed IP -- next, find the exact API in CloudTrail and whether GetObject followed",
         "Object downloads from a threat-listed IP -- treat the listed objects as already exfiltrated",
         "Account-level reconnaissance (T1526) from a threat-listed IP -- next, review the role's IAM policy",
       ],
       answer: 1,
       explanation:
-        "The finding name reads Category:Resource/Name: Discovery on S3, from a MaliciousIPCaller -- the reading defines it as S3 ListObjectsV2-family calls from a known-malicious IP, which is T1619 (Cloud Storage Object Discovery). Because listing is the step that turns a bucket into a target, the key follow-up is whether Collection followed: GetObject calls by the same identity. “From a Tor exit node” describes a different finding (TorIPCaller), and listing objects is T1619, not bucket enumeration. “Object downloads … already exfiltrated” jumps the Discovery/Collection boundary: this finding is about listing, not retrieval. “Account-level reconnaissance” is what Recon:IAMUser/MaliciousIPCaller reports, not an S3 finding.",
+        "The finding name reads Category:Resource/Name: Discovery on S3, from a MaliciousIPCaller -- the reading defines it as an S3 discovery-type API (ListBuckets, GetBucketAcl, ListObjects, GetObjectAcl and similar) called from a known-malicious IP. The finding does not settle the technique on its own: the CloudTrail record behind it does, ListBuckets or GetBucketAcl being T1580 (Cloud Infrastructure Discovery) and ListObjects or ListObjectsV2 being T1619 (Cloud Storage Object Discovery). Because discovery is the step that turns a bucket into a target, the key follow-up is whether Collection followed: GetObject calls by the same identity. “From a Tor exit node” describes a different finding (TorIPCaller). “Object downloads … already exfiltrated” jumps the Discovery/Collection boundary: this finding is about listing, not retrieval. “Account-level reconnaissance” is what Recon:IAMUser/MaliciousIPCaller reports, not an S3 finding.",
       xp: 20,
     },
 
@@ -380,12 +389,12 @@ const discoveryEnumerationRoom = {
           options: [
             "readOnly: true means IAM rejected the call, so the record says nothing about what the role can reach",
             "One read-only call is unremarkable; the signal is 47 calls across four services in eight minutes at 2 AM",
-            "The empty errorCode shows CloudTrail failed to capture the outcome, so the call's result is unknown",
+            "The record has no errorCode, so CloudTrail failed to capture the outcome and the call's result is unknown",
             "Describe calls are data events that return resource contents, so even one call is a data exposure",
           ],
           answer: 1,
           explanation:
-            "A single read-only call is exactly what routine automation looks like -- the signal is the burst: dozens of Describe/List calls across four services in eight minutes, from a role whose normal pattern is two scheduled invocations a day. “readOnly: true means IAM rejected the call” misreads the flag: it means the call changed no state, not that it was denied. “The empty errorCode shows CloudTrail failed” is backwards: no error recorded means the call succeeded. “Describe calls are data events” is contradicted by the record itself: managementEvent is true, and DescribeInstances returns configuration metadata, not stored data.",
+            "A single read-only call is exactly what routine automation looks like -- the signal is the burst: dozens of Describe/List calls across four services in eight minutes, from a role whose normal pattern is two scheduled invocations a day. “readOnly: true means IAM rejected the call” misreads the flag: it means the call changed no state, not that it was denied. “No errorCode means CloudTrail failed” is backwards: CloudTrail writes errorCode only when a call fails, so its absence means the call succeeded. “Describe calls are data events” is contradicted by the record itself: managementEvent is true, and DescribeInstances returns configuration metadata, not stored data.",
           xp: 15,
         },
         {
