@@ -28,6 +28,14 @@ export const WINDOWS_PRIVILEGE_ESCALATION: RoomExperience = {
   look: { primary: "#f472b6", secondary: "#60a5fa", warn: "#f59e0b" },
   scene: "integrityladder",
   layout: "stage",
+  story: {
+    intro: { title: "The Quiet Climb", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-intro-2a4ff1cf.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-intro-5beecd85.jpg" },
+    afterStation: {
+      lsass: { title: "Who Asked for LSASS", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-ch2-f5ca4a5e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-ch2-c930526c.jpg" },
+      uac: { title: "No Prompt", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-ch3-26fe71e5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-ch3-8874dd65.jpg" },
+      jump: { title: "Approved or Stolen", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-finale-65e5fa83.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-finale-3cf15520.jpg" },
+    },
+  },
   stations: [
     {
       id: "levels",
