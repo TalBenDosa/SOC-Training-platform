@@ -96,6 +96,8 @@ export function buildMacosTccPkgScenario(
 
   const cx = "northwind-collab" as const;
   const osx = { "host.os.name": host.os, "host.os.version": host.osVersion, "crowdstrike.event_platform": "Mac" };
+  // A Falcon file-open record carries event_platform; the OS name and version live in the host inventory, not on the event.
+  const osxFile = { "crowdstrike.event_platform": "Mac" };
   const base = { companyId: cx, host: host.name, user: user.email, srcIp: host.ip } as const;
   const apple = { signed: true, signatureSubject: "Software Signing" } as const;
   const pkgScriptSvc = "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service";
@@ -304,7 +306,7 @@ export function buildMacosTccPkgScenario(
       path: "/Users/j.okafor/Documents/Q3-Roadmap.pdf", sha256: null, actorProcess: "meetsyncd", actorPath: daemonBin, actorPid: 4290,
       actorParentName: "launchd", actorParentPid: 1, actorSha256: payloadHash, actorSigned: "adhoc", runAsUser: "root",
       mitre: "T1005", tactic: "Collection", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx },
+      extra: { ...osxFile },
       description: "meetsyncd, launched by launchd from /Library/Application Support/MeetSync, opened Q3-Roadmap.pdf under ~/Documents, a TCC-protected location. The read succeeds because the earlier TCC.db write granted the bundle Full Disk Access.",
     }),
     csFile({
@@ -312,7 +314,7 @@ export function buildMacosTccPkgScenario(
       path: "/Users/j.okafor/Desktop/Customer-Pricing-2026.xlsx", sha256: null, actorProcess: "meetsyncd", actorPath: daemonBin, actorPid: 4290,
       actorParentName: "launchd", actorParentPid: 1, actorSha256: payloadHash, actorSigned: "adhoc", runAsUser: "root",
       mitre: "T1005", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx }, description: "meetsyncd opened a second file, this one under ~/Desktop.",
+      extra: { ...osxFile }, description: "meetsyncd opened a second file, this one under ~/Desktop.",
     }),
 
     // ── THE DETECTION, Falcon ties the chain into one macOS TCC-manipulation case ──

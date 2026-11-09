@@ -113,6 +113,7 @@ export function isoContainerSmugglingScenarioEvents() {
       path: "C:\\Users\\n.katz\\Downloads\\Invoice_84421.iso", sha256: isoHash, action: "file_access",
       actorProcess: "explorer.exe", actorPid: 3184, actorPath: "C:\\Windows\\explorer.exe", actorIntegrity: "medium",
       mitre: "T1204.002", tactic: "Execution", severity: "medium", incidentId: INCIDENT,
+      extra: { "crowdstrike.event_platform": "Win" },
       description: "At 10:09:20 explorer.exe opened Invoice_84421.iso. Windows' container-mount handler presented it as drive D:\\, exposing Invoice_84421.lnk and update.dat, both now carrying the propagated Mark-of-the-Web.",
     }),
     // 3b. The mounted volume appears and the Mark-of-the-Web is copied onto its files (the propagation the first question rests on).
@@ -123,6 +124,7 @@ export function isoContainerSmugglingScenarioEvents() {
     csFile({
       ...ctxN, id: "evt_ics_03d_lnk_open", ts: T(4 * MIN + 33_000), path: "D:\\Invoice_84421.lnk", sha256: makeSha256("invoice_84421_lnk_shortcut_2026"), action: "file_access",
       actorProcess: "explorer.exe", actorPid: 3184, actorPath: "C:\\Windows\\explorer.exe", severity: "medium",
+      extra: { "crowdstrike.event_platform": "Win" },
       description: "explorer.exe opened D:\\Invoice_84421.lnk at 10:09:33.",
     }),
     // 4. THE EVENT THAT MATTERS, the .lnk targets a signed LOLBin (rundll32) to load the
@@ -140,6 +142,7 @@ export function isoContainerSmugglingScenarioEvents() {
     csFile({
       ...ctxN, id: "evt_ics_04b_dat_open", ts: T(4 * MIN + 34_500), path: "D:\\update.dat", sha256: makeSha256("update_dat_bundled_loader_2026"), action: "file_access",
       actorProcess: "rundll32.exe", actorPid: 6620, actorPath: "C:\\Windows\\System32\\rundll32.exe", actorParentName: "explorer.exe", actorParentPid: 3184, severity: "medium",
+      extra: { "crowdstrike.event_platform": "Win" },
       description: "rundll32.exe opened D:\\update.dat at 10:09:34.5.",
     }),
     // 5. THE CRUX, the loaded update.dat spawns a hidden, encoded PowerShell (alert-grade).

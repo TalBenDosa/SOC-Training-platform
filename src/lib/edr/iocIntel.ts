@@ -189,6 +189,13 @@ function rawStr(raw: Record<string, unknown> | undefined, ...keys: string[]): st
  */
 /** ECS signing state as the one word the heuristics below match on (adhoc = signed, no trusted publisher). */
 const SIGN_WORD: Record<SignState, string> = { trusted: "trusted", untrusted: "adhoc", revoked: "revoked", unsigned: "unsigned" };
+/** One key of MDE's AdditionalFields JSON string (DeviceEvents AntivirusDetection names the threat there). */
+function mdeAdditionalField(raw: Record<string, unknown> | undefined, key: string): string {
+  const s = raw?.["AdditionalFields"];
+  if (typeof s !== "string" || !s.startsWith("{")) return "";
+  try { const v = (JSON.parse(s) as Record<string, unknown>)[key]; return v === undefined || v === null ? "" : String(v); } catch { return ""; }
+}
+
 function signWord(raw: Record<string, unknown> | undefined, ...prefixes: string[]): string {
   for (const p of prefixes) { const st = signState(raw, p); if (st) return SIGN_WORD[st]; }
   return rawStr(raw, "mde.SignatureStatus").toLowerCase();
@@ -302,7 +309,7 @@ export function eventHeuristic(
     // its image stays clean; the parent's and the host's other hashes are not the payload).
     if (!ownPayloadHashOf(e, value)) return { v: "clean" };
     const family = rawStr(raw, "malware.family", "threat.family");
-    const name = rawStr(raw, "malware.name", "threat.name", "ThreatName");
+    const name = (rawStr(raw, "malware.name", "threat.name", "ThreatName") || mdeAdditionalField(raw, "ThreatName"));
     const mtype = rawStr(raw, "malware.type");
     const av = rawStr(raw, "av.verdict");
     // The vendor's own verdict on a file/attachment (Defender for Office 365
@@ -595,7 +602,7 @@ export function hashIntel(
     (opts.event?.file?.path ? opts.event.file.path.split(/[\\/]/).pop() : "") || "";
   const tool = TOOL_PROFILES[(ofn || fileName).toLowerCase()];
   const family = db?.malicious ? db.family : rawStr(raw, "malware.family", "threat.family") || tool?.family || "";
-  const name = db?.malicious ? db.name : rawStr(raw, "malware.name", "threat.name", "ThreatName");
+  const name = db?.malicious ? db.name : (rawStr(raw, "malware.name", "threat.name", "ThreatName") || mdeAdditionalField(raw, "ThreatName"));
   const isBad = a.verdict === "malicious" || a.verdict === "suspicious";
 
   const famKey = Object.keys(FAMILY_DETECTIONS).find(f => family.toLowerCase().includes(f.toLowerCase()));

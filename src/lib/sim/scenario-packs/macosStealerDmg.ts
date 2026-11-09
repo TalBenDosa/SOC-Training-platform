@@ -96,6 +96,8 @@ export function buildMacosStealerDmgScenario(
   // Every Falcon macOS record is event_platform "Mac" (the emitter infers it from the path, and a
   // /Volumes path is not one it recognises).
   const osx = { "host.os.name": host.os, "host.os.version": host.osVersion, "crowdstrike.event_platform": "Mac" };
+  // A Falcon file-open record carries event_platform; the OS name and version live in the host inventory, not on the event.
+  const osxFile = { "crowdstrike.event_platform": "Mac" };
   const SAF = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15";
   const VOL = "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro";
   const OSA = "osascript -e display dialog \"PixelForge Pro needs your password to finish installation.\" default answer \"\" with hidden answer with icon caution buttons {\"OK\"} default button \"OK\"";
@@ -195,7 +197,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Keychains/login.keychain-db", sha256: null,
       actorProcess: "security", actorPath: "/usr/bin/security", actorPid: 4131, actorParentName: "PixelForge Pro", actorParentPid: 4102, runAsUser: user.sam,
       mitre: "T1555.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "crowdstrike.CommandLine": "/usr/bin/security find-generic-password -wa Chrome" },
+      extra: { ...osxFile, "crowdstrike.CommandLine": "/usr/bin/security find-generic-password -wa Chrome" },
       description: "The payload invoked /usr/bin/security to read ~/Library/Keychains/login.keychain-db and extract the Chrome Safe Storage key.",
     }),
 
@@ -205,7 +207,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/Cookies", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1539", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx },
+      extra: { ...osxFile },
       description: "The payload read the Chrome Cookies database under ~/Library/Application Support/Google/Chrome/Default.",
     }),
     csFile({
@@ -213,7 +215,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/Login Data", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1555.003", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx },
+      extra: { ...osxFile },
       description: "The payload read the Chrome Login Data database (saved passwords).",
     }),
     csFile({
@@ -221,7 +223,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1539", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx },
+      extra: { ...osxFile },
       description: "The payload read the Safari cookie store from the Safari container.",
     }),
 
@@ -231,7 +233,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Application Support/Exodus/exodus.wallet", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx },
+      extra: { ...osxFile },
       description: "The payload read ~/Library/Application Support/Exodus/exodus.wallet.",
     }),
     csFile({
@@ -239,7 +241,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/.electrum/wallets/default_wallet", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx },
+      extra: { ...osxFile },
       description: "The payload read ~/.electrum/wallets/default_wallet.",
     }),
 

@@ -30,6 +30,7 @@ import {
   b64ish, clientIp, digits, domainOf, emailFacts, entitySeed, int64Str, isEmail, isGuid, isoMs, isPrivateIp, rs, userEmail, type Raw,
 } from "./collab-email-shared";
 import { resolveOperation } from "./m365";
+import { auditModifiedProp } from "./_identity-common";
 import { egressIp } from "./firewall-shared";
 
 // ── Schema ───────────────────────────────────────────────────────────────────
@@ -328,11 +329,12 @@ function fromMicrosoft(ev: TelemetryEvent, ctx: NativeCtx): Built | null {
   // OAuth consent (per-user only)
   if (opName === "Consent to application." || opName === "Consent to application") {
     const ext = (n: string) => { for (let i = 0; i < 10; i++) if (rs(raw, `ExtendedProperties[${i}].Name`) === n) return rs(raw, `ExtendedProperties[${i}].Value`); return undefined; };
-    if (/^true$/i.test(rs(raw, "oauth.consent.is_admin_consent") ?? "") || ext("ConsentType") === "AllPrincipals") return null; // tenant-wide: no 1:1 token event
+    if (/^true$/i.test(rs(raw, "oauth.consent.is_admin_consent") ?? auditModifiedProp(ev, "ConsentContext.IsAdminConsent") ?? "") || ext("ConsentType") === "AllPrincipals"
+      || /^true$/i.test(auditModifiedProp(ev, "ConsentContext.OnBehalfOfAll") ?? "")) return null; // tenant-wide: no 1:1 token event
     if (/^(failure|failed)$/i.test(rs(raw, "ResultStatus") ?? "")) return null;
-    const appName = rs(raw, "application.name", "oauth.app.name") ?? ext("AppDisplayName");
+    const appName = rs(raw, "application.name", "oauth.app.name", "azure.auditlogs.properties.targetResources[0].displayName") ?? ext("AppDisplayName");
     if (!appName || !user) return null;
-    const ms = (rs(raw, "oauth.consent.scopes_granted", "iam.permission") ?? ext("Permissions") ?? "").split(/[|,\s]+/).filter(Boolean);
+    const ms = (rs(raw, "oauth.consent.scopes_granted", "iam.permission") ?? /Scope:\s*([^,\]]+)/.exec(auditModifiedProp(ev, "ConsentAction.Permissions") ?? "")?.[1] ?? ext("Permissions") ?? "").split(/[|,\s]+/).filter(Boolean);
     const scopes: string[] = [];
     for (const s of ms) for (const [re, g] of SCOPE_MAP) if (re.test(s) && !scopes.includes(g)) scopes.push(g);
     if (!scopes.includes("openid")) scopes.push("openid");

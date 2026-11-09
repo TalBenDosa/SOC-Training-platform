@@ -77,8 +77,8 @@ const oauthConsentEvent: TelemetryEvent = {
     "data.office365.ModifiedProperties.NewValue": "Mail.Read, offline_access, User.Read, Contacts.Read",
     "data.office365.ModifiedProperties.OldValue": "[]",
     "GeoLocation.country_name": "Latvia",
-    "GeoLocation.location.lat": 56.9496,
-    "GeoLocation.location.lon": 24.1052,
+    "GeoLocation.latitude": 56.9496,
+    "GeoLocation.longitude": 24.1052,
     "action_result": "allowed",
   },
 };
@@ -112,8 +112,8 @@ const oauthConsentEvent2: TelemetryEvent = {
     "data.office365.ModifiedProperties.NewValue": "Files.Read.All, Mail.Read, offline_access, User.Read",
     "data.office365.ModifiedProperties.OldValue": "[]",
     "GeoLocation.country_name": "Romania",
-    "GeoLocation.location.lat": 44.4268,
-    "GeoLocation.location.lon": 26.1025,
+    "GeoLocation.latitude": 44.4268,
+    "GeoLocation.longitude": 26.1025,
     "action_result": "allowed",
   },
 };

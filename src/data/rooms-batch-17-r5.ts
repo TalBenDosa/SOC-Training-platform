@@ -46,8 +46,9 @@ const spoofedHeaderEvent: TelemetryEvent = {
 const dmarcPassPhishEvent: TelemetryEvent = {
   id: "evt-email-la2-001",
   ts: "2026-06-05T08:12:44.000Z",
-  source: "o365",
-  vendor: "Microsoft Defender for Office 365",
+  // The same Proofpoint gateway (mx1.solvix.example) that logged the other messages in this room.
+  source: "email_gateway",
+  vendor: "Proofpoint",
   event_type: "email_received",
   severity: "high",
   description:

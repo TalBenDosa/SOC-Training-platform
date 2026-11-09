@@ -15,10 +15,16 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
 import {
-  aadSessionId, asnOf, b62, entraObjectId, geoOf, identityFacts, isoFrac, isPrivateIp, nameFromLogin, rawAny, rawStr, rawWithPrefix, uaOf,
+  aadSessionId, asnOf, auditModifiedProp, b62, entraObjectId, geoOf, identityFacts, isoFrac, isPrivateIp, nameFromLogin, rawAny, rawStr, rawWithPrefix, uaOf,
   type IdFacts, type MfaMethod,
 } from "./_identity-common";
 import { egressIp } from "./firewall-shared";
+
+/** First reply URL of an AppAddress modified property ([{"AddressType":0,"Address":"https://..."...}]). */
+function appAddressOf(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  try { const a = JSON.parse(v) as Array<{ Address?: string }>; return Array.isArray(a) ? a.find(x => x?.Address)?.Address : undefined; } catch { return undefined; }
+}
 
 // ── schema ───────────────────────────────────────────────────────────────────
 
@@ -518,7 +524,7 @@ function auditFor(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | n
     }
     case "consent": {
       const app = f.appName ?? "Unknown application";
-      const appId = rawStr(ev, "application.id", "oauth.app.id", "data.office365.Target[0].ID") ?? ctx.uuid(`${ctx.companyId}:entra-app:${app}`);
+      const appId = rawStr(ev, "application.id", "oauth.app.id", "data.office365.Target[0].ID") ?? auditModifiedProp(ev, "TargetId.ServicePrincipalNames")?.split(";")[0] ?? ctx.uuid(`${ctx.companyId}:entra-app:${app}`);
       const sp = ctx.uuid(`${ctx.companyId}:entra-sp:${app}`);
       const allPrincipals = f.targetName === "AllPrincipals";
       const principal = actor ? userId(ctx, actor) : "";
@@ -535,7 +541,7 @@ function auditFor(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | n
       if (!actor) return null;
       const app = f.appName ?? "Unnamed application";
       const appId = rawStr(ev, "application.id", "oauth.app.id", "azure.auditlogs.target_resources.id") ?? ctx.uuid(`${ctx.companyId}:entra-app:${app}`);
-      const redirect = rawStr(ev, "oauth.app.redirect_uris");
+      const redirect = rawStr(ev, "oauth.app.redirect_uris") ?? appAddressOf(auditModifiedProp(ev, "AppAddress"));
       const mods = [mod("AppId", JSON.stringify([appId])), mod("DisplayName", JSON.stringify([app])), mod("AvailableToOtherTenants", JSON.stringify([true]))];
       if (redirect) mods.push(mod("AppAddress", JSON.stringify([{ AddressType: 0, Address: redirect, ReplyAddressClientType: 1, ReplyAddressIndex: null, IsReplyAddressDefault: false }])));
       return renderAudit(ev, ctx, f, { activity: "Add application", category: "ApplicationManagement", service: "Core Directory", operationType: "Add", initiator: me,

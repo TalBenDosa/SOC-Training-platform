@@ -18,6 +18,20 @@ import type { NativeCtx } from "../types";
 // ── raw-map access ───────────────────────────────────────────────────────────
 
 /** First non-empty legacy raw value among the given keys (arrays/objects returned as-is). */
+/**
+ * newValue of one targetResources[0].modifiedProperties entry of an Entra directory audit, by displayName
+ * (Microsoft Graph directoryAudit names; Graph JSON-encodes string values, so one pair of outer quotes is dropped).
+ */
+export function auditModifiedProp(ev: TelemetryEvent, name: string): string | undefined {
+  for (let i = 0; i < 12; i++) {
+    const p = `azure.auditlogs.properties.targetResources[0].modifiedProperties[${i}]`;
+    const n = rawStr(ev, `${p}.displayName`);
+    if (n === undefined) return undefined;
+    if (n === name) return rawStr(ev, `${p}.newValue`)?.replace(/^"([\s\S]*)"$/, "$1");
+  }
+  return undefined;
+}
+
 export function rawAny(ev: TelemetryEvent, ...keys: string[]): unknown {
   const r = ev.raw ?? {};
   for (const k of keys) {
@@ -458,9 +472,9 @@ export function identityFacts(ev: TelemetryEvent): IdFacts | null {
   if (lop === "microsoft.graph/users/read") return base("directory_read", true);
   if (lop === "add application") return base("app_register", ok, { nativeName: "Add application", appName: rawStr(ev, "application.name", "oauth.app.name", "azure.auditlogs.target_resources.display_name") ?? extProp(ev, "AppDisplayName") ?? /named ([\w .-]+?) (?:was|app)/.exec(desc)?.[1] });
   if (lop === "consent to application") {
-    const scopes = rawStr(ev, "oauth.consent.scopes_granted")?.replace(/\|/g, " ") ?? extProp(ev, "Permissions") ?? /consent to ([\w.]+(?:,? (?:and )?[\w.]+)*)/i.exec(desc)?.[1]?.replace(/,? and |, /g, " ");
-    return base("consent", ok, { nativeName: "Consent to application", appName: rawStr(ev, "application.name", "oauth.app.name") ?? extProp(ev, "AppDisplayName") ?? /app (?:named )?([A-Z][\w ]+?) (?:requested|consent|app)/.exec(desc)?.[1], scopes,
-      targetName: extProp(ev, "ConsentType") === "AllPrincipals" || truthy(rawAny(ev, "oauth.consent.tenant_wide")) ? "AllPrincipals" : "Principal" });
+    const scopes = rawStr(ev, "oauth.consent.scopes_granted")?.replace(/\|/g, " ") ?? /Scope:\s*([^,\]]+)/.exec(auditModifiedProp(ev, "ConsentAction.Permissions") ?? "")?.[1]?.trim() ?? extProp(ev, "Permissions") ?? /consent to ([\w.]+(?:,? (?:and )?[\w.]+)*)/i.exec(desc)?.[1]?.replace(/,? and |, /g, " ");
+    return base("consent", ok, { nativeName: "Consent to application", appName: rawStr(ev, "application.name", "oauth.app.name", "azure.auditlogs.properties.targetResources[0].displayName") ?? extProp(ev, "AppDisplayName") ?? /app (?:named )?([A-Z][\w ]+?) (?:requested|consent|app)/.exec(desc)?.[1], scopes,
+      targetName: extProp(ev, "ConsentType") === "AllPrincipals" || truthy(rawAny(ev, "oauth.consent.tenant_wide")) || /^true$/i.test(auditModifiedProp(ev, "ConsentContext.OnBehalfOfAll") ?? "") ? "AllPrincipals" : "Principal" });
   }
   if (lop.startsWith("update conditional access policy")) return base("ca_policy_update", ok, { nativeName: "Update conditional access policy", targetName: rawStr(ev, "data.office365.Target[0].ID") });
   if (lop.startsWith("reset") && lop.includes("password")) return base("password_reset", ok, { nativeName: op === "Reset user password" ? "Reset user password" : op.includes("(by admin)") ? "Reset password (by admin)" : "Reset password",
