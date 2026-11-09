@@ -48,12 +48,14 @@ const lsassAccessEvent: TelemetryEvent = {
     },
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessAccess",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.DetectId": "ldt:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:88213",
     "crowdstrike.AggregateId": "aggind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:2670376644",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.Tactic": "Credential Access",
     "crowdstrike.Technique": "OS Credential Dumping",
+    "threat.technique.id": "T1003",
+    "threat.technique.subtechnique.id": "T1003.001",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
     "crowdstrike.ContextBaseFileName": "UpdateHelper.exe",
     "crowdstrike.ParentBaseFileName": "explorer.exe",
@@ -66,8 +68,6 @@ const lsassAccessEvent: TelemetryEvent = {
     "crowdstrike.CallStackModuleNames": "dbghelp.dll,KERNELBASE.dll,ntdll.dll",
     "crowdstrike.UserName": "NEXACORP\\r.callahan",
     "crowdstrike.ComputerName": "WKS-FIN-0231",
-    "event.action": "process-access",
-    "event.outcome": "success",
   },
 };
 
@@ -100,12 +100,14 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
     },
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessRollup2",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.DetectId": "ldt:8006beb3bcd2593362266fe370c2b36f:55102",
     "crowdstrike.AggregateId": "aggind:8006beb3bcd2593362266fe370c2b36f:2147925683",
     "crowdstrike.SeverityName": "High",
     "crowdstrike.Tactic": "Stealth",
     "crowdstrike.Technique": "System Binary Proxy Execution",
+    "threat.technique.id": "T1218",
+    "threat.technique.subtechnique.id": "T1218.010",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
     "crowdstrike.ContextBaseFileName": "regsvr32.exe",
     "crowdstrike.ParentBaseFileName": "cmd.exe",
@@ -115,8 +117,6 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
     "crowdstrike.SHA256HashData": "3c9f81a46b2d0e758f1a3c6d9e0b4f275a8d3c61e97f0b426c1a9d38f04e7b25",
     "crowdstrike.UserName": "NEXACORP\\svc-sccm",
     "crowdstrike.ComputerName": "SRV-DEPLOY-07",
-    "event.action": "process-create",
-    "event.outcome": "success",
   },
 };
 
@@ -358,7 +358,7 @@ const edrDetectionInvestigationRoom = {
           ],
           answer: 1,
           explanation:
-            "0x1FFFFF is PROCESS_ALL_ACCESS, full control of the target process, and lsass.exe holds credential material (NTLM hashes, Kerberos tickets), so that access is what a dumping tool needs. “PROCESS_VM_READ only…” understates the mask: read access is a small part of it, not the whole of 0x1FFFFF. “An access-denied code…” misreads the field, and the record’s event.outcome is success. “The rights lsass.exe requested…” reverses the direction: UpdateHelper.exe is the accessing process and lsass.exe (TargetProcessImageFileName) is the target.",
+            "0x1FFFFF is PROCESS_ALL_ACCESS, full control of the target process, and lsass.exe holds credential material (NTLM hashes, Kerberos tickets), so that access is what a dumping tool needs. “PROCESS_VM_READ only…” understates the mask: read access is a small part of it, not the whole of 0x1FFFFF. “An access-denied code…” misreads the field: DesiredAccess records the rights requested on the handle, not a result code, and PatternDispositionDescription (Detection, standard detection.) shows Falcon observed the access without blocking it. “The rights lsass.exe requested…” reverses the direction: UpdateHelper.exe is the accessing process and lsass.exe (TargetProcessImageFileName) is the target.",
           xp: 35,
         },
         {
