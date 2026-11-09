@@ -309,7 +309,6 @@ const otIcsSecurityRoom = {
           "zeek.modbus.values": "1500,1",
           "zeek.modbus.request_response": "REQUEST",
           "zeek.modbus.tid": 8842,
-          "session.duration": 0.021
         }
       },
       "questions": [
@@ -364,11 +363,9 @@ const otIcsSecurityRoom = {
           "event.dataset": "corelight.modbus",
           "event.module": "corelight",
           "event.category": "network",
-          "event.action": "modbus-write",
           "event.outcome": "success",
           "source.ip": "172.20.5.9",
           "source.port": 52011,
-          "source.hostname": "eng-ws-02",
           "destination.ip": "172.20.5.41",
           "destination.port": 502,
           "destination.hostname": "plc-dose-04",
@@ -384,8 +381,6 @@ const otIcsSecurityRoom = {
           "zeek.modbus.values": "1200,0",
           "zeek.modbus.request_response": "REQUEST",
           "zeek.modbus.tid": 4471,
-          "session.duration": 0.017,
-          "message": "Modbus WRITE_MULTIPLE_REGISTERS from 172.20.5.9 to 172.20.5.41 unit 1, 2 registers @29."
         }
       },
       "correct_verdict": "benign_true_positive",
