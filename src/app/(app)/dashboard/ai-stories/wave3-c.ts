@@ -345,7 +345,15 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
       category: "malware", mitre: "T1071.001", tactic: "Command and Control", severity: "medium",
       description: `The perimeter firewall logged the outbound session from the ML server to ${cbDomain} (${cbIp}:443); the destination is a newly-seen external host.`,
     }),
-    // 8. auditd: the cron persistence entry is written.
+    // 8. EDR on Linux: the dropped helper written to a hidden directory.
+    csFile({
+      companyId: cx, id: "aimp09", ts: "2026-10-07T09:16:43.000Z", host, srcIp: hostIp, user,
+      path: helper, size: 1_048_576, action: "file_create",
+      actorProcess: "sh", actorPid: 20390, actorPath: "/bin/sh", actorParentName: "python3.11", actorParentPid: 20144,
+      runAsUser: bareUser, mitre: "T1564.001", tactic: "Stealth", severity: "high", sha256: helperSha,
+      description: `The endpoint sensor recorded the shell writing an executable file to ${helper}, a hidden directory under /tmp, the helper the cron job re-launches.`,
+    }),
+    // 9. auditd: the cron persistence entry is written.
     auditd({
       id: "aimp08", ts: "2026-10-07T09:16:55.000Z", eventType: "linux_cron", severity: "high",
       host, user, bareUser, uid, auid: uid, ses,
@@ -360,14 +368,6 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
         "event.action": "created", "event.outcome": "success",
       },
       description: `auditd PATH (objtype=CREATE): the shell used the crontab binary to create ${cronFile} at mode 0100600, a user cron job that re-launches the dropped helper after reboot.`,
-    }),
-    // 9. EDR on Linux: the dropped helper written to a hidden directory.
-    csFile({
-      companyId: cx, id: "aimp09", ts: "2026-10-07T09:16:43.000Z", host, srcIp: hostIp, user,
-      path: helper, size: 1_048_576, action: "file_create",
-      actorProcess: "sh", actorPid: 20390, actorPath: "/bin/sh", actorParentName: "python3.11", actorParentPid: 20144,
-      runAsUser: bareUser, mitre: "T1564.001", tactic: "Stealth", severity: "high", sha256: helperSha,
-      description: `The endpoint sensor recorded the shell writing an executable file to ${helper}, a hidden directory under /tmp, the helper the cron job re-launches.`,
     }),
     // 10. DETECTION: the EDR behavioural detection on the chain.
     csDetection({

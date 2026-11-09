@@ -97,4 +97,16 @@ describe("Live Feed realism (played shifts)", () => {
     }
     expect(off).toEqual([]);
   }, 300_000);
+
+  it("R3 iron rule: NexaCorp's office egress never appears in another company's feed", () => {
+    const off: string[] = [];
+    for (const s of shifts) {
+      if (s.company === "nexacorp") continue;
+      for (const r of s.rows) {
+        const text = JSON.stringify([r.event, nativeOf(r, s.company)?.log.record]);
+        if (text.includes("192.0.2.150")) off.push(`${tag(s)}: ${r.event.id}`);
+      }
+    }
+    expect(off).toEqual([]);
+  }, 300_000);
 });

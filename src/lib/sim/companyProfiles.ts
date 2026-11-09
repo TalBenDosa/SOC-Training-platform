@@ -3440,7 +3440,7 @@ export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
       "action_result":                            "allowed"
     }
   },
-];
+].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));   // R4: shown in the order it happened (the success at 11:31 sits inside the spray)
 
 // ── RocketStack Technologies (CrowdStrike + AWS + Okta + FortiGate) ───────────
 // Chain A: Compromised Okta (TOR) → S3 customer database exfil

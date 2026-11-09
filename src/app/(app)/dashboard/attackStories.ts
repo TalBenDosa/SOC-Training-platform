@@ -1668,6 +1668,10 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // The office network as cloud and SaaS logs see it, and where it is: the company's own, the same address its EDR prints.
   const office = s.officeEgress && assets?.office;
   if (office && office.ip !== s.officeEgress) pairs.push([s.officeEgress!, office.ip], ["United Kingdom", office.country], ["London", office.city]);
+  // R3 / iron rule: a story written at NexaCorp names NexaCorp's office egress even when it never says
+  // so (officeEgress unset): on another company's feed that address is the company's own egress.
+  const nxEgress = COMPANY_ASSETS.nexacorp?.office?.ip;
+  if (companyId && companyId !== "nexacorp" && assets?.office && nxEgress && !office) pairs.push([nxEgress, assets.office.ip]);
 
   // Story INTERNAL IPs → the company's own subnet (R-01). Only RFC1918 addresses are
   // remapped - a public C2/attacker IP is company-agnostic and must stay identical so
@@ -1676,6 +1680,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // on the same source IP still share one address in the console.
   const ipMap = new Map<string, string>();
   if (office && office.ip !== s.officeEgress) ipMap.set(s.officeEgress!, office.ip);
+  if (companyId && companyId !== "nexacorp" && assets?.office && nxEgress && !office) ipMap.set(nxEgress, assets.office.ip);
   if (assets) {
     const isPrivate = (ip: string) => /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip);
     // A company host's own address - the one its noise in the feed already shows (most
