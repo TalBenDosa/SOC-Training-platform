@@ -132,6 +132,14 @@ export const EXCHANGE_ONLINE_SECURITY: RoomExperience = {
   look: { primary: "#34d399", secondary: "#fbbf24", warn: "#f87171" },
   scene: "facilitymail",
   layout: "facility",
+  story: {
+    intro: { title: "Paid in Full", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-intro-6dbfb9fa.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-intro-854a542b.jpg" },
+    afterStation: {
+      mailbox: { title: "The Road In", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-ch2-90ef2e06.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-ch2-2c7270bb.jpg" },
+      seal: { title: "Clean Mail", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-ch3-812e4e89.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-ch3-8c6d21d0.jpg" },
+      wire: { title: "Reply All", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-finale-ec6eefd7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/exchange-online-security/replyall-finale-8a406346.jpg" },
+    },
+  },
   stations: [
     {
       id: "mailbox",
