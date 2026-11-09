@@ -173,7 +173,7 @@ export function buildMacosStealerDmgScenario(
     mdeProcess({
       companyId: cx, id: "msd_04_mde_osascript_corroboration", ts: T(3 * MIN + 9 * SEC), host: host.name, srcIp: host.ip, user: user.email,
       processName: "osascript", processPath: "/usr/bin/osascript",
-      cmdline: 'osascript -e display dialog "PixelForge Pro needs your password to finish installation." default answer "" with hidden answer',
+      cmdline: OSA, // the same process as Falcon recorded, the same full command line (R6)
       parentName: "PixelForge Pro", pid: 4118, parentPid: 4102, runAsUser: user.sam, accountName: user.sam, accountDomain: user.domain,
       mitre: "T1059.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
       extra: { "FolderPath": "/usr/bin", "Timestamp": T(3 * MIN + 9 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": VOL, "InitiatingProcessCommandLine": VOL, "InitiatingProcessId": "4102", "InitiatingProcessSHA256": stealerHash, "ReportId": "70418822", "threat.technique.id": "T1059", "threat.technique.subtechnique.id": "T1059.002", "threat.technique.name": "Command and Scripting Interpreter: AppleScript", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },

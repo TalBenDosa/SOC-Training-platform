@@ -178,6 +178,8 @@ export function buildEmailBombHelpdeskScenario(
         "servicenow.assignment_group": "IT Service Desk",
         "servicenow.contact_type": "Self-service",
         "servicenow.category": "Software",
+        "servicenow.u_identity_verification": "Caller signed in to the self-service portal with SSO and MFA",
+        "servicenow.u_verification_result": "Passed",
         "servicenow.priority": "4 - Low",
         "servicenow.description": "User cannot install the expense reporting plug-in on her workstation and asks for a remote session.",
         "servicenow.work_notes": `Quick Assist session started by ${benignTech} on ${benign.hostname} at 15:20; the code was read out by the user over the phone. Plug-in installed, user confirmed it works.`,

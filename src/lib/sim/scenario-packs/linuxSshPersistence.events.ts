@@ -255,6 +255,46 @@ export function linuxSshPersistenceScenarioEvents() {
       src: attacker.guessB, srcport: "39562", action: "close", srccountry: "Netherlands", sent: 3_980, rcvd: 3_208, duration: 3,
       description: "Firewall closed a 3-second inbound session from 203.0.113.101:39562 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
     }),
+    // ── 3b. The guessing run against svc-backup, sampled (R7): the same PAM failure from the two
+    //        guessing addresses, roughly every 35 seconds until shortly before the login that worked.
+    ...[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n): TelemetryEvent => {
+      const ip = n % 3 === 1 ? attacker.guessA : attacker.guessB;
+      const port = String(39610 + n * 53);
+      return {
+        id: `lsp_03c_failed_svcbackup_${String(n + 1).padStart(2, "0")}`,
+        ts: T(52 * MIN + 30 * SEC + n * 35 * SEC),
+        source: "linux_audit",
+        vendor: "Linux auditd",
+        event_type: "ssh_failed",
+        hostname: host.name,
+        src_ip: ip,
+        dst_ip: host.privateIp,
+        dst_port: host.sshPort,
+        protocol: "tcp",
+        severity: "medium",
+        mitre_technique: "T1110.001",
+        mitre_tactic: "Credential Access",
+        description: `auditd on nix-bkp-01 recorded another failed sshd PAM authentication for svc-backup from ${ip}, source port ${port}.`,
+        authentication: { method: "password", result: "failure" },
+        raw: {
+          "data.program_name": "sshd",
+          "data.srcip": ip,
+          "data.srcport": port,
+          "data.dstport": "2202",
+          "data.audit.type": "USER_AUTH",
+          "data.audit.acct": "svc-backup",
+          "data.audit.addr": ip,
+          "data.audit.uid": "0",
+          "data.audit.auid": "4294967295",
+          "data.audit.ses": "4294967295",
+          "data.audit.exe": "/usr/sbin/sshd",
+          "data.audit.terminal": "ssh",
+          "data.audit.op": "PAM:authentication",
+          "data.audit.grantors": "?",
+          "data.audit.res": "failed",
+        },
+      };
+    }),
     fgRow("lsp_03b_fw_inbound_ssh", T(58 * MIN - 2 * SEC), {
       src: attacker.success, srcport: "41772", action: "accept", srccountry: "Russian Federation",
       description: "Firewall accepted an inbound session from 203.0.113.119:41772 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",

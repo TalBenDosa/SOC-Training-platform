@@ -126,6 +126,8 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
         "servicenow.category": "Software",
         "servicenow.contact_type": "Self-service",
         "servicenow.priority": "4 - Low",
+        "servicenow.u_identity_verification": "Caller signed in to the self-service portal with SSO and MFA",
+        "servicenow.u_verification_result": "Passed",
         "servicenow.state": "In Progress",
         "servicenow.caller_id": benign.email,
         "servicenow.opened_by": benign.email,

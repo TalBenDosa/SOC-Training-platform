@@ -313,7 +313,7 @@ export function esxiRansomwareScenarioEvents() {
         "vsphere.event.createdTime": "2026-06-13T21:54:00.412Z",
         "vsphere.event.eventTypeId": "BadUsernameSessionEvent",
         "vsphere.event.severity": "error",
-        "vsphere.event.userName": "",
+        "vsphere.event.userName": "vcadmin",
         "vsphere.event.ipAddress": tunnelIp,
         "vsphere.event.userAgent": "VMware vim-java 1.0",
         "vsphere.event.fullFormattedMessage":
@@ -326,6 +326,44 @@ export function esxiRansomwareScenarioEvents() {
           "2026-06-13T21:54:00.412Z info vpxd[10442] [Originator@6876 sub=[SSO][SsoAdminServiceImpl]] Cannot login vcadmin@10.99.8.44",
       },
     },
+
+    // ── 3b. The spray itself, sampled (R7): one BadUsernameSessionEvent per principal tried,
+    //        same source and client, across the nine minutes before the row above.
+    ...["administrator", "admin", "root", "svc-veeam", "svc-backup", "vsphere-admin", "esxadmin", "vcsa-admin", "backup", "nexadmin"]
+      .map((name, n): TelemetryEvent => {
+        const ts = T(6 * MIN + 30_000 + n * 40_000 + (n % 2) * 5_000);
+        const created = ts.replace(/\.\d{3}Z$/, `.${String(130 + n * 71).padStart(3, "0")}Z`);
+        const key = String(4418102 + n * 83);
+        return {
+          id: `evt_03a_sso_spray_${String(n + 1).padStart(2, "0")}`,
+          ts,
+          source: "virtualization",
+          vendor: "VMware vCenter Server",
+          event_type: "auth_failure",
+          hostname: vcenter.host,
+          src_ip: tunnelIp,
+          severity: "high",
+          mitre_technique: "T1110.003",
+          mitre_tactic: "Credential Access",
+          description: `vCenter SSO rejected a login for ${name} from ${tunnelIp}, one more BadUsernameSessionEvent of the spray.`,
+          raw: {
+            "vsphere.event.key": key,
+            "vsphere.event.chainId": key,
+            "vsphere.event.createdTime": created,
+            "vsphere.event.eventTypeId": "BadUsernameSessionEvent",
+            "vsphere.event.severity": "error",
+            "vsphere.event.userName": name, // SessionEvent.userName: the name that was tried
+            "vsphere.event.ipAddress": tunnelIp,
+            "vsphere.event.userAgent": "VMware vim-java 1.0",
+            "vsphere.event.fullFormattedMessage": `Cannot login ${name}@${tunnelIp}`,
+            "log.file.path": "/var/log/vmware/vpxd/vpxd.log",
+            "syslog.hostname": vcenter.host,
+            "syslog.program": "vpxd",
+            "syslog.pid": "10442",
+            "event.original": `${created} info vpxd[10442] [Originator@6876 sub=[SSO][SsoAdminServiceImpl]] Cannot login ${name}@${tunnelIp}`,
+          },
+        };
+      }),
 
     // ── 4. Valid accounts, built-in SSO administrator succeeds ───────────────
     {
