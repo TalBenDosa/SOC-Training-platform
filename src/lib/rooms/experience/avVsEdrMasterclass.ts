@@ -27,6 +27,14 @@ export const AV_VS_EDR_MASTERCLASS: RoomExperience = {
   look: { primary: "#2dd4bf", secondary: "#f472b6", warn: "#facc15" },
   scene: "secondopinion",
   layout: "stage",
+  story: {
+    intro: { title: "Six Years of Green", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-intro-306a0fe9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-intro-0b8e5980.jpg" },
+    afterStation: {
+      oldguard: { title: "One Byte", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-ch2-e206e30a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-ch2-f53c8090.jpg" },
+      blind: { title: "Nothing to Scan", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-ch3-6f79f13f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-ch3-6726d2dc.jpg" },
+      opinion: { title: "The Board Meeting", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-finale-1f69050b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-finale-75d51846.jpg" },
+    },
+  },
   stations: [
     {
       id: "oldguard",
