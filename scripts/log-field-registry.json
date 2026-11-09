@@ -8308,6 +8308,7 @@
         "Office 365 ATP"
       ],
       "exactFields": [
+        "AuthenticationDetails",
         "Action",
         "ActionResult",
         "ActionTrigger",
