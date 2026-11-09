@@ -3,6 +3,7 @@ import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
 import { makeCtx } from "@/lib/logs/native/ctx";
 import { accountSid } from "@/lib/logs/native/sources/_sid";
 import { edrFacts, threadOf, withThread } from "@/lib/logs/native/sources/edr-normalize";
+import { entraObjectId } from "@/lib/logs/native/sources/_identity-common";
 
 /**
  * One host, one IP - and never one IP for two hosts - across a feed pool.
@@ -123,6 +124,15 @@ export function normalizeAccountSids(events: TelemetryEvent[], companyId: string
       }
       if (typeof name !== "string" || !name || name === "-" || name.endsWith("$")) continue;
       const want = accountSid(ctx, name);
+      if (want !== v) (out ??= { ...raw })[k] = want;
+    }
+    // One object id per UPN: an authored AccountObjectId beside its AccountUpn is the Entra object id every
+    // Microsoft record derives for that user (entraObjectId), so a re-homed story does not keep the author's.
+    for (const [k, v] of Object.entries(out ?? raw)) {
+      if (typeof v !== "string" || !/(^|\.)AccountObjectId$/.test(k)) continue;
+      const upn = (out ?? raw)[k.replace(/AccountObjectId$/, "AccountUpn")];
+      if (typeof upn !== "string" || !upn.includes("@")) continue;
+      const want = entraObjectId(ctx, upn);
       if (want !== v) (out ??= { ...raw })[k] = want;
     }
     // Nested account entities ({ Name, Sid } in a Sentinel / MDI alert's Entities, also JSON-encoded).
