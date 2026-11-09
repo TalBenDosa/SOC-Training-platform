@@ -22,6 +22,7 @@ import type { EdrInvestigation, EdrProcess } from "@/lib/edr/investigations";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { hostProcesses, hostAutostarts } from "@/lib/edr/rtr";
 import { hostKey } from "@/lib/team/format";
+import { describeEvent as describeRow } from "@/lib/sim/describeEvent";
 
 export type EvidenceKind = "memory" | "triage";
 export const COLLECT_DELAY_S: Record<EvidenceKind, number> = { memory: 45, triage: 60 };
@@ -51,6 +52,25 @@ const offset = (seed: string) => `0x${hex(0xb20c, 4)}${hex(hash(seed) >>> 0, 8)}
 const isInternal = (ip: string) => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|0\.0\.0\.0)/.test(ip);
 // One clock for every view: the viewer's local time, like the rest of the room.
 const hhmmss = (ms: number) => new Date(ms).toLocaleTimeString("en-GB", { hour12: false });
+// Each tool prints an instant in its own real format (R1), all of them the same instant the feed shows (R4):
+/** Volatility 3 renders a datetime in UTC with microseconds: "2026-11-09 10:04:56.000000 UTC". */
+const volTime = (ms: number) => `${new Date(ms).toISOString().replace("T", " ").slice(0, 19)}.000000 UTC`;
+/** Velociraptor's JSON / table timestamps are RFC 3339 UTC: "2026-11-09T10:04:56Z". */
+const vqlTime = (ms: number) => `${new Date(ms).toISOString().slice(0, 19)}Z`;
+/** Hayabusa's csv-timeline (default, no --UTC) prints local time with its offset: "2026-11-09 12:04:56.000 +02:00". */
+function hayabusaTime(ms: number): string {
+  const d = new Date(ms);
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  const off = -d.getTimezoneOffset();
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)} ${off < 0 ? "-" : "+"}${p(Math.floor(Math.abs(off) / 60))}:${p(Math.abs(off) % 60)}`;
+}
+/** An EDR time as an instant: its epoch when the case has one, else HH:MM:SS read on the same (local) clock on the snapshot's day. */
+function clockToMs(clock: string | undefined, ms: number | undefined, snapshotMs: number): number | null {
+  if (ms !== undefined && Number.isFinite(ms)) return ms;
+  const m = clock?.match(/^(\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const d = new Date(snapshotMs); d.setHours(+m[1], +m[2], +m[3], 0); return d.getTime();
+}
 const isServer = (host: string) => /(^|[-_])(srv|dc\d*|fs\d*|sql|db|exch|app)([-_\d]|$)/i.test(host);
 const SYSTEM_NAMES = new Set(["system", "smss.exe", "csrss.exe", "wininit.exe", "services.exe", "lsass.exe", "winlogon.exe", "svchost.exe", "registry", "fontdrvhost.exe", "dwm.exe"]);
 
@@ -85,13 +105,10 @@ function memoryTables(inv: EdrInvestigation, id: string, snapshotMs: number, sta
   const killedPids = new Set(killedBefore.map(k => k.pid).filter((x): x is number => typeof x === "number"));
   const procs = hostProcesses(inv, killedPids);
   const isolated = state.isolatedAtMs != null && state.isolatedAtMs <= snapshotMs;
-  // Process start times come from the (UTC) telemetry as HH:MM:SS on the snapshot's day.
-  const procTime = (p: EdrProcess): number | null => {
-    if (!p.startedAt || p.startedAt === "—") return null;
-    const d = new Date(snapshotMs); const [h, m, s] = p.startedAt.split(":").map(Number);
-    d.setUTCHours(h, m, s, 0); return d.getTime();
-  };
-  const created = (p: EdrProcess) => { const t = procTime(p); return t == null ? "N/A" : hhmmss(t); };
+  // Process start times: the instant of the process's first feed row (R4: the same instant the feed
+  // and the EDR console show), else its HH:MM:SS read on the feed's clock on the snapshot's day.
+  const procTime = (p: EdrProcess): number | null => clockToMs(p.startedAt, p.startedMs, snapshotMs);
+  const created = (p: EdrProcess) => { const t = procTime(p); return t == null ? "N/A" : volTime(t); };
   const ref = (plugin: string, i: number) => `${id}/${plugin}#${i}`;
   const killNote = killedBefore.length ? [`${killedBefore.length} process${killedBefore.length > 1 ? "es were" : " was"} terminated through RTR before this capture (${killedBefore.map(k => k.name ?? `PID ${k.pid}`).join(", ")}): ${killedBefore.length > 1 ? "they are" : "it is"} no longer in memory.`] : [];
 
@@ -123,12 +140,12 @@ function memoryTables(inv: EdrInvestigation, id: string, snapshotMs: number, sta
     refs: procs.map((_, i) => ref("cmdline", i)), times: procs.map(procTime), keys: procs.map(p => `pid:${p.pid}`), notes: [],
   };
 
-  // A connection time is either a full timestamp or HH:MM:SS (UTC) on the snapshot's day.
-  const connTime = (ts?: string): number | null => {
-    if (!ts) return null;
-    const full = Date.parse(ts); if (!Number.isNaN(full)) return full;
-    const m = ts.match(/^(\d{2}):(\d{2}):(\d{2})/); if (!m) return null;
-    const d = new Date(snapshotMs); d.setUTCHours(+m[1], +m[2], +m[3], 0); return d.getTime();
+  // A connection time: its instant, else a full timestamp, else HH:MM:SS on the feed's clock on the snapshot's day.
+  const connTime = (ts?: string, atMs?: number): number | null => {
+    if (!ts && atMs === undefined) return null;
+    const full = ts ? Date.parse(ts) : NaN;
+    if (atMs === undefined && !Number.isNaN(full)) return full;
+    return clockToMs(ts, atMs, snapshotMs);
   };
   const conns: (string | number)[][] = []; const cRefs: string[] = []; const cTimes: (number | null)[] = []; const cKeys: string[] = [];
   const localIp = inv.host.ip || "10.0.0.10";
@@ -137,8 +154,9 @@ function memoryTables(inv: EdrInvestigation, id: string, snapshotMs: number, sta
     const tcp = (n.proto ?? "tcp").toLowerCase() !== "udp";
     const external = !isInternal(n.remote_ip);
     const st = !tcp ? "" : isolated && external ? "CLOSED" : n.direction === "inbound" ? "ESTABLISHED" : "ESTABLISHED";
-    conns.push([offset(`${id}:n${i}`), tcp ? "TCPv4" : "UDPv4", localIp, 49152 + (hash(`${p.pid}:${n.remote_ip}:${n.remote_port}`) % 16000), n.remote_ip, n.remote_port, st, p.pid, p.name, connTime(n.ts) != null ? hhmmss(connTime(n.ts)!) : "N/A"]);
-    cRefs.push(ref("netscan", i)); cTimes.push(connTime(n.ts)); cKeys.push(`ip:${n.remote_ip}|pid:${p.pid}`); i++;
+    const at = connTime(n.ts, n.atMs);
+    conns.push([offset(`${id}:n${i}`), tcp ? "TCPv4" : "UDPv4", localIp, 49152 + (hash(`${p.pid}:${n.remote_ip}:${n.remote_port}`) % 16000), n.remote_ip, n.remote_port, st, p.pid, p.name, at != null ? volTime(at) : "N/A"]);
+    cRefs.push(ref("netscan", i)); cTimes.push(at); cKeys.push(`ip:${n.remote_ip}|pid:${p.pid}`); i++;
   }
   const sys = procs.find(p => p.name.toLowerCase() === "system");
   const rpc = procs.find(p => /-k RPCSS/i.test(p.cmdline));
@@ -176,6 +194,30 @@ function channelOf(e: TelemetryEvent, id: string): string {
   return "Security";
 }
 
+/** Hayabusa's level words (info, low, med, high, crit). */
+function hayabusaLevel(sev?: string): string {
+  return ({ critical: "crit", high: "high", medium: "med", low: "low" } as Record<string, string>)[String(sev ?? "").toLowerCase()] ?? "info";
+}
+/**
+ * Hayabusa's Details column: the record's own fields ("Cmdline: … ¦ Proc: … ¦ PID: … ¦ User: …"), never
+ * the story's narrative description, which can state the conclusion (R9).
+ */
+function hayabusaDetails(e: TelemetryEvent): string {
+  const p = e.process;
+  const parts: string[] = [];
+  if (p?.cmdline) parts.push(`Cmdline: ${p.cmdline}`);
+  if (p?.path || p?.name) parts.push(`Proc: ${p.path ?? p.name}`);
+  if (p?.pid != null) parts.push(`PID: ${p.pid}`);
+  if (p?.user || e.user_email) parts.push(`User: ${p?.user ?? e.user_email}`);
+  if (p?.parent_name) parts.push(`ParentProc: ${p.parent_name}`);
+  if (e.file?.path) parts.push(`Path: ${e.file.path}`);
+  if (e.dns?.query) parts.push(`Query: ${e.dns.query}`);
+  if (e.dst_ip) parts.push(`DstIP: ${e.dst_ip}${e.dst_port ? ` ¦ DstPort: ${e.dst_port}` : ""}`);
+  if (e.registry?.path) parts.push(`TgtObj: ${e.registry.path}${e.registry.key ? `\\${e.registry.key}` : ""}`);
+  if (parts.length) return parts.join(" ¦ ");
+  return describeRow(e, { fieldsOnly: true, preferFields: true }) || String(e.event_type ?? "event").replace(/_/g, " ");
+}
+
 function triageTables(inv: EdrInvestigation | null, hostRows: FeedRow[], host: string, id: string, snapshotMs: number): ToolTable[] {
   const ref = (plugin: string, i: number) => `${id}/${plugin}#${i}`;
   const out: ToolTable[] = [];
@@ -200,7 +242,8 @@ function triageTables(inv: EdrInvestigation | null, hostRows: FeedRow[], host: s
         if (SYSTEM_NAMES.has(p.name.toLowerCase())) continue;
         const cur = seen.get(name) ?? { n: 0, last: "N/A", t: null };
         cur.n++;
-        if (p.startedAt && p.startedAt !== "—") { const d = new Date(snapshotMs); const [h, m, x] = p.startedAt.split(":").map(Number); d.setUTCHours(h, m, x, 0); cur.last = hhmmss(d.getTime()); }
+        const t = clockToMs(p.startedAt, p.startedMs, snapshotMs);
+        if (t != null) cur.last = vqlTime(t);
         seen.set(name, cur);
       }
       const rows = [...seen.entries()].map(([name, v]) => [name, `${name}-${hex(hash(name), 8).toUpperCase()}.pf`, v.n, v.last]);
@@ -209,7 +252,7 @@ function triageTables(inv: EdrInvestigation | null, hostRows: FeedRow[], host: s
   }
   // Event logs = what the host's EVTX holds: Windows logs and Sysmon. EDR telemetry lives in the EDR console, not here.
   const logRows = hostRows.filter(r => ["windows", "sysmon"].includes(String(r.ev.source))).sort((a, b) => a.atMs - b.atMs);
-  const rows = logRows.map(r => { const eid = eventIdOf(r.ev); return [hhmmss(r.atMs), host, channelOf(r.ev, eid), eid, String(r.ev.severity ?? "info"), String(r.ev.description ?? r.ev.event_type ?? "event").slice(0, 160)]; });
+  const rows = logRows.map(r => { const eid = eventIdOf(r.ev); return [hayabusaTime(r.atMs), host, channelOf(r.ev, eid), eid, hayabusaLevel(r.ev.severity), hayabusaDetails(r.ev).slice(0, 160)]; });
   out.push({ plugin: "evtx", label: "Event logs", command: `hayabusa csv-timeline -d ./${id}/evtx -o ${id}-timeline.csv`, columns: ["Timestamp", "Computer", "Channel", "EventID", "Level", "Details"],
     rows, refs: rows.map((_, i) => ref("evtx", i)), times: logRows.map(r => r.atMs), keys: logRows.map(r => `ev:${r.ev.id ?? ""}`),
     notes: logRows.length ? [] : ["No Windows event logs from this host in the collection window."] });

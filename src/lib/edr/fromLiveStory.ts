@@ -24,12 +24,26 @@ import { ecsTechniqueId, signState } from "@/lib/logs/ecsFields";
 import { accessMask } from "@/lib/logs/native/sources/edr-normalize";
 import type { EdrInvestigation, EdrProcess, EdrDetection, EdrFileOp, EdrTimelineEvent, Verdict } from "./investigations";
 
-const USER_WRITABLE = /\\(AppData|Temp|Users\\[^\\]+\\Downloads|ProgramData)\\|\/tmp\/|\/home\/[^/]+\//i;
+/** RFC 1918 / link-local / ULA: an address a host's own NIC holds. */
+const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|f[cd][0-9a-f]{2}:)/i;
+const USER_WRITABLE =/\\(AppData|Temp|Users\\[^\\]+\\Downloads|ProgramData)\\|\/tmp\/|\/home\/[^/]+\//i;
 
-/** HH:MM:SS out of an ISO timestamp, TZ-agnostic. */
+/**
+ * HH:MM:SS of an instant on the clock the feed's time column prints (EventFeed.tsx: the viewer's
+ * local time, en-GB, 24 h), so a process the feed shows at 12:04:56 starts at 12:04:56 in the
+ * console too (R4). It used to cut the clock digits out of the ISO string, which is UTC: two hours
+ * off the feed for a viewer in Israel. A value that is not an instant keeps its own digits.
+ */
 function hhmmss(ts?: string): string {
+  const ms = ts ? Date.parse(ts) : NaN;
+  if (Number.isFinite(ms)) return new Date(ms).toLocaleTimeString("en-GB", { hour12: false });
   const m = ts?.match(/T(\d{2}:\d{2}:\d{2})/);
   return m ? m[1] : (ts ?? "").slice(11, 19) || "00:00:00";
+}
+/** Epoch ms of an instant, when it is one (for consoles that order or gate by time). */
+function epochOf(ts?: string): number | undefined {
+  const ms = ts ? Date.parse(ts) : NaN;
+  return Number.isFinite(ms) ? ms : undefined;
 }
 
 function mostCommon(values: (string | undefined)[]): string | undefined {
@@ -625,6 +639,7 @@ export function buildInvestigationFromStory(
       sha256,
       ...(ofn ? { originalFileName: ofn } : {}),
       startedAt: hhmmss(e.ts),
+      ...(epochOf(e.ts) !== undefined ? { startedMs: epochOf(e.ts) } : {}),
       verdict,
       note: verdict === "benign" ? undefined : whyItStandsOut(p, { signed, malicious, userWritable, imagePath }),
       network: [],
@@ -904,7 +919,9 @@ export function buildInvestigationFromStory(
   if (payload && realExplorer && !server && !isLinux && processes.length <= 2) {
     const anchorPpid = realExplorer.pid;
     const startedAt = payload.startedAt;
-    const hash = (() => { let x = 2166136261; for (const c of story.id) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return Math.abs(x); })();
+    // Seeded from the HOST, not the case id (R6): the EDR case (team-<session>-<host>) and the forensic
+    // workbench (fw-<session>-<host>) build the same host, and must give its OneDrive one pid.
+    const hash = (() => { let x = 2166136261; for (const c of hostName.toLowerCase()) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return Math.abs(x); })();
     const chosen = [DISTRACTOR_POOL[hash % DISTRACTOR_POOL.length], DISTRACTOR_POOL[(hash + 1) % DISTRACTOR_POOL.length]];
     let dpid = 7000 + (hash % 500) * 4;
     for (const d of chosen) {
@@ -912,7 +929,7 @@ export function buildInvestigationFromStory(
       while (usedPids.has(dpid)) dpid += 4;
       usedPids.add(dpid);
       const proc = { pid: dpid, ppid: anchorPpid, name: d.name, cmdline: d.cmdline, user: payload.user,
-        path: d.path, signed: true, startedAt, verdict: "benign" as Verdict, network: [], files: [] };
+        path: d.path, signed: true, startedAt, ...(payload.startedMs !== undefined ? { startedMs: payload.startedMs } : {}), verdict: "benign" as Verdict, network: [], files: [] };
       procByPid.set(proc.pid, proc);
       startMs.set(proc.pid, tsMs(story.events.find(e => e.process?.pid === payload.pid)?.ts));
       processes.push(proc);
@@ -932,11 +949,15 @@ export function buildInvestigationFromStory(
     "DeviceIp", "agent.ip", "local_ip", "observer.ip", "mde.LocalIP"];
   const ownIp = (e: TelemetryEvent) => pickRaw(e.raw, HOST_IP_KEYS);
   const isLogon = (e: TelemetryEvent) => /auth|logon|login|sign_?in/i.test(e.event_type ?? "");
+  // R3: the sensor reports the host's own internal address. A public address on these rows is the
+  // other end (an attacker's inbound session, the office egress Falcon calls aip), never the host.
+  const internal = (ip?: string) => (ip && PRIVATE_IP.test(ip) ? ip : undefined);
   const hostOwnIp: string | undefined =
-    mostCommon(events.filter(e => e.hostname === hostName && ENDPOINT_SOURCES.has(e.source)).map(ownIp))
-    ?? mostCommon(procEvents.filter(e => !isLogon(e) && /^process/.test(e.event_type ?? "")).map(e => e.src_ip))
-    ?? mostCommon(procEvents.filter(e => !isLogon(e)).map(e => e.src_ip))
-    ?? mostCommon(events.filter(e => e.hostname === hostName && !isLogon(e)).map(e => e.src_ip));
+    mostCommon(events.filter(e => e.hostname === hostName && ENDPOINT_SOURCES.has(e.source)).map(e => internal(ownIp(e))))
+    ?? mostCommon(procEvents.filter(e => !isLogon(e) && /^process/.test(e.event_type ?? "")).map(e => internal(e.src_ip)))
+    ?? mostCommon(procEvents.filter(e => !isLogon(e)).map(e => internal(e.src_ip)))
+    ?? mostCommon(events.filter(e => e.hostname === hostName && !isLogon(e)).map(e => internal(e.src_ip)))
+    ?? mostCommon(events.filter(e => e.hostname === hostName).map(e => internal(e.dst_ip)));
   const hostIp = hostOwnIp;
   const aliveAt = (pid: number, ms: number) => { const s = startMs.get(pid); return s == null || !ms || s <= ms; };
   const connKey = (ip?: string, port?: number, domain?: string) => `${ip ?? ""}|${port ?? ""}|${domain ?? ""}`;
@@ -966,7 +987,8 @@ export function buildInvestigationFromStory(
       : undefined;
     const proto = isTransport ? rawProto : (isDns || port === 53 ? "udp" : "tcp");
     return {
-      ts: hhmmss(e.ts), direction: (inbound ? "inbound" : "outbound") as "inbound" | "outbound",
+      ts: hhmmss(e.ts), ...(epochOf(e.ts) !== undefined ? { atMs: epochOf(e.ts) } : {}),
+      direction: (inbound ? "inbound" : "outbound") as "inbound" | "outbound",
       remote_ip, remote_port: port, domain, proto, application,
       bytes: inbound ? (net?.bytes_in ?? net?.bytes_out) : (net?.bytes_out ?? net?.bytes_in),
       method: net?.method, status: net?.status, url: net?.url,

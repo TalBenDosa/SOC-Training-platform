@@ -152,7 +152,9 @@ describe("EDR integrity — lineage and network attribution hold registry-wide",
             }
             const first = hostEvents.filter(e => e.process?.pid === p.pid && e.hostname === inv.host.name).map(e => e.ts).sort()[0];
             for (const c of p.network ?? []) {
-              if (first && c.ts < first.slice(11, 19)) problems.push(`${s.slug}/${inv.id}: ${p.name}(${p.pid}) owns ${c.remote_ip} at ${c.ts}, before it started ${first.slice(11, 19)}`);
+              // Compared as instants: the console prints the feed's (local) clock, the event its ISO time.
+              const at = c.atMs ?? Date.parse(`${first?.slice(0, 11)}${c.ts}Z`);
+              if (first && at < Date.parse(first)) problems.push(`${s.slug}/${inv.id}: ${p.name}(${p.pid}) owns ${c.remote_ip} at ${c.ts}, before it started ${first.slice(11, 19)}`);
             }
           }
           for (const d of inv.detections) if (!pids.has(d.pid)) problems.push(`${s.slug}/${inv.id}: detection on missing pid ${d.pid}`);
