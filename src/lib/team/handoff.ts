@@ -111,6 +111,14 @@ export function asReleased(snap: Record<string, unknown> | null | undefined, rel
   return { ...snap, ts: moved.ts, ...(raw ? { raw: moved.raw } : {}) };
 }
 
+/** "2026-11-08 10:46:48 UTC" for an instant; any other text as it came. */
+function utcStamp(ts: string): string {
+  // A stamp with no zone is UTC, as the engine writes it (rebaseTime.ts).
+  const ms = Date.parse(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(ts) ? `${ts}Z` : ts);
+  if (!ts || !Number.isFinite(ms)) return ts.replace("T", " ").slice(0, 19);
+  return `${new Date(ms).toISOString().replace("T", " ").slice(0, 19)} UTC`;
+}
+
 /** The key fields of a log, from the feed payload (or the snapshot that travelled with a hand-off). */
 export function handoffLog(snap: Record<string, unknown> | null | undefined, opts: { raw?: boolean; seq?: number; addedBy?: string } = {}): HandoffLog | null {
   if (!snap || typeof snap !== "object") return null;
@@ -124,7 +132,9 @@ export function handoffLog(snap: Record<string, unknown> | null | undefined, opt
     ["Event", s(snap.description)],
     ["Type", s(snap.event_type)],
     ["Source", [s(snap.vendor), s(snap.source)].filter(Boolean).join(" · ")],
-    ["Time", s(snap.ts).replace("T", " ").slice(0, 19)],
+    // The instant the feed showed, with its zone (R4): the ISO clock digits are UTC, the feed's time
+    // column is the viewer's local clock, so an unlabelled "10:46:48" read as two hours off the feed.
+    ["Time", utcStamp(s(snap.ts))],
     ["Severity", s(snap.severity)],
     ["Host", s(snap.hostname)],
     ["User", s(snap.user_email) || s(user?.email) || s(user?.full_name)],

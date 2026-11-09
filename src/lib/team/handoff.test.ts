@@ -66,23 +66,23 @@ describe("what the receiver sees is what the sender saw (2026-11-08 review)", ()
   it("the linked log's Time is the row's event time in this session, not the authored process time", () => {
     const events = withTimes();
     const h = escalationHandoff(events[3], events, { nameOf });
-    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48"]);
+    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48 UTC"]);
     expect(JSON.stringify(h.logs[0].fields)).not.toContain("2026-01-01");
-    expect(handoffText(h)).toContain("(WS-FIN-2847, r.cohen@nexacorp.com, 2026-11-08 10:46:48)");
+    expect(handoffText(h)).toContain("(WS-FIN-2847, r.cohen@nexacorp.com, 2026-11-08 10:46:48 UTC)");
   });
 
   it("uses the release time sent with the request when the feed row is out of view", () => {
     const events = withTimes();
     const req: Ev = { ...events[3], payload: { ...events[3].payload, log_time: released } };
     const h = escalationHandoff(req, [req], { nameOf });
-    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48"]);
+    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48 UTC"]);
   });
 
   it("an elevation's log carries the same event time", () => {
     const events = withTimes();
     const elev: Ev = { ...events[8], payload: { ...events[8].payload, snapshot: { ...log, ts: authored } } };
     const h = elevationHandoff(elev, [...events.slice(0, 8), elev], { nameOf });
-    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48"]);
+    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48 UTC"]);
   });
 
   it("shows confidence only when the analyst set it", () => {

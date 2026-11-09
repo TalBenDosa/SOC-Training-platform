@@ -303,7 +303,9 @@ function connectionEvent(inv: EdrInvestigation, type: "ip" | "domain", value: st
     const sev = inv.detections.filter(d => d.pid === p.pid).map(d => d.severity);
     const web = /^(tls|https?|ssl)$/i.test(c.application ?? c.proto ?? "");
     return {
-      id: `edr-net-${p.pid}-${c.remote_ip}`, ts: `2026-09-01T${/^\d{2}:\d{2}:\d{2}$/.test(c.ts) ? c.ts : "00:00:00"}Z`,
+      id: `edr-net-${p.pid}-${c.remote_ip}`,
+      // The connection's own instant (R4); a hand-built case with only a clock keeps the old placeholder day.
+      ts: c.atMs !== undefined ? new Date(c.atMs).toISOString() : `2026-09-01T${/^\d{2}:\d{2}:\d{2}$/.test(c.ts) ? c.ts : "00:00:00"}Z`,
       source: "edr", event_type: "net_connection", hostname: inv.host.name,
       severity: sev.includes("critical") ? "critical" : sev.includes("high") ? "high" : flagged ? "medium" : "low",
       is_detection: flagged, expected_verdict: flagged ? "tp" : undefined,

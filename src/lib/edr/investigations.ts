@@ -21,6 +21,8 @@ export type Verdict = "benign" | "suspicious" | "malicious" | "abused";
 
 export interface EdrNetConn {
   ts: string;
+  /** The instant behind `ts` (epoch ms), when the case was built from timed telemetry. */
+  atMs?: number;
   direction: "outbound" | "inbound";
   remote_ip: string;
   remote_port: number;
@@ -72,7 +74,9 @@ export interface EdrProcess {
   /** PE OriginalFileName from the log (OriginalFileName / process.original_file_name) —
    *  the rename tell when it differs from the on-disk name (rclone.exe → svchost-update.exe). */
   originalFileName?: string;
-  startedAt: string;      // HH:MM:SS ("—" = started before the telemetry window)
+  startedAt: string;      // HH:MM:SS on the feed's clock ("—" = started before the telemetry window)
+  /** The instant behind `startedAt` (epoch ms), when the case was built from timed telemetry. */
+  startedMs?: number;
   verdict: Verdict;       // ground truth (drives grading; not all shown as labels)
   /** Why it's suspicious/malicious — revealed in the debrief, not up front. */
   note?: string;
