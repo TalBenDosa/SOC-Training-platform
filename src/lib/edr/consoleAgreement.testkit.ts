@@ -88,17 +88,40 @@ export function compareEdrToFeed(inv: EdrInvestigation, feed: { ev: TelemetryEve
   if (!onHost.length) out.push({ where, what: `host: console host ${inv.host.name} is on no feed row` });
   // R3: the account realm the console prints ("MEDCORE\m.verhoeven") is one the host's records print,
   // as a DOMAIN\user value or a domain field of its own.
-  const text = onHost.map(r => JSON.stringify(r.log?.record ?? {})).join("\n").toLowerCase();
-  // Only records that print accounts as DOMAIN\user can be compared (Falcon's UserName is the bare name).
-  const printed = new Set([...text.matchAll(/"([a-z][\w-]{1,14})\\\\[a-z0-9._$-]+"/g)].map(m => m[1]));
+  // Only identity fields count: a DOMAIN\user value under an account key, or a domain field. A
+  // CyberArk safe path (Root\Database-MSSQL-...) or a file path is not an account, and the system
+  // realms (NT AUTHORITY\SYSTEM) say nothing about the company's domain. Records that print accounts
+  // as bare names (Falcon's UserName) give no realm and are not compared.
+  const printed = new Set<string>(), domains = new Set<string>();
+  for (const r of onHost) identityRealms(r.log?.record, printed, domains);
   if (printed.size) {
-    const realms = new Set(seenProcesses(inv).map(p => /^([^\\]+)\\/.exec(p.user)?.[1]).filter((r): r is string => !!r && !/^(nt authority|builtin|nt service|font driver|window manager|iis apppool)$/i.test(r)));
+    const realms = new Set(seenProcesses(inv).map(p => /^([^\\]+)\\/.exec(p.user)?.[1]).filter((r): r is string => !!r && !SYSTEM_REALM.test(r)));
     for (const r of realms) {
       const lc = r.toLowerCase();
-      if (!text.includes(`"${lc}\\\\`) && !text.includes(`"${lc}"`)) out.push({ where, what: `user: console realm ${r} is printed by no record of ${inv.host.name}` });
+      if (!printed.has(lc) && !domains.has(lc)) out.push({ where, what: `user: console realm ${r} is printed by no record of ${inv.host.name}` });
     }
   }
   return out;
+}
+
+const SYSTEM_REALM = /^(nt authority|builtin|nt service|font driver|window manager|iis apppool|nt virtual machine|workgroup)$/i;
+/** The last segment of a field name that holds an account (User, UserName, SubjectUserName, AccountName, srcuser ...). */
+const ACCOUNT_KEY = /(user|account|principal|actor|owner)(_?name)?$/i;
+const DOMAIN_KEY = /domain(_?name)?$/i;
+/** Realms a record prints in its identity fields: DOMAIN\user account values and domain fields (lower case). */
+export function identityRealms(v: unknown, printed: Set<string>, domains: Set<string>, key = ""): void {
+  if (v && typeof v === "object") {
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) identityRealms(x, printed, domains, k);
+    return;
+  }
+  if (typeof v !== "string") return;
+  const leaf = key.split(/[.\s]/).pop() ?? key;
+  if (ACCOUNT_KEY.test(leaf) && !/sid|id$|type|count|flags|agent/i.test(leaf)) {
+    const m = /^([a-z][\w-]{1,14})\\[a-z0-9._$-]+$/i.exec(v);
+    if (m && !SYSTEM_REALM.test(m[1])) printed.add(m[1].toLowerCase());
+  } else if (DOMAIN_KEY.test(leaf) && /^[a-z][\w.-]{1,62}$/i.test(v)) {
+    domains.add(v.toLowerCase());
+  }
 }
 
 /** The processes of an investigation that came from the feed (not ancestor stubs or seeded background). */
