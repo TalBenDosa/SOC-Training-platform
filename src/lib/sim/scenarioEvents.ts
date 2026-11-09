@@ -3966,7 +3966,6 @@ export function supplyChainScenarioEvents() {
         "crowdstrike.SHA256HashData": malDllHash,
         "crowdstrike.event_platform": "Lin",
         "crowdstrike.NetworkContainmentState": "Not Contained",
-        "crowdstrike.event_platform": "Lin",
         "event.action": "alert",
       },
     },
@@ -5341,7 +5340,7 @@ export function k8sPodEscapeScenarioEvents() {
         "crowdstrike.SeverityName": "Critical", "crowdstrike.Tactic": "Privilege Escalation", "crowdstrike.Technique": "Escape to Host",
         "threat.technique.id": "T1611", "crowdstrike.PatternDispositionDescription": "Detection, No Action",
         "crowdstrike.FileName": "nsenter", "crowdstrike.ParentImageFileName": "sh", "crowdstrike.GrandparentImageFileName": "containerd-shim-runc-v2",
-        "crowdstrike.event_platform": "Lin", "crowdstrike.event_platform": "Lin",
+        "crowdstrike.event_platform": "Lin",
       },
     },
 
