@@ -259,7 +259,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "CrowdStrike Falcon", hostname: "LAP-007", user_email: "t.levy@rocketstack.io",
     src_ip: "172.16.10.7",
     description: "t.levy ran a migration script on LAP-007",
-    process: { name: "python3", pid: 4450, parent_name: "Terminal", parent_pid: 4200, user: "t.levy", cmdline: "python3 scripts/migrate_prod_data.py --env prod --dry-run" },
+    process: { name: "python3.12", pid: 4450, path: "/opt/homebrew/bin/python3.12", parent_name: "zsh", parent_pid: 4380, user: "t.levy", cmdline: "python3.12 scripts/migrate_prod_data.py --env prod --dry-run" },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
@@ -351,7 +351,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.7", expected_verdict: "fp",
     fp_explanation: "Engineer ran a Python security script with unusual subprocess args to simulate API load. The command pattern (subprocess with shell=True and os.system calls) matches attacker tooling heuristics, but the script is in the RocketStack internal GitHub repo and was peer-reviewed. No outbound network connections were made.",
     description: "t.levy ran python3 security-load-test.py on LAP-007",
-    process: { name: "python3", pid: 5900, parent_name: "zsh", parent_pid: 5001, user: "t.levy", cmdline: "python3 security-load-test.py --target https://api.rocketstack.io --requests 500 --concurrency 20" },
+    process: { name: "python3", pid: 5900, path: "/Users/t.levy/src/api-loadtest/.venv/bin/python3", parent_name: "zsh", parent_pid: 5001, user: "t.levy", cmdline: "python3 security-load-test.py --target https://api.rocketstack.io --requests 500 --concurrency 20" },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Mac", "action_result": "allowed" }
   },
   {
@@ -2112,6 +2112,190 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco AnyConnect", user_email: "c.becker@globallogis.de", src_ip: "198.51.100.192",
     description: "c.becker connected VPN from Germany",
     raw: { "cisco.asa.tunnel_group": "Employees-Full", "cisco.asa.client_os": "Windows 11", "action_result": "allowed" }
+  },
+  // ── Ordinary weekday traffic (logons, Microsoft 365, SAP cloud, AWS backups) ──
+  {
+    id: "gl_ad_101", ts: "2026-05-10T05:55:00.000Z",
+    source: "ad", event_type: "auth_success", severity: "informational",
+    vendor: "Windows Security", user_email: "p.braun@globallogis.de", src_ip: "10.50.10.12",
+    hostname: "WH-TERM-012",
+    description: "p.braun signed in to WH-TERM-012 at the start of the early shift",
+    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+  },
+  {
+    id: "gl_ad_102", ts: "2026-05-10T07:30:00.000Z",
+    source: "ad", event_type: "auth_success", severity: "informational",
+    vendor: "Windows Security", user_email: "k.schmidt@globallogis.de", src_ip: "10.50.2.88",
+    hostname: "WS-LOG-088",
+    description: "k.schmidt signed in to WS-LOG-088",
+    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+  },
+  {
+    id: "gl_ad_103", ts: "2026-05-10T07:50:00.000Z",
+    source: "ad", event_type: "auth_success", severity: "informational",
+    vendor: "Windows Security", user_email: "p.brandt@globallogis.de", src_ip: "10.20.2.107",
+    hostname: "WS-GL-ACC-07",
+    description: "p.brandt signed in to WS-GL-ACC-07",
+    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+  },
+  {
+    id: "gl_ad_104", ts: "2026-05-10T12:40:00.000Z",
+    source: "ad", event_type: "auth_success", severity: "informational",
+    vendor: "Windows Security", user_email: "h.muller@globallogis.de", src_ip: "10.50.1.45",
+    hostname: "WS-LOG-045",
+    description: "h.muller unlocked WS-LOG-045 after lunch",
+    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
+  },
+  {
+    id: "gl_ad_105", ts: "2026-05-10T13:05:00.000Z",
+    source: "ad", event_type: "auth_success", severity: "informational",
+    vendor: "Windows Security", user_email: "k.schmidt@globallogis.de", src_ip: "10.50.2.88",
+    hostname: "WS-LOG-088",
+    description: "k.schmidt unlocked WS-LOG-088",
+    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
+  },
+  {
+    id: "gl_ad_106", ts: "2026-05-10T13:20:00.000Z",
+    source: "ad", event_type: "auth_success", severity: "informational",
+    vendor: "Windows Security", user_email: "p.brandt@globallogis.de", src_ip: "10.20.2.107",
+    hostname: "WS-GL-ACC-07",
+    description: "p.brandt unlocked WS-GL-ACC-07",
+    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
+  },
+  {
+    id: "gl_ad_107", ts: "2026-05-10T06:00:00.000Z",
+    source: "ad", event_type: "auth_success", severity: "informational",
+    vendor: "Windows Security", user_email: "svc-erp@globallogis.de", src_ip: "10.50.5.20",
+    hostname: "SRV-GL-ERP01",
+    description: "svc-erp service logon to SRV-GL-ERP01",
+    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "5", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_101", ts: "2026-05-10T06:58:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.50.1.45", dst_ip: "20.190.159.64", dst_port: 443,
+    protocol: "tcp",
+    description: "WS-LOG-045 opened an HTTPS session to Microsoft Entra sign-in - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_102", ts: "2026-05-10T07:02:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.50.2.88", dst_ip: "52.97.146.162", dst_port: 443,
+    protocol: "tcp",
+    description: "WS-LOG-088 opened an HTTPS session to Exchange Online - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_103", ts: "2026-05-10T07:55:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.20.2.107", dst_ip: "52.97.146.162", dst_port: 443,
+    protocol: "tcp",
+    description: "WS-GL-ACC-07 opened an HTTPS session to Exchange Online - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_104", ts: "2026-05-10T09:30:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.50.5.20", dst_ip: "52.28.41.8", dst_port: 443,
+    protocol: "tcp",
+    description: "Outbound HTTPS connection from SRV-GL-ERP01 to SAP cloud API - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "ERP-outbound", "cisco.ftd.application_protocol": "sap-cloud", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_105", ts: "2026-05-10T11:10:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "52.28.41.8", dst_port: 443,
+    protocol: "tcp",
+    description: "Outbound HTTPS connection from SRV-GL-WMS01 to SAP cloud API - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-outbound", "cisco.ftd.application_protocol": "sap-cloud", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_106", ts: "2026-05-10T02:15:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.20.1.30", dst_ip: "52.219.170.41", dst_port: 443,
+    protocol: "tcp",
+    description: "SRV-GL-SAP01 uploaded its nightly backup to Amazon S3 (eu-central-1) - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_107", ts: "2026-05-10T10:20:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.50.10.12", dst_ip: "20.190.159.64", dst_port: 443,
+    protocol: "tcp",
+    description: "WH-TERM-012 opened an HTTPS session to Microsoft Entra sign-in - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
+  },
+  {
+    id: "gl_fw_108", ts: "2026-05-10T14:45:00.000Z",
+    source: "firewall", event_type: "net_connection", severity: "informational",
+    vendor: "Cisco Firepower", src_ip: "10.50.1.45", dst_ip: "52.97.146.162", dst_port: 443,
+    protocol: "tcp",
+    description: "WS-LOG-045 opened an HTTPS session to Exchange Online - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
+  },
+  {
+    id: "gl_aws_101", ts: "2026-05-10T02:10:00.000Z",
+    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    vendor: "AWS CloudTrail",
+    description: "AWS Backup assumed its service role for the nightly backup plan in eu-central-1",
+    raw: { "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.eventName": "AssumeRole", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AWSService", "action_result": "allowed" }
+  },
+  {
+    id: "gl_aws_102", ts: "2026-05-10T02:12:00.000Z",
+    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    vendor: "AWS CloudTrail",
+    description: "AWS Backup created an EBS snapshot of the ERP data volume in eu-central-1",
+    raw: { "aws.cloudtrail.eventSource": "ec2.amazonaws.com", "aws.cloudtrail.eventName": "CreateSnapshot", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AssumedRole", "action_result": "allowed" }
+  },
+  {
+    id: "gl_aws_103", ts: "2026-05-10T06:30:00.000Z",
+    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    vendor: "AWS CloudTrail",
+    description: "The ERP export role wrote the morning stock export to globallogis-erp-exports",
+    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "PutObject", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.requestParameters.bucketName": "globallogis-erp-exports", "action_result": "allowed" }
+  },
+  {
+    id: "gl_aws_104", ts: "2026-05-10T13:30:00.000Z",
+    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    vendor: "AWS CloudTrail",
+    description: "The ERP export role wrote the afternoon stock export to globallogis-erp-exports",
+    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "PutObject", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.requestParameters.bucketName": "globallogis-erp-exports", "action_result": "allowed" }
+  },
+  {
+    id: "gl_o365_101", ts: "2026-05-10T08:20:00.000Z",
+    source: "o365", event_type: "sharepoint_access", severity: "informational",
+    vendor: "Microsoft 365 Unified Audit Log", user_email: "k.schmidt@globallogis.de", src_ip: "192.0.2.240",
+    description: "k.schmidt opened Dispatch_Plan_KW19.xlsx on SharePoint /sites/Operations",
+    raw: { "data.office365.Operation": "FileAccessed", "data.office365.SiteUrl": "/sites/Operations", "data.office365.ItemName": "Dispatch_Plan_KW19.xlsx", "action_result": "allowed" }
+  },
+  {
+    id: "gl_o365_102", ts: "2026-05-10T09:05:00.000Z",
+    source: "o365", event_type: "sharepoint_access", severity: "informational",
+    vendor: "Microsoft 365 Unified Audit Log", user_email: "h.muller@globallogis.de", src_ip: "192.0.2.240",
+    description: "h.muller opened Inventory_Count_Hall3.xlsx on SharePoint /sites/Warehouse",
+    raw: { "data.office365.Operation": "FileAccessed", "data.office365.SiteUrl": "/sites/Warehouse", "data.office365.ItemName": "Inventory_Count_Hall3.xlsx", "action_result": "allowed" }
+  },
+  {
+    id: "gl_o365_103", ts: "2026-05-10T10:40:00.000Z",
+    source: "o365", event_type: "sharepoint_access", severity: "informational",
+    vendor: "Microsoft 365 Unified Audit Log", user_email: "p.brandt@globallogis.de", src_ip: "192.0.2.240",
+    description: "p.brandt saved Freight_Invoices_May.xlsx on SharePoint /sites/Finance",
+    raw: { "data.office365.Operation": "FileModified", "data.office365.SiteUrl": "/sites/Finance", "data.office365.ItemName": "Freight_Invoices_May.xlsx", "action_result": "allowed" }
+  },
+  {
+    id: "gl_o365_104", ts: "2026-05-10T11:25:00.000Z",
+    source: "o365", event_type: "sharepoint_access", severity: "informational",
+    vendor: "Microsoft 365 Unified Audit Log", user_email: "k.schmidt@globallogis.de", src_ip: "192.0.2.240",
+    description: "k.schmidt saved Dispatch_Plan_KW19.xlsx on SharePoint /sites/Operations",
+    raw: { "data.office365.Operation": "FileModified", "data.office365.SiteUrl": "/sites/Operations", "data.office365.ItemName": "Dispatch_Plan_KW19.xlsx", "action_result": "allowed" }
+  },
+  {
+    id: "gl_o365_105", ts: "2026-05-10T14:10:00.000Z",
+    source: "o365", event_type: "sharepoint_access", severity: "informational",
+    vendor: "Microsoft 365 Unified Audit Log", user_email: "p.braun@globallogis.de", src_ip: "192.0.2.240",
+    description: "p.braun opened Shift_Roster_Week19.pdf on SharePoint /sites/Warehouse",
+    raw: { "data.office365.Operation": "FileAccessed", "data.office365.SiteUrl": "/sites/Warehouse", "data.office365.ItemName": "Shift_Roster_Week19.pdf", "action_result": "allowed" }
   },
   // ── Sysmon (Windows endpoint telemetry) ───────────────────────────────────
   {
