@@ -29,6 +29,14 @@ export const TCPIP_DEEP_DIVE: RoomExperience = {
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#ef4444" },
   scene: "wirelevel",
   layout: "stage",
+  story: {
+    intro: { title: "Eleven Minutes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-intro-f6e8e3f9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-intro-62cc4234.jpg" },
+    afterStation: {
+      handshake: { title: "Handwriting", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-ch2-20d5eb5a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-ch2-ccb78b4e.jpg" },
+      scans: { title: "The Header Tells", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-ch3-05489f17.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-ch3-fb82ab3d.jpg" },
+      verdict: { title: "Packets Don't Lie", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-finale-d626f4fa.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-finale-e1bfbe71.jpg" },
+    },
+  },
   stations: [
     {
       id: "handshake",
