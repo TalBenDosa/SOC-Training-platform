@@ -731,9 +731,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         // tables build one process from them): a person moved onto a server's process row is not.
         const vm = /^(.*)_v\d+$/.exec(String(ev.id ?? ""));
         if (vm && (ENDPOINT_SOURCES.has(ev.source) || (ev.hostname && attackHosts.has(ev.hostname)))) continue;
-        // Two more instances of one ordinary record at most: nine people pulling the same vault password
-        // on one server in an hour is a pattern of its own.
-        if (vm && (perOrigin.get(vm[1]) ?? 0) >= 2) continue;
+        // Four more instances of one ordinary record at most, each by another person: nine people pulling
+        // the same vault password on one server in an hour is a pattern of its own.
+        if (vm && (perOrigin.get(vm[1]) ?? 0) >= 4) continue;
         if (inFeed.has(ev) || ids.has(String(ev.id ?? "")) || !fresh(ev)) continue;
         if (vm) perOrigin.set(vm[1], (perOrigin.get(vm[1]) ?? 0) + 1);
         noise.push({ ev, origin: "noise", verdict: "benign" }); inFeed.add(ev); ids.add(String(ev.id ?? "")); ordinary++;
