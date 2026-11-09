@@ -59,14 +59,17 @@ const acEncodedPowerShellEvent: TelemetryEvent = {
   raw: {
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
     "event.code": "1",
+    "event.action": "Process Create (rule: ProcessCreate)",
+    "winlog.event_data.UtcTime": "2026-04-14 10:22:07.318",
+    "winlog.event_data.ProcessId": "7784",
+    "winlog.event_data.ParentProcessId": "5192",
     "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
     "winlog.event_data.ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
-    "winlog.event_data.ParentCommandLine": "\"WINWORD.EXE\" /n \"C:\\Users\\p.doran\\Downloads\\Q2_Vendor_Invoice.docm\"",
+    "winlog.event_data.ParentCommandLine": "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\p.doran\\Downloads\\Q2_Vendor_Invoice.docm\"",
     "winlog.event_data.CommandLine": "powershell -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA",
     "winlog.event_data.User": "MERIDIAN\\p.doran",
     "winlog.event_data.IntegrityLevel": "Medium",
     "winlog.event_data.Hashes": "SHA256=91E3E6A6C4B4E5D3F2A0C9B8E7D6F5A4C3B2A1908F7E6D5C4B3A291807060504",
-    "event.action": "process-create",
   },
 };
 
@@ -94,13 +97,15 @@ const lsassSigmaAlertEvent: TelemetryEvent = {
     hash: { sha256: "dfc35e53d01e0269bc02499c09966477445c8aa7623269d7995156874bef83e6" },
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessAccess",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.DetectId": "ldt:5a545cd3614ee729987d1c94295a1ecc:73004",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.Tactic": "Credential Access",
     "crowdstrike.Technique": "OS Credential Dumping",
+    "threat.technique.id": "T1003",
+    "threat.technique.subtechnique.id": "T1003.001",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-    "crowdstrike.ContextBaseFileName": "explorer.exe",
+    "crowdstrike.ContextBaseFileName": "SysHealthMon.exe",
     "crowdstrike.ParentBaseFileName": "explorer.exe",
     "crowdstrike.FileName": "SysHealthMon.exe",
     "crowdstrike.FilePath": "C:\\Users\\n.brandt\\AppData\\Roaming\\SysHealthMon\\SysHealthMon.exe",
@@ -111,8 +116,6 @@ const lsassSigmaAlertEvent: TelemetryEvent = {
     "crowdstrike.CallStackModuleNames": "dbghelp.dll,KERNELBASE.dll,ntdll.dll",
     "crowdstrike.UserName": "SOLVARA\\n.brandt",
     "crowdstrike.ComputerName": "WKS-CLM-1187",
-    "event.action": "process-access",
-    "event.outcome": "success",
   },
 };
 
