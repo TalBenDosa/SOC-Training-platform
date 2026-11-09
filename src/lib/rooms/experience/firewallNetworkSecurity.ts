@@ -27,6 +27,14 @@ export const FIREWALL_NETWORK_SECURITY: RoomExperience = {
   look: { primary: "#f97316", secondary: "#22d3ee", warn: "#f43f5e" },
   scene: "facilitynet",
   layout: "facility",
+  story: {
+    intro: { title: "Every Packet Meets a Rule", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-intro-7e798089.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-intro-f98b261e.jpg" },
+    afterStation: {
+      rules: { title: "First Match Wins", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-ch2-067974f4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-ch2-ee0f22b6.jpg" },
+      contain: { title: "The Wall Holds", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-ch3-875b30f2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-ch3-5aa05467.jpg" },
+      wire: { title: "Allowed Is Not Safe", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-finale-ec1801ac.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-network-security/zonewall-finale-c456e5ee.jpg" },
+    },
+  },
   stations: [
     {
       id: "rules",
