@@ -396,11 +396,11 @@ export const SOC_STRUCTURE: RoomExperience = {
         kind: "anatomy",
         title: "Anatomy of a Windows Logon Event",
         prompt: "Your alert will be built from Windows Security events. Before 03:47, Priya shows you a different one: a successful network logon on the domain controller.",
-        source: "Windows Security log · DC01-CORP.globalbank.com",
+        source: "Windows Security log · DC01-CORP.globalbank.example",
         fields: [
           { key: "EventID", value: "4624", label: "What happened", note: "4624 is a successful logon. Its partner, 4625, is a failed one. The ID alone tells you which story you are reading." },
           { key: "TimeCreated", value: "2025-11-14T01:12:40.512Z" },
-          { key: "Computer", value: "DC01-CORP.globalbank.com", label: "Where it was logged", note: "4624 is written on the machine being logged on to, here the domain controller itself. For sign-ins elsewhere in the domain, the DC writes its own events: 4768, 4769 and 4776." },
+          { key: "Computer", value: "DC01-CORP.globalbank.example", label: "Where it was logged", note: "4624 is written on the machine being logged on to, here the domain controller itself. For sign-ins elsewhere in the domain, the DC writes its own events: 4768, 4769 and 4776." },
           { key: "TargetUserName", value: "svc_backup", label: "Which account", note: "The account that logged on. 'svc_' marks a service account: it should behave the same way every night." },
           { key: "TargetDomainName", value: "GLOBALBANK" },
           { key: "LogonType", value: "3", label: "How", note: "3 is a network logon (a file share, for example). 2 is someone at the keyboard, 10 is Remote Desktop. The type changes what 'normal' looks like." },

@@ -520,7 +520,7 @@ export const MEMORY_DISK_FORENSICS: RoomExperience = {
           { id: "s2", label: "wshelper.dll in System32: 41 days gap, fraction .0000000", bad: true, values: { gap: 41, zeros: 7 } },
           { id: "s3", label: "rpt_tool.exe, dated to last patch night: 12 days gap, fraction .0000000", bad: true, values: { gap: 12, zeros: 7 } },
           { id: "s4", label: "tasksync.exe in a vendor folder: 2,104 days gap, fraction .0000000", bad: true, values: { gap: 2104, zeros: 7 } },
-          { id: "s5", label: "msvcsvc.dll, times copied from a Windows DLL: 905 days gap, fraction .3184620", bad: true, values: { gap: 905, zeros: 1 } },
+          { id: "s5", label: "msvcsvc.dll in System32, $SI times equal to kernel32.dll's: 905 days gap, fraction .3184620", bad: true, values: { gap: 905, zeros: 1 } },
           { id: "n1", label: "Accession photo moved by the migration tool: 1,460 days gap, fraction .7741390", bad: false, values: { gap: 1460, zeros: 1 } },
           { id: "n2", label: "Loan contract restored from backup: 6 days gap, fraction .8812337", bad: false, values: { gap: 6, zeros: 0 } },
           { id: "n3", label: "Photo from a FAT32 scanner card, dates kept: 9 days gap, fraction .0000000", bad: false, values: { gap: 9, zeros: 7 } },

@@ -463,7 +463,7 @@ export const WINDOWS_PROTOCOLS_LATERAL: RoomExperience = {
           { key: "winlog.event_data.IpAddress", value: "172.20.4.23", label: "From", note: "The remote client. It's PM-FIN-03, and the connection went from there to here." },
           { key: "winlog.event_data.ShareName", value: "\\\\*\\IPC$", label: "Share", note: "IPC$ has no folder behind it. It exists to carry named pipes." },
           { key: "winlog.event_data.RelativeTargetName", value: "wkssvc", label: "Pipe", note: "The pipe names the RPC interface, and so the capability. wkssvc is the workstation service, which can list who is logged on." },
-          { key: "winlog.event_data.AccessMask", value: "0x12019F", note: "Read and write on the pipe: a conversation, not a look." },
+          { key: "winlog.event_data.AccessMask", value: "0x12019f", note: "Read and write on the pipe: a conversation, not a look." },
         ],
         summary: "A remote client asked PM-ERP-02 who was logged on before moving there. Other pipes name other capabilities: svcctl reaches the Service Control Manager, atsvc the Task Scheduler, epmapper the RPC endpoint mapper. So the pipe name is what turns 'SMB traffic' into a specific action. Read every 5145 the same way: where it was written is the target, IpAddress is the source, RelativeTargetName is the capability.",
         primer: {

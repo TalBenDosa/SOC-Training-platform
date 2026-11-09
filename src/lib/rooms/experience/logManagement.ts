@@ -295,7 +295,7 @@ export const LOG_MANAGEMENT: RoomExperience = {
           { key: "Computer", value: "FS02.halden.local" },
           { key: "SubjectUserName", value: "it.temp04", label: "Who changed it", note: "The account that made the change. Is it an admin who should touch audit policy?" },
           { key: "SubjectDomainName", value: "HALDEN" },
-          { key: "SubjectLogonId", value: "0x1B7C44", label: "Which session", note: "Identifies the logon session that made the change." },
+          { key: "SubjectLogonId", value: "0x1b7c44", label: "Which session", note: "Identifies the logon session that made the change." },
           { key: "CategoryId", value: "%%8274", label: "Which category", note: "Object Access: auditing of file and share access." },
           { key: "SubcategoryGuid", value: "{0CCE9224-69AE-11D9-BED3-505054503030}", label: "Which subcategory", note: "The File Share subcategory: logging of who opens which share." },
           { key: "AuditPolicyChanges", value: "%%8448, %%8450", label: "What changed", note: "Success removed, failure removed: file-share access on this server is no longer logged at all." },

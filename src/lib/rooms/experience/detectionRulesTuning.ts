@@ -149,9 +149,9 @@ export const DETECTION_RULES_TUNING: RoomExperience = {
         events: [
           { id: "a1", label: "m.okonkwo: 600 files, 14x baseline, the week of a resignation", bad: true, values: { files: 600, ratio: 14 } },
           { id: "a2", label: "contractor key: 350 files, 9x baseline, from a new address", bad: true, values: { files: 350, ratio: 9 } },
-          { id: "a3", label: "editor account: 150 files, 6x baseline, a slow siphon", bad: true, values: { files: 150, ratio: 6 } },
-          { id: "a4", label: "sync client after a phish: 800 files, 11x baseline", bad: true, values: { files: 800, ratio: 11 } },
-          { id: "a5", label: "stolen VPN login: 250 files, 12x baseline", bad: true, values: { files: 250, ratio: 12 } },
+          { id: "a3", label: "editor account: 150 files, 6x baseline, from folders it never opened before", bad: true, values: { files: 150, ratio: 6 } },
+          { id: "a4", label: "sync client on a token from a first-time country: 800 files, 11x baseline", bad: true, values: { files: 800, ratio: 11 } },
+          { id: "a5", label: "VPN login from an address new to the user: 250 files, 12x baseline", bad: true, values: { files: 250, ratio: 12 } },
           { id: "n1", label: "render farm re-encode: 900 files, 1x baseline", bad: false, values: { files: 900, ratio: 1 } },
           { id: "n2", label: "colourist nightly archive: 500 files, 2x baseline", bad: false, values: { files: 500, ratio: 2 } },
           { id: "n3", label: "new hire onboarding sync: 300 files, 7x baseline", bad: false, values: { files: 300, ratio: 7 } },

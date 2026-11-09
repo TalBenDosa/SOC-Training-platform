@@ -733,16 +733,16 @@ export const PRIVILEGED_ACCESS_MONITORING: RoomExperience = {
         kind: "trace",
         title: "Follow One Session From Its Rights to Its Approval",
         prompt: "This is the chain the auditor wants for every session. Take last Thursday's 4672 for adm-net02 on the firewall manager and walk it back, record by record, until you reach a person who can answer for it.",
-        lead: "Event 4672 · ITB-FWM01 · Thursday 14:22 · adm-net02 · SubjectLogonId 0x3C88E10",
+        lead: "Event 4672 · ITB-FWM01 · Thursday 14:22 · adm-net02 · SubjectLogonId 0x3c88e10",
         steps: [
           {
             id: "logon", ask: "Which 4624 started this session?", source: "Logon4624",
             columns: ["TimeGenerated", "Computer", "TargetUserName", "TargetLogonId", "LogonType", "IpAddress"],
             rows: [
-              ["Thu 09:34", "ITB-FWM01", "adm-net02", "0x3C61A04", "10", "10.40.2.11"],
-              ["Thu 14:22", "ITB-FWM01", "adm-net02", "0x3C88E10", "10", "10.40.2.10"],
-              ["Thu 14:22", "ITB-LEDGER01", "adm-ledger02", "0x3C88E10", "10", "10.40.2.10"],
-              ["Thu 14:23", "ITB-FWM01", "svc-monitor", "0x3C88F2A", "3", "10.40.2.30"],
+              ["Thu 09:34", "ITB-FWM01", "adm-net02", "0x3c61a04", "10", "10.40.2.11"],
+              ["Thu 14:22", "ITB-FWM01", "adm-net02", "0x3c88e10", "10", "10.40.2.10"],
+              ["Thu 14:22", "ITB-LEDGER01", "adm-ledger02", "0x3c88e10", "10", "10.40.2.10"],
+              ["Thu 14:23", "ITB-FWM01", "svc-monitor", "0x3c88f2a", "3", "10.40.2.30"],
             ],
             answer: 1, why: "Same machine, same Logon ID. The ledger row shares the ID and sits on another host, so it is another session.",
             learned: "The session began at 14:22 through the gateway, 10.40.2.10.",

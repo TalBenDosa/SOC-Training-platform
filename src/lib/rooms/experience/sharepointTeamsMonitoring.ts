@@ -83,9 +83,9 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
           { id: "fresh", label: "Folders this person never opened before, at least", short: "New folders", min: 0, max: 20, step: 1, start: 0, dir: "above" },
         ],
         events: [
-          { id: "b1", label: "A contractor empties the bids library at night", bad: true, values: { files: 420, fresh: 9 } },
-          { id: "b2", label: "A compromised account walks through Legal and HR", bad: true, values: { files: 260, fresh: 12 } },
-          { id: "b3", label: "A slow thief takes a few from every project", bad: true, values: { files: 90, fresh: 14 } },
+          { id: "b1", label: "A contractor account downloads the bids library at 01:30", bad: true, values: { files: 420, fresh: 9 } },
+          { id: "b2", label: "A sales account opens Legal and HR folders for the first time", bad: true, values: { files: 260, fresh: 12 } },
+          { id: "b3", label: "A designer takes a few files from every project folder", bad: true, values: { files: 90, fresh: 14 } },
           { id: "g1", label: "The records clerk archives one finished project", bad: false, values: { files: 480, fresh: 1 } },
           { id: "g2", label: "A partner reviews this week's bid", bad: false, values: { files: 40, fresh: 2 } },
           { id: "g3", label: "A new starter reads the standards library", bad: false, values: { files: 70, fresh: 6 } },
