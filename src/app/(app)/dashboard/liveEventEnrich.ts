@@ -12,6 +12,7 @@ import { getRuleDescription } from "@/lib/sim/ruleDescriptions";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { describeEvent } from "@/lib/sim/describeEvent";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
+import { edrFacts } from "@/lib/logs/native/sources/edr-normalize";
 
 // ─── Display-enriched event ───────────────────────────────────────────────────
 
@@ -312,7 +313,9 @@ export function injectAdvancedFidelityNoise(raw: Record<string, unknown>, event:
     if (v.includes("crowd")) {
       set("crowdstrike.aid", stableHex("aid" + hostKey, 32));
       set("crowdstrike.cid", stableHex("cid" + tenantKey, 32));
-      set("crowdstrike.event_platform", "Win");
+      // The platform the row itself shows (image path, host.os.*), not Windows for every host: a
+      // MacBook's DNS row stamped "Win" made the console show one host as two operating systems.
+      set("crowdstrike.event_platform", edrFacts(event).os);
       set("crowdstrike.ConfigBuild", "1007.3.0018108.1");
     } else {
       set("edr.sensor_id", stableHex("sensor" + hostKey, 32));

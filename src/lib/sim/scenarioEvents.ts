@@ -4123,6 +4123,27 @@ export function supplyChainScenarioEvents() {
     },
 
     // ── Lateral movement: the stolen id_rsa opens SSH sessions to db-primary and jenkins ──
+    // Falcon writes the ssh client's ProcessRollup2 before its NetworkConnectIP4, one per pid.
+    {
+      id: "evt_sc_11_ssh_proc", ts: T(32 * MIN - 1 * SEC),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
+      hostname: HOST, src_ip: victim.ip, severity: "medium", mitre_technique: "T1021.004",
+      description: "netpulse-telemetry-svc started ssh on prod-srv-01 with the devops private key, aimed at db-primary.internal.",
+      process: { name: "ssh", pid: 14950, path: "/usr/bin/ssh",
+        parent_name: "netpulse-telemetry-svc", parent_pid: TROJAN_PID,
+        cmdline: "ssh -i /home/devops/.ssh/id_rsa devops@db-primary.internal",
+        user: "root" },
+      raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Lin" },
+    },
+    {
+      id: "evt_sc_11b_ssh_proc", ts: T(32 * MIN + 39 * SEC),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
+      hostname: HOST, src_ip: victim.ip, severity: "medium", mitre_technique: "T1021.004",
+      description: "netpulse-telemetry-svc started ssh on prod-srv-01 with the devops private key, aimed at jenkins.internal.",
+      process: { name: "ssh", pid: 14951, path: "/usr/bin/ssh", parent_name: "netpulse-telemetry-svc", parent_pid: TROJAN_PID,
+        cmdline: "ssh -i /home/devops/.ssh/id_rsa devops@jenkins.internal", user: "root" },
+      raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Lin" },
+    },
     {
       id: "evt_sc_11_lateral", ts: T(32 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon",

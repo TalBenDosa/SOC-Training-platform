@@ -201,12 +201,13 @@ export function clickFixFakeCaptchaScenarioEvents() {
       description: "sysupd32.exe (pid 9014) on WS-3387 connected to 203.0.113.31:443.",
     }),
 
-    // 8. Its outbound call is refused at the perimeter (block-url).
+    // 8. Its outbound call is refused at the perimeter: PAN-OS URL filtering logs block-url;
+    //    a Firepower drops it first on its Security Intelligence CnC feed (IP Block).
     panWeb({
       ...cs, id: "evt_cfc_08_c2_blocked", ts: T(3 * MIN + 12_000), severity: "high",
       url: `https://${c2}/s/2`, domain: c2, category: "newly-registered-domain", action: "block",
-      dstIp: "203.0.113.31", status: 0, mitre: "T1071.001", tactic: "Command and Control",
-      description: "sysupd32.exe's outbound request to sync-metrics-relay.com was denied under the category newly-registered-domain.",
+      dstIp: "203.0.113.31", status: 0, mitre: "T1071.001", tactic: "Command and Control", ipFeedCategory: "CnC",
+      description: "The perimeter firewall refused sysupd32.exe's outbound request to sync-metrics-relay.com (203.0.113.31).",
     }),
 
     // 9. The Falcon detection that opens the ticket (killed sysupd32.exe).

@@ -140,12 +140,13 @@ export function fakeBrowserUpdateScenarioEvents() {
       description: "powershell.exe on LAP-4471 attempted an outbound connection to 203.0.113.18:443.",
     }),
 
-    // 7. The second-stage fetch is refused at the perimeter (block-url).
+    // 7. The second-stage fetch is refused at the perimeter: PAN-OS URL filtering logs block-url;
+    //    a Firepower drops it first on its Security Intelligence CnC feed (IP Block).
     panWeb({
       ...cs, id: "evt_fbu_07_c2_blocked", ts: T(5 * MIN + 12_000), severity: "high",
       url: `https://${c2}/s/2`, domain: c2, category: "newly-registered-domain", action: "block",
-      dstIp: "203.0.113.18", status: 0, mitre: "T1105", tactic: "Command and Control",
-      description: "The outbound request to api-telemetry-sync.com/s/2 was denied under the category newly-registered-domain.",
+      dstIp: "203.0.113.18", status: 0, mitre: "T1105", tactic: "Command and Control", ipFeedCategory: "CnC",
+      description: "The perimeter firewall refused the outbound request to api-telemetry-sync.com/s/2 (203.0.113.18).",
     }),
 
     // 8. The Falcon detection that opens the ticket (killed the PowerShell).

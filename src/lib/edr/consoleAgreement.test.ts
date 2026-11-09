@@ -30,7 +30,7 @@ import { buildEvidenceView } from "@/lib/forensics/workbench";
 import { buildInvestigationFromStory } from "./fromLiveStory";
 import { buildTeamEdrCases } from "./teamCases";
 import { runRtrCommand } from "./rtr";
-import { compareEdrToFeed, feedClock, isEndpoint, seenProcesses, type Disagreement } from "./consoleAgreement.testkit";
+import { compareEdrToFeed, feedClock, identityRealms, isEndpoint, seenProcesses, type Disagreement } from "./consoleAgreement.testkit";
 
 function seeded(n: number) { let s = n >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 2 ** 32; }; }
 const PRIVATE = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
@@ -185,5 +185,21 @@ describe("R3: the console's account realm is the company's own", () => {
       ev({ id: "b", ts: "2026-11-09T10:01:00Z", process: { pid: 4200, parent_pid: 4100, parent_name: "winword.exe", name: "powershell.exe", user: "m.verhoeven", cmdline: "powershell.exe -nop" } as TelemetryEvent["process"] }),
     ] })!;
     expect(inv.processes.find(p => p.pid === 4200)?.user).toBe("MEDCORE\\m.verhoeven");
+  });
+});
+
+describe("consoleAgreement: printed realms come from identity fields only", () => {
+  it("reads DOMAIN\\user under account keys and domain fields, not vault paths or system realms", () => {
+    const printed = new Set<string>(), domains = new Set<string>();
+    identityRealms({
+      fname: "Root\\Database-MSSql-sqlprod01-svc-db-admin",   // CyberArk safe object path
+      User: "NT AUTHORITY\\SYSTEM",                             // system realm
+      FilePath: "C:\\Users\\l.brunner\\Desktop",                 // a path
+      UserName: "l.brunner",                                    // Falcon's bare name
+    }, printed, domains);
+    expect([...printed]).toEqual([]);
+    identityRealms({ SubjectUserName: "QUANTUMBANK\\l.brunner", properties: { AccountDomain: "quantumbank" } }, printed, domains);
+    expect([...printed]).toEqual(["quantumbank"]);
+    expect([...domains]).toEqual(["quantumbank"]);
   });
 });

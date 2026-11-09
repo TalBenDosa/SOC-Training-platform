@@ -1922,6 +1922,32 @@
       ],
       "prefixes": []
     },
+    "pino-http": {
+      "label": "Node.js pino-http request log (an application's own JSON log)",
+      "note": "pino core keys level, time (ISO with the timestamp option pino.stdTimeFunctions.isoTime), pid, hostname, msg (getpino.io, API: logger output); pino-http keys req.id, req.method, req.url, req.headers, req.remoteAddress, res.statusCode, responseTime and the default message \"request completed\" (github.com/pinojs/pino-http README, checked 2026-11-09). graphql.* are the service's own customProps (pino-http option customProps); UNAUTHENTICATED is the Apollo Server error code for a failed authentication (apollographql.com/docs/apollo-server/data/errors, checked 2026-11-09).",
+      "aliases": [
+        "Node.js pino-http"
+      ],
+      "exactFields": [
+        "level",
+        "time",
+        "pid",
+        "hostname",
+        "msg",
+        "req.id",
+        "req.method",
+        "req.url",
+        "req.remoteAddress",
+        "req.headers.x-forwarded-for",
+        "req.headers.user-agent",
+        "res.statusCode",
+        "responseTime",
+        "graphql.operationName",
+        "graphql.aliasCount",
+        "graphql.errors.UNAUTHENTICATED"
+      ],
+      "prefixes": []
+    },
     "azure-monitor": {
       "label": "Azure Monitor / Azure Activity Log",
       "aliases": [

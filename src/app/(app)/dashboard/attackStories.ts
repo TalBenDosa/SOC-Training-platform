@@ -89,7 +89,8 @@ import { edgeVpnCveExploitScenarioEvents }        from "@/lib/sim/scenario-packs
 import { exfilFirstExtortionScenarioEvents }      from "@/lib/sim/scenario-packs/exfilFirstExtortion.events";
 import { helpdeskMfaResetScenarioEvents }         from "@/lib/sim/scenario-packs/helpdeskMfaReset.events";
 import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
-import { COMPANY_PROFILES, COMPANY_ASSETS, type SeatRole } from "@/lib/sim/companyProfilesMeta";
+import { COMPANY_PROFILES, COMPANY_ASSETS, companyHostOs, withHostOs, type HostOs, type SeatRole } from "@/lib/sim/companyProfilesMeta";
+import { hostOsFromRows } from "@/lib/sim/hostOs";
 import type { AiStoryDef } from "./ai-stories/wave2";
 import { AI_CORE_STORIES } from "./ai-stories/core";
 import { AI_EXTRA_STORIES } from "./ai-stories/extra";
@@ -1045,6 +1046,7 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   sharepoint:       ["o365"],                   // SharePoint/OneDrive audit arrives through the M365 unified audit log
   waf:              ["firewall", "cloudtrail"],  // WAF is an edge/firewall-class device
   web_server:       ["firewall", "edr"],         // every estate runs web servers behind its edge
+  app_log:          ["firewall", "edr"],         // ...and the applications behind them, which write their own logs
   db_monitor:       ["edr", "cloudtrail"],       // database activity monitoring
   cloud_azure:      ["o365", "cloudtrail"],
   vcs:              ["cloudtrail"],              // GitHub/source-control audit trail, alongside the cloud estate it deploys into
@@ -1089,7 +1091,9 @@ const COMPLEXITY_FOR_DIFFICULTY: Record<"easy" | "medium" | "hard", StoryComplex
  * later would leave them counted, and QuantumBank's Hard would stop reaching its core stories.
  */
 export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", solo = false): AttackStory[] {
-  const pool = solo ? ATTACK_STORIES.filter(s => !s.teamOnly && (!s.soloCompanies || s.soloCompanies.includes(companyId))) : ATTACK_STORIES;
+  const pool = (solo ? ATTACK_STORIES.filter(s => !s.teamOnly && (!s.soloCompanies || s.soloCompanies.includes(companyId))) : ATTACK_STORIES)
+    // A story whose machine runs an OS the company has no machine of is not dealt there.
+    .filter(s => storyOsFitsCompany(s, companyId));
   const sources = companySources(companyId);
   const explicit = (s: AttackStory) => s.companies ? s.companies.includes(companyId) : null;
 
@@ -1447,6 +1451,60 @@ function serverOs(h: string, events: TelemetryEvent[]): "linux" | "windows" | un
   return LINUX_NAME.test(h) ? "linux" : undefined;
 }
 
+/** A host name that says it is a person's machine (laptop, desktop, workstation), whatever OS it runs. */
+const WORKSTATION_NAME = /^(lap|ws|wks|lt|nb|desktop|laptop|macbook|mbp)([-_]|\d)/i;
+/** The OS a story shows a host running, from any row on it (hostOs.ts); undefined when no row says. */
+export function storyHostOs(h: string, events: TelemetryEvent[]): HostOs | undefined {
+  return hostOsFromRows(h, events);
+}
+/** A story host that is a server (by name, or a Linux machine without a workstation name). */
+function storyServerName(h: string, events: TelemetryEvent[]): boolean {
+  return SERVER_NAME_A.test(h) || SERVER_NAME_B.test(h) || SERVER_NAME_C.test(h) ||
+    (!WORKSTATION_NAME.test(h) && storyHostOs(h, events) === "linux");
+}
+const SERVER_NAME_A = /^(srv|svr|server|prod|db|web|app|sql|k8s|nix|lnx|linux|ubuntu|rhel|centos|debian|ip-\d)[-_]/i;
+const SERVER_NAME_B = /[-_](srv|sql|fs|file|files|app|web|db|exch|adm|jmp|jump|emr|erp|wms|sap|linux|lnx|backup|bkp|bak|nas)[-_]?\d*$/i;
+const SERVER_NAME_C = /[-_](srv|sql|fs|file|files|app|web|db|emr|erp|wms|sap|linux|lnx)\d*[-_]/i;
+
+/**
+ * Whether every machine the story shows running a given OS has a machine of that OS at the company
+ * to land on: a Windows phishing story is never dealt to a company with no Windows desk, and a
+ * Windows web server story never to a company that runs only Linux servers. Workstations count the
+ * company's registry desks and its osSeats; servers its registry and infrastructure servers. A
+ * domain controller and a story that brings its own servers are left to their own rules.
+ */
+const osFitMemo = new WeakMap<AttackStory, Map<string, boolean>>();
+export function storyOsFitsCompany(s: AttackStory, companyId: string): boolean {
+  const memo = osFitMemo.get(s) ?? osFitMemo.set(s, new Map()).get(s)!;
+  const hit = memo.get(companyId);
+  if (hit !== undefined) return hit;
+  const fits = osFits(s, companyId);
+  memo.set(companyId, fits);
+  return fits;
+}
+function osFits(s: AttackStory, companyId: string): boolean {
+  const assets = COMPANY_ASSETS[companyId];
+  if (!assets) return true;
+  const own = [...assets.hosts, ...(assets.infra ?? []).filter(h => !h.includes("."))];
+  const isDc = (h: string) => h === assets.dc || /(^|[^a-z0-9])dc[-_]?\d*([^a-z]|$)/i.test(h);
+  const companyServer = (h: string) => h === assets.fileServer || SERVER_NAME_A.test(h) || SERVER_NAME_B.test(h) || SERVER_NAME_C.test(h);
+  const desks = new Set([...own.filter(h => !isDc(h) && !companyServer(h)), ...Object.values(assets.osSeats ?? {}).flat().map(x => x.host)]);
+  const servers = own.filter(h => !isDc(h) && companyServer(h));
+  const hosts = [...new Set(s.events.map(e => e.hostname).filter((h): h is string => !!h && !h.includes(".")))];
+  return hosts.every(h => {
+    if (isDc(h)) return true;
+    const need = storyHostOs(h, s.events);
+    if (!need) return true;
+    if (storyServerName(h, s.events)) {
+      if (s.ownServers) return true;
+      if (KEEP_IF_ABSENT.has(serverRole(h) ?? "") && !servers.some(c => serverRole(c) === serverRole(h))) return true;
+      // A Mac in a story is a laptop; a server story is Windows or Linux.
+      return servers.some(c => companyHostOs(companyId, c) === need) || (need === "mac" && [...desks].some(c => companyHostOs(companyId, c) === "mac"));
+    }
+    return [...desks].some(c => companyHostOs(companyId, c) === need);
+  });
+}
+
 // `rnd` draws the replacement victim: the dashboard's Math.random by default; the team
 // timeline passes its seeded stream so a session seed always replays the same people.
 export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string, rnd: () => number = Math.random): AttackStory {
@@ -1521,7 +1579,17 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const fresh = allCandidates.filter(c => !others.has(c.split("@")[0]));
   const candidates = fresh.length ? fresh : allCandidates;
   // A story that needs a job draws the person from that job's seats, with the machine they sit at.
-  const seats = (s.seat && assets?.seats?.[s.seat]) || [];
+  // The victim's desk keeps its OS: a Windows story at a Mac shop sits at one of its Windows desks
+  // (osSeats), a Linux coding-agent story at a developer seat on a Linux laptop.
+  const victimDesk = victim ? s.events.find(e => e.user_email === victim && e.hostname && !e.hostname.includes(".")
+    && !storyServerName(e.hostname, s.events) && storyHostOs(e.hostname, s.events))?.hostname : undefined;
+  const victimOs = victimDesk && assets?.hostOs ? storyHostOs(victimDesk, s.events) : undefined;
+  let seats = (s.seat && assets?.seats?.[s.seat]) || [];
+  if (victimOs) {
+    const fit = seats.filter(x => companyHostOs(companyId, x.host) === victimOs);
+    if (fit.length) seats = fit;
+    else if (!seats.length && assets?.osSeats?.[victimOs]) seats = assets.osSeats[victimOs]!;
+  }
   const draw = rnd();
   const seat = seats.length ? seats[Math.floor(draw * seats.length)] : undefined;
   const replacement = seat ? `${seat.user}@${assets!.domain}` : candidates.length ? candidates[Math.floor(draw * candidates.length)] : undefined;
@@ -1600,7 +1668,8 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     (assets ? h === assets.fileServer : false) ||
     /^(srv|svr|server|prod|db|web|app|sql|k8s|nix|lnx|linux|ubuntu|rhel|centos|debian|ip-\d)[-_]/i.test(h) ||
     /[-_](srv|sql|fs|file|files|app|web|db|exch|adm|jmp|jump|emr|erp|wms|sap|linux|lnx|backup|bkp|bak|nas)[-_]?\d*$/i.test(h) ||
-    linuxHosts.has(h) ||
+    // A Linux laptop (a developer's Ubuntu machine) is still a person's machine.
+    (linuxHosts.has(h) && !WORKSTATION_NAME.test(h)) ||
     /[-_](srv|sql|fs|file|files|app|web|db|emr|erp|wms|sap|linux|lnx)\d*[-_]/i.test(h)
   );
   // Who works on each pool host (most frequent human user) - used to keep a story
@@ -1643,7 +1712,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       const storyOs = serverOs(h, s.events);
       const role = serverRole(h);
       const fits = (c: string) => {
-        const cOs = poolLinux.has(c) || LINUX_NAME.test(c) ? "linux" : "windows";
+        const cOs = assets?.hostOs?.[c] ?? (poolLinux.has(c) || LINUX_NAME.test(c) ? "linux" : "windows");
         if (storyOs && storyOs !== cOs) return false;
         const cRole = serverRole(c);
         return !SPECIALISED.has(cRole ?? "") || cRole === role;
@@ -1663,10 +1732,14 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       const users = storyHostUsers.get(h);
       const victimHost = !!(victim && users?.has(victim));
       const newUser = victimHost ? replacement : undefined;
-      const owned = newUser ? workstationTargets.filter(w => ownerOf(w) === newUser) : [];
-      const unowned = workstationTargets.filter(w => !ownerOf(w));
-      const notOthers = workstationTargets.filter(w => { const o = ownerOf(w); return !o || (users?.has(o) ?? false) || o === newUser; });
-      t = pickFrom(owned, h) ?? pickFrom(unowned, h) ?? pickFrom(notOthers, h) ?? pickFrom(workstationTargets, h, true);
+      // Same OS as the story shows (a company with an OS registry): a Windows desk never becomes a MacBook.
+      const deskOs = assets?.hostOs ? storyHostOs(h, s.events) : undefined;
+      const sameOs = deskOs ? workstationTargets.filter(w => companyHostOs(companyId, w) === deskOs) : [];
+      const desks = sameOs.length ? sameOs : workstationTargets;
+      const owned = newUser ? desks.filter(w => ownerOf(w) === newUser) : [];
+      const unowned = desks.filter(w => !ownerOf(w));
+      const notOthers = desks.filter(w => { const o = ownerOf(w); return !o || (users?.has(o) ?? false) || o === newUser; });
+      t = pickFrom(owned, h) ?? pickFrom(unowned, h) ?? pickFrom(notOthers, h) ?? pickFrom(desks, h, true);
     }
     if (!t) t = registryHostPool.length ? registryHostPool[hostHash(h) % registryHostPool.length] : h;
     used.add(t);
@@ -1869,7 +1942,8 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       if (f.access) stashThread(adapted, { access: f.access });
       adapted.raw = reshapeEdrRaw(adapted, targetNs) as typeof adapted.raw;
     }
-    return adapted;
+    // An endpoint row that says nothing about its OS runs on what the company's host runs (withHostOs).
+    return withHostOs(adapted, companyId);
   });
 
   // Last: one story → one set of endpoint identities (image path / hash per host, parent facts, writers, SIDs, logon ids).

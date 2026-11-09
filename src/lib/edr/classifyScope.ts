@@ -70,7 +70,7 @@ const NETWORK_DETECTION_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>
 /** Any source that is not host-observable — used for the non_edr determination. */
 const ANY_CONTROL_PLANE_SOURCES: ReadonlySet<LogSource> = new Set<LogSource>([
   ...IDENTITY_CLOUD_SOURCES, ...NETWORK_TRANSPORT_SOURCES,
-  "ids", "waf", "web_server", "dlp", "ueba", "threat_intel", "db_monitor", "siem", "soar", "k8s_audit",
+  "ids", "waf", "web_server", "app_log", "dlp", "ueba", "threat_intel", "db_monitor", "siem", "soar", "k8s_audit",
 ]);
 
 /**
