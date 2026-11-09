@@ -53,7 +53,8 @@ const note = (b: Book, scope: string, a: string, z: string) => {
 export const r3: Checker = c => {
   const out: Violation[] = [];
   const sidByName: Book = new Map(), nameBySid: Book = new Map();
-  const oidByUpn: Book = new Map(), upnByOid: Book = new Map();
+  // One book per identity provider: an Okta user id (00u...) and an Entra object id are two IdPs' ids for one person, not two ids in one directory.
+  const oidByUpn: Book = new Map(), upnByOid: Book = new Map(), oktaByUpn: Book = new Map();
   const ipByHost: Book = new Map(), hostByIp: Book = new Map();
   const example = new Map<string, string>();
   const meta = new Map<string, LogRow>();
@@ -81,7 +82,7 @@ export const r3: Checker = c => {
       const upn = pm.get(parentOf(p) + upk);
       if (!upn || !upn.includes("@") || !v || v === "-") continue;
       const u = upn.toLowerCase();
-      note(oidByUpn, scope, u, v); note(upnByOid, scope, v, u);
+      note(idk === "id" ? oktaByUpn : oidByUpn, scope, u, v); note(upnByOid, scope, v, u);
       example.set(`${scope}|${u}|${v}`, r.rowId);
     }
     for (const [hk, ik] of HOST_IP) for (const [p, v] of pm) {
@@ -107,6 +108,7 @@ export const r3: Checker = c => {
   emit(sidByName, "account has more than one SID");
   emit(nameBySid, "SID names more than one account", true);
   emit(oidByUpn, "UPN has more than one object id");
+  emit(oktaByUpn, "UPN has more than one object id");
   emit(upnByOid, "object id names more than one UPN", true);
   emit(ipByHost, "host has more than one IP");
   emit(hostByIp, "IP shared by more than one host", true);

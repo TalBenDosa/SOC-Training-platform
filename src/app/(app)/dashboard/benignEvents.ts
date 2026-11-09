@@ -1506,11 +1506,11 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_05", ts: T(26), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
-    hostname: "WS-FIN-2847", src_ip: "10.10.20.14", dst_ip: "31.13.70.36",
+    hostname: "WS-FIN-2847", src_ip: "10.10.20.14", dst_ip: "108.174.10.10",
     dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS connection from WS-FIN-2847 to www.linkedin.com",
     network: { domain: "www.linkedin.com", bytes_out: 3200, bytes_in: 28400 },
-    raw: { "event.action": "allow", "source.ip": "10.10.20.14", "destination.ip": "31.13.70.36",
+    raw: { "event.action": "allow", "source.ip": "10.10.20.14", "destination.ip": "108.174.10.10",
            "destination.port": "443", "rule.name": "ALLOW-WEB", "application": "linkedin" },
   },
   {

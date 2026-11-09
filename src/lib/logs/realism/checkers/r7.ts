@@ -14,8 +14,19 @@ const FAIL = new Set(["auth_failure", "ssh_failed", "vpn_failed", "db_failed", "
 function account(r: LogRow): string {
   const ev = r.ev!;
   const raw = (ev.raw ?? {}) as Record<string, unknown>;
-  const a = ev.user_email ?? ev.user?.email ?? raw["winlog.event_data.TargetUserName"] ?? raw.TargetUserName ?? raw["user.name"] ?? raw["okta.actor.alternate_id"] ?? "";
+  const a = ev.user_email ?? ev.user?.email ?? raw["winlog.event_data.TargetUserName"] ?? raw.TargetUserName ?? raw["user.name"] ?? raw["okta.actor.alternate_id"] ?? raw["vsphere.event.userName"] ?? "";
   return String(a).toLowerCase().split("@")[0].split("\\").pop() ?? "";
+}
+
+/** Some window of `minutes` holds at least 10 failures over at least 8 accounts. */
+function burstWithin(fails: LogRow[], minutes: number): boolean {
+  const s = fails.filter(r => Number.isFinite(r.time)).sort((a, b) => a.time! - b.time!);
+  for (let i = 0, j = 0; i < s.length; i++) {
+    while (s[i].time! - s[j].time! > minutes * 60_000) j++;
+    const win = s.slice(j, i + 1);
+    if (win.length >= 10 && new Set(win.map(account).filter(Boolean)).size >= 8) return true;
+  }
+  return false;
 }
 
 export const r7: Checker = c => {
@@ -47,7 +58,9 @@ export const r7: Checker = c => {
     const rowId = rest.join("|");
     const ex = `${fails.length} failures, ${accounts.size} accounts, over ${span.toFixed(1)} min`;
     if (spray && (fails.length < 10 || accounts.size < 8)) out.push({ surface: surface as LogRow["surface"], rule: "R7", rowId, detail: "spray not provable: fewer than 10 failures over 8 accounts", company: rows[0].company, example: ex });
-    else if (spray && span > 10) out.push({ surface: surface as LogRow["surface"], rule: "R7", rowId, detail: "spray failures spread over more than 10 minutes", company: rows[0].company, example: ex });
+    // The spray is proven by its burst: some 10-minute window holds 10 failures over 8 accounts. Later
+    // failures of the same story (the victim's own MFA denials after the takeover) do not unprove it.
+    else if (spray && span > 10 && !burstWithin(fails, 10)) out.push({ surface: surface as LogRow["surface"], rule: "R7", rowId, detail: "spray failures spread over more than 10 minutes", company: rows[0].company, example: ex });
     else if (!spray && brute && fails.length < 10) out.push({ surface: surface as LogRow["surface"], rule: "R7", rowId, detail: "brute force not provable: fewer than 10 failures", company: rows[0].company, example: ex });
   }
   return out;

@@ -87,10 +87,10 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     id: "rs_cs_004", ts: "2026-05-10T10:30:00.000Z",
     source: "edr", event_type: "net_connection", severity: "informational",
     vendor: "CrowdStrike Falcon", hostname: "LAP-007", src_ip: "172.16.10.7",
-    dst_ip: "52.84.241.10", dst_port: 443,
+    dst_ip: "140.82.112.6", dst_port: 443,
     network: { domain: "api.github.com", bytes_out: 1240, bytes_in: 5800 },
     description: "Outbound HTTPS connection from LAP-007 to api.github.com - allowed",
-    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "destination.ip": "52.84.241.10", "destination.port": "443", "network.protocol": "tcp", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "destination.ip": "140.82.112.6", "destination.port": "443", "network.protocol": "tcp", "action_result": "allowed" }
   },
   // ── AWS CloudTrail ────────────────────────────────────────────────────────
   {

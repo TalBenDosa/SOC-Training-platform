@@ -32,6 +32,12 @@ const SERVICE_RANGES: [string, string][] = [
   ...["136.226.0.0/16", "147.161.0.0/16", "165.225.0.0/16"].map(c => ["Zscaler", c] as [string, string]),
   ["Fastly", "151.101.0.0/16"], ["Apple", "17.0.0.0/8"], ["GitHub", "140.82.112.0/20"], ["GitHub", "185.199.108.0/22"],
   ["Quad9", "9.9.9.9/32"], ["OpenDNS", "208.67.222.0/23"],
+  // Services the stories use for that service (scen.md s4, gate review 2026-11-09): Microsoft Quick Assist /
+  // Teams, AWS (EC2 us-east-1, CloudFront, Amazon-hosted SaaS), Amazon SES, MEGA, Backblaze B2, SendGrid,
+  // Mimecast, LinkedIn mail, Qualys ASV scanners, Zoom, Canonical's Ubuntu archive.
+  ["Microsoft", "52.120.0.0/14"], ["AWS", "54.208.0.0/12"], ["AWS", "54.239.0.0/16"], ["AWS", "52.84.0.0/15"], ["Amazon SES", "54.240.0.0/18"],
+  ["MEGA", "31.216.144.0/21"], ["Backblaze", "149.137.128.0/18"], ["SendGrid", "149.72.0.0/16"], ["SendGrid", "168.245.0.0/16"], ["SendGrid", "198.37.144.0/20"],
+  ["Mimecast", "170.10.128.0/18"], ["LinkedIn", "108.174.0.0/20"], ["Qualys", "64.39.96.0/20"], ["Zoom", "170.114.0.0/16"], ["Canonical", "91.189.88.0/21"], ["Dropbox", "162.125.0.0/16"],
 ];
 
 export function serviceOf(ip: string): string | undefined {
