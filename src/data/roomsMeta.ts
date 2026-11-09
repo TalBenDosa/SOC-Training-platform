@@ -6452,7 +6452,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "edr-detection-investigation",
     "title": "Investigating an EDR Detection: End to End",
-    "description": "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextBaseFileName, CommandLine, SHA256HashData, DesiredAccess, ImageHash module loads), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
+    "description": "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, FileName, ParentImageFileName, CommandLine, SHA256String and the telemetry's SHA256HashData, DesiredAccess, ImageHash module loads), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
     "difficulty": "advanced",
     "category": "Endpoint Security",
     "estimatedMinutes": 75,
@@ -8883,11 +8883,11 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "google-secops-fundamentals",
     "title": "Google SecOps (Chronicle) for Analysts",
-    "description": "Work inside Google Security Operations like an analyst: read raw logs as UDM events, write UDM searches, use entity views, prevalence and threat intelligence, understand YARA-L rules, retrohunt and curated detections, and run a case in SOAR.",
+    "description": "Work inside Google Security Operations like an analyst: read raw logs and UDM events field by field, write the parser's output yourself, write UDM searches, write and debug YARA-L rules (single-event, multi-event and aggregation), judge entities and threat intelligence, scope a case and write its Case Wall note.",
     "difficulty": "intermediate",
     "category": "SIEM",
-    "estimatedMinutes": 65,
-    "xp": 170,
+    "estimatedMinutes": 95,
+    "xp": 335,
     "icon": "🧭",
     "prerequisites": [
       "siem-fundamentals",
@@ -8905,9 +8905,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "gso-m1",
-        "type": "matching",
-        "xp": 15
+        "id": "gso-qf1",
+        "type": "query_fill",
+        "xp": 20
+      },
+      {
+        "id": "gso-la0",
+        "type": "log_analysis",
+        "xp": 30
       },
       {
         "id": "gso-r3",
@@ -8915,9 +8920,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "gso-q1",
-        "type": "question",
-        "xp": 10
+        "id": "gso-qf2",
+        "type": "query_fill",
+        "xp": 20
       },
       {
         "id": "gso-f1",
@@ -8945,14 +8950,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "gso-o1",
-        "type": "ordering",
-        "xp": 15
+        "id": "gso-yl1",
+        "type": "query_fill",
+        "xp": 25
       },
       {
-        "id": "gso-q2",
+        "id": "gso-yl2",
+        "type": "query_fill",
+        "xp": 30
+      },
+      {
+        "id": "gso-yl3",
+        "type": "query_fill",
+        "xp": 30
+      },
+      {
+        "id": "gso-q4",
         "type": "question",
-        "xp": 10
+        "xp": 15
       },
       {
         "id": "gso-q3",
@@ -8970,9 +8985,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "gso-o2",
-        "type": "ordering",
-        "xp": 15
+        "id": "gso-qf3",
+        "type": "query_fill",
+        "xp": 20
+      },
+      {
+        "id": "gso-wr1",
+        "type": "written_report",
+        "xp": 40
       }
     ]
   }
