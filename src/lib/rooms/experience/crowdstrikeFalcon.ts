@@ -28,6 +28,14 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
   look: { primary: "#ef4444", secondary: "#f8fafc", warn: "#f59e0b" },
   scene: "talon",
   layout: "stage",
+  story: {
+    intro: { title: "A Laptop in Lisbon", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-intro-cf3bb22b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-intro-4d66fbdf.jpg" },
+    afterStation: {
+      console: { title: "Stop It or Report It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-ch2-7ec34ebb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-ch2-d08616df.jpg" },
+      rtr: { title: "From London, Through the Sensor", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-ch3-eae84d09.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-ch3-a6ecf3ad.jpg" },
+      keyboard: { title: "One Host, Not Five", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-finale-83800cd3.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-finale-cb285460.jpg" },
+    },
+  },
   stations: [
     {
       id: "console",
