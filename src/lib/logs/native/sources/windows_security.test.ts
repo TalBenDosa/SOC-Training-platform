@@ -10,9 +10,9 @@ import { sampleLogs, violationsOf, convertAll, contains, flatSamples, isNoise, t
  * Card samples: docs/log-schemas/windows-security.md §4 ships JSON samples for
  * 4625, 4776, 4740, 4771, 4688, 4769, 4768, 4624, 4672, 7045, 4720, 4728, 5136, 4662
  * (the 4697 twin is a table, not a JSON block, so it is not parsed as a sample).
- * All parsed samples are supported kinds — none skipped.
+ * All parsed samples are supported kinds - none skipped.
  *
- * Documented nulls (converter returns null, event keeps the legacy view — never a faked record):
+ * Documented nulls (converter returns null, event keeps the legacy view - never a faked record):
  *  - An onprem_ad event with no resolvable EventID (an MDI alert filed under source "ad").
  *  - An event id with no documented shape (card or Microsoft's per-event reference):
  *    TerminalServices 1149 / 21 / 23, TaskScheduler 201, PowerShell 4104, 4798, 4778/4779,
@@ -25,7 +25,7 @@ const SUPPORTED = new Set(Object.keys(source.schema.kinds));
 const authoredId = (c: Converted) => (c.c.ev.raw?.["winlog.event_id"] ?? c.c.ev.raw?.["event.code"]) as string | undefined;
 const supportable = converted.filter(c => { const id = authoredId(c); return id !== undefined && SUPPORTED.has(String(id)); });
 
-describe("windows_security — card samples", () => {
+describe("windows_security - card samples", () => {
   it("every supported card sample validates with zero violations", () => {
     expect(samples.skipped).toEqual([]);
     expect(samples.logs.length).toBe(flatSamples(source.schema.card).length);
@@ -40,14 +40,14 @@ describe("windows_security — card samples", () => {
   });
 });
 
-describe("windows_security — corpus conversion", () => {
+describe("windows_security - corpus conversion", () => {
   it("every converted event validates with zero violations and is well-formed", () => {
     for (const c of converted) {
       expect(c.error, c.c.ev.id).toBeUndefined();
       if (!c.log) continue;
       expect(violationsOf(c.log, source), `${c.c.ev.id} → ${c.log.kind}`).toEqual([]);
       expect(c.log.timeMs).toBe(Date.parse(c.c.ev.ts));
-      // Windows is shown as the SIEM's normalised JSON — not raw EVTX XML (Tal, 2026-10-03).
+      // Windows is shown as the SIEM's normalised JSON - not raw EVTX XML (Tal, 2026-10-03).
       expect(c.log.format).toBe("json");
       expect(c.log.rawLine).toBeUndefined();
       expect(typeof c.log.record.EventID).toBe("number");
@@ -74,11 +74,11 @@ describe("windows_security — corpus conversion", () => {
       const ev = c.ev, rec = log.record, k = log.kind;
       // Host-logged kinds (logon / process / service) carry the acting host in Computer; DC-logged
       // kinds (Kerberos / directory / lockout / account mgmt) carry the DC, so the workstation shows
-      // elsewhere — don't require ev.hostname in those records.
+      // elsewhere - don't require ev.hostname in those records.
       const hostLogged = ["4624", "4625", "4634", "4648", "4672", "4688", "4697", "7045"];
       if (ev.hostname && hostLogged.includes(k) && !/^\d+\.\d+\.\d+\.\d+$/.test(ev.hostname) && !ev.raw?.["winlog.computer_name"])
         expect(contains(rec, ev.hostname.split(".")[0]), `${ev.id} host`).toBe(true);
-      // user — any authored form (email local-part, user.name sam, authored TargetUserName).
+      // user - any authored form (email local-part, user.name sam, authored TargetUserName).
       const email = ev.user_email ?? ev.user?.email;
       const userForms = [email?.split("@")[0], (ev.raw?.["user.name"] as string | undefined)?.split("\\").pop(),
         ev.raw?.["winlog.event_data.TargetUserName"] as string | undefined, ev.raw?.["winlog.event_data.SubjectUserName"] as string | undefined]
@@ -119,7 +119,7 @@ describe("windows_security — corpus conversion", () => {
   });
 });
 
-describe("windows_security — use cases", () => {
+describe("windows_security - use cases", () => {
   const attack = converted.filter(c => c.c.origin === "story" && c.log).map(c => c.log!);
   const sampleLogsList = samples.logs;
   const noise = converted.filter(c => isNoise(c.c) && c.log).map(c => c.log!);

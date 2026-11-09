@@ -1,13 +1,13 @@
 /**
- * CrowdStrike Falcon — native module (card: docs/log-schemas/edr-crowdstrike.md).
+ * CrowdStrike Falcon - native module (card: docs/log-schemas/edr-crowdstrike.md).
  *
  * Two native representations, never mixed:
- *   - Falcon Data Replicator (FDR) raw sensor events — flat JSON, PascalCase keys, EVERY value a
+ *   - Falcon Data Replicator (FDR) raw sensor events - flat JSON, PascalCase keys, EVERY value a
  *     string, keys sorted as on the wire: ProcessRollup2, DnsRequest, NetworkConnectIP4,
  *     NetworkReceiveAcceptIP4, PeFileWritten / NewScriptWritten / OoxmlFileWritten /
  *     ZipFileWritten / GenericFileWritten, AsepValueUpdate / RegGenericValueUpdate, UserLogon /
  *     UserLogonFailed2. Current-sensor host context (ComputerName + LocalAddressIP4) is carried.
- *   - Alerts API v2 resource (kind "alert") for detections — nested snake_case, typed values.
+ *   - Alerts API v2 resource (kind "alert") for detections - nested snake_case, typed values.
  * Card-only kinds (validated against the card samples, never produced from telemetry because the
  * platform has no such events): Event Streams EppDetectionSummaryEvent, aidmaster, userinfo.
  *
@@ -19,7 +19,7 @@
  *     ContextProcessId on its own DnsRequest / NetworkConnectIP4 / *FileWritten events and the
  *     ParentProcessId of its children are the same value; alert `process_id` = that UPID too;
  *   - AuthenticationId (logon LUID) is stable per host + user ("999" for SYSTEM).
- * Raw Windows ProcessRollup2 carries NO user name (card §6) — only UserSid / AuthenticationId; the
+ * Raw Windows ProcessRollup2 carries NO user name (card §6) - only UserSid / AuthenticationId; the
  * name comes from UserLogon or, on file events, the event's own UserName. Linux PR2 carries UserName.
  *
  * Returns null (never fakes a record) for: device-control / USB / file-read telemetry (edrFacts
@@ -70,7 +70,7 @@ const PE_WRITTEN: KindSchema = {
  * types (OoxmlFileWritten, ZipFileWritten, GenericFileWritten) are listed in §3a without their own
  * inventory; they are rendered with this sibling layout (the card argues the same way for
  * PeFileWritten ↔ PngFileWritten). SHA256HashData / Size / UserName follow PeFileWritten (§3c:
- * "hash may be absent on some write events") — UNVERIFIED on the non-PE types.
+ * "hash may be absent on some write events") - UNVERIFIED on the non-PE types.
  */
 const FILE_WRITTEN: KindSchema = {
   required: [...COMMON_REQ, ...CTX, "TargetFileName"],
@@ -119,7 +119,7 @@ const kinds: Record<string, KindSchema> = {
     optional: [...COMMON_OPT, "RegStringValue", "RegType", "RegClassification", "RegClassificationFlags", "RegClassificationIndex",
       "AuthenticationId", "TokenType", "ContextThreadId"],
   },
-  // Not in the card — FDR data dictionary field names (UNVERIFIED against a public sample).
+  // Not in the card - FDR data dictionary field names (UNVERIFIED against a public sample).
   ScheduledTaskRegistered: {
     required: [...COMMON_REQ, ...CTX, "TaskName"],
     optional: [...COMMON_OPT, "ContextThreadId", "RpcClientProcessId", "TaskExecCommand", "TaskExecArguments", "TaskAuthor", "UserSid", "AuthenticationId"],
@@ -186,7 +186,7 @@ export function kindOf(record: Record<string, unknown>): string | null {
 // ── rendering helpers ────────────────────────────────────────────────────────
 
 /** Versioned `name`. Card-confirmed: PR2 V19, DnsRequest V5, NetworkConnectIP4 V5, PeFileWritten V14, UserLogon V8,
- *  ProcessRollup2LinV12. The other suffixes are not public — UNVERIFIED (sibling versions used). */
+ *  ProcessRollup2LinV12. The other suffixes are not public - UNVERIFIED (sibling versions used). */
 const NAME_SUFFIX: Record<string, string> = {
   ProcessRollup2: "V19", DnsRequest: "V5", NetworkConnectIP4: "V5", NetworkReceiveAcceptIP4: "V5", PeFileWritten: "V14",
   NewScriptWritten: "V12", OoxmlFileWritten: "V12", ZipFileWritten: "V12", GenericFileWritten: "V12",
@@ -205,7 +205,7 @@ const sortKeys = (o: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
 const aidOf = (ctx: NativeCtx, host: string) => rhex(ctx, `${ctx.companyId}:${host}:aid`, 32);
-/** Falcon-unique process id (UPID) — 12 decimal digits, stable per process instance. */
+/** Falcon-unique process id (UPID) - 12 decimal digits, stable per process instance. */
 const upid = (ctx: NativeCtx, seed: string) => `2${digits(ctx, `${seed}:upid`, 11)}`;
 const threadId = (ctx: NativeCtx, seed: string) => `1${digits(ctx, `${seed}:tid`, 11)}`;
 /** Logon LUID of the event's user on this host (./_proc-identity logonLuid: authored session, else per host + user + day; 999 SYSTEM). */
@@ -219,7 +219,7 @@ function common(b: Base, simple: string, cls = "3"): Record<string, unknown> {
   return {
     aid: b.aid, aip: egressIp(ctx), cid: ctx.tenant.crowdstrikeCid, event_platform: os, event_simpleName: simple,
     id: ruuid(ctx, `${ev.id}:crowdstrike:id`), name,
-    // `timestamp` = cloud receive time (epoch ms) — lags the sensor time by a fraction of a second.
+    // `timestamp` = cloud receive time (epoch ms) - lags the sensor time by a fraction of a second.
     timestamp: String(f.timeMs + ctx.int(`${ev.id}:cs:lag`, 90, 950)),
     ConfigBuild: "1007.3.0019807.1", ConfigStateHash: String(ctx.int(`${ctx.companyId}:${host}:csh`, 100_000_000, 4_000_000_000)),
     Entitlements: "15", EffectiveTransmissionClass: cls, EventOrigin: "1", ComputerName: host, LocalAddressIP4: b.hostIp,
@@ -381,10 +381,10 @@ function registry(b: Base, ev: TelemetryEvent): { simple: string; rec: Record<st
 }
 
 /**
- * ScheduledTaskRegistered — the Task Scheduler service (svchost.exe -k netsvcs -s Schedule) records
+ * ScheduledTaskRegistered - the Task Scheduler service (svchost.exe -k netsvcs -s Schedule) records
  * the registration, so ContextProcessId is that service; the process that asked for the task over
  * RPC (schtasks.exe, an installer …) is RpcClientProcessId = its own PR2 TargetProcessId.
- * The event and these field names are not in the card (UNVERIFIED there) — they follow the FDR data
+ * The event and these field names are not in the card (UNVERIFIED there) - they follow the FDR data
  * dictionary's ScheduledTaskRegistered (TaskName, TaskExecCommand, TaskExecArguments, TaskAuthor,
  * RpcClientProcessId).
  */
@@ -495,9 +495,9 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const parentKnown = !!(parent.name || parent.path);
   const parentId = parentKnown ? upid(ctx, procSeed(ctx, b.scope, parent)) : undefined;
   // Falcon's own detection naming: on-sensor ML for a known-malicious file, the ATT&CK
-  // technique for a behavioural IOA — never a Defender threat name or a scenario placeholder.
+  // technique for a behavioural IOA - never a Defender threat name or a scenario placeholder.
   // An AV engine's dotted signature ("PUA.RemoteAdmin.AnyDesk", "Trojan.GenericKD") is another
-  // product's naming too — Falcon names IOAs / ML detections, not signatures.
+  // product's naming too - Falcon names IOAs / ML detections, not signatures.
   const ownName = foreignDetectionName(d.name) || /^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/.test(d.name ?? "") ? undefined : d.name;
   const mlFile = !ownName && (d.action === "quarantined" || /malware|trojan|ransom/i.test(d.name ?? ""));
   const techName = techniqueName(d.techniqueId?.split(",")[0]?.trim(), d.technique);
@@ -525,7 +525,7 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     composite_id: composite, confidence: d.confidence !== undefined ? (d.confidence <= 1 ? Math.round(d.confidence * 100) : Math.round(d.confidence)) : sevNum >= 90 ? 90 : sevNum >= 70 ? 80 : 60,
     context_timestamp: iso(f.timeMs), control_graph_id: `ctg:${aid}:${treeId}`,
     created_timestamp: isoNano(ctx, created, `${ev.id}:cs:cns`), data_domains: ["Endpoint"],
-    // Falcon's wording for HOW it detected — never the authored narrative, whose "quarantined and
+    // Falcon's wording for HOW it detected - never the authored narrative, whose "quarantined and
     // killed" claims contradicted the disposition flags (what the sensor DID is pattern_disposition*).
     description: falconDescription(mlFile ? "quarantined" : d.action, techId, techName ?? display), display_name: display,
     device: {
@@ -629,7 +629,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // A task registration is its own sensor event, not a child process of the registrar.
   const task = f.kind === "process" ? taskFacts(ev, f) : null;
   if (task) return out("ScheduledTaskRegistered", scheduledTask(b, task));
-  // A handle opened on lsass.exe: FDR keeps no generic cross-process telemetry — the sensor reports the
+  // A handle opened on lsass.exe: FDR keeps no generic cross-process telemetry - the sensor reports the
   // credential-dumping behaviour as a detection (card: FalconProcessHandleOpDetectInfo feeds the IOA), so
   // the record is that alert on the opening process, never a ProcessRollup2 that drops the lsass access.
   if (f.kind === "process" && f.access && /^lsass\.exe$/i.test(f.access.name ?? "")) {
@@ -659,14 +659,14 @@ const useCases: UseCase[] = [
   {
     id: "crowdstrike.office_spawns_encoded_script", title: "Office application spawns a script host with an encoded command", sourceId: "crowdstrike",
     kinds: ["ProcessRollup2"], severity: "high", mitre: ["T1566.001", "T1204.002", "T1059.001", "T1027"],
-    description: "A Word/Excel/Outlook process should never start PowerShell (or wscript/mshta) with an encoded command line — that is the classic malicious-macro hand-off. In FDR the child PR2 names its parent only by ParentBaseFileName + ParentProcessId; pivot from TargetProcessId to every DnsRequest / NetworkConnectIP4 / PeFileWritten with that ContextProcessId to see what the script did next, and from AuthenticationId to the UserLogon that names the user.",
+    description: "A Word/Excel/Outlook process should never start PowerShell (or wscript/mshta) with an encoded command line - that is the classic malicious-macro hand-off. In FDR the child PR2 names its parent only by ParentBaseFileName + ParentProcessId; pivot from TargetProcessId to every DnsRequest / NetworkConnectIP4 / PeFileWritten with that ContextProcessId to see what the script did next, and from AuthenticationId to the UserLogon that names the user.",
     logic: "LogScale: #event_simpleName=ProcessRollup2 ParentBaseFileName=/^(WINWORD|EXCEL|POWERPNT|OUTLOOK|MSACCESS)\\.EXE$/i ImageFileName=/\\\\(powershell|pwsh|wscript|cscript|mshta)\\.exe$/i CommandLine=/\\s-(e|enc|encodedcommand)\\s/i | table([@timestamp, aid, ComputerName, ParentBaseFileName, CommandLine, TargetProcessId])",
     match: { all: [
       { field: "ParentBaseFileName", op: "in", value: OFFICE },
       { any: [{ field: "ImageFileName", op: "regex", value: SCRIPT_HOST_IMG }, { field: "CommandLine", op: "regex", value: `(^|\\\\|")(${alt(SCRIPT_HOSTS.filter(s => s !== "cmd.exe"))})` }] },
       { field: "CommandLine", op: "regex", value: ENCODED },
     ] },
-    falsePositives: ["Signed internal add-ins that shell out to PowerShell (rarely encoded — verify the decoded text and the document's origin)"],
+    falsePositives: ["Signed internal add-ins that shell out to PowerShell (rarely encoded - verify the decoded text and the document's origin)"],
   },
   {
     id: "crowdstrike.script_host_encoded_command", title: "Script host launched with an encoded / hidden command line", sourceId: "crowdstrike",
@@ -687,7 +687,7 @@ const useCases: UseCase[] = [
   {
     id: "crowdstrike.script_host_external_connection", title: "Script host connects to an external address", sourceId: "crowdstrike",
     kinds: ["NetworkConnectIP4"], severity: "high", mitre: ["T1059.001", "T1071.001"],
-    description: "PowerShell / wscript / cscript / mshta opening a socket to an internet address is uncommon on a user workstation and is how stagers fetch their second stage. Few distinct ComputerName values per RemoteAddressIP4 across the fleet makes it rarer still — check the domain in the DnsRequest with the same ContextProcessId just before.",
+    description: "PowerShell / wscript / cscript / mshta opening a socket to an internet address is uncommon on a user workstation and is how stagers fetch their second stage. Few distinct ComputerName values per RemoteAddressIP4 across the fleet makes it rarer still - check the domain in the DnsRequest with the same ContextProcessId just before.",
     logic: "LogScale: #event_simpleName=NetworkConnectIP4 ContextBaseFileName=/^(powershell|pwsh|wscript|cscript|mshta)\\.exe$/i !cidr(RemoteAddressIP4, subnet=[\"10.0.0.0/8\",\"172.16.0.0/12\",\"192.168.0.0/16\"]) | groupBy([RemoteAddressIP4], function=[count(aid, distinct=true)]) | _count < 3",
     match: { all: [{ field: "ContextBaseFileName", op: "in", value: SCRIPT_HOSTS.filter(s => s !== "cmd.exe") }, { field: "RemoteAddressIP4", op: "notCidr", value: PRIVATE_CIDRS }] },
     falsePositives: ["Admin scripts calling public APIs (package galleries, cloud CLIs)"],
@@ -707,7 +707,7 @@ const useCases: UseCase[] = [
   {
     id: "crowdstrike.unsigned_exec_downloads_public", title: "Unsigned binary executed from Downloads or C:\\Users\\Public", sourceId: "crowdstrike",
     kinds: ["ProcessRollup2"], severity: "medium", mitre: ["T1204.002", "T1036"],
-    description: "Phishing payloads and cracked installers run straight from the browser's Downloads folder or the world-writable Public profile. SignInfoFlags \"0\" marks an image with no valid signature (value semantics UNVERIFIED in public docs — confirm in the console's process details).",
+    description: "Phishing payloads and cracked installers run straight from the browser's Downloads folder or the world-writable Public profile. SignInfoFlags \"0\" marks an image with no valid signature (value semantics UNVERIFIED in public docs - confirm in the console's process details).",
     logic: "LogScale: #event_simpleName=ProcessRollup2 ImageFileName=/\\\\Users\\\\([^\\\\]+\\\\Downloads|Public)\\\\/i SignInfoFlags=0",
     match: { all: [{ field: "ImageFileName", op: "regex", value: DOWNLOADS_PUBLIC_RE }, { field: "SignInfoFlags", op: "eq", value: "0" }] },
     falsePositives: ["Portable tools and unsigned internal utilities distributed by IT"],
@@ -715,7 +715,7 @@ const useCases: UseCase[] = [
   {
     id: "crowdstrike.credential_access_alert", title: "Credential-access detection (LSASS / SAM / browser credential store)", sourceId: "crowdstrike",
     kinds: ["alert"], severity: "critical", mitre: ["T1003", "T1003.001", "T1555.003"],
-    description: "Any Falcon alert whose technique_id is under T1003 (OS credential dumping, incl. LSASS memory) or T1555 (credential stores) means credentials on that host must be treated as exposed — even when the process was killed. Scope: which accounts had sessions on device.hostname, and were they used elsewhere afterwards?",
+    description: "Any Falcon alert whose technique_id is under T1003 (OS credential dumping, incl. LSASS memory) or T1555 (credential stores) means credentials on that host must be treated as exposed - even when the process was killed. Scope: which accounts had sessions on device.hostname, and were they used elsewhere afterwards?",
     logic: "Alerts API: filter=product:'epp'+technique_id:*'T1003*',technique_id:*'T1555*'  (LogScale on NG-SIEM: #repo=detections technique_id=/^T(1003|1555)/)",
     match: { any: [{ field: "technique_id", op: "regex", value: "^T(1003|1555)" }, { field: "tactic", op: "eq", value: "Credential Access" }] },
     falsePositives: ["Approved red-team / pentest windows (confirm the engagement ticket)", "Password-manager or backup agents reading browser stores"],
@@ -723,7 +723,7 @@ const useCases: UseCase[] = [
   {
     id: "crowdstrike.high_severity_not_prevented", title: "High/critical detection with no prevention action", sourceId: "crowdstrike",
     kinds: ["alert"], severity: "high", mitre: [],
-    description: "pattern_disposition 0 (\"Detection, standard detection.\") with every pattern_disposition_details flag false means the sensor only alerted — the process kept running. On a high/critical alert that is an active compromise: contain the host (network containment) and kill the tree from RTR. Often caused by a detect-only prevention policy on that host group.",
+    description: "pattern_disposition 0 (\"Detection, standard detection.\") with every pattern_disposition_details flag false means the sensor only alerted - the process kept running. On a high/critical alert that is an active compromise: contain the host (network containment) and kill the tree from RTR. Often caused by a detect-only prevention policy on that host group.",
     logic: "Alerts API: filter=severity:>=70+pattern_disposition:0+status:'new'",
     match: { all: [{ field: "severity", op: "gte", value: 70 }, { field: "pattern_disposition", op: "eq", value: 0 }, { field: "pattern_disposition_details.kill_process", op: "eq", value: false }] },
     falsePositives: ["Detections deliberately left in monitor mode during a policy roll-out"],
@@ -768,7 +768,7 @@ export const source: NativeSource = {
 };
 
 /**
- * The text Falcon itself puts in a detection's `description` — product wording keyed to
+ * The text Falcon itself puts in a detection's `description` - product wording keyed to
  * how it detected (on-sensor ML for a quarantined file, a behavioural pattern otherwise),
  * never the scenario's narrative, which states the conclusion the analyst must reach.
  */

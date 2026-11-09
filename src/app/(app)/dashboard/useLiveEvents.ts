@@ -17,7 +17,7 @@ import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 /**
  * Event times for a batch that arrives together (one attack phase): spread over the
  * last minute or two and strictly in story order, the newest a few seconds before
- * now. A log is never stamped in the future — ingestion lag makes it arrive AFTER it
+ * now. A log is never stamped in the future - ingestion lag makes it arrive AFTER it
  * happened, not before (the old stamping added the lag to the event time).
  */
 export function phaseTimes(n: number, now: number, rnd: () => number = Math.random): number[] {
@@ -80,7 +80,7 @@ function newShiftKey(): string {
 
 /**
  * Teaching payload for the POSITIVE "Learning Moment" debrief shown when an
- * attack completes without being reported. It is never a penalty — just "here's
+ * attack completes without being reported. It is never a penalty - just "here's
  * the pattern so you catch it next time".
  */
 export interface MissedIncidentDebrief {
@@ -88,11 +88,11 @@ export interface MissedIncidentDebrief {
   title: string;
   /** MITRE technique ID(s) the attack used. */
   techniques: string[];
-  /** One-line "how you could have caught it" tell — the standout signal. */
+  /** One-line "how you could have caught it" tell - the standout signal. */
   tell: string;
 }
 
-// Display enrichment + feed helpers live in ./liveEventEnrich (no engine import —
+// Display enrichment + feed helpers live in ./liveEventEnrich (no engine import -
 // the team room uses enrichEvent without pulling the simulation's answer data).
 import {
   enrichEvent, buildRuleId, ingestionDelayMs, injectAdvancedFidelityNoise, jitteredOffset, severityBase,
@@ -191,21 +191,21 @@ export interface DashboardSessionRecord {
   xpEarned: number;
   /**
    * % of presented attacks the student actually caught (via a passing
-   * incident report) before the SLA expired. Real signal — derived from
+   * incident report) before the SLA expired. Real signal - derived from
    * attacksCaughtCount/attacksPresentedCount, both driven by markCaught()
    * and incident-open, not by the removed per-event classify() UI.
    */
   detectRate: number;
-  /** False-negative count — attacks the SLA timer expired on before the student
+  /** False-negative count - attacks the SLA timer expired on before the student
    * caught them. Tracked separately from detectRate on purpose (see
-   * ANALYST_TELEMETRY_PLAN.md) — over-escalating and missing real attacks are
+   * ANALYST_TELEMETRY_PLAN.md) - over-escalating and missing real attacks are
    * opposite failure modes and averaging them hides both. Optional: records
    * saved before this field lack it. */
   fnCount?: number;
   avgCatchMs: number | null;
   attacksCaughtCount: number;
   attacksPresentedCount: number;
-  /** Rows opened this session — a coarse thoroughness signal. Optional: records
+  /** Rows opened this session - a coarse thoroughness signal. Optional: records
    * saved before this field lack it. */
   eventsOpenedCount?: number;
   /** Wall-clock session length in ms (records saved before this field lack it) */
@@ -217,18 +217,18 @@ export interface DashboardSessionRecord {
 interface UseLiveEventsOptions {
   eventPool?: TelemetryEvent[];    // legacy mode: benign background noise
   companyId?: string;              // engine mode: generate events algorithmically
-  /** The session's attack story — events injected IN ORDER in small phases */
+  /** The session's attack story - events injected IN ORDER in small phases */
   story?: AttackStory | null;
   /** Called when the active story's final phase has been injected */
   onStoryComplete?: () => void;
   /** True while the analyst is actively investigating this incident (report modal
    *  open, or the EDR console in play). When true, the "you missed it" verdict is
-   *  deferred — a thorough investigation must never auto-fail the analyst. */
+   *  deferred - a thorough investigation must never auto-fail the analyst. */
   isInvestigating?: () => boolean;
   intervalMs?: number;
   maxVisible?: number;
   /**
-   * When false, the feed starts IDLE — no initial events, no streaming — until
+   * When false, the feed starts IDLE - no initial events, no streaming - until
    * reset()/resume() is called. The dashboard uses this so nothing runs until
    * the student presses Start Training. Defaults to true (legacy auto-start).
    */
@@ -248,23 +248,23 @@ export interface LiveEventsApi {
   /** Arm a new attack story mid-session. Optional delayMs overrides the default
    *  8-12 min campaign cooldown (the dashboard uses a shorter gap after a report). */
   startStory: (story: AttackStory, delayMs?: number) => void;
-  // Fires when an attack completes uncaught — drives the POSITIVE "Learning
+  // Fires when an attack completes uncaught - drives the POSITIVE "Learning
   // Moment" debrief (NOT a fail: no XP loss, no permanent halt). Paired with the
   // missedIncident teaching payload. clearMissedAttack resets both.
   missedAttack: boolean;
   clearMissedAttack: () => void;
   /** Teaching payload for the Learning-Moment debrief (what the attack was, its
-   *  MITRE technique(s), and the tell) — null when no debrief is active. */
+   *  MITRE technique(s), and the tell) - null when no debrief is active. */
   missedIncident: MissedIncidentDebrief | null;
-  /** Register a real catch — called when the student's incident report passes.
+  /** Register a real catch - called when the student's incident report passes.
    * Stops the response clock and records catch speed + response time. */
   markCaught: (eventId: string) => void;
-  // Response clock — ELAPSED seconds since the attack's first phase (counts UP;
+  // Response clock - ELAPSED seconds since the attack's first phase (counts UP;
   // pauses while investigating). null when no active attack. Never a deadline.
   attackTimerSeconds: number | null;
   /** Response time (ms) for the most recently handled incident, from attack
    * first-phase injection to catch / passing report. null until one is handled.
-   * A coaching metric only — never affects pass/fail or score. */
+   * A coaching metric only - never affects pass/fail or score. */
   lastResponseMs: number | null;
   /** The response-time TARGET in seconds (a coaching benchmark, not a deadline). */
   responseTargetSeconds: number;
@@ -289,7 +289,7 @@ export interface LiveEventsApi {
 
 // ─── Learning-Moment debrief builders ─────────────────────────────────────────
 
-/** The standout signal an analyst could have caught the attack by — the highest-
+/** The standout signal an analyst could have caught the attack by - the highest-
  *  severity event's plain-language description, which reads as the "tell". */
 function buildMissedTell(events: TelemetryEvent[]): string {
   const key = events.find(e => e.severity === "critical")
@@ -319,11 +319,11 @@ function inferIncidentTitle(events: TelemetryEvent[]): string {
   if (/ransomware|encrypt|locked/i.test(desc)) return "Ransomware Activity Detected";
   if (/lsass|credential|mimikatz|dcsync/i.test(desc)) return "Credential Theft in Progress";
   if (/psexec|lateral|smb|wmi/i.test(desc)) return "Lateral Movement Detected";
-  if (/phish|invoice|macro/i.test(desc))   return "Phishing Attack — Active Infection";
+  if (/phish|invoice|macro/i.test(desc))   return "Phishing Attack - Active Infection";
   if (/powershell|encoded|base64/i.test(desc)) return "Malicious PowerShell Execution";
   if (/oauth|consent|graph api/i.test(desc)) return "Unauthorized Cloud Access";
   if (/exfil|upload|download.*bulk/i.test(desc)) return "Data Exfiltration Attempt";
-  return "High-Severity Incident — Investigate";
+  return "High-Severity Incident - Investigate";
 }
 
 // Convert GeneratedEvent (engine output) → TelemetryEvent for enrichEvent()
@@ -348,7 +348,7 @@ export function useLiveEvents({
 }: UseLiveEventsOptions): LiveEventsApi {
   // Engine mode: true when companyId is provided
   const engineMode = Boolean(companyId);
-  // Start empty — populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
+  // Start empty - populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [isStreaming, setIsStreaming]       = useState(autoStart);
   // Read by timers/intervals (P5-02/03): they outlive renders, so they check the
@@ -365,19 +365,19 @@ export function useLiveEvents({
 
   // SLA countdown + per-skill tracking
   const [attackTimerSeconds,   setAttackTimerSeconds]   = useState<number | null>(null);
-  // fnCount = missed-attack count (Phase 1 telemetry — see ANALYST_TELEMETRY_PLAN.md).
+  // fnCount = missed-attack count (Phase 1 telemetry - see ANALYST_TELEMETRY_PLAN.md).
   // `missedAttack` stays a one-shot boolean for the existing "you missed it" UI
   // toast; fnCount is the cumulative counter for trend reporting.
   const [fnCount,               setFnCount]              = useState(0);
   const [eventsOpenedCount,     setEventsOpenedCount]    = useState(0);
   const [attacksCaughtCount,    setAttacksCaughtCount]   = useState(0);
   const [avgCatchMs,          setAvgCatchMs]           = useState<number | null>(null);
-  // Response time (ms) for the most recently handled incident — from attack
+  // Response time (ms) for the most recently handled incident - from attack
   // first-phase injection to the catch / passing report. Surfaced as a coaching
   // point in the incident report; never affects pass/fail or score.
   const [lastResponseMs,       setLastResponseMs]       = useState<number | null>(null);
   const [lastAttackChain,      setLastAttackChain]      = useState<LiveEvent[] | null>(null);
-  /** Incident ids already counted toward attacksCaughtCount — guards markCaught
+  /** Incident ids already counted toward attacksCaughtCount - guards markCaught
    * against double-incrementing if it's ever invoked twice for the same incident. */
   const countedIncidentIdsRef = useRef<Set<string>>(new Set());
   // QA-DASH-8: the session counters live in refs too, updated at mutation time, so
@@ -399,7 +399,7 @@ export function useLiveEvents({
   );
   /** Active attack story + injection cursor (events injected in order) */
   const storyRef          = useRef<AttackStory | null>(story);
-  /** The latest story armed (kept after it fully injects) — reset() with no story
+  /** The latest story armed (kept after it fully injects) - reset() with no story
    *  restarts it from phase 0 instead of leaving the shift with no attack (QA-DASH-5). */
   const currentStoryRef   = useRef<AttackStory | null>(story);
   /** The current story's events already injected (rebased), in story order. */
@@ -411,7 +411,7 @@ export function useLiveEvents({
   /**
    * enrichEvent + progressive fidelity. Log fidelity is a property of the
    * SESSION, not the individual event: when the active story is advanced-tier
-   * (a Hard session), EVERY event — benign background noise included — gets
+   * (a Hard session), EVERY event - benign background noise included - gets
    * production-grade metadata noise. Applying it session-wide (not just to
    * attack events) is deliberate: if only malicious rows were "fuller", field
    * count would leak the answer. Foundation/core sessions stay clean.
@@ -431,11 +431,11 @@ export function useLiveEvents({
   const isInvestigatingRef = useRef(isInvestigating);
   isInvestigatingRef.current = isInvestigating;
   // The live feed is a low-pressure PRACTICE space. When an attack completes
-  // uncaught we DO surface it — as a POSITIVE "Learning Moment" debrief, never a
+  // uncaught we DO surface it - as a POSITIVE "Learning Moment" debrief, never a
   // punishment. This watchdog fires it only after a GENEROUSLY long grace (far
   // longer than the old 4-minute trap), never while the analyst is mid-
   // investigation (it re-checks on a ~60s delay instead of interrupting), and
-  // never once markCaught has run. It does not fail the shift or claw back XP —
+  // never once markCaught has run. It does not fail the shift or claw back XP -
   // page.tsx pauses the feed behind the modal and resumes + arms the next attack
   // when they dismiss it.
   const MISS_DEBRIEF_GRACE_MS = 540_000; // 9 minutes after the attack's final phase
@@ -451,7 +451,7 @@ export function useLiveEvents({
         return;
       }
       // Surface the positive Learning-Moment debrief and pause the feed so the
-      // analyst actually reads it. No fail, no XP loss — page.tsx resumes on close.
+      // analyst actually reads it. No fail, no XP loss - page.tsx resumes on close.
       setMissedIncident(debrief);
       setMissedAttack(true);
       recordMissRef.current?.(debrief);
@@ -465,11 +465,11 @@ export function useLiveEvents({
   const missTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caughtRef         = useRef(false);
   const attackTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Latest injectNextPhase — armPhase calls it without a dependency cycle. */
+  /** Latest injectNextPhase - armPhase calls it without a dependency cycle. */
   const injectNextPhaseRef = useRef<(() => void) | null>(null);
   /**
    * The ONLY way to schedule the next story phase (P5-02). It always clears the
-   * pending timer first, so there is never more than one phase chain — reset()
+   * pending timer first, so there is never more than one phase chain - reset()
    * and startStory() used to arm a timer that the streaming effect then
    * overwrote without clearing, leaving an orphaned second chain that injected
    * at double pace and kept going while the feed was paused.
@@ -498,7 +498,7 @@ export function useLiveEvents({
   const firstOpenedAtRef   = useRef<Map<string, number>>(new Map());
   /** Posts a missed attack to the learner's record (set below, once the helpers exist). */
   const recordMissRef      = useRef<((debrief: MissedIncidentDebrief) => void) | null>(null);
-  /** Session start — reset() restarts it; endSession() reports the duration */
+  /** Session start - reset() restarts it; endSession() reports the duration */
   const sessionStartRef    = useRef(Date.now());
 
   /** The next ordinary row of the shift, or null with an empty pool. */
@@ -558,7 +558,7 @@ export function useLiveEvents({
         // Fire next attack phase if due
         if (world.attack && attackDue(world)) {
           const attackEvents = advanceAttack(world);
-          // advanceAttack() clears world.attack once every phase has injected —
+          // advanceAttack() clears world.attack once every phase has injected -
           // that is the moment the story is genuinely over.
           const storyJustFinished = world.attack === null;
           if (attackEvents && attackEvents.length > 0) {
@@ -570,7 +570,7 @@ export function useLiveEvents({
               return {
                 ...tele,
                 // L-02: spread the incident's events across the last minutes, not a 3-4s
-                // burst — building the timeline is a real correlation exercise — and
+                // burst - building the timeline is a real correlation exercise - and
                 // never in the future (phaseTimes).
                 ts: new Date(times[i]).toISOString(),
                 id: `eng_atk_${now}_${i}`,
@@ -598,14 +598,14 @@ export function useLiveEvents({
               caughtRef.current = false;
               attackInjectedAtRef.current = now;
               presentedRef.current += 1;
-              // Response clock counts UP from 0 — an elapsed timer, not a
+              // Response clock counts UP from 0 - an elapsed timer, not a
               // countdown. It is never a fail at any value; it only measures how
               // long the analyst took so the report can coach on pace.
               setAttackTimerSeconds(0);
               if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
               slaIntervalRef.current = setInterval(() => {
                 // Paused while the analyst is working the case (report open / EDR
-                // in play) — that time must not count against them. No fail, ever.
+                // in play) - that time must not count against them. No fail, ever.
                 if (isInvestigatingRef.current?.()) return;
                 if (!isStreamingRef.current) return;   // feed paused → the clock pauses too (P5-03)
                 setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
@@ -685,25 +685,25 @@ export function useLiveEvents({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- interval keyed intentionally; enrichWithFidelity/scheduleDebriefCheck are useCallback-stable and read live values via refs, so recreating the interval on their identity would only churn it
   }, [isStreaming, intervalMs, maxVisible, engineMode]);
 
-  // ── Attack injection — Story Scheduler ───────────────────────────────────────
+  // ── Attack injection - Story Scheduler ───────────────────────────────────────
   // The session story's events are injected IN ORDER in small phases (2-3 events)
   // so the student watches a coherent kill-chain unfold: first phase within
   // ~2-3 minutes, then a new phase every 2-4 minutes until all events appeared.
   const FIRST_PHASE_DELAY = () => 120_000 + Math.floor(Math.random() * 60_000);   // 2-3 min
   const PHASE_GAP         = () => 120_000 + Math.floor(Math.random() * 120_000);  // 2-4 min
 
-  // Response-time TARGET — a coaching benchmark, NOT a deadline. The response
+  // Response-time TARGET - a coaching benchmark, NOT a deadline. The response
   // clock counts up from 0; if the analyst catches/reports within this many
   // seconds the report notes a good pace, otherwise it gently flags faster
   // triage as an improvement area. Nothing fails or halts at this value.
-  const SLA_SECONDS = 900; // 15 minutes — response-time target
+  const SLA_SECONDS = 900; // 15 minutes - response-time target
 
   /**
    * Quiet period between the END of one attack campaign and the FIRST phase of
    * the next. Widened from 4-6 to 8-12 minutes: back-to-back campaigns left no
    * room to finish investigating and writing up one incident before the next
    * started competing for attention, which reads as relentless rather than
-   * realistic — a real shift has long quiet stretches between incidents.
+   * realistic - a real shift has long quiet stretches between incidents.
    */
   const ATTACK_COOLDOWN = () => 480_000 + Math.floor(Math.random() * 240_000); // 8-12 min
 
@@ -712,7 +712,7 @@ export function useLiveEvents({
     if (!s) return;
     const cursor = storyCursorRef.current;
     if (cursor >= s.events.length) return;
-    // Never inject behind a paused feed (report open, debrief, manual pause) —
+    // Never inject behind a paused feed (report open, debrief, manual pause) -
     // check again shortly; resume continues the story where it stopped.
     if (!isStreamingRef.current) { armPhase(5_000); return; }
 
@@ -758,7 +758,7 @@ export function useLiveEvents({
     if (attackIds.length > 0 || lastPhaseAtRef.current !== null) { noiseSinceRef.current = 0; lastPhaseAtRef.current = now; }
     const batchIds = new Set(enriched.map(e => e.id));
 
-    // The incident opens on the story's FIRST ATTACK event — never on a warm-up
+    // The incident opens on the story's FIRST ATTACK event - never on a warm-up
     // baseline row. Safety net: a story whose rows are all context still opens on
     // its last phase, so it can never become uncatchable.
     const opensNow = !incidentOpenedRef.current && (attackIds.length > 0 || storyDone);
@@ -777,12 +777,12 @@ export function useLiveEvents({
       caughtRef.current = false;
       attackInjectedAtRef.current = now;
       presentedRef.current += 1;
-      // Response clock starts at 0 and counts UP — an elapsed timer measuring how
+      // Response clock starts at 0 and counts UP - an elapsed timer measuring how
       // long the analyst takes to respond. It never fails or halts at any value.
       setAttackTimerSeconds(0);
       if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
       slaIntervalRef.current = setInterval(() => {
-        // Pause the response clock while the analyst is working the case — the
+        // Pause the response clock while the analyst is working the case - the
         // report is open (they're pulling data into it) or the EDR console is in
         // play. That time must not count against them.
         if (isInvestigatingRef.current?.()) return;
@@ -808,7 +808,7 @@ export function useLiveEvents({
 
     if (storyDone) {
       // Story fully injected. If it was never caught, schedule the POSITIVE
-      // Learning-Moment debrief after a generous grace — never a fail, never a
+      // Learning-Moment debrief after a generous grace - never a fail, never a
       // permanent halt (page.tsx pauses the feed behind the modal, then resumes
       // and arms the next attack on dismiss). A passing report before the grace
       // elapses cancels it via markCaught.
@@ -837,14 +837,14 @@ export function useLiveEvents({
       };
       attackTimerRef.current = setTimeout(scheduleEngineAttack, engineDelay());
     } else if (!attackTimerRef.current) {
-      // STORY MODE: arm the first phase — unless reset()/startStory() already
+      // STORY MODE: arm the first phase - unless reset()/startStory() already
       // queued one with its own delay (kept, not doubled: P5-02).
       armPhase(FIRST_PHASE_DELAY());
     }
 
     return () => {
       // Pausing stops the phase chain only. The response clock and the missed-
-      // attack debrief survive a pause (they wait while paused) — destroying
+      // attack debrief survive a pause (they wait while paused) - destroying
       // them here froze the clock and could stall the shift for good (P5-03).
       if (attackTimerRef.current) { clearTimeout(attackTimerRef.current); attackTimerRef.current = null; }
       if (missTimerRef.current)   clearTimeout(missTimerRef.current);
@@ -904,10 +904,10 @@ export function useLiveEvents({
         attackInjectedAtRef.current = null;
         const all = catchSpeedMsRef.current;
         setAvgCatchMs(Math.round(all.reduce((a, b) => a + b, 0) / all.length));
-        // This incident's response time — the coaching metric shown in the report.
+        // This incident's response time - the coaching metric shown in the report.
         setLastResponseMs(elapsed);
       }
-      // Count once per incident — guards against a double-call for the same catch.
+      // Count once per incident - guards against a double-call for the same catch.
       if (!countedIncidentIdsRef.current.has(incident.id)) {
         countedIncidentIdsRef.current.add(incident.id);
         caughtCountRef.current += 1;
@@ -1022,7 +1022,7 @@ export function useLiveEvents({
 
   // Phase-1 telemetry (see ANALYST_TELEMETRY_PLAN.md): a simple running count
   // of distinct rows the student opened this session, before/around reaching
-  // their verdict. Session-scoped rather than tightly bound to one incident —
+  // their verdict. Session-scoped rather than tightly bound to one incident -
   // per-incident scoping is a Phase 2 refinement.
   const recordEventOpened = useCallback((eventId?: string) => {
     openedRef.current += 1;

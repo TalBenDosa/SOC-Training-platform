@@ -5,16 +5,16 @@
  * so the "Raw" tab reads like a real SIEM's unparsed view rather than the
  * platform's internal object.
  *
- * The format is chosen per SOURCE **and VENDOR** — not per source alone. That
+ * The format is chosen per SOURCE **and VENDOR** - not per source alone. That
  * distinction matters: AWS WAF and Cloudflare emit JSON (via Firehose / Logpush),
  * while F5 and Imperva emit syslog/CEF. And each firewall family has its OWN
- * wire shape — FortiGate is key=value, PAN-OS is CSV, Check Point is key=value
+ * wire shape - FortiGate is key=value, PAN-OS is CSV, Check Point is key=value
  * with its own field names, Cisco ASA is a %ASA-x-xxxxxx message. Stamping one
  * vendor's scaffolding (e.g. FortiGate's `devname=`/`vd=root`) onto every
  * appliance is exactly the kind of tell a real analyst spots instantly.
  *
  * It only serialises fields that already exist on the event, so the raw view
- * stays faithful to the (vendor-accurate) source data — nothing is invented.
+ * stays faithful to the (vendor-accurate) source data - nothing is invented.
  */
 import type { LiveEvent } from "./useLiveEvents";
 
@@ -27,7 +27,7 @@ export interface RawLog {
   lang: "xml" | "syslog" | "json";
 }
 
-/** Stable pseudo-random from event id — never Math.random (must be render-stable). */
+/** Stable pseudo-random from event id - never Math.random (must be render-stable). */
 function stableHash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -38,10 +38,10 @@ function stableHash(s: string): number {
 
 type FirewallKind = "fortigate" | "panos" | "checkpoint" | "cisco" | "generic";
 
-/** Appliance sources that *may* emit syslog — final call still depends on vendor. */
+/** Appliance sources that *may* emit syslog - final call still depends on vendor. */
 const APPLIANCE_SOURCES = new Set(["firewall", "vpn", "ids", "proxy", "nac", "dhcp", "waf", "web_server", "dns"]);
 
-/** Vendors that are cloud services — these ship JSON, never syslog. */
+/** Vendors that are cloud services - these ship JSON, never syslog. */
 const CLOUD_LOG_VENDORS = [
   "aws", "cloudflare", "azure", "akamai", "gcp", "google",
   "zscaler", "netskope", "umbrella", "cloudfront",
@@ -79,7 +79,7 @@ function esc(s: unknown): string {
 
 // ─── Windows Event XML ─────────────────────────────────────────────────────────
 
-/** Real, well-known provider GUIDs — these are stable published values. */
+/** Real, well-known provider GUIDs - these are stable published values. */
 const PROVIDER_GUID: Record<string, string> = {
   "Microsoft-Windows-Security-Auditing": "{54849625-5478-4994-a5ba-3e3b0328c30d}",
   "Microsoft-Windows-Sysmon":            "{5770385f-c22a-43e0-bf4c-06f5698ffbd9}",
@@ -144,7 +144,7 @@ function toWinXml(event: LiveEvent): string {
   const computer = event.hostname ?? str("winlog.computer_name") ?? "-";
 
   // Windows Security events are Level 0 (Information) regardless of how alarming
-  // they are — severity lives in the audit result, not the level. Sysmon uses 4.
+  // they are - severity lives in the audit result, not the level. Sysmon uses 4.
   const level = isSysmon ? "4" : "0";
   // Audit Success vs Audit Failure keyword (real values from the Security channel).
   const keywords = isSysmon ? "0x8000000000000000"
@@ -218,7 +218,7 @@ function kv(key: string, value: unknown): string | null {
 
 /**
  * ECS keys that duplicate the vendor-native fields we emit from typed values.
- * Emitting both (`srcip=10.0.0.1 source.ip=10.0.0.1`) is a dead giveaway — real
+ * Emitting both (`srcip=10.0.0.1 source.ip=10.0.0.1`) is a dead giveaway - real
  * appliance logs carry each fact once, in that vendor's own field name.
  */
 const ECS_DUPLICATE_KEYS = new Set([
@@ -289,7 +289,7 @@ function toFortiGate(event: LiveEvent): string {
 
 /**
  * PAN-OS GlobalProtect log (Type=GLOBALPROTECT). A VPN authentication is NOT a
- * traffic log — it has no destination or ports, and rendering it as TRAFFIC
+ * traffic log - it has no destination or ports, and rendering it as TRAFFIC
  * produces a giveaway line with empty dst/port columns.
  */
 function toPanGlobalProtect(event: LiveEvent): string {
@@ -359,7 +359,7 @@ function toPanOs(event: LiveEvent): string {
   const head = `<14>${bsd} ${dev} 1,`;
   const csv = fields.map(f => (f.includes(",") ? `"${f}"` : f)).join(",");
 
-  // Threat logs additionally carry the signature identity — appended as the
+  // Threat logs additionally carry the signature identity - appended as the
   // trailing threat columns rather than invented key=value pairs.
   const tail = isThreat
     ? `,${s("pan.threat_id")},"${s("pan.threat_name")}",${s("pan.threat_category")},${s("url.path")}`
@@ -472,8 +472,8 @@ export function toRawLog(event: LiveEvent): RawLog {
   // Appliance sources emit syslog ONLY when the vendor is an actual box.
   // Cloud services (AWS WAF, Cloudflare, Zscaler, Azure…) ship JSON.
   if (APPLIANCE_SOURCES.has(event.source) && !isCloudVendor(event)) {
-    const vendorLabel0 = event.vendor ? ` — ${event.vendor}` : "";
-    // NAC / DHCP servers are not firewalls — never format them as a firewall's traffic line.
+    const vendorLabel0 = event.vendor ? ` - ${event.vendor}` : "";
+    // NAC / DHCP servers are not firewalls - never format them as a firewall's traffic line.
     if (event.source === "nac" || event.source === "dhcp") {
       if (/\bise\b/i.test(event.vendor ?? "") || Object.keys(event.raw ?? {}).some(k => k.startsWith("ise."))) {
         return { format: `Syslog, Cisco ISE${vendorLabel0}`, text: toCiscoIse(event), lang: "syslog" };
@@ -481,7 +481,7 @@ export function toRawLog(event: LiveEvent): RawLog {
       return { format: `Syslog, RFC5424${vendorLabel0}`, text: toGenericSyslog(event), lang: "syslog" };
     }
     const kind = firewallKind(event);
-    const vendorLabel = event.vendor ? ` — ${event.vendor}` : "";
+    const vendorLabel = event.vendor ? ` - ${event.vendor}` : "";
     switch (kind) {
       case "fortigate":  return { format: `Syslog, key=value${vendorLabel}`, text: toFortiGate(event),  lang: "syslog" };
       case "panos":      return { format: `Syslog, PAN-OS CSV${vendorLabel}`, text: toPanOs(event),      lang: "syslog" };
@@ -491,6 +491,6 @@ export function toRawLog(event: LiveEvent): RawLog {
     }
   }
 
-  const vendorLabel = event.vendor ? ` — ${event.vendor}` : "";
+  const vendorLabel = event.vendor ? ` - ${event.vendor}` : "";
   return { format: `JSON, SIEM-ingested${vendorLabel}`, text: toJson(event), lang: "json" };
 }

@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function CompanyClearedModal({ clearedCompanyName, nextCompanyName, xpAwarded, attacksCaught, onContinue }: Props) {
-  // a11y: modal dialog with a single required action — focus is trapped, no Escape.
+  // a11y: modal dialog with a single required action - focus is trapped, no Escape.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef);
   return (
@@ -39,7 +39,7 @@ export function CompanyClearedModal({ clearedCompanyName, nextCompanyName, xpAwa
             </p>
           </div>
 
-          {/* XP reward — the mission bonus, front and centre */}
+          {/* XP reward - the mission bonus, front and centre */}
           {xpAwarded ? (
             <div className="flex items-center justify-center gap-3 rounded-xl border border-neon-amber/40 bg-neon-amber/10 px-5 py-4">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neon-amber/15 border border-neon-amber/40">

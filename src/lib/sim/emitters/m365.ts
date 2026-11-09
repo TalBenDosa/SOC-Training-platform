@@ -1,7 +1,7 @@
 /**
  * Microsoft 365 Unified Audit Log EMITTERS.
  *
- * The tenant-wide audit trail across Exchange / SharePoint / OneDrive / Entra —
+ * The tenant-wide audit trail across Exchange / SharePoint / OneDrive / Entra -
  * the record an analyst reads for BEC inbox rules, mailbox-permission grants,
  * file access/sharing/download, and DLP rule matches. Renders registry-valid M365
  * fields (the data.office365. prefix + GeoLocation.*), identity from the fabric,
@@ -40,7 +40,7 @@ export interface M365OperationOpts extends Ctx {
   fileSize?: number;
   fileExtension?: string;
   /** any other data.office365.<suffix> fields (Parameters.*, RecordType, UserType,
-   *  SourceRelativeUrl, ClientInfoString, …) — the prefix is prepended for you. */
+   *  SourceRelativeUrl, ClientInfoString, …) - the prefix is prepended for you. */
   extra?: Record<string, string>;
   mitre?: string;
   tactic?: string;

@@ -1,13 +1,13 @@
 /**
- * Zscaler Internet Access (ZIA) — NSS Web log, Zscaler-published Splunk JSON feed template.
+ * Zscaler Internet Access (ZIA) - NSS Web log, Zscaler-published Splunk JSON feed template.
  * Card: docs/log-schemas/proxy-zscaler-zia.md
  *
  * JSON-native once the template is fixed: `{"sourcetype":"zscalernss-web","event":{…}}`,
  * every value a string, "empty" rendered as the literal "None" (card §6). `url` carries no
  * scheme; `refererURL` keeps it.
  *
- * Renders every platform proxy event — Zscaler-authored (legacy zscaler.* raw keys),
- * Palo Alto URL-filtering-authored (pan.* / url.*), and Squid-authored (data.http.*) — as the
+ * Renders every platform proxy event - Zscaler-authored (legacy zscaler.* raw keys),
+ * Palo Alto URL-filtering-authored (pan.* / url.*), and Squid-authored (data.http.*) - as the
  * ZIA web transaction. Returns null when ZIA would never see the transaction:
  *   - inbound internet traffic to the company (unauthenticated public client, e.g. WAF / OWA
  *     brute-force events): ZIA is a FORWARD proxy for the company's own users;
@@ -293,7 +293,7 @@ const useCases: UseCase[] = [
     sourceId: "zscaler_zia",
     severity: "high",
     mitre: ["T1204.002", "T1105"],
-    description: "ZIA blocked a download because the file matched malware (action=Blocked, threatname set). The block worked, but the user was lured to the URL — check refererURL for the lure, search other users who hit the same hostname, and pivot md5 to EDR to make sure the file did not arrive another way.",
+    description: "ZIA blocked a download because the file matched malware (action=Blocked, threatname set). The block worked, but the user was lured to the URL - check refererURL for the lure, search other users who hit the same hostname, and pivot md5 to EDR to make sure the file did not arrive another way.",
     logic: "SPL: index=zscaler sourcetype=zscalernss-web action=Blocked threatname!=None | table datetime user devicehostname url refererURL threatname threatcategory md5",
     match: { all: [{ field: E("action"), op: "eq", value: "Blocked" }, { field: E("threatname"), op: "neq", value: "None" }] },
     falsePositives: ["Security staff deliberately downloading samples (should use an isolated analysis network)"],
@@ -315,7 +315,7 @@ const useCases: UseCase[] = [
     sourceId: "zscaler_zia",
     severity: "high",
     mitre: ["T1566.002", "T1056.003", "T1557"],
-    description: "requestmethod=POST to a newly registered domain that ZIA allowed. On a look-alike login page this is the moment the password (or session) was handed to the attacker — reset the user's credentials and check the IdP for sign-ins right after this time.",
+    description: "requestmethod=POST to a newly registered domain that ZIA allowed. On a look-alike login page this is the moment the password (or session) was handed to the attacker - reset the user's credentials and check the IdP for sign-ins right after this time.",
     logic: "SPL: index=zscaler sourcetype=zscalernss-web action=Allowed requestmethod=POST urlcategory IN (\"Newly Registered and Observed Domains\", \"Newly Registered Domains\") | table datetime user devicehostname hostname url refererURL",
     match: { all: [{ field: E("action"), op: "eq", value: "Allowed" }, { field: E("requestmethod"), op: "eq", value: "POST" }, { field: E("urlcategory"), op: "in", value: NRD }] },
     falsePositives: ["Legitimate new vendor portal used for the first time"],
@@ -340,7 +340,7 @@ const useCases: UseCase[] = [
     sourceId: "zscaler_zia",
     severity: "high",
     mitre: ["T1560.001", "T1567"],
-    description: "unscannabletype='Encrypted File' on an upload above 10 MB. A password-protected archive cannot be inspected by DLP — a classic way to move sensitive data past content inspection. Pivot to EDR for archive creation (7z/rar with -p) on devicehostname.",
+    description: "unscannabletype='Encrypted File' on an upload above 10 MB. A password-protected archive cannot be inspected by DLP - a classic way to move sensitive data past content inspection. Pivot to EDR for archive creation (7z/rar with -p) on devicehostname.",
     logic: "SPL: index=zscaler sourcetype=zscalernss-web unscannabletype=\"Encrypted File\" requestmethod IN (POST, PUT) requestsize>10000000 | table datetime user devicehostname hostname requestsize filetype",
     match: { all: [{ field: E("unscannabletype"), op: "eq", value: "Encrypted File" }, { field: E("requestmethod"), op: "in", value: ["POST", "PUT"] }, { field: E("requestsize"), op: "gt", value: 10_000_000 }] },
     falsePositives: ["Legal/finance sending encrypted archives to auditors by policy"],
@@ -377,7 +377,7 @@ const useCases: UseCase[] = [
     sourceId: "zscaler_zia",
     severity: "medium",
     mitre: ["T1071.001", "T1041"],
-    description: "Three or more allowed POSTs from the same user and device to the same 'Miscellaneous or Unknown' hostname within an hour. Browsers rarely POST repeatedly to unknown sites on their own — a malicious extension or implant reporting home does.",
+    description: "Three or more allowed POSTs from the same user and device to the same 'Miscellaneous or Unknown' hostname within an hour. Browsers rarely POST repeatedly to unknown sites on their own - a malicious extension or implant reporting home does.",
     logic: "SPL: index=zscaler sourcetype=zscalernss-web action=Allowed requestmethod=POST urlcategory=\"Miscellaneous or Unknown\" | bin _time span=1h | stats count sum(requestsize) BY user devicehostname hostname _time | where count>=3",
     match: { all: [{ field: E("action"), op: "eq", value: "Allowed" }, { field: E("requestmethod"), op: "eq", value: "POST" }, { field: E("urlcategory"), op: "eq", value: "Miscellaneous or Unknown" }] },
     threshold: { groupBy: [E("user"), E("devicehostname"), E("hostname")], count: 3, windowSec: 3600 },

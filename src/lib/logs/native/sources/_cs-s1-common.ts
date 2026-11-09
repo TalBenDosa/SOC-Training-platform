@@ -67,8 +67,8 @@ export function hostIpOf(ctx: NativeCtx, f: EdrFacts, host: string): string {
   // The address the story gives this host elsewhere, else one stable address per host in every product.
   return hostIpFor(ctx, host);
 }
-/** The company's egress (NAT) address as the vendor cloud sees it — one per company. */
-/** The company's public egress — the SAME address the firewalls NAT to, so the EDR's
+/** The company's egress (NAT) address as the vendor cloud sees it - one per company. */
+/** The company's public egress - the SAME address the firewalls NAT to, so the EDR's
  * external_ip and the firewall's translated source correlate. */
 export { egressIp } from "./firewall-shared";
 export type HostRole = "workstation" | "laptop" | "server" | "dc";
@@ -110,9 +110,9 @@ export function digits(ctx: NativeCtx, seed: string, n: number): string {
 }
 export const secMs = (ms: number) => `${Math.floor(ms / 1000)}.${String(((ms % 1000) + 1000) % 1000).padStart(3, "0")}`;
 export const iso = (ms: number) => new Date(ms).toISOString();
-/** ISO with µs ("…:26.774519Z") — S1 Threats API style. */
+/** ISO with µs ("…:26.774519Z") - S1 Threats API style. */
 export const isoMicro = (ctx: NativeCtx, ms: number, seed: string) => `${iso(ms).slice(0, -1)}${String(ctx.int(seed, 0, 999)).padStart(3, "0")}Z`;
-/** ISO with ns ("…:31.885124513Z") — CrowdStrike Alerts API created/updated style. */
+/** ISO with ns ("…:31.885124513Z") - CrowdStrike Alerts API created/updated style. */
 export const isoNano = (ctx: NativeCtx, ms: number, seed: string) => `${iso(ms).slice(0, -1)}${String(ctx.int(seed, 0, 999999)).padStart(6, "0")}Z`;
 
 // ── users ───────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ export const isoNano = (ctx: NativeCtx, ms: number, seed: string) => `${iso(ms).
 export interface UserFacts { user?: string; domain: string; system: boolean; sid?: string; upn?: string; email?: string }
 const SYSTEM_SIDS: Record<string, string> = { system: "S-1-5-18", "local service": "S-1-5-19", "network service": "S-1-5-20", "nt authority\\system": "S-1-5-18" };
 
-/** The event's account: the story's authored SID when it has one (EdrFacts.sid), else the user's directory SID — one value per user in every product. */
+/** The event's account: the story's authored SID when it has one (EdrFacts.sid), else the user's directory SID - one value per user in every product. */
 export function userOf(ctx: NativeCtx, f: EdrFacts, os: "Win" | "Lin" | "Mac"): UserFacts {
   const user = f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
   const system = !!user && (lc(user) in SYSTEM_SIDS || lc(user) === "root");
@@ -180,7 +180,7 @@ export function drivePath(p: string): string {
 }
 
 /**
- * OS pid of a process instance — derived from its instance key (./_proc-identity), never from the
+ * OS pid of a process instance - derived from its instance key (./_proc-identity), never from the
  * authored pid, which the corpus does not number consistently across a process's own row, its
  * children and its actions. Windows pids are multiples of 4.
  */

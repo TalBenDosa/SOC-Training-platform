@@ -51,7 +51,7 @@ const tag = (r: Run, e: TelemetryEvent) => `${r.company}${Object.keys(r.stack).l
 type Rec = Record<string, any>;
 
 describe("identity consistency across a story (runtime sessions)", { timeout: 300_000 }, () => {
-  it("Okta: one client IP is one place, one network owner and one anonymizer flag — in every story", () => {
+  it("Okta: one client IP is one place, one network owner and one anonymizer flag - in every story", () => {
     const byIp = new Map<string, Map<string, string>>();
     let n = 0;
     for (const r of runs()) for (const e of r.events) {
@@ -234,10 +234,10 @@ describe("story threading", () => {
 });
 
 describe("Defender for Office 365 delivery coherence", () => {
-  it("a delivered message never carries a Malware verdict (clean at delivery — ZAP convicts later)", () => {
+  it("a delivered message never carries a Malware verdict (clean at delivery - ZAP convicts later)", () => {
     const log = mdo.fromTelemetry(ev({ id: "m", event_type: "email_received", vendor: "Microsoft Defender for Office 365", user_email: "s.patel@nexacorp.com", src_ip: "45.148.10.203", raw: {
       "email.from.address": "billing@client-invoices-portal.info", "email.to.address": "s.patel@nexacorp.com", "email.attachment.name": "Q3.docm",
-      "action_result": "delivered", "block.reason": "No matching transport rule — macro-enabled document type not blocklisted", "threat.category": "Phishing" } }), ctx)!;
+      "action_result": "delivered", "block.reason": "No matching transport rule - macro-enabled document type not blocklisted", "threat.category": "Phishing" } }), ctx)!;
     const p = (log.record as Rec).properties;
     expect(p.DeliveryAction).toBe("Delivered");
     expect(p.ThreatTypes).not.toContain("Malware");

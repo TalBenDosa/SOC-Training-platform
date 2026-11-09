@@ -1,5 +1,5 @@
 /**
- * Microsoft Entra ID — native module (card: docs/log-schemas/idp-entra-id.md).
+ * Microsoft Entra ID - native module (card: docs/log-schemas/idp-entra-id.md).
  *
  * Shapes: Graph **beta `signIn`** (kind "signIn") and Graph **v1.0
  * `directoryAudit`** (kind "directoryAudit"), one object per event, no
@@ -46,7 +46,7 @@ const SIGNIN_OPTIONAL = [
   "authenticationDetails", "authenticationDetails[].authenticationStepDateTime", "authenticationDetails[].authenticationMethod",
   "authenticationDetails[].authenticationMethodDetail", "authenticationDetails[].succeeded", "authenticationDetails[].authenticationStepResultDetail",
   "authenticationDetails[].authenticationStepRequirement",
-  // UNVERIFIED element shape (card 4.3 note) — kept because the card's samples carry it.
+  // UNVERIFIED element shape (card 4.3 note) - kept because the card's samples carry it.
   "authenticationRequirementPolicies", "authenticationRequirementPolicies[].requirementProvider", "authenticationRequirementPolicies[].detail",
   "sessionLifetimePolicies",
 ];
@@ -77,7 +77,7 @@ const schema: SourceSchema = {
 
 /** Classify a native Entra record (used to validate card samples). */
 export function kindOf(record: Record<string, unknown>): string | null {
-  if ("properties" in record || "operationName" in record || "resultType" in record) return null; // Azure Monitor envelope — not the platform standard
+  if ("properties" in record || "operationName" in record || "resultType" in record) return null; // Azure Monitor envelope - not the platform standard
   if ("activityDisplayName" in record && "targetResources" in record) return "directoryAudit";
   if ("createdDateTime" in record && "userPrincipalName" in record) return "signIn";
   return null;
@@ -140,7 +140,7 @@ const MFA_METHOD: Record<MfaMethod, { step: string; used: string; detail: string
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** One object id per user in every Microsoft record (Entra, UAL, MDO) — see entraObjectId. */
+/** One object id per user in every Microsoft record (Entra, UAL, MDO) - see entraObjectId. */
 const userId = (ctx: NativeCtx, upn: string) => entraObjectId(ctx, upn);
 const graphId = (ctx: NativeCtx, seed: string) => { const u = ctx.uuid(seed); return `${u.slice(0, -4)}${u.slice(-4, -2)}00`; };
 
@@ -167,7 +167,7 @@ const jsonStr = (v: string) => JSON.stringify(v);
 function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: string, opts: { code: number; interactive?: boolean; appName?: string }): NativeLog {
   const p = rawWithPrefix(ev, "azure.signinlogs.properties.");
   // Entra is SaaS: a user inside the office reaches it from the company's NAT egress (the address
-  // its "Corporate HQ" named location is defined on) — never from the workstation's private IP.
+  // its "Corporate HQ" named location is defined on) - never from the workstation's private IP.
   const lanIp = f.ip ?? "";
   const ip = isPrivateIp(lanIp) ? egressIp(ctx) : lanIp;
   const geo = geoOf(ev, ctx, ip);
@@ -654,7 +654,7 @@ const RFC1918 = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
 const OFFICE = { field: "networkLocationDetails[].networkType", op: "eq", value: "trustedNamedLocation" } as const;
 const useCases: UseCase[] = [
   {
-    id: "entra.password_spray", title: "Password spray — many accounts failing from one IP", sourceId: "entra", kinds: ["signIn"], severity: "high", mitre: ["T1110.003"],
+    id: "entra.password_spray", title: "Password spray - many accounts failing from one IP", sourceId: "entra", kinds: ["signIn"], severity: "high", mitre: ["T1110.003"],
     description: "One client IP fails sign-in (50126 bad password / 50053 locked) for many different users inside 10 minutes. A spray tries one or two common passwords against many accounts to stay under per-user lockout thresholds.",
     logic: "KQL (Graph signIns): SigninLogs | where ResultType in (50126, 50053) | summarize Users=dcount(UserPrincipalName) by IPAddress, bin(TimeGenerated, 10m) | where Users >= 5",
     match: { field: "status.errorCode", op: "in", value: [50126, 50053] },
@@ -671,14 +671,14 @@ const useCases: UseCase[] = [
   },
   {
     id: "entra.bruteforce_then_success", title: "Failed passwords followed by a success from the same external IP", sourceId: "entra", kinds: ["signIn"], severity: "high", mitre: ["T1110", "T1078.004"],
-    description: "The same user and the same non-corporate IP (outside every trusted named location) produce both bad-password failures (50126) and a successful sign-in (0) within 30 minutes — the guess eventually worked. Check the password step (authenticationDetails) and whether MFA was required.",
+    description: "The same user and the same non-corporate IP (outside every trusted named location) produce both bad-password failures (50126) and a successful sign-in (0) within 30 minutes - the guess eventually worked. Check the password step (authenticationDetails) and whether MFA was required.",
     logic: "KQL: SigninLogs | where NetworkLocationDetails !has \"trustedNamedLocation\" | where ResultType in (0, 50126) | summarize Results=make_set(ResultType) by UserPrincipalName, IPAddress, bin(TimeGenerated, 30m) | where Results has \"0\" and Results has \"50126\"",
     match: { all: [{ field: "status.errorCode", op: "in", value: [0, 50126] }, { field: "ipAddress", op: "notCidr", value: RFC1918 }, { not: OFFICE }, { field: "isInteractive", op: "eq", value: true }] },
     threshold: { groupBy: ["userPrincipalName", "ipAddress"], count: 2, windowSec: 1800, distinct: "status.errorCode" },
     falsePositives: ["A travelling user mistyping the password once at a hotel"],
   },
   {
-    id: "entra.mfa_fatigue", title: "MFA push fatigue — repeated MFA denials", sourceId: "entra", kinds: ["signIn"], severity: "high", mitre: ["T1621"],
+    id: "entra.mfa_fatigue", title: "MFA push fatigue - repeated MFA denials", sourceId: "entra", kinds: ["signIn"], severity: "high", mitre: ["T1621"],
     description: "Three or more 500121 results (MFA denied / not completed) for one user inside 10 minutes. The password step succeeded, so the attacker already has the password and is spamming pushes hoping the user taps Approve.",
     logic: "KQL: SigninLogs | where ResultType == 500121 | summarize Denials=count(), IPs=make_set(IPAddress) by UserPrincipalName, bin(TimeGenerated, 10m) | where Denials >= 3",
     match: { field: "status.errorCode", op: "eq", value: 500121 },
@@ -687,7 +687,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "entra.mfa_fatigue_approved", title: "MFA denials followed by an approval from the same IP", sourceId: "entra", kinds: ["signIn"], severity: "critical", mitre: ["T1621", "T1078.004"],
-    description: "A user denies MFA (500121) and then a multi-factor sign-in succeeds from the same external IP within 30 minutes — the fatigue attack worked. Revoke sessions and reset the password.",
+    description: "A user denies MFA (500121) and then a multi-factor sign-in succeeds from the same external IP within 30 minutes - the fatigue attack worked. Revoke sessions and reset the password.",
     logic: "KQL: SigninLogs | where NetworkLocationDetails !has \"trustedNamedLocation\" | where ResultType == 500121 or (ResultType == 0 and AuthenticationRequirement == \"multiFactorAuthentication\") | summarize Results=make_set(ResultType) by UserPrincipalName, IPAddress, bin(TimeGenerated, 30m) | where array_length(Results) >= 2",
     match: { all: [{ field: "ipAddress", op: "notCidr", value: RFC1918 }, { not: OFFICE }, { any: [{ field: "status.errorCode", op: "eq", value: 500121 },
       { all: [{ field: "status.errorCode", op: "eq", value: 0 }, { field: "authenticationRequirement", op: "eq", value: "multiFactorAuthentication" }] }] }] },
@@ -710,14 +710,14 @@ const useCases: UseCase[] = [
   },
   {
     id: "entra.unfamiliar_location_signin", title: "Successful sign-in from a new country / unlikely travel", sourceId: "entra", kinds: ["signIn"], severity: "medium", mitre: ["T1078.004"],
-    description: "A successful sign-in carries unlikelyTravel or unfamiliarFeatures — the country, ASN or device differ from the user's history. Compare location.countryOrRegion and autonomousSystemNumber with the user's last 30 days.",
+    description: "A successful sign-in carries unlikelyTravel or unfamiliarFeatures - the country, ASN or device differ from the user's history. Compare location.countryOrRegion and autonomousSystemNumber with the user's last 30 days.",
     logic: "KQL: SigninLogs | where ResultType == 0 | mv-expand RiskEventTypes_V2 | where RiskEventTypes_V2 in (\"unlikelyTravel\",\"unfamiliarFeatures\") | project TimeGenerated, UserPrincipalName, IPAddress, Location, AutonomousSystemNumber",
     match: { all: [{ field: "status.errorCode", op: "eq", value: 0 }, { field: "riskEventTypes_v2[]", op: "in", value: ["unlikelyTravel", "unfamiliarFeatures"] }] },
     falsePositives: ["Business travel", "Mobile carrier IPs that geolocate to a neighbouring country"],
   },
   {
     id: "entra.admin_role_added", title: "User added to a privileged directory role", sourceId: "entra", kinds: ["directoryAudit"], severity: "high", mitre: ["T1098.003"],
-    description: "Add member to role succeeded. Global Administrator, Privileged Role Administrator and similar roles give tenant-wide control — confirm a change ticket and who (initiatedBy) did it from where (ipAddress).",
+    description: "Add member to role succeeded. Global Administrator, Privileged Role Administrator and similar roles give tenant-wide control - confirm a change ticket and who (initiatedBy) did it from where (ipAddress).",
     logic: "KQL: AuditLogs | where OperationName startswith \"Add member to role\" and Result == \"success\" | extend Role=tostring(TargetResources[0].modifiedProperties[1].newValue)",
     match: { all: [{ field: "activityDisplayName", op: "startsWith", value: "Add member to role" }, { field: "result", op: "eq", value: "success" }] },
     falsePositives: ["Planned PIM activation by an approved admin"],
@@ -739,14 +739,14 @@ const useCases: UseCase[] = [
   },
   {
     id: "entra.legacy_auth_valid_password", title: "Legacy-auth sign-in with a correct password blocked by CA", sourceId: "entra", kinds: ["signIn"], severity: "medium", mitre: ["T1078.004", "T1110"],
-    description: "Conditional Access blocked a legacy protocol (53003), but the password step succeeded — the attacker holds a valid password. Reset it.",
+    description: "Conditional Access blocked a legacy protocol (53003), but the password step succeeded - the attacker holds a valid password. Reset it.",
     logic: "KQL: SigninLogs | where ResultType == 53003 and ClientAppUsed in (\"Exchange ActiveSync\",\"IMAP4\",\"POP3\",\"Authenticated SMTP\",\"Other clients\") | where AuthenticationDetails has '\"succeeded\":true'",
     match: { all: [{ field: "status.errorCode", op: "eq", value: 53003 }, { field: "authenticationDetails[].succeeded", op: "eq", value: true }] },
     falsePositives: ["An old phone mail client of a legitimate user"],
   },
   {
     id: "entra.sp_credentials_added", title: "Credentials added to a service principal", sourceId: "entra", kinds: ["directoryAudit"], severity: "high", mitre: ["T1098.001"],
-    description: "Add service principal credentials — a new secret or certificate lets whoever holds it sign in as the application, bypassing user MFA.",
+    description: "Add service principal credentials - a new secret or certificate lets whoever holds it sign in as the application, bypassing user MFA.",
     logic: "KQL: AuditLogs | where OperationName in (\"Add service principal credentials\",\"Update application – Certificates and secrets management\")",
     match: { field: "activityDisplayName", op: "eq", value: "Add service principal credentials" },
     falsePositives: ["Scheduled secret rotation by the app owner"],

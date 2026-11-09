@@ -18,7 +18,7 @@ function cardLogs(): NativeLog[] {
   return out;
 }
 
-describe("gcp_audit — card samples", () => {
+describe("gcp_audit - card samples", () => {
   it("every LogEntry/AuditLog sample validates with zero violations", () => {
     const logs = cardLogs();
     expect(logs.length).toBeGreaterThanOrEqual(5);
@@ -29,7 +29,7 @@ describe("gcp_audit — card samples", () => {
   });
 });
 
-describe("gcp_audit — corpus + cross-cloud render", () => {
+describe("gcp_audit - corpus + cross-cloud render", () => {
   it("GCP-authored audit entries (RocketStack noise + the key-theft story) render as clean native LogEntries", () => {
     const native = corpusFor(source.schema.telemetrySources, source.schema.vendorMatch);
     let rendered = 0;
@@ -96,7 +96,7 @@ describe("gcp_audit — corpus + cross-cloud render", () => {
   });
 });
 
-describe("gcp_audit — use cases", () => {
+describe("gcp_audit - use cases", () => {
   const storyGcp = corpusFor(["cloudtrail"])
     .filter(c => c.origin === "story")
     .map(c => source.fromTelemetry(c.ev, makeCtx(c.companyId)))

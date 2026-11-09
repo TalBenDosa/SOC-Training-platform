@@ -18,7 +18,7 @@ function cardLogs(): NativeLog[] {
   return out;
 }
 
-describe("azure_activity — card samples", () => {
+describe("azure_activity - card samples", () => {
   it("every Activity-Log + Defender-alert sample validates with zero violations", () => {
     const logs = cardLogs();
     expect(logs.length).toBeGreaterThanOrEqual(5);
@@ -29,7 +29,7 @@ describe("azure_activity — card samples", () => {
   });
 });
 
-describe("azure_activity — corpus conversion", () => {
+describe("azure_activity - corpus conversion", () => {
   const mine = corpusFor(source.schema.telemetrySources, source.schema.vendorMatch);
 
   it("≥95% of Activity-Log / Defender events convert and validate clean", () => {
@@ -55,7 +55,7 @@ describe("azure_activity — corpus conversion", () => {
   });
 });
 
-describe("azure_activity — evidence & determinism", () => {
+describe("azure_activity - evidence & determinism", () => {
   it("preserves operationName / alertType, caller and IP", () => {
     for (const c of corpusFor(source.schema.telemetrySources, source.schema.vendorMatch)) {
       const log = source.fromTelemetry(c.ev, makeCtx(c.companyId));
@@ -76,7 +76,7 @@ describe("azure_activity — evidence & determinism", () => {
   });
 });
 
-describe("azure_activity — use cases", () => {
+describe("azure_activity - use cases", () => {
   const storyLogs = corpusFor(source.schema.telemetrySources)
     .filter(c => c.origin === "story")
     .map(c => source.fromTelemetry(c.ev, makeCtx(c.companyId)))

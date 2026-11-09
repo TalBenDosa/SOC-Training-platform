@@ -1,5 +1,5 @@
-// Every log that reaches the screen — dashboard noise + stories (after enrichment and the
-// SIEM mirror) and team-mode timelines (feed + inject support logs) — is the product its
+// Every log that reaches the screen - dashboard noise + stories (after enrichment and the
+// SIEM mirror) and team-mode timelines (feed + inject support logs) - is the product its
 // row says it is: the label maps to the module that renders the record, and the record
 // carries no other product's identifying fields (no FortiGate record under "Palo Alto").
 import { describe, it, expect } from "vitest";

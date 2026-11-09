@@ -1,5 +1,5 @@
 // When a story's victim is swapped for a company roster user, the victim's NAME goes
-// too — prose ("a converter Tomer uses") and displayName fields must not name a
+// too - prose ("a converter Tomer uses") and displayName fields must not name a
 // different person than the row's user.
 import { describe, it, expect } from "vitest";
 import { ATTACK_STORIES, instantiateStory } from "./attackStories";

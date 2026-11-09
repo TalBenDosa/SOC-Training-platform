@@ -36,7 +36,7 @@ function parseGpLine(line: string): Record<string, string> {
 const csvPart = (raw: string) => raw.replace(/^<\d+>\w{3}\s+\d+ \d\d:\d\d:\d\d \S+ /, "");
 const asLog = (r: Record<string, unknown>): NativeLog => ({ sourceId: "globalprotect", kind: kindOf(r) ?? "?", format: "csv", record: r, timeMs: Date.parse(String(r.high_res_timestamp)) });
 
-describe("globalprotect — card samples", () => {
+describe("globalprotect - card samples", () => {
   const recs = cardRecords(CARD);
   const extraLines = cardLines(CARD).filter(l => l.startsWith("<14>")).map(parseGpLine);
 
@@ -58,7 +58,7 @@ describe("globalprotect — card samples", () => {
   });
 });
 
-describe("globalprotect — corpus conversion", () => {
+describe("globalprotect - corpus conversion", () => {
   const conv = convertCorpus(source);
 
   it("converted logs validate with zero violations and carry a raw line", () => {
@@ -76,7 +76,7 @@ describe("globalprotect — corpus conversion", () => {
     console.log(`[globalprotect] native ${cov.native.ok}/${cov.native.total}, cross-vendor ${cov.cross.ok}/${cov.cross.total}; nulls: ${cov.nulls.join(", ") || "none"}`);
     expect(cov.native.total).toBeGreaterThan(10);
     expect(cov.native.ok / cov.native.total).toBeGreaterThanOrEqual(0.95);
-    // Every VPN event type the platform authors has a GP equivalent — the cross-vendor floor is 100 %.
+    // Every VPN event type the platform authors has a GP equivalent - the cross-vendor floor is 100 %.
     expect(cov.cross.ok / cov.cross.total).toBeGreaterThanOrEqual(0.95);
   });
 
@@ -113,7 +113,7 @@ describe("globalprotect — corpus conversion", () => {
   });
 });
 
-describe("globalprotect — use cases", () => {
+describe("globalprotect - use cases", () => {
   const conv = convertCorpus(source);
   const recs = cardRecords(CARD);
   const spray = recs.find(r => r.status === "failure")!;

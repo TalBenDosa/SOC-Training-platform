@@ -24,7 +24,7 @@ describe("SIEM mirror of an EDR detection", () => {
     for (const k of ["TimeGenerated", "TenantId", "AlertName", "AlertSeverity", "ProviderName", "ProductName", "SystemAlertId", "StartTime", "EndTime", "Tactics", "Techniques", "Entities", "CompromisedEntity"]) expect(m.raw).toHaveProperty([k]);
     expect(m.raw!.StartTime).toBe(detection.ts);
     expect(Date.parse(m.ts!)).toBeGreaterThanOrEqual(Date.parse(detection.ts!));
-    expect(JSON.stringify(m)).not.toContain("—");
+    expect(JSON.stringify(m)).not.toContain("\u2014");
     expect(m.mitre_technique).toBeUndefined();
   });
   it("never names a remote peer as the host's address (R3)", () => {

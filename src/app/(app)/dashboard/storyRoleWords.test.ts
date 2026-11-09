@@ -21,7 +21,7 @@ it("role words vs swapped host", () => {
       // the role word should describe a host named in the same sentence
       const hostsInText = (e.description!.match(/\b[A-Z]{2,5}-[A-Z0-9-]{2,}\b/g) ?? []);
       const named = hostsInText.find(h => !host.test(h));
-      if (named && hostsInText.every(h => !host.test(h))) out.add(`${s.id}: "${m[0]}" but text names ${hostsInText.join(",")} — ${e.description!.slice(0, 110)}`);
+      if (named && hostsInText.every(h => !host.test(h))) out.add(`${s.id}: "${m[0]}" but text names ${hostsInText.join(",")} - ${e.description!.slice(0, 110)}`);
     }
   }
   expect([...out]).toEqual([]);

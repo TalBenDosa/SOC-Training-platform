@@ -246,7 +246,7 @@ function gd(o: GdOpts): TelemetryEvent {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// STORY 1: ai-bedrock-key-abuse — RETIRED from the arsenal (EXCLUDED_STORIES in attackStories.ts,
+// STORY 1: ai-bedrock-key-abuse - RETIRED from the arsenal (EXCLUDED_STORIES in attackStories.ts,
 // storyline review 2026-10-02): the same incident as ai-llmjacking-bedrock (scenario pack aiLlmJacking),
 // which tells it with an FP control, invocation-log content, cost evidence and containment.
 // LLMjacking (Sysdig 2024, Permiso, Entro, Wiz JINX-2401; ATLAS case study AML.CS0030).

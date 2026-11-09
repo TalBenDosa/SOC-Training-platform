@@ -2,11 +2,11 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
 
 /**
- * One host, one IP — and never one IP for two hosts — across a feed pool.
+ * One host, one IP - and never one IP for two hosts - across a feed pool.
  *
  * The authored noise pools were written event by event, so the same workstation shows
  * up with two or three addresses (WH-TERM-005: .5 / .44 / .82) and two hosts sometimes
- * share one. The first pivot an analyst makes — "what else did this IP / this host do?" —
+ * share one. The first pivot an analyst makes - "what else did this IP / this host do?" -
  * then lies. Each host keeps its most frequent outbound address; an address another host
  * already owns moves to a free one in the same /24. Only host-originated events change
  * (a host's own telemetry, its outbound network rows), and the old address is replaced

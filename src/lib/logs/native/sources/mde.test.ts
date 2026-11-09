@@ -11,12 +11,12 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 /*
  * Card samples: all 6 blocks of edr-defender-endpoint.md are supported kinds (DeviceProcessEvents,
  * DeviceEvents/DnsQueryResponse, DeviceNetworkEvents, DeviceFileEvents, AlertInfo, AlertEvidence).
- * Sample 4.1 is the Event Hub message `{"records":[…]}` — unwrapped to its single record; none skipped.
+ * Sample 4.1 is the Event Hub message `{"records":[…]}` - unwrapped to its single record; none skipped.
  *
  * Documented nulls (fromTelemetry → null):
  *   - edrFacts marks the event unsupported (USB / device control, file-read scans, file events without a path);
  *   - a process event with no image name, path or command line (Defender never emits a nameless
- *     ProcessCreated row) — e.g. the scheduled-task event of the cracked-software story;
+ *     ProcessCreated row) - e.g. the scheduled-task event of the cracked-software story;
  *   - a network event with no remote IP in the facts (inbound / IMDS events authored without one).
  */
 type Rec = Record<string, unknown>;
@@ -50,7 +50,7 @@ function documentedNull(ev: TelemetryEvent): boolean {
   return false;
 }
 
-describe("mde — card samples", () => {
+describe("mde - card samples", () => {
   it("the Event Hub wrapper is not a record; every sample record validates with zero violations", () => {
     expect(kindOf(cardSamples(source.schema.card)[0] as Rec)).toBeNull();
     expect(samples.length).toBe(6);
@@ -61,7 +61,7 @@ describe("mde — card samples", () => {
   });
 });
 
-describe("mde — corpus conversion", () => {
+describe("mde - corpus conversion", () => {
   it("converts every EDR/AV event (or returns null for a documented reason) with zero violations", () => {
     for (const { c, log } of converted) {
       if (!log) { expect(documentedNull(c.ev), `unexpected null ${c.ev.id}`).toBe(true); continue; }
@@ -171,7 +171,7 @@ describe("mde — corpus conversion", () => {
   });
 });
 
-describe("mde — use cases", () => {
+describe("mde - use cases", () => {
   const story = converted.filter(x => x.c.origin === "story" && x.log).map(x => x.log!);
   const withInfo = (ls: NativeLog[]) => [...ls, ...ls.map(alertInfoFor).filter((l): l is NativeLog => !!l)];
   const pool = [...samples, ...withInfo(story)];

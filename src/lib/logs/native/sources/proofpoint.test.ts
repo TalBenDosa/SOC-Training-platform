@@ -28,7 +28,7 @@ const o365Mail = corpus().filter(c => c.ev.source === "o365" && /^email_/.test(c
 const o365Converted = convertAll(source, o365Mail);
 const all = [...converted, ...o365Converted];
 
-describe("proofpoint — card samples", () => {
+describe("proofpoint - card samples", () => {
   it("every card sample validates with zero violations; kinds follow the wire arrays", () => {
     expect(sampleLogs.length).toBe(6);
     for (const l of sampleLogs) expect(validateNative(l, schema), l.kind).toEqual([]);
@@ -36,7 +36,7 @@ describe("proofpoint — card samples", () => {
   });
 });
 
-describe("proofpoint — corpus conversion", () => {
+describe("proofpoint - corpus conversion", () => {
   it("validates; native 100 %; Defender-authored threats rendered, clean mail null", () => {
     for (const c of all) if (c.log) expect(validateNative(c.log, schema), c.ce.ev.id).toEqual([]);
     // Native rows TAP SIEM reports on: inbound threat mail. A clean delivery authored as a
@@ -105,9 +105,9 @@ describe("proofpoint — corpus conversion", () => {
   });
 });
 
-describe("proofpoint — use cases", () => {
+describe("proofpoint - use cases", () => {
   const attack = [...sampleLogs, ...all.filter(c => c.ce.origin === "story" && c.log).map(c => c.log!)];
-  // Noise = benign / company mail without a product verdict (see hasMailVerdict) — TAP renders none of it.
+  // Noise = benign / company mail without a product verdict (see hasMailVerdict) - TAP renders none of it.
   const benign = all.filter(c => c.ce.origin !== "story" && !isPlanted(c.ce.ev) && !hasMailVerdict(c.ce.ev));
   const noise = benign.filter(c => c.log).map(c => c.log!);
 

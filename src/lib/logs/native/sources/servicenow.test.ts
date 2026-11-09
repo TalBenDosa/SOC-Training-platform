@@ -10,7 +10,7 @@ import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJackin
 import { buildBackupFalsePositiveScenario } from "@/lib/sim/scenario-packs/backupFalsePositive";
 
 /*
- * Card samples: 4 of 5 validate. SKIPPED: §4.2 — the same change rendered with
+ * Card samples: 4 of 5 validate. SKIPPED: §4.2 - the same change rendered with
  * sysparm_display_value=all ({display_value, value} on every field). The card allows that shape only
  * when a connector is configured so and forbids mixing it with raw mode; this module renders raw mode,
  * so kindOf() returns null for display-mode records.
@@ -27,7 +27,7 @@ const packEvents: CorpusEvent[] = [
 const events = [...corpusFor(source.schema.telemetrySources), ...packEvents];
 const converted = convertAll(source, events);
 
-describe("servicenow — card samples", () => {
+describe("servicenow - card samples", () => {
   it("raw-mode card samples validate with zero violations; display-mode sample skipped", () => {
     expect(samples.skipped.length).toBe(1);
     expect(samples.logs.length).toBe(flatSamples(source.schema.card).length - 1);
@@ -35,7 +35,7 @@ describe("servicenow — card samples", () => {
   });
 });
 
-describe("servicenow — conversion", () => {
+describe("servicenow - conversion", () => {
   it("every ServiceNow record converts with zero violations (≥95% coverage)", () => {
     const sn = converted.filter(c => (c.c.ev.vendor ?? "").toLowerCase().includes("servicenow"));
     for (const c of converted) {
@@ -112,7 +112,7 @@ describe("servicenow — conversion", () => {
   });
 });
 
-describe("servicenow — use cases", () => {
+describe("servicenow - use cases", () => {
   // Change-process fixtures built from the card's §4.1 approved normal change: (a) the same change as an
   // emergency change, (b) moved to Implement while approval is still "requested".
   const chg = flatSamples(source.schema.card).find(r => (r.result as Record<string, unknown>)?.sys_class_name === "change_request" && (r.result as Record<string, unknown>).sys_id) as { result: Record<string, unknown> };

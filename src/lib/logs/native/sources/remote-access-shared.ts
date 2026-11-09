@@ -8,7 +8,7 @@
  * every VPN/ZTNA module renders the SAME event (category-wide rendering), and the
  * evidence values (user, public IP, tunnel IP, hosts) survive verbatim.
  *
- * Nothing here emits a field — each module decides which facts its product has.
+ * Nothing here emits a field - each module decides which facts its product has.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
@@ -139,7 +139,7 @@ export function rawNum(ev: TelemetryEvent, ...keys: string[]): number | undefine
   return Number.isFinite(n) ? n : undefined;
 }
 
-// ── Time formatting (all UTC — devices in this simulation log in UTC) ───────
+// ── Time formatting (all UTC - devices in this simulation log in UTC) ───────
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -342,7 +342,7 @@ export function vpnFacts(ev: TelemetryEvent): VpnFacts | null {
   };
 }
 
-/** Canonical per-user seed (lower-cased UPN, else sAMAccountName, else client IP) — every module derives the same device ids from it. */
+/** Canonical per-user seed (lower-cased UPN, else sAMAccountName, else client IP) - every module derives the same device ids from it. */
 export function userKey(f: VpnFacts): string {
   return (f.id.email ?? f.id.sam ?? f.userAsLogged ?? f.publicIp ?? "unknown").toLowerCase();
 }

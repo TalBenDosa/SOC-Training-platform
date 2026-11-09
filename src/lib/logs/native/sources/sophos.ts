@@ -1,15 +1,15 @@
 /**
- * Sophos Intercept X / Sophos Central — native module (card: docs/log-schemas/edr-sophos.md).
+ * Sophos Intercept X / Sophos Central - native module (card: docs/log-schemas/edr-sophos.md).
  *
  * Sophos does not stream raw per-event endpoint telemetry. Its native records are:
- *   "event"     — SIEM Integration API item (GET /siem/v1/events), one element of `items[]` as returned
+ *   "event"     - SIEM Integration API item (GET /siem/v1/events), one element of `items[]` as returned
  *                 (before the Sophos SIEM script renames keys);
- *   "alert"     — SIEM Integration API alert item (GET /siem/v1/alerts);
- *   "detection" — Detections API item (XDR detection with forensic `rawData`);
- *   "running_processes_windows_sophos" — a Data Lake (XDR Query API) result row of that hydration query.
+ *   "alert"     - SIEM Integration API alert item (GET /siem/v1/alerts);
+ *   "detection" - Detections API item (XDR detection with forensic `rawData`);
+ *   "running_processes_windows_sophos" - a Data Lake (XDR Query API) result row of that hydration query.
  *
  * Mapping from edrFacts():
- *   process   → Data Lake `running_processes_windows_sophos` row (Windows only — the card documents
+ *   process   → Data Lake `running_processes_windows_sophos` row (Windows only - the card documents
  *               the column set of the Windows query only; Linux/macOS process rows → null).
  *   detection → Detections API item when the event is from a Windows endpoint and carries a command
  *               line (rawData.process_cmd_line is the only native place a command line exists);
@@ -17,7 +17,7 @@
  *               CoreBehavioralDetection for a behavioural one, with core_remedy_items describing what
  *               was cleaned (absent when nothing was cleaned).
  *   network / dns / file / registry / logon → null: Sophos has NO native per-event stream for these
- *               (card §4.7 and §6 — only on-demand Live Discover journals with undocumented columns).
+ *               (card §4.7 and §6 - only on-demand Live Discover journals with undocumented columns).
  *   "alert" records are never produced from telemetry (an alert duplicates its event); the kind exists
  *   so the card sample validates and the not-cleaned use case can read data.threat_status.
  *
@@ -142,7 +142,7 @@ function sophosUser(f: EdrFacts, ctx: NativeCtx): string | undefined {
   if (f.os !== "Win") return u;
   return `${(f.userDomain ?? ctx.netbios).toUpperCase()}\\${u}`;
 }
-/** OS pid of a process instance (./_proc-identity) — the same id every EDR module gives that process. */
+/** OS pid of a process instance (./_proc-identity) - the same id every EDR module gives that process. */
 function pidOf(ctx: NativeCtx, ev: TelemetryEvent, f: EdrFacts, host: string, name: string | undefined, role: "proc" | "parent" = "proc"): number {
   const user = f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
   // The story's instance tag (an image shown as its own parent: the child is another instance).
@@ -202,7 +202,7 @@ function dataLakeProcess(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: 
   const ppid = parentName ? pidOf(ctx, ev, f, host, parentName, "parent") : 0;
   // The row's time is when the scheduled query saw the process (calendar_time); the
   // process started a little before, and the result reaches the data lake seconds later
-  // — never stamped after the moment the row is shown.
+  // - never stamped after the moment the row is shown.
   const startMs = f.timeMs - ctx.int(seed("cal"), 5_000, 60_000);
   const startSec = Math.floor(startMs / 1000);
   const calSec = Math.floor(f.timeMs / 1000);
@@ -432,7 +432,7 @@ const useCases: UseCase[] = [
     id: "sophos.threat-not-cleaned",
     title: "Threat detected but not cleaned up",
     sourceId: "sophos", kinds: ["event", "alert"], severity: "high", mitre: ["T1204.002"],
-    description: "Intercept X detected a threat but recorded no successful cleanup: a detection event with no SUCCESS item in core_remedy_items, a Threat::CleanupFailed event, or an alert whose data.threat_status is anything other than CLEANED_UP / DISMISSED. The malware may still be on disk or running — the analyst must act (manual clean, isolate, re-image).",
+    description: "Intercept X detected a threat but recorded no successful cleanup: a detection event with no SUCCESS item in core_remedy_items, a Threat::CleanupFailed event, or an alert whose data.threat_status is anything other than CLEANED_UP / DISMISSED. The malware may still be on disk or running - the analyst must act (manual clean, isolate, re-image).",
     logic: "# SIEM search over Sophos Central /siem/v1 items (SPL style)\nindex=sophos_central (sourcetype=sophos:events type IN (\"Event::Endpoint::Threat::Detected\",\"Event::Endpoint::Threat::PuaDetected\",\"Event::Endpoint::CoreBehavioralDetection\") NOT \"core_remedy_items.items{}.result\"=\"SUCCESS\")\n  OR (sourcetype=sophos:events type=\"Event::Endpoint::Threat::CleanupFailed\")\n  OR (sourcetype=sophos:alerts NOT data.threat_status IN (\"CLEANED_UP\",\"DISMISSED\"))\n| table when location source type threat name data.threat_status",
     match: { any: [
       { all: [
@@ -452,7 +452,7 @@ const useCases: UseCase[] = [
     id: "sophos.amsi-behavioural-protection",
     title: "AMSI or behavioural (runtime) protection fired",
     sourceId: "sophos", kinds: ["event", "detection"], severity: "high", mitre: ["T1059.001", "T1027"],
-    description: "Sophos runtime protection caught malicious behaviour rather than a malicious file: an AMSI block (script content scanned in memory), a behavioural detection event, or a Detections API item whose rawData.threat_source is Behavioral. These fire on fileless attacks — the command line in rawData.process_cmd_line and the parent process tell you how it started.",
+    description: "Sophos runtime protection caught malicious behaviour rather than a malicious file: an AMSI block (script content scanned in memory), a behavioural detection event, or a Detections API item whose rawData.threat_source is Behavioral. These fire on fileless attacks - the command line in rawData.process_cmd_line and the parent process tell you how it started.",
     logic: "# SIEM items\ntype IN (\"Event::Endpoint::CoreAmsiBlocked\",\"Event::Endpoint::CoreBehavioralDetection\") OR origin IN (\"AMSI_DETECTION\",\"BEHAVIORAL_DETECTION\",\"HMPA_DETECTION\")\n-- Detections API (Threat Analysis Center → Detections)\nSELECT time, device.entity, detectionRule, rawData.process_cmd_line FROM detections WHERE rawData.threat_source = 'Behavioral'",
     match: { any: [
       { field: "type", op: "in", value: ["Event::Endpoint::CoreAmsiBlocked", "Event::Endpoint::CoreBehavioralDetection"] },
@@ -485,7 +485,7 @@ const useCases: UseCase[] = [
     id: "sophos.repeated-detections-endpoint",
     title: "Repeated detections on one endpoint",
     sourceId: "sophos", kinds: ["event"], severity: "medium", mitre: [],
-    description: "Three or more Sophos security events for the same endpoint_id within an hour. One detection may be a stray download; a burst on one machine (AMSI block, IPS hit, file detection…) means an active intrusion working around each block — isolate and investigate the whole chain in Threat Graphs.",
+    description: "Three or more Sophos security events for the same endpoint_id within an hour. One detection may be a stray download; a burst on one machine (AMSI block, IPS hit, file detection…) means an active intrusion working around each block - isolate and investigate the whole chain in Threat Graphs.",
     logic: "# SIEM search over /siem/v1/events\nindex=sophos_central sourcetype=sophos:events group IN (\"MALWARE\",\"PUA\",\"RUNTIME_DETECTIONS\")\n| bin _time span=1h\n| stats count dc(type) as kinds values(threat) as threats by endpoint_id location _time\n| where count >= 3",
     match: { field: "group", op: "in", value: ["MALWARE", "PUA", "RUNTIME_DETECTIONS"] },
     threshold: { groupBy: ["endpoint_id"], count: 3, windowSec: 3600 },
@@ -508,7 +508,7 @@ const useCases: UseCase[] = [
     id: "sophos.ips-outbound-c2",
     title: "Malicious outbound traffic blocked by endpoint IPS",
     sourceId: "sophos", kinds: ["event"], severity: "high", mitre: ["T1071.001", "T1105"],
-    description: "Intercept X's endpoint IPS / Malicious Traffic Detection stopped outbound traffic matching a C2 signature. ips_threat_data names the process (executablePath / executablePid) and the remote endpoint (remoteIp / remotePort) — pivot on both.",
+    description: "Intercept X's endpoint IPS / Malicious Traffic Detection stopped outbound traffic matching a C2 signature. ips_threat_data names the process (executablePath / executablePid) and the remote endpoint (remoteIp / remotePort) - pivot on both.",
     logic: "# SIEM search\ntype=\"Event::Endpoint::Threat::IpsOutboundDetection\" OR (origin=\"IPS_DETECTION\" AND ips_threat_data.detectionType=1)\n| table when location source threat ips_threat_data.executablePath ips_threat_data.remoteIp ips_threat_data.remotePort",
     match: { any: [
       { field: "type", op: "eq", value: "Event::Endpoint::Threat::IpsOutboundDetection" },

@@ -21,7 +21,7 @@ function cardLogs(): NativeLog[] {
   return out;
 }
 
-describe("aws_cloudtrail — card samples", () => {
+describe("aws_cloudtrail - card samples", () => {
   it("every CloudTrail card sample validates with zero violations", () => {
     const logs = cardLogs();
     expect(logs.length).toBeGreaterThanOrEqual(12);
@@ -32,7 +32,7 @@ describe("aws_cloudtrail — card samples", () => {
   });
 });
 
-describe("aws_cloudtrail — corpus conversion", () => {
+describe("aws_cloudtrail - corpus conversion", () => {
   const all = corpusFor(source.schema.telemetrySources);
   const mine = corpusFor(source.schema.telemetrySources, source.schema.vendorMatch); // vendor = CloudTrail
 
@@ -59,7 +59,7 @@ describe("aws_cloudtrail — corpus conversion", () => {
   });
 });
 
-describe("aws_cloudtrail — evidence & determinism", () => {
+describe("aws_cloudtrail - evidence & determinism", () => {
   it("preserves evidence values verbatim", () => {
     for (const c of corpusFor(source.schema.telemetrySources, source.schema.vendorMatch)) {
       const log = source.fromTelemetry(c.ev, makeCtx(c.companyId));
@@ -86,7 +86,7 @@ describe("aws_cloudtrail — evidence & determinism", () => {
   });
 });
 
-describe("aws_cloudtrail — use cases", () => {
+describe("aws_cloudtrail - use cases", () => {
   // Logs built from card samples + converted attack-story events (origin "story").
   const storyLogs = corpusFor(source.schema.telemetrySources)
     .filter(c => c.origin === "story")
@@ -140,7 +140,7 @@ const mk = (id: string, ts: string, raw: Record<string, unknown>, extra: Record<
   ({ id, ts, source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call", src_ip: "185.220.101.42", raw, ...extra }) as never;
 const recOf = (e: never): Rec => source.fromTelemetry(e, ctx)!.record as Rec;
 
-describe("aws_cloudtrail — identity carried from the authored event", () => {
+describe("aws_cloudtrail - identity carried from the authored event", () => {
   it("an authored assumed role keeps its role as session issuer, the record's account, and one ASIA key across rows", () => {
     const arn = "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/i-0abc123def4567890";
     const a = recOf(mk("t_ar1", "2026-06-18T09:09:00Z", { "aws.cloudtrail.eventName": "GetCallerIdentity", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": arn }));
@@ -187,7 +187,7 @@ describe("aws_cloudtrail — identity carried from the authored event", () => {
   });
 });
 
-describe("aws_cloudtrail — responseElements carry the minted key / session", () => {
+describe("aws_cloudtrail - responseElements carry the minted key / session", () => {
   it("the key CreateAccessKey returns is the key the new user's later calls are signed with", () => {
     const create = recOf(mk("t_cak", "2026-06-18T09:12:00Z", { "aws.cloudtrail.eventName": "CreateAccessKey", "aws.cloudtrail.requestParameters.userName": "deploy-prod", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/ci-role/i-0abc123def4567890" }));
     const use = recOf(mk("t_use", "2026-06-18T09:21:00Z", { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.requestParameters.bucketName": "b1", "aws.cloudtrail.userIdentity.type": "IAMUser", "aws.cloudtrail.userIdentity.userName": "deploy-prod" }));
@@ -217,7 +217,7 @@ describe("aws_cloudtrail — responseElements carry the minted key / session", (
   });
 });
 
-describe("aws_cloudtrail — partition / region", () => {
+describe("aws_cloudtrail - partition / region", () => {
   it("a GovCloud record uses the aws-us-gov partition and a us-gov region on every row, authored region or not", () => {
     const arn = "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor";
     const gov = { vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20" };
@@ -241,7 +241,7 @@ describe("aws_cloudtrail — partition / region", () => {
   });
 });
 
-describe("detection catalogue — no crypto (Tal 2026-10-02)", () => {
+describe("detection catalogue - no crypto (Tal 2026-10-02)", () => {
   it("no use case of any native module is about crypto-mining / cryptocurrency", async () => {
     const { NATIVE_SOURCES } = await import("../index");
     const bad: string[] = [];

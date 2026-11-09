@@ -32,14 +32,14 @@ const o365Mail = corpus().filter(c => c.ev.source === "o365" && /^email_/.test(c
 const o365Converted = convertAll(source, o365Mail);
 const companions = (c: (typeof converted)[number]) => companionLogs(c.ce.ev, makeCtx(c.ce.companyId));
 
-describe("defender_o365 — card samples", () => {
+describe("defender_o365 - card samples", () => {
   it("every card sample validates with zero violations", () => {
     expect(sampleLogs.length).toBe(9);
     for (const l of sampleLogs) expect(validateNative(l, schema), l.kind).toEqual([]);
   });
 });
 
-describe("defender_o365 — corpus conversion", () => {
+describe("defender_o365 - corpus conversion", () => {
   it("validates; native ≥ 95 %; cross-vendor + o365 mail-flow coverage", () => {
     const all = [...converted, ...o365Converted];
     for (const c of all) {
@@ -72,7 +72,7 @@ describe("defender_o365 — corpus conversion", () => {
       const sha = ev.raw["email.attachments.file.hash.sha256"] ?? ev.raw["data.office365.AttachmentSha256"];
       if (typeof sha === "string" && c.log.kind === "EmailEvents") expect(present(hay, sha), `${ev.id} sha`).toBe(true);
       const imid = ev.raw["email.message_id"] ?? ev.raw["data.office365.InternetMessageId"] ?? ev.raw["pps.messageID"];
-      // EmailAttachmentInfo / EmailUrlInfo / UrlClickEvents key on NetworkMessageId — they have no InternetMessageId column.
+      // EmailAttachmentInfo / EmailUrlInfo / UrlClickEvents key on NetworkMessageId - they have no InternetMessageId column.
       if (typeof imid === "string" && !["UrlClickEvents", "EmailAttachmentInfo", "EmailUrlInfo"].includes(c.log.kind)) expect(present(hay, imid), `${ev.id} imid`).toBe(true);
       n++;
     }
@@ -108,7 +108,7 @@ describe("defender_o365 — corpus conversion", () => {
   });
 });
 
-describe("defender_o365 — use cases", () => {
+describe("defender_o365 - use cases", () => {
   const story = [...converted, ...o365Converted].filter(c => c.ce.origin === "story" && c.log);
   const attack = [...sampleLogs, ...story.map(c => c.log!), ...story.flatMap(companions)];
   // Noise = benign / company mail WITHOUT a product verdict. Company events whose authored data already carries a

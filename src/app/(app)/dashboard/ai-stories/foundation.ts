@@ -221,7 +221,7 @@ function buildShadowChatUpload(): TelemetryEvent[] {
       extra: { ...aiApp("Unsanctioned") },
     }),
 
-    // DLP stops the spreadsheet — the first alert.
+    // DLP stops the spreadsheet - the first alert.
     {
       ...zia({
         id: "aishd4", ts: "2026-09-22T09:33:54.640Z",
@@ -429,7 +429,7 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       extra: {},
     }),
 
-    // The threat-intelligence match on that lookup — the first alert.
+    // The threat-intelligence match on that lookup - the first alert.
     {
       ...sentinelAlert({
         companyId: CX, id: "aiext10", ts: "2026-09-23T09:46:20.000Z", host: c.host, user: c.user, srcIp: c.ip, incidentId: INC,
@@ -840,7 +840,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
 export const AI_FOUNDATION_STORIES: AiStoryDef[] = [
   {
     id: "ai-shadow-chat-upload",
-    title: "Shadow AI — Customer List Pasted into an Unsanctioned Chatbot After a DLP Block",
+    title: "Shadow AI - Customer List Pasted into an Unsanctioned Chatbot After a DLP Block",
     complexity: "foundation",
     companies: ["nexacorp", "rocketstack", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "globallogis", "quantumbank"],
     events: buildShadowChatUpload(),
@@ -854,7 +854,7 @@ export const AI_FOUNDATION_STORIES: AiStoryDef[] = [
   },
   {
     id: "ai-svg-invoice-lure",
-    title: "Invoice SVG Posing as a PDF — Credential Page After a CAPTCHA",
+    title: "Invoice SVG Posing as a PDF - Credential Page After a CAPTCHA",
     complexity: "foundation",
     companies: ["nexacorp", "medcore", "globallogis"],
     events: buildSvgInvoiceLure(),

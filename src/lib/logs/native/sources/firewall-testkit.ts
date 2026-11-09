@@ -27,7 +27,7 @@ export interface FirewallSuiteOpts {
   crossMin: number;
   /** Extra logs built from card samples / story events (threshold scenarios). */
   fixtures?: () => NativeLog[];
-  /** Expected-null predicate (documented reasons) — asserted to be the ONLY nulls. */
+  /** Expected-null predicate (documented reasons) - asserted to be the ONLY nulls. */
   nullAllowed: (ev: TelemetryEvent) => string | null;
   /** Card time extractor (epoch ms) for card-sample logs. */
   cardTime?: (r: Record<string, unknown>) => number;
@@ -180,9 +180,9 @@ export function repeatEvent(ev: TelemetryEvent, times: number, everySec: number)
 
 /**
  * An appliance's own management log (a FortiOS event/system admin login) has no counterpart in
- * another vendor's traffic / threat logs — and the storyline that carries it is product-locked to
+ * another vendor's traffic / threat logs - and the storyline that carries it is product-locked to
  * that appliance, so it is never shown as another firewall.
  */
 export function applianceAdminNull(ev: TelemetryEvent): string | null {
-  return ev.source === "firewall" && /^auth_/.test(ev.event_type ?? "") ? "appliance management (admin login) log — no equivalent in this product's traffic/threat logs" : null;
+  return ev.source === "firewall" && /^auth_/.test(ev.event_type ?? "") ? "appliance management (admin login) log - no equivalent in this product's traffic/threat logs" : null;
 }

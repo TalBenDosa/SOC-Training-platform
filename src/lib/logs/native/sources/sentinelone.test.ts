@@ -9,7 +9,7 @@ import { sampleLogs, violationsOf, convertAll, contains, isNoise, type Converted
 
 /*
  * Card samples: all 6 JSON blocks of edr-sentinelone.md are supported kinds (Process Creation,
- * DNS Resolved, IP Connect, File Creation, Behavioral Indicators, Threats API element) — none
+ * DNS Resolved, IP Connect, File Creation, Behavioral Indicators, Threats API element) - none
  * skipped. "Behavioral Indicators" is card-only: detections render as the Threat object.
  *
  * Documented nulls among events edrFacts marks supported (see the module header):
@@ -19,7 +19,7 @@ import { sampleLogs, violationsOf, convertAll, contains, isNoise, type Converted
  *  - network events without an IPv4 peer.
  *
  * Evidence: the Threats API carries the malicious process's ARGUMENTS
- * (threatInfo.maliciousProcessArguments, image path stripped — card §4.6), so for threats the
+ * (threatInfo.maliciousProcessArguments, image path stripped - card §4.6), so for threats the
  * argument part of the command line is checked; a threat carries no network peers.
  */
 const samples = sampleLogs(source, kindOf);
@@ -60,7 +60,7 @@ function evidence(c: Converted): string[] {
   return out;
 }
 
-describe("sentinelone — card samples", () => {
+describe("sentinelone - card samples", () => {
   it("every card sample is a supported kind and validates with zero violations", () => {
     expect(samples.skipped).toEqual([]);
     expect(samples.logs.length).toBe(6);
@@ -68,7 +68,7 @@ describe("sentinelone — card samples", () => {
   });
 });
 
-describe("sentinelone — corpus conversion", () => {
+describe("sentinelone - corpus conversion", () => {
   it("converts every EDR/AV event (or returns null for a documented reason) with zero violations", () => {
     for (const c of converted) {
       expect(c.error, c.c.ev.id).toBeUndefined();
@@ -115,8 +115,8 @@ describe("sentinelone — corpus conversion", () => {
     }
     // Rendering is per event (stateless), so the chain root is known only up to the parent: storylines are
     // fully consistent inside an incident (TelemetryEvent.incident_id) and for chains whose root is the
-    // parent (parent started by a shell); deeper chains outside an incident — and DNS/IP/file events whose
-    // actor's parent is not authored — start a new storyline (counted, not asserted).
+    // parent (parent started by a shell); deeper chains outside an incident - and DNS/IP/file events whose
+    // actor's parent is not authored - start a new storyline (counted, not asserted).
     const created = logs.filter(l => l.kind === "Process Creation");
     const tgt = new Map(created.map(l => [l.r["tgt.process.uid"] as string, l]));
     const consistentScope = (parent: (typeof logs)[number], child: (typeof logs)[number]) =>
@@ -145,7 +145,7 @@ describe("sentinelone — corpus conversion", () => {
   });
 });
 
-describe("sentinelone — use cases", () => {
+describe("sentinelone - use cases", () => {
   const story = converted.filter(c => c.c.origin === "story" && c.log).map(c => c.log!);
   const pool = [...samples.logs, ...story];
   const noise = converted.filter(c => isNoise(c.c) && c.log).map(c => c.log!);

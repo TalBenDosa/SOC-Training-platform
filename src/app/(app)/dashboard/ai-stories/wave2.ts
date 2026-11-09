@@ -1,24 +1,24 @@
 /**
- * AI-related attack stories — wave 2 (live feed & team training), built on log sources the
+ * AI-related attack stories - wave 2 (live feed & team training), built on log sources the
  * first wave did not use:
  *
- *  1. ai-aoai-support-bot-jailbreak  (foundation, nexacorp/medcore) — a scripted client calls
+ *  1. ai-aoai-support-bot-jailbreak  (foundation, nexacorp/medcore) - a scripted client calls
  *     the public support chat API directly; its recon and jailbreak prompts reach Azure OpenAI
  *     through the app (app egress in the AOAI log) and are blocked by Prompt Shields.
  *     Azure Front Door access log (visitor IP) + Azure OpenAI RequestResponse logs + Defender
  *     for Cloud AI alerts carrying the app's end-user security context.
- *  2. ai-aoai-key-capacity-abuse     (advanced, nexacorp/medcore)   — MFA fatigue on an Azure
+ *  2. ai-aoai-key-capacity-abuse     (advanced, nexacorp/medcore)   - MFA fatigue on an Azure
  *     admin, a risky portal sign-in lists the Azure OpenAI account keys; the key is then used
  *     from a hosting provider, a new deployment appears, and the customer bot gets throttled.
  *     Entra ID + Azure Activity Log + Azure OpenAI logs + Defender for Cloud AI alerts.
- *  3. ai-gemini-drive-sweep          (core, rocketstack)             — push fatigue lets a
+ *  3. ai-gemini-drive-sweep          (core, rocketstack)             - push fatigue lets a
  *     commercial-VPN session in beside the user's own office session; it uses Gemini in Drive
  *     and Gmail, downloads two files and shares one outside, which a Sentinel correlation alerts on.
  *     Okta + Google Workspace login / Gemini (gemini_in_workspace_apps) / Drive audit + Sentinel.
  *
  * Real schemas: Defender for Cloud AI alert names/types (AI.Azure_*), Azure OpenAI resource
  * log properties (no prompt text; caller IP last octet masked), Google Admin Reports API
- * activity records — Gemini `feature_utilization` with app_name / action / feature_source /
+ * activity records - Gemini `feature_utilization` with app_name / action / feature_source /
  * event_category values from Google's published enum.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -54,7 +54,7 @@ const BOT_DEPLOYMENT = "gpt-4o-support";
 const APP_EGRESS = "20.73.41.118";   // the support app's App Service outbound address (Azure, West Europe)
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 1. ai-aoai-support-bot-jailbreak — foundation
+// 1. ai-aoai-support-bot-jailbreak - foundation
 // ══════════════════════════════════════════════════════════════════════════════
 /**
  * Azure Front Door access log (diagnostic category FrontDoorAccessLog) for one request to the
@@ -149,7 +149,7 @@ function buildSupportBotJailbreak(): TelemetryEvent[] {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. ai-aoai-key-capacity-abuse — advanced
+// 2. ai-aoai-key-capacity-abuse - advanced
 // ══════════════════════════════════════════════════════════════════════════════
 function buildKeyCapacityAbuse(): TelemetryEvent[] {
   const cx = "nexacorp";
@@ -189,7 +189,7 @@ function buildKeyCapacityAbuse(): TelemetryEvent[] {
       description: "Azure Activity Log: t.harris listed the access keys of the Azure OpenAI account aoai-support-weu, from the same Amsterdam address four minutes after the portal sign-in." }),
     azureOpenAiRequest({ ...req, id: "aiakc3", ts: "2026-09-26T21:58:51.602Z", deployment: BOT_DEPLOYMENT, callerIp: keyIp, status: 200, durationMs: 9412, requestLength: 41280, responseLength: 18934, stream: true,
       severity: "medium", mitre: "T1496.004", tactic: "Impact",
-      description: "Azure OpenAI logged a streamed chat completion on gpt-4o-support from masked caller 162.55.84.*** — not the app's egress — with a 41 KB request and a 19 KB response, far larger than the assistant's usual traffic." }),
+      description: "Azure OpenAI logged a streamed chat completion on gpt-4o-support from masked caller 162.55.84.*** - not the app's egress - with a 41 KB request and a 19 KB response, far larger than the assistant's usual traffic." }),
     defenderAiAlert({ ...req, id: "aiakc4", ts: "2026-09-26T22:01:27.448Z", deployment: BOT_DEPLOYMENT, alert: "suspiciousIp", clientIp: keyIp, geo: keyGeo, asOrg: "Hetzner Online GmbH",
       extra: { "Authentication type": "Key" },
       alertDescription: "Your Azure AI resource was accessed from an IP address flagged by Microsoft Threat Intelligence.",
@@ -213,7 +213,7 @@ function buildKeyCapacityAbuse(): TelemetryEvent[] {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 3. ai-gemini-drive-sweep — core, rocketstack (Okta + Google Workspace)
+// 3. ai-gemini-drive-sweep - core, rocketstack (Okta + Google Workspace)
 // ══════════════════════════════════════════════════════════════════════════════
 // The tenant's own Workspace customer id, as its native Reports API records carry it. The actor's
 // profileId is left to the native record (one per user across every Workspace row).
@@ -298,7 +298,7 @@ function buildGeminiDriveSweep(): TelemetryEvent[] {
       eventType2: "cloud_api_call", category: "web", severity: "informational", isBaseline: true, expectedVerdict: "fp",
       fpExplanation: "s.amir's normal Gemini use: Help me write in Docs, from the office, during working hours.",
       description: "Baseline: s.amir used Gemini 'Help me write' in Google Docs from the Tel Aviv office at 14:10." }),
-    // s.amir's own session that morning, from the office on the usual laptop — the reference the Warsaw login is compared with.
+    // s.amir's own session that morning, from the office on the usual laptop - the reference the Warsaw login is compared with.
     {
       ...oktaSignIn({
         id: "aigds1", ts: "2026-09-25T06:31:22.640Z", companyId: cx, user, srcIp: office, userAgent: chrome, os: "Windows 10", browser: "CHROME",
@@ -350,7 +350,7 @@ function buildGeminiDriveSweep(): TelemetryEvent[] {
       params: { doc_id: docId(termSheet), doc_title: termSheet, owner: "n.shapiro@rocketstack.io", target_user: "sa.docs.backup@gmail.com", old_value: ["none"], new_value: ["can_view"], visibility: "shared_externally", primary_event: true },
       eventType2: "sharepoint_share", category: "file", severity: "high", mitre: "T1567", tactic: "Exfiltration", file: { name: termSheet },
       description: "s.amir granted view access on 'Series C Term Sheet - Draft v3' to the consumer Gmail address sa.docs.backup@gmail.com; the file's visibility is now shared_externally." }),
-    // The alert the SOC receives: a scheduled Sentinel correlation over the Okta and Workspace connectors —
+    // The alert the SOC receives: a scheduled Sentinel correlation over the Okta and Workspace connectors -
     // a rejected Okta push and a session from a new country for one user, then an external Drive share by
     // that user from the same address within the hour.
     {
@@ -393,7 +393,7 @@ function buildGeminiDriveSweep(): TelemetryEvent[] {
 }
 
 export const AI_WAVE2_STORIES: AiStoryDef[] = [
-  { id: "ai-aoai-support-bot-jailbreak", title: "Support Assistant Under Jailbreak Attempts — Blocked by Prompt Shields", complexity: "foundation", companies: ["nexacorp", "medcore"], events: buildSupportBotJailbreak() },
+  { id: "ai-aoai-support-bot-jailbreak", title: "Support Assistant Under Jailbreak Attempts - Blocked by Prompt Shields", complexity: "foundation", companies: ["nexacorp", "medcore"], events: buildSupportBotJailbreak() },
   { id: "ai-aoai-key-capacity-abuse", title: "Azure OpenAI Keys Listed from a Risky Sign-In, Then Burned from a Hosting Provider", complexity: "advanced", companies: ["nexacorp", "medcore"], events: buildKeyCapacityAbuse() },
   { id: "ai-gemini-drive-sweep", title: "VPN Session Uses Gemini to Sweep Drive, Then Downloads and Shares Out", complexity: "core", companies: ["rocketstack"], events: buildGeminiDriveSweep() },
 ];

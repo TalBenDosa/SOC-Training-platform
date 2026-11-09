@@ -2,14 +2,14 @@
  * Shared helpers for the Cloud native modules
  * (aws_cloudtrail, aws_guardduty, aws_vpcflow, azure_activity, gcp_audit, k8s_audit).
  *
- * The platform's legacy `ev.raw` maps hold the same facts under many spellings —
+ * The platform's legacy `ev.raw` maps hold the same facts under many spellings -
  * CloudTrail as `aws.cloudtrail.userIdentity.arn` / `aws.cloudtrail.request_parameters.*`,
  * GuardDuty as `aws.guardduty.*` or `aws.guardduty.finding.*`, Azure as
  * `azure.activitylogs.*` / `azure.alert.*` / `azure.open_ai.*`, K8s as
  * `kubernetes.audit.*`. These helpers read a fact from any spelling so a converter
  * carries evidence over verbatim, and derive stable per-entity identifiers.
  *
- * NONE of these legacy keys are ever written into a native record — they are the
+ * NONE of these legacy keys are ever written into a native record - they are the
  * SIEM-normalised input, not the source's native format ("no schema mixing").
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -73,20 +73,20 @@ export function isPrivateIp(ip: string | undefined): boolean {
   return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.)/.test(ip);
 }
 
-/** "2026-09-30T14:22:10Z" — UTC, no fractional seconds (CloudTrail eventTime). */
+/** "2026-09-30T14:22:10Z" - UTC, no fractional seconds (CloudTrail eventTime). */
 export function isoZ(ts: string): string {
   return new Date(Date.parse(ts)).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
-/** "2026-09-30T14:22:10.418Z" — UTC with milliseconds (GuardDuty, Defender alerts). */
+/** "2026-09-30T14:22:10.418Z" - UTC with milliseconds (GuardDuty, Defender alerts). */
 export function isoMs(ts: string): string {
   return new Date(Date.parse(ts)).toISOString();
 }
-/** "2026-09-30T14:22:10.4471823Z" — 7 fractional digits (Azure Event-Hub / GCP). Keeps the event ms, adds 4 seeded digits. */
+/** "2026-09-30T14:22:10.4471823Z" - 7 fractional digits (Azure Event-Hub / GCP). Keeps the event ms, adds 4 seeded digits. */
 export function iso7(ts: string, ctx: NativeCtx, seed: string, addSec = 0): string {
   const d = new Date(Date.parse(ts) + addSec * 1000).toISOString();
   return `${d.slice(0, 23)}${String(ctx.int(seed, 0, 9999)).padStart(4, "0")}Z`;
 }
-/** "2026-09-30T14:22:10.0000000Z" — 7 fractional digits, all from the event ms (Defender for Cloud UTC fields). */
+/** "2026-09-30T14:22:10.0000000Z" - 7 fractional digits, all from the event ms (Defender for Cloud UTC fields). */
 export function iso7z(ts: string, addSec = 0): string {
   const d = new Date(Date.parse(ts) + addSec * 1000).toISOString();
   return `${d.slice(0, 23)}0000Z`;
@@ -144,7 +144,7 @@ export function awsPartition(region: string): AwsPartition {
 }
 
 /**
- * AWS region of the record — the authored one, else the partition's home region.
+ * AWS region of the record - the authored one, else the partition's home region.
  * Global services (IAM, Organizations, sign-in …) record in the partition's home region
  * (us-east-1 / us-gov-west-1); a GovCloud record never carries a commercial region.
  */
@@ -204,13 +204,13 @@ export function awsServiceFor(en: string): string {
 // ── AWS principals (shared by CloudTrail userIdentity and GuardDuty accessKeyDetails) ──
 
 const hx = (ctx: NativeCtx, kind: string, value: string, len: number) => ctx.hex(entitySeed(ctx, kind, value), len).toUpperCase();
-/** IAM user id (AIDA…, 21 chars) — one per user name. */
+/** IAM user id (AIDA…, 21 chars) - one per user name. */
 export const awsUserId = (ctx: NativeCtx, user: string) => "AIDA" + hx(ctx, "awsuser", user, 17);
 /** Long-term access key of an IAM user (AKIA…, 20 chars). `n` > 1 = a second key of the same user. */
 export const awsUserKey = (ctx: NativeCtx, user: string, n = 1) => "AKIA" + hx(ctx, "awsak", n > 1 ? `${user}#${n}` : user, 16);
-/** Role id (AROA…, 21 chars) — one per role name. */
+/** Role id (AROA…, 21 chars) - one per role name. */
 export const awsRoleId = (ctx: NativeCtx, role: string) => "AROA" + hx(ctx, "awsrole", role, 17);
-/** Temporary key of a role session (ASIA…) — the same key for every call of one role/session. */
+/** Temporary key of a role session (ASIA…) - the same key for every call of one role/session. */
 export const awsSessionKey = (ctx: NativeCtx, role: string, session: string) => "ASIA" + hx(ctx, "awssess", `${role}/${session}`, 16);
 
 /** IAM Identity Center permission-set role of a human user (the company's SSO landing role). */
@@ -258,7 +258,7 @@ const roleFromArn = (arn: string | undefined): { role?: string; path?: string; s
 };
 
 /**
- * The calling AWS principal as the event authored it — the type, names, ids and keys it
+ * The calling AWS principal as the event authored it - the type, names, ids and keys it
  * carries (CloudTrail `userIdentity.*`, GuardDuty `resource.accessKeyDetails.*`), with
  * only the gaps derived, from stable per-entity seeds so a user / role session / key is the
  * SAME identity on every row of a story. A person with no authored AWS identity reaches AWS
@@ -328,7 +328,7 @@ export function awsPrincipal(ev: TelemetryEvent, ctx: NativeCtx, acct: string): 
   }
 }
 
-/** "Sep 30, 2026 2:21:30 AM" — the date format IAM / STS responseElements use in CloudTrail. */
+/** "Sep 30, 2026 2:21:30 AM" - the date format IAM / STS responseElements use in CloudTrail. */
 export function awsLongDate(ms: number): string {
   const d = new Date(ms);
   const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()];

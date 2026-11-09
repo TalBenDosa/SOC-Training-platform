@@ -1,6 +1,6 @@
 ﻿/**
- * Realistic benign/normal SOC events — the daily noise of a healthy corporate environment.
- * Company: NexaCorp — employees drawn from a diverse pool across departments.
+ * Realistic benign/normal SOC events - the daily noise of a healthy corporate environment.
+ * Company: NexaCorp - employees drawn from a diverse pool across departments.
  * Mix ratio: ~85% benign, ~15% attack (injected periodically).
  *
  * Description rules:
@@ -115,7 +115,7 @@ function inboxRule(o: { id: string; ts: string; user: string; op: "New-InboxRule
 
 export const BENIGN_EVENTS: TelemetryEvent[] = [
 
-  // ── Active Directory — normal logins ────────────────────────────────────────
+  // ── Active Directory - normal logins ────────────────────────────────────────
   {
     id: "b_ad_01", ts: T(0), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
@@ -446,7 +446,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "winlog.event_data.SubjectUserName": "jchen", "winlog.event_data.SubjectDomainName": "NEXACORP",
            "source.ip": "10.10.20.14", "event.action_result": "allow" },
   },
-  // Admin password reset — elevated severity
+  // Admin password reset - elevated severity
   {
     id: "b_pwd_04", ts: T(41), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "medium",
@@ -458,7 +458,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.1.5", "helpdesk.ticket": "INC-9912",
            "event.action_result": "allow" },
   },
-  // Admin account password reset — higher severity
+  // Admin account password reset - higher severity
   {
     id: "b_pwd_05", ts: T(62), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "medium",
@@ -470,7 +470,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.1.5", "helpdesk.ticket": "CHG-2026-0512",
            "event.action_result": "allow" },
   },
-  // Service account password reset — medium severity
+  // Service account password reset - medium severity
   {
     id: "b_pwd_06", ts: T(78), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "medium",
@@ -483,7 +483,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
 
-  // ── AD — group and account admin ────────────────────────────────────────────
+  // ── AD - group and account admin ────────────────────────────────────────────
   {
     id: "b_ad_07", ts: T(6), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "low",
@@ -641,12 +641,12 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "failure.count": "5", "event.action_result": "lockout" },
   },
 
-  // ── O365 / Exchange — normal email traffic ────────────────────────────────
+  // ── O365 / Exchange - normal email traffic ────────────────────────────────
   {
     id: "b_o365_01", ts: T(2), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_received", severity: "informational",
     user_email: "s.patel@nexacorp.com", user_title: "Risk Analyst",
-    description: "Newsletter email received from newsletter@github.com — delivered to s.patel@nexacorp.com",
+    description: "Newsletter email received from newsletter@github.com - delivered to s.patel@nexacorp.com",
     network: { domain: "github.com", bytes_in: 12300 },
     raw: {
       "data.office365.Operation": "MessageDelivered",
@@ -662,7 +662,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "email.headers.received_1": "by filter01.protection.outlook.com with SMTP; Mon, 15 Jun 2026 09:23:15 +0000",
       "email.headers.received_2": "by SRV-NEXACORP-EXCH01.nexacorp.local; Mon, 15 Jun 2026 09:23:16 +0000",
       "email.to.address": "s.patel@nexacorp.com",
-      "email.subject": "GitHub Digest — June 2026",
+      "email.subject": "GitHub Digest - June 2026",
       "email.direction": "inbound",
       "email.spam_score": "0",
       "email.spf": "pass",
@@ -676,7 +676,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_o365_02", ts: T(5), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_sent", severity: "informational",
     user_email: "a.jones@nexacorp.com",
-    description: "Email sent by a.jones@nexacorp.com to vendor@aws-partner.com — outbound DLP scan passed",
+    description: "Email sent by a.jones@nexacorp.com to vendor@aws-partner.com - outbound DLP scan passed",
     network: { domain: "aws-partner.com", bytes_out: 8100 },
     raw: {
       "data.office365.Operation": "SendMail",
@@ -701,9 +701,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   // Display-From spoofs internal HR, but Reply-To routes to an external Gmail and
   // the Return-Path is a lookalike (mailout-nexacorp.com, NOT nexacorp.com). SPF/
   // DKIM/DMARC "pass" only because they authenticate the lookalike sender domain,
-  // not nexacorp.com — a classic direct-deposit BEC precursor. This is a real
+  // not nexacorp.com - a classic direct-deposit BEC precursor. This is a real
   // attack the analyst should catch, so it stays gradeable (MITRE-tagged, high) and
-  // is NOT tagged as an FP decoy — its earlier fp_explanation contradicted its own
+  // is NOT tagged as an FP decoy - its earlier fp_explanation contradicted its own
   // text, which called it a "BEC precursor" while excluding it from the attack set.
   {
     id: "b_email_replyto_mismatch", ts: T(14), source: "o365", vendor: "Microsoft Defender for Office 365",
@@ -712,7 +712,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     src_ip: "45.142.212.100",
     mitre_technique: "T1566", mitre_tactic: "Initial Access",
     expected_verdict: "tp",
-    description: "Email from 'NexaCorp HR <hr@nexacorp.com>' delivered to j.chen — 'Urgent: Updated Direct Deposit Form Required'",
+    description: "Email from 'NexaCorp HR <hr@nexacorp.com>' delivered to j.chen - 'Urgent: Updated Direct Deposit Form Required'",
     network: { domain: "gmail.com", bytes_in: 4800 },
     raw: {
       "data.office365.DeliveryAction": "Delivered",
@@ -747,7 +747,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     src_ip: "185.220.101.33",
     mitre_technique: "T1566.001",
     expected_verdict: "tp",
-    description: "Email from 'payroll@nexac0rp.com' (lookalike domain, SPF fail) — delivered to inbox, not caught by filter",
+    description: "Email from 'payroll@nexac0rp.com' (lookalike domain, SPF fail) - delivered to inbox, not caught by filter",
     network: { domain: "nexac0rp.com", bytes_in: 7200 },
     raw: {
       "event.action": "MessageReceived",
@@ -762,7 +762,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "email.headers.received_0": "from mail.nexac0rp.com (185.220.101.33) by mx-protection.outlook.com with ESMTP; Mon, 15 Jun 2026 18:22:11 +0000",
       "email.headers.received_1": "by filter01.protection.outlook.com with SMTP id junk=0.01; Mon, 15 Jun 2026 18:22:12 +0000",
       "email.to.address": "r.williams@nexacorp.com",
-      "email.subject": "Action Required: June Payroll Update — Download Attachment",
+      "email.subject": "Action Required: June Payroll Update - Download Attachment",
       "email.direction": "inbound",
       "email.spam_score": "4",
       "email.spf": "fail",
@@ -780,7 +780,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_o365_03", ts: T(9), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_received", severity: "informational",
     user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer",
-    description: "Meeting invite received from no-reply@zoom.us — delivered to r.williams@nexacorp.com",
+    description: "Meeting invite received from no-reply@zoom.us - delivered to r.williams@nexacorp.com",
     network: { domain: "zoom.us", bytes_in: 5400 },
     raw: {
       "data.office365.Operation": "MessageDelivered",
@@ -795,7 +795,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "email.headers.received_0": "from mail.zoom.us (mail.zoom.us [52.200.93.121]) by mx-protection.outlook.com with ESMTPS; Mon, 15 Jun 2026 11:29:03 +0000",
       "email.headers.received_1": "by filter03.protection.outlook.com with SMTP; Mon, 15 Jun 2026 11:29:04 +0000",
       "email.to.address": "r.williams@nexacorp.com",
-      "email.subject": "Zoom Meeting Invitation: Compliance Review — 15 Jun 2026",
+      "email.subject": "Zoom Meeting Invitation: Compliance Review - 15 Jun 2026",
       "email.direction": "inbound",
       "email.spam_score": "0",
       "email.spf": "pass",
@@ -844,7 +844,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "auth_success", severity: "low",
     hostname: undefined, user_email: "j.chen@nexacorp.com", src_ip: "203.99.18.47",
     geo: { country: "United States", city: "San Francisco", latitude: 37.7749, longitude: -122.4194 },
-    description: "j.chen logged in from San Francisco, United States — location differs from usual (Israel)",
+    description: "j.chen logged in from San Francisco, United States - location differs from usual (Israel)",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -881,7 +881,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "auth_success", severity: "informational",
     hostname: undefined, user_email: "s.levi@nexacorp.com", src_ip: "77.125.48.113",
     geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
-    description: "s.levi logged in to Azure AD — normal business hours login from Tel Aviv",
+    description: "s.levi logged in to Azure AD - normal business hours login from Tel Aviv",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -918,7 +918,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "mfa_challenge", severity: "informational",
     hostname: undefined, user_email: "s.levi@nexacorp.com", src_ip: "77.125.48.113",
     geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
-    description: "s.levi completed two-factor auth challenge — Microsoft Authenticator push approved",
+    description: "s.levi completed two-factor auth challenge - Microsoft Authenticator push approved",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -985,7 +985,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_o365_pwd_change", ts: T(92), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "account_modify", severity: "informational",
     hostname: undefined, user_email: "p.garcia@nexacorp.com", src_ip: "10.10.20.58",
-    description: "p.garcia changed their own Azure AD password — standard self-service password change",
+    description: "p.garcia changed their own Azure AD password - standard self-service password change",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "Change user password.",
@@ -1011,7 +1011,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── MDO / EOP — phishing and malware email events ───────────────────────────
+  // ── MDO / EOP - phishing and malware email events ───────────────────────────
 
   // Phishing email BLOCKED by Exchange Online Protection before delivery
   {
@@ -1019,7 +1019,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "email_received", severity: "medium",
     hostname: undefined, user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer",
     src_ip: "185.220.101.47",
-    description: "Phishing email blocked before delivery — quarantined by Microsoft Defender for Office 365",
+    description: "Phishing email blocked before delivery - quarantined by Microsoft Defender for Office 365",
     raw: {
       // ── Defender for O365 Threat Intelligence fields ──
       "data.office365.Operation":                   "TIMailData-Inline",
@@ -1103,7 +1103,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     src_ip: "89.44.13.218",
     mitre_technique: "T1566.001",
     expected_verdict: "tp",
-    description: "Phishing email with a macro-enabled attachment reached j.chen's inbox — Defender pulled it 4 minutes later (ZAP); check whether it was opened",
+    description: "Phishing email with a macro-enabled attachment reached j.chen's inbox - Defender pulled it 4 minutes later (ZAP); check whether it was opened",
     raw: {
       // ── Defender for O365 Threat Intelligence fields ──
       "data.office365.Operation":                   "TIMailData",
@@ -1129,17 +1129,17 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.P2Sender":                    "NexaCorp Payroll <payroll@payroll-nexacorp.com>",
       "data.office365.SenderIp":                    "89.44.13.218",
       "data.office365.Recipients":                  "j.chen@nexacorp.com",
-      "data.office365.Subject":                     "Q2 2026 Bonus Distribution — Confirm Your Details",
+      "data.office365.Subject":                     "Q2 2026 Bonus Distribution - Confirm Your Details",
       "data.office365.Directionality":              "Inbound",
 
-      // ── Threat verdict — reached after delivery: the attachment's detonation finished
+      // ── Threat verdict - reached after delivery: the attachment's detonation finished
       //    minutes later and Zero-hour auto purge (ZAP) pulled the message from the inbox ──
       "data.office365.Verdict":                     "Malware",
       "data.office365.DetectionType":               "ZAP",
       "data.office365.DetectionMethod":             "File detonation",
       "data.office365.ThreatsAndDetectionTech":     "Malware: File detonation",
 
-      // ── Delivery disposition — delivered to the inbox first, quarantined by ZAP after ──
+      // ── Delivery disposition - delivered to the inbox first, quarantined by ZAP after ──
       //    The window in between is the question: did j.chen open it?
       "data.office365.DeliveryAction":              "Delivered",
       "data.office365.PolicyAction":                "Quarantine",
@@ -1147,13 +1147,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.OriginalDeliveryLocation":    "Inbox",
       "data.office365.LatestDeliveryLocation":      "Quarantine",
 
-      // ── Authentication — attacker set up DKIM/SPF on their domain (passes checks) ──
+      // ── Authentication - attacker set up DKIM/SPF on their domain (passes checks) ──
       "data.office365.AuthDetails.Name":            "CompAuth",
       "data.office365.AuthDetails.Value":           "pass (200)",
       "data.office365.SystemOverrides":             "N/A",
-      "data.office365.AdditionalActionsAndResults": "OriginalDelivery: [Inbox]; ZAP: [Success — moved to Quarantine after 4 min]",
+      "data.office365.AdditionalActionsAndResults": "OriginalDelivery: [Inbox]; ZAP: [Success - moved to Quarantine after 4 min]",
 
-      // ── Attachment — macro-enabled Excel ──
+      // ── Attachment - macro-enabled Excel ──
       "data.office365.AttachmentData.FileName":     "Q2_Bonus_Distribution_2026.xlsm",
       "data.office365.AttachmentData.FileType":     "XLSM",
       "data.office365.AttachmentData.SHA256":       "a625b26f0463762bdb8f2cc3cb27df8bba21add39d21cb89005ea84f8f54593a",
@@ -1171,7 +1171,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
       "email.from.address": "payroll@payroll-nexacorp.com",
       "email.to.address": "j.chen@nexacorp.com",
-      "email.subject": "Q2 2026 Bonus Distribution — Confirm Your Details",
+      "email.subject": "Q2 2026 Bonus Distribution - Confirm Your Details",
       "email.spf": "pass",
       "email.dkim": "pass",
       "email.dmarc": "pass",
@@ -1181,7 +1181,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── EDR — legitimate process activity ────────────────────────────────────
+  // ── EDR - legitimate process activity ────────────────────────────────────
   {
     id: "b_edr_01", ts: T(1), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
@@ -1370,7 +1370,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     process: { name: "cmd.exe", pid: 6612, parent_name: "OUTLOOK.EXE", parent_pid: 5531,
                cmdline: "cmd.exe /c whoami",
                user: "NEXACORP\\spatel", integrity: "medium" },
-    description: "Outlook launched cmd.exe on WS-HR-1142 — Defender killed it automatically as a precaution",
+    description: "Outlook launched cmd.exe on WS-HR-1142 - Defender killed it automatically as a precaution",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "AntivirusDetection",
@@ -1390,7 +1390,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── DNS — normal lookups ──────────────────────────────────────────────────
+  // ── DNS - normal lookups ──────────────────────────────────────────────────
   {
     id: "b_dns_01", ts: T(1), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
@@ -1461,7 +1461,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.30.55" },
   },
 
-  // ── Firewall — normal allowed traffic ─────────────────────────────────────
+  // ── Firewall - normal allowed traffic ─────────────────────────────────────
   {
     id: "b_fw_01", ts: T(2), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
@@ -1529,7 +1529,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_fw_block_01", ts: T(8), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_blocked", severity: "medium",
     src_ip: "185.220.101.55", dst_ip: "212.150.40.18", dst_port: 22, protocol: "tcp",
-    description: "Inbound SSH connection attempt from a TOR exit node to the NexaCorp perimeter — blocked by firewall",
+    description: "Inbound SSH connection attempt from a TOR exit node to the NexaCorp perimeter - blocked by firewall",
     raw: { "event.action": "block", "source.ip": "185.220.101.55",
            "destination.ip": "212.150.40.18", "destination.port": "22",
            "source.geo.country_name": "Netherlands", "threat.category": "TOR",
@@ -1542,7 +1542,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "net_blocked", severity: "medium",
     hostname: "WS-ENG-3301", src_ip: "10.10.40.88", dst_ip: "91.108.56.199",
     dst_port: 4444, protocol: "tcp",
-    description: "Outbound TCP connection from WS-ENG-3301 to 91.108.56.199:4444 — unknown destination, blocked",
+    description: "Outbound TCP connection from WS-ENG-3301 to 91.108.56.199:4444 - unknown destination, blocked",
     raw: { "event.action": "block", "source.ip": "10.10.40.88",
            "destination.ip": "91.108.56.199", "destination.port": "4444",
            "rule.name": "BLOCK-UNKNOWN-OUTBOUND", "rule.action": "deny",
@@ -1550,7 +1550,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "threat.category": "unknown-tcp", "host.name": "WS-ENG-3301" },
   },
 
-  // ── VPN — normal connections ───────────────────────────────────────────────
+  // ── VPN - normal connections ───────────────────────────────────────────────
   {
     id: "b_vpn_01", ts: T(0), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
@@ -1582,14 +1582,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "gp.disconnect_reason": "user_disconnect", "gp.gateway": "gw-nexacorp-lon01" },
   },
 
-  // ── Proxy / URL Filtering — normal web traffic ───────────────────────────
+  // ── Proxy / URL Filtering - normal web traffic ───────────────────────────
   {
     id: "b_prx_01", ts: T(3), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.55",
     network: { url: "https://www.bbc.com/news", domain: "www.bbc.com", method: "GET",
                status: 200, bytes_in: 82400 },
-    description: "Outbound HTTPS request from WS-HR-1142 to www.bbc.com — proxy allowed",
+    description: "Outbound HTTPS request from WS-HR-1142 to www.bbc.com - proxy allowed",
     raw: { "url.domain": "www.bbc.com", "url.full": "https://www.bbc.com/news",
            "pan.url.category": "news", "pan.app": "web-browsing",
            "http.request.method": "GET", "http.response.status_code": "200",
@@ -1602,7 +1602,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     network: { url: "https://stackoverflow.com/questions/77823", domain: "stackoverflow.com",
                method: "GET", status: 200, bytes_in: 44200 },
-    description: "Outbound HTTPS request from WS-ENG-3301 to stackoverflow.com — proxy allowed",
+    description: "Outbound HTTPS request from WS-ENG-3301 to stackoverflow.com - proxy allowed",
     raw: { "url.domain": "stackoverflow.com", "url.full": "https://stackoverflow.com/questions/77823",
            "pan.url.category": "computer-and-internet-info", "pan.app": "ssl",
            "http.request.method": "GET", "http.response.status_code": "200",
@@ -1615,7 +1615,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     network: { url: "https://app.docusign.com/documents", domain: "app.docusign.com",
                method: "GET", status: 200, bytes_in: 31800 },
-    description: "Outbound HTTPS request from WS-FIN-2847 to app.docusign.com — proxy allowed",
+    description: "Outbound HTTPS request from WS-FIN-2847 to app.docusign.com - proxy allowed",
     raw: { "url.domain": "app.docusign.com", "url.full": "https://app.docusign.com/documents",
            "pan.url.category": "business-and-economy", "pan.app": "docusign",
            "http.request.method": "GET", "http.response.status_code": "200",
@@ -1628,7 +1628,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     network: { url: "https://registry.npmjs.org/react", domain: "registry.npmjs.org",
                method: "GET", status: 200, bytes_in: 8800 },
-    description: "Outbound HTTPS request from LT-DEV-0931 to registry.npmjs.org — proxy allowed",
+    description: "Outbound HTTPS request from LT-DEV-0931 to registry.npmjs.org - proxy allowed",
     raw: { "url.domain": "registry.npmjs.org", "url.full": "https://registry.npmjs.org/react",
            "pan.url.category": "computer-and-internet-info", "pan.app": "npm",
            "http.request.method": "GET", "http.response.status_code": "200",
@@ -1636,7 +1636,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "user.email": "a.jones@nexacorp.com", "source.ip": "10.100.50.23" },
   },
 
-  // ── Azure Activity Log — normal cloud ops (NexaCorp is an Azure shop) ──────
+  // ── Azure Activity Log - normal cloud ops (NexaCorp is an Azure shop) ──────
   // Fields follow the real Elastic azure.activitylogs schema.
   {
     id: "b_cld_01", ts: T(5), source: "cloud_azure", vendor: "Azure Activity Log",
@@ -1739,7 +1739,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.outcome": "success" },
   },
 
-  // ── Sysmon — normal system events ────────────────────────────────────────
+  // ── Sysmon - normal system events ────────────────────────────────────────
   {
     id: "b_sys_01", ts: T(6), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "net_connection", severity: "informational",
@@ -1814,14 +1814,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "host.name": "WS-ENG-3301", "event.outcome": "success" },
   },
 
-  // ── AV — clean scan results ────────────────────────────────────────────────
+  // ── AV - clean scan results ────────────────────────────────────────────────
   {
     id: "b_av_01", ts: T(29), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "file_access", severity: "informational",
     hostname: "WS-HR-1142",
     file: { path: "C:\\Users\\spatel\\Downloads\\AdobeReader-installer.exe",
             sha256: "d4bae171dc602720023bb95019d5b9cd710f3e7b22decb80abc0e478a6a29320" },
-    description: "AdobeReader-installer.exe scanned on WS-HR-1142 — no threats detected, clean",
+    description: "AdobeReader-installer.exe scanned on WS-HR-1142 - no threats detected, clean",
     raw: { "event.action": "av_scan_clean", "file.name": "AdobeReader-installer.exe",
            "av.engine": "Microsoft Defender Antivirus", "av.detections": "0",
            "av.verdict": "clean", "host.name": "WS-HR-1142",
@@ -1886,7 +1886,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "dhcp.lease_duration_hours": "8" },
   },
 
-  // ── Azure AD (Entra ID) — SSO sign-ins ──────────────────────────────────
+  // ── Azure AD (Entra ID) - SSO sign-ins ──────────────────────────────────
   {
     id: "b_okta_01", ts: T(5), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
@@ -1956,7 +1956,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "U.S. Social Security Number (SSN)",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Count": "3",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Confidence": "95",
-      "data.office365.ExchangeMetaData.Subject": "Q2 Analyst Roster — SSNs for Background Checks",
+      "data.office365.ExchangeMetaData.Subject": "Q2 Analyst Roster - SSNs for Background Checks",
       "data.office365.ExchangeMetaData.From": "j.chen@nexacorp.com",
       "data.office365.ExchangeMetaData.To": "external@gmail.com",
       "event.action": "dlp-rule-match",
@@ -1978,7 +1978,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.PolicyDetails[0].Rules[0].Actions[0]": "NotifyUser",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "NexaCorp Employee Data (custom)",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Count": "1",
-      "data.office365.ExchangeMetaData.Subject": "Updated org chart — HR use only",
+      "data.office365.ExchangeMetaData.Subject": "Updated org chart - HR use only",
       "data.office365.ExchangeMetaData.From": "s.patel@nexacorp.com",
       "data.office365.ExchangeMetaData.To": "d.brown@nexacorp.com",
       "event.action": "dlp-rule-match",
@@ -1992,7 +1992,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_waf_01", ts: T(9), source: "ids", vendor: "Palo Alto Networks PAN-OS",
     event_type: "ids_blocked", severity: "low",
     src_ip: "45.83.66.131", dst_port: 443,
-    description: "SQL injection attempt from 45.83.66.131 targeting /api/login — blocked by WAF",
+    description: "SQL injection attempt from 45.83.66.131 targeting /api/login - blocked by WAF",
     raw: { "event.action": "ids_block", "event.outcome": "block",
            "source.ip": "45.83.66.131", "url.path": "/api/login",
            "http.request.method": "GET", "http.response.status_code": "403",
@@ -2006,7 +2006,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_waf_02", ts: T(25), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     src_ip: "185.101.93.10", dst_port: 443,
-    description: "POST request from 185.101.93.10 to /api/search — allowed, origin Netherlands",
+    description: "POST request from 185.101.93.10 to /api/search - allowed, origin Netherlands",
     raw: { "event.action": "waf_allow", "event.outcome": "success",
            "source.ip": "185.101.93.10", "url.path": "/api/search",
            "http.request.method": "POST", "http.response.status_code": "200",
@@ -2021,7 +2021,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_ids_01", ts: T(16), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "ids_signature", severity: "medium",
     src_ip: "91.108.56.199", dst_ip: "10.10.20.14", dst_port: 80,
-    description: "Nmap OS scan from 91.108.56.199 to 10.10.20.14 — IDS signature match, origin Germany",
+    description: "Nmap OS scan from 91.108.56.199 to 10.10.20.14 - IDS signature match, origin Germany",
     raw: { "event.action": "ids_block", "event.outcome": "block",
            "source.ip": "91.108.56.199", "destination.ip": "10.10.20.14",
            "ids.signature_id": "SID:40000",
@@ -2073,7 +2073,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     vendor: "Microsoft Defender for Endpoint",
     hostname: "WS-IT-007", user_email: "it.admin@nexacorp.com", src_ip: "10.10.5.7",
     expected_verdict: "fp",
-    fp_explanation: "IT admin used certutil.exe to decode a Base64-encoded SSL certificate from a ServiceNow ticket. certutil -decode is a known LOLBin technique, but here the decoded output is a PEM cert — not a payload. Context: ticket INC-44821 opened 10 min prior.",
+    fp_explanation: "IT admin used certutil.exe to decode a Base64-encoded SSL certificate from a ServiceNow ticket. certutil -decode is a known LOLBin technique, but here the decoded output is a PEM cert - not a payload. Context: ticket INC-44821 opened 10 min prior.",
     description: "certutil.exe -decode on WS-IT-007 (cert from INC-44821)",
     process: { name: "certutil.exe", pid: 4412, parent_name: "cmd.exe", parent_pid: 4300, user: "it.admin", cmdline: "certutil -decode C:\\Temp\\nexacorp-ssl-cert.b64 C:\\Temp\\nexacorp-ssl.pem" },
     raw: { "ActionType": "ProcessCreated", "DeviceName": "WS-IT-007", "FileName": "certutil.exe", "FolderPath": "C:\\Windows\\System32\\certutil.exe",
@@ -2099,7 +2099,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     vendor: "Microsoft Defender for Endpoint",
     hostname: "WS-IT-007", user_email: "it.admin@nexacorp.com", src_ip: "10.10.5.7",
     expected_verdict: "fp",
-    fp_explanation: "IT department runs a monthly hardware inventory scan using wmic.exe — standard asset management practice. The query lists BIOS serial numbers for the quarterly audit report. Scheduled task registered under IT-OPS-SCAN and approved in change policy.",
+    fp_explanation: "IT department runs a monthly hardware inventory scan using wmic.exe - standard asset management practice. The query lists BIOS serial numbers for the quarterly audit report. Scheduled task registered under IT-OPS-SCAN and approved in change policy.",
     description: "wmic.exe hardware inventory scan on WS-IT-007",
     process: { name: "wmic.exe", pid: 6230, parent_name: "svchost.exe", parent_pid: 6100, user: "it.admin", cmdline: "wmic /node:@C:\\IT\\servers.txt bios get SerialNumber,Manufacturer /format:csv" },
     raw: { "ActionType": "ProcessCreated", "DeviceName": "WS-IT-007", "FileName": "wmic.exe", "FolderPath": "C:\\Windows\\System32\\wbem\\WMIC.exe",
@@ -2125,7 +2125,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     vendor: "Microsoft 365 Unified Audit Log",
     hostname: undefined, user_email: "l.harrison@nexacorp.com", src_ip: "10.10.40.12",
     expected_verdict: "fp",
-    fp_explanation: "HR manager downloaded 2.3 GB of onboarding materials from SharePoint to prepare for the new graduate intake next week. The download was from a known internal library (/sites/HRPortal/OnboardingMaterials) to a corporate laptop — consistent with the user's role and recurring seasonal pattern.",
+    fp_explanation: "HR manager downloaded 2.3 GB of onboarding materials from SharePoint to prepare for the new graduate intake next week. The download was from a known internal library (/sites/HRPortal/OnboardingMaterials) to a corporate laptop - consistent with the user's role and recurring seasonal pattern.",
     description: "l.harrison bulk download 2.3GB from SharePoint (HR onboarding prep)",
     raw: { "data.office365.ResultStatus": "Success", "data.office365.ItemCount": "847", "data.office365.BytesTransferred": "2470000000", "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/HRPortal/OnboardingMaterials", "action_result": "allowed" },
   },
@@ -2136,7 +2136,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "WS-FIN-0412", user_email: "m.chen@nexacorp.com", src_ip: "185.46.212.33",
     expected_verdict: "fp",
     fp_explanation: "m.chen is attending a client meeting in Singapore (trip confirmed in Workday HR system). The login from a Singapore IP to a managed device via GlobalProtect VPN is expected. Conditional Access policy passed: compliant device + MFA approved.",
-    description: "m.chen signed in from Singapore IP — business travel confirmed, expected location",
+    description: "m.chen signed in from Singapore IP - business travel confirmed, expected location",
     raw: { "azure.sign_in_event_types": "interactiveUser", "azure.appDisplayName": "Microsoft 365", "azure.conditional_access.status": "success", "azure.authenticationDetails.authenticationMethod": "Password + TOTP", "azure.riskLevelAggregated": "medium", "azure.location.city": "Singapore", "azure.location.country": "SG", "action_result": "allowed" },
   },
   {
@@ -2187,7 +2187,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     raw: { "azure.sign_in_event_types": "interactiveUser", "azure.appDisplayName": "Excel Online", "azure.conditional_access.status": "success", "azure.authenticationDetails.authenticationMethod": "Password + MFA push", "azure.riskLevelAggregated": "low", "azure.location.city": "London", "azure.location.country": "GB", "action_result": "allowed" },
   },
 
-  // ── IT Verify events — admin actions requiring change-ticket validation ────────
+  // ── IT Verify events - admin actions requiring change-ticket validation ────────
 
   {
     id: "b_itv_01", ts: "2026-05-10T09:47:00.000Z",
@@ -2196,7 +2196,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com",
     description: "it.admin reset password for j.chen via ADUC",
     it_verify_result: "confirmed",
-    it_verify_message: "IT confirmed: Ticket INC-20483 raised by j.chen at 09:40 — 'Forgot password, locked out'. Password reset performed by tier-1 agent Dave H. This is authorised helpdesk activity.",
+    it_verify_message: "IT confirmed: Ticket INC-20483 raised by j.chen at 09:40 - 'Forgot password, locked out'. Password reset performed by tier-1 agent Dave H. This is authorised helpdesk activity.",
     raw: {
       "event.code": "4723", "user.name": "NEXACORP\\jchen",
       "actor.name": "NEXACORP\\it.admin", "host.name": "SRV-NXC-DC01",
@@ -2287,7 +2287,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Normal auth failures — daily noise (mistyped passwords, expired creds) ──
+  // ── Normal auth failures - daily noise (mistyped passwords, expired creds) ──
 
   {
     id: "b_fail_01", ts: T(8), source: "ad", vendor: "Windows Security",
@@ -2303,7 +2303,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_fail_02", ts: T(29), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_failed", severity: "low",
     user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "84.17.46.200",
-    description: "r.williams failed GlobalProtect VPN authentication — incorrect OTP code entered",
+    description: "r.williams failed GlobalProtect VPN authentication - incorrect OTP code entered",
     raw: { "pan.event_type": "authentication", "pan.result": "failure",
            "pan.reason": "Authentication Failed", "pan.auth_method": "LDAP+OTP",
            "pan.gateway": "gp.nexacorp.com", "pan.os": "Windows 11",
@@ -2315,7 +2315,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "SRV-NXC-EXCHANGE", user_email: "svc-exchange@nexacorp.com", src_ip: "10.10.1.20",
     description: "svc-exchange failed NTLM re-auth (service restart needed)",
     raw: { "event.code": "4625", "logon.type": "5", "sub.status": "0xC000006A",
-           "failure.reason": "Service account NTLM re-authentication failed — likely password rotation pending",
+           "failure.reason": "Service account NTLM re-authentication failed - likely password rotation pending",
            "user.name": "NEXACORP\\svc-exchange", "source.ip": "10.10.1.20",
            "host.name": "SRV-NXC-EXCHANGE", "event.action_result": "deny" },
   },
@@ -2325,13 +2325,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor failed unlock on WS-ENG-3301 (CapsLock on)",
     raw: { "event.code": "4625", "logon.type": "7", "sub.status": "0xC000006A",
-           "failure.reason": "Unlock failed — bad password (3rd attempt before lockout)",
+           "failure.reason": "Unlock failed - bad password (3rd attempt before lockout)",
            "user.name": "NEXACORP\\ktaylor", "source.ip": "10.10.40.88",
            "host.name": "WS-ENG-3301", "event.action_result": "deny" },
   },
 
-  // ── Brute-force attack events — appear in regular feed; analyst must flag ──────
-  // These simulate a real credential spray / brute force — high rule level, MITRE T1110
+  // ── Brute-force attack events - appear in regular feed; analyst must flag ──────
+  // These simulate a real credential spray / brute force - high rule level, MITRE T1110
 
   {
     id: "b_bf_01", ts: T(33), source: "ad", vendor: "Windows Security",
@@ -2339,7 +2339,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
     expected_verdict: "tp",
-    description: "47 authentication failures to DC01 from 185.220.101.45 — password spray pattern detected",
+    description: "47 authentication failures to DC01 from 185.220.101.45 - password spray pattern detected",
     raw: { "event.code": "4625", "logon.type": "3", "sub.status": "0xC000006A",
            "failure.reason": "Unknown user name or bad password",
            "source.ip": "185.220.101.45", "host.name": "SRV-NXC-DC01",
@@ -2368,7 +2368,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
     expected_verdict: "tp",
-    description: "6 Active Directory accounts locked out on DC01 — spray attack triggered lockout threshold",
+    description: "6 Active Directory accounts locked out on DC01 - spray attack triggered lockout threshold",
     raw: { "event.code": "4740", "lockout.source_ip": "185.220.101.45",
            "lockout.accounts": "jchen,rwilliams,spatel,ajones,tbrown,lclark",
            "lockout.count": "6", "lockout.policy": "5 failures / 30 min",
@@ -2382,7 +2382,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     dst_port: 445, protocol: "tcp",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     expected_verdict: "tp",
-    description: "Palo Alto IPS blocked 185.220.101.45 — SMB brute force signature matched, 127× fired",
+    description: "Palo Alto IPS blocked 185.220.101.45 - SMB brute force signature matched, 127× fired",
     raw: { "pan.threat_id": "40001", "pan.threat_name": "SMB-BruteForce",
            "pan.action": "block-ip", "pan.severity": "high",
            "pan.direction": "client-to-server", "pan.category": "brute-force",
@@ -2396,7 +2396,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     src_ip: "91.108.56.181",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     expected_verdict: "tp",
-    description: "22 VPN authentication failures from 91.108.56.181 — password guessing against remote access",
+    description: "22 VPN authentication failures from 91.108.56.181 - password guessing against remote access",
     raw: { "pan.event_type": "authentication", "pan.result": "failure",
            "pan.reason": "Authentication Failed", "pan.auth_method": "LDAP",
            "pan.gateway": "gp.nexacorp.com", "pan.attempt_count": "22",
@@ -2411,7 +2411,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     dst_port: 443,
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     expected_verdict: "tp",
-    description: "OWA brute force attack blocked — 31 POST /owa/auth attempts from single source IP",
+    description: "OWA brute force attack blocked - 31 POST /owa/auth attempts from single source IP",
     network: { url: "https://mail.nexacorp.com/owa/auth", method: "POST", status: 403 },
     raw: { "pan.threat_id": "38012", "pan.threat_name": "Web-BruteForce-OWA",
            "pan.action": "block", "pan.category": "credential-attack",
@@ -2421,12 +2421,12 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "pan.user_agents_seen": "3", "repeatcnt": "31", "event.action_result": "blocked" },
   },
 
-  // ── Bulk data copy — benign baseline ─────────────────────────────────────────
+  // ── Bulk data copy - benign baseline ─────────────────────────────────────────
   {
     id: "b_copy_01", ts: T(105), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
     hostname: "SRV-NXC-FS02", user_email: "svc-backup@nexacorp.com", src_ip: "10.10.40.91",
-    description: "svc-backup launched robocopy on SRV-NXC-FS02 — scheduled nightly backup to NAS (47 GB)",
+    description: "svc-backup launched robocopy on SRV-NXC-FS02 - scheduled nightly backup to NAS (47 GB)",
     process: { name: "robocopy.exe", pid: 4201, parent_name: "svchost.exe", parent_pid: 1040,
                user: "svc-backup", cmdline: "robocopy.exe D:\\Shares \\\\SRV-NXC-NAS01\\backup /MIR /LOG:C:\\Logs\\backup.log" },
     raw: { "ActionType": "ProcessCreated", "DeviceName": "SRV-NXC-FS02", "FileName": "robocopy.exe", "FolderPath": "C:\\Windows\\System32\\Robocopy.exe",
@@ -2437,7 +2437,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_copy_02", ts: T(118), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "low",
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin", src_ip: "10.100.50.23",
-    description: "a.jones launched rclone on LT-DEV-0931 — syncing 11 GB dev artefacts to company SharePoint",
+    description: "a.jones launched rclone on LT-DEV-0931 - syncing 11 GB dev artefacts to company SharePoint",
     process: { name: "rclone.exe", pid: 9812, parent_name: "cmd.exe", parent_pid: 9800,
                user: "a.jones", cmdline: "rclone copy D:\\Projects sharepoint:Dev-Archive --transfers 4" },
     raw: { "ActionType": "ProcessCreated", "DeviceName": "LT-DEV-0931", "FileName": "rclone.exe", "FolderPath": "C:\\Tools\\rclone\\rclone.exe",
@@ -2445,14 +2445,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "AccountName": "a.jones", "AccountDomain": "NEXACORP", "process.command_line": "rclone copy D:\\Projects sharepoint:Dev-Archive --transfers 4", "action_result": "allowed" },
   },
 
-  // ── Bulk data copy — FP training (looks suspicious, is legitimate) ────────────
+  // ── Bulk data copy - FP training (looks suspicious, is legitimate) ────────────
   {
     id: "b_copy_fp_01", ts: T(132), source: "dlp", vendor: "Microsoft Purview",
     event_type: "file_create", severity: "medium",
     hostname: "WS-FIN-2847", user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     description: "r.williams copied 1,842 files (9.3 GB) from Finance share to USB E: on WS-FIN-2847",
     expected_verdict: "fp",
-    fp_explanation: "Quarter-end offline backup approved by the finance manager — r.williams is authorised to take the quarterly snapshot to the encrypted FINQ1BKP drive. The DLP alert is expected; it is covered by approved request RITM0048213.",
+    fp_explanation: "Quarter-end offline backup approved by the finance manager - r.williams is authorised to take the quarterly snapshot to the encrypted FINQ1BKP drive. The DLP alert is expected; it is covered by approved request RITM0048213.",
     file: { path: "E:\\Q1-2026-Finance-Archive.zip", size: 9983303270 },
     raw: { "purview.policy": "BulkCopyToRemovableMedia", "purview.rule": "RemovableMedia-Finance",
            "purview.action": "alert", "purview.sensitivity": "Confidential",
@@ -2461,17 +2461,17 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "user.department": "Finance", "action_result": "allowed" },
   },
 
-  // ── Bulk data copy — suspicious (attack event) ────────────────────────────────
+  // ── Bulk data copy - suspicious (attack event) ────────────────────────────────
   {
     id: "b_copy_atk_01", ts: T(147), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_block", severity: "high",
     hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", src_ip: "10.10.30.55",
     expected_verdict: "tp",
-    description: "d.brown tried to copy an HR export of 3,200 employee PII records to a personal USB drive on WS-HR-1142 — blocked by DLP",
+    description: "d.brown tried to copy an HR export of 3,200 employee PII records to a personal USB drive on WS-HR-1142 - blocked by DLP",
     mitre_technique: "T1052.001", mitre_tactic: "Exfiltration",
     file: { path: "E:\\HR_Staff_Export.csv", size: 1946112 },
     raw: { "purview.policy": "PIIExfilPolicy", "purview.rule": "RemovableMedia-PII",
-           "purview.action": "block", "purview.sensitivity": "Highly Confidential — PII",
+           "purview.action": "block", "purview.sensitivity": "Highly Confidential - PII",
            "dlp.file_count": "1", "file.size": "1946112",
            "dlp.destination_type": "RemovableMedia", "dlp.drive_label": "USB001",
            "dlp.sensitive_type": "Employee Records", "dlp.record_count": "3200",
@@ -2502,7 +2502,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "user.name": "t.harris@nexacorp.com", "source.ip": "10.10.10.55", "event.outcome": "success" },
   },
 
-  // ── Email forwarding — benign baseline ───────────────────────────────────────
+  // ── Email forwarding - benign baseline ───────────────────────────────────────
   {
     ...inboxRule({
       id: "b_fwd_01", ts: T(175), user: "j.chen@nexacorp.com", op: "New-InboxRule",
@@ -2556,9 +2556,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     it_verify_message: "IT confirmed: ticket INC-90217, approved by p.wright's manager, asks for p.wright's mail to be forwarded to their delegate k.levy while p.wright is on leave until 24 May. The rule was changed from p.wright's corporate laptop.",
   },
 
-  // ── BATCH-2 — expanded benign event pool (80+ events) ─────────────────────
+  // ── BATCH-2 - expanded benign event pool (80+ events) ─────────────────────
 
-  // ── DNS — batch 2 (25 events) ────────────────────────────────────────────
+  // ── DNS - batch 2 (25 events) ────────────────────────────────────────────
   {
     id: "b_dns_08", ts: T(13), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
@@ -2985,7 +2985,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── EDR Process Events — batch 2 (20 events) ────────────────────────────
+  // ── EDR Process Events - batch 2 (20 events) ────────────────────────────
   {
     id: "b_edr_11", ts: T(14), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
@@ -3388,7 +3388,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Firewall Events — batch 2 (15 events) ────────────────────────────────
+  // ── Firewall Events - batch 2 (15 events) ────────────────────────────────
   {
     id: "b_fw_07", ts: T(22), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
@@ -3585,7 +3585,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Auth Events — batch 2 (10 events) ────────────────────────────────────
+  // ── Auth Events - batch 2 (10 events) ────────────────────────────────────
   {
     id: "b_auth_01", ts: T(11), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
@@ -3765,7 +3765,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── VPN Events — batch 2 (5 events) ─────────────────────────────────────
+  // ── VPN Events - batch 2 (5 events) ─────────────────────────────────────
   {
     id: "b_vpn_04", ts: T(15), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
@@ -3832,7 +3832,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Proxy / Web Events — batch 2 (5 events) ──────────────────────────────
+  // ── Proxy / Web Events - batch 2 (5 events) ──────────────────────────────
   {
     id: "b_prx_05", ts: T(36), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
@@ -3905,7 +3905,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Linux auditd / syslog — normal server activity ──────────────────────────
+  // ── Linux auditd / syslog - normal server activity ──────────────────────────
 
   {
     id: "b_lnx_01", ts: T(4), source: "linux_audit", vendor: "Linux auditd",
@@ -4291,7 +4291,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_lnx_13", ts: T(53), source: "linux_audit", vendor: "Linux auditd",
     event_type: "linux_priv_change", severity: "informational",
     hostname: "srv-linux-db01",
-    description: "devops escalated to root via sudo on srv-linux-db01 — legitimate maintenance",
+    description: "devops escalated to root via sudo on srv-linux-db01 - legitimate maintenance",
     process: { name: "sudo", pid: 8012, path: "/usr/bin/sudo", parent_name: "bash", parent_pid: 7990, cmdline: "sudo -i", user: "devops" },
     raw: {
       "audit.type": "USER_CMD",
@@ -4403,7 +4403,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Kubernetes audit logs — normal cluster activity ──────────────────────────
+  // ── Kubernetes audit logs - normal cluster activity ──────────────────────────
 
   {
     id: "b_k8s_01", ts: T(5), source: "k8s_audit", vendor: "Kubernetes Audit",
@@ -4602,7 +4602,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── WAF logs — blocked and allowed requests ───────────────────────────────────
+  // ── WAF logs - blocked and allowed requests ───────────────────────────────────
 
   {
     id: "b_waf_bl_01", ts: T(7), source: "waf", vendor: "Azure Application Gateway WAF",
@@ -4743,7 +4743,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "waf_block", severity: "medium",
     mitre_technique: "T1499", mitre_tactic: "Impact",
     hostname: "app.nexacorp.com",
-    description: "Cloudflare rate limit block — too many requests from single IP",
+    description: "Cloudflare rate limit block - too many requests from single IP",
     src_ip: "122.114.88.45",
     geo: { country: "China", city: "Shanghai" },
     raw: {
@@ -5020,7 +5020,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Database monitoring — normal DB activity ──────────────────────────────────
+  // ── Database monitoring - normal DB activity ──────────────────────────────────
 
   {
     id: "b_db_01", ts: T(6), source: "db_monitor", vendor: "IBM Guardium",
@@ -5248,14 +5248,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── UEBA — normal behavioral analytics ───────────────────────────────────────
+  // ── UEBA - normal behavioral analytics ───────────────────────────────────────
 
   {
     id: "b_ueba_01", ts: T(0), source: "ueba", vendor: "Microsoft Sentinel UEBA",
     event_type: "risk_score_change", severity: "informational",
     hostname: "WS-FIN-2847",
     user_email: "j.chen@nexacorp.com",
-    description: "Daily risk score update for j.chen — within normal range",
+    description: "Daily risk score update for j.chen - within normal range",
     raw: {
       "ueba.vendor": "Microsoft Sentinel UEBA",
       "ueba.entity_type": "user",
@@ -5280,7 +5280,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "risk_score_change", severity: "informational",
     hostname: "LT-ENG-4403",
     user_email: "k.taylor@nexacorp.com",
-    description: "Daily risk score update for k.taylor — normal developer activity",
+    description: "Daily risk score update for k.taylor - normal developer activity",
     raw: {
       "ueba.vendor": "Exabeam",
       "ueba.entity_type": "user",
@@ -5305,7 +5305,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "risk_score_change", severity: "informational",
     hostname: "WS-IT-0442",
     user_email: "t.harris@nexacorp.com",
-    description: "Daily risk score update for t.harris — normal IT admin activity",
+    description: "Daily risk score update for t.harris - normal IT admin activity",
     raw: {
       "ueba.vendor": "Securonix",
       "ueba.entity_type": "user",
@@ -5330,7 +5330,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "ueba_anomaly", severity: "informational",
     hostname: "WS-FIN-2847",
     user_email: "r.williams@nexacorp.com",
-    description: "r.williams peer group comparison — within normal Finance team range",
+    description: "r.williams peer group comparison - within normal Finance team range",
     raw: {
       "ueba.vendor": "Microsoft Sentinel UEBA",
       "ueba.entity_type": "user",
@@ -5354,7 +5354,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ueba_05", ts: T(0), source: "ueba", vendor: "Exabeam",
     event_type: "risk_score_change", severity: "informational",
-    description: "Weekly UEBA baseline recalculation — all user scores updated",
+    description: "Weekly UEBA baseline recalculation - all user scores updated",
     raw: {
       "ueba.vendor": "Exabeam",
       "ueba.entity_type": "system",
@@ -5461,7 +5461,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "sshd.user": "developer2", "sshd.port": "22",
       "sshd.client_ip": "10.20.12.70", "sshd.client_port": "49931",
       "sshd.auth_method": "publickey",
-      "sshd.error": "key mismatch — public key not in authorized_keys",
+      "sshd.error": "key mismatch - public key not in authorized_keys",
       "host.os.type": "linux", "host.hostname": "SRV-NXC-LNX01",
     },
   },
@@ -5502,7 +5502,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     severity: "medium",
     description: "ops-admin modified sudoers file on SRV-NXC-LNX01",
     it_verify_result: "confirmed",
-    it_verify_message: "Ticket NXC-2041: Adding ci-runner to sudoers for deployment script — approved by security team",
+    it_verify_message: "Ticket NXC-2041: Adding ci-runner to sudoers for deployment script - approved by security team",
     raw: {
       "log.source": "auditd", "log.file.path": "/var/log/audit/audit.log",
       "auditd.log.type": "SYSCALL",
@@ -5569,7 +5569,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "auditd.log.exe": "/sbin/auditctl",
       "auditd.log.comm": "auditctl",
       "auditd.control.enabled": "2",
-      "auditd.control.description": "Audit rules now immutable — reboot required to change",
+      "auditd.control.description": "Audit rules now immutable - reboot required to change",
       "auditd.log.key": "audit_config_change",
       "host.os.type": "linux", "host.hostname": "SRV-NXC-LNX01",
     },
@@ -5756,7 +5756,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     severity: "medium",
     description: "dba read database schema on NEXACORP-SQL01",
     it_verify_result: "confirmed",
-    it_verify_message: "DBA running quarterly schema audit — routine maintenance",
+    it_verify_message: "DBA running quarterly schema audit - routine maintenance",
     raw: {
       "event.code": "33205",
       "winlog.provider_name": "MSSQLSERVER",
@@ -5916,7 +5916,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: undefined, user_email: "j.chen@nexacorp.com",
     severity: "high", mitre_technique: "T1078",
     expected_verdict: "escalate",
-    description: "j.chen signed in from Tel Aviv and Lagos four minutes apart — physically impossible travel",
+    description: "j.chen signed in from Tel Aviv and Lagos four minutes apart - physically impossible travel",
     raw: {
       "ueba.entity_type": "Account",
       "ueba.entity_id": "j.chen@nexacorp.com",
@@ -5928,12 +5928,12 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "ueba.peer_group": "Finance-Department",
       "ueba.peer_risk_score_avg": 9,
       "ueba.anomaly_type": "ImpossibleTravelActivity",
-      "ueba.anomaly_description": "User signed in from Tel Aviv (IL) and Lagos (NG) within 4 minutes — physically impossible",
+      "ueba.anomaly_description": "User signed in from Tel Aviv (IL) and Lagos (NG) within 4 minutes - physically impossible",
       "ueba.deviation_factor": 6.5,
       "ueba.contributing_activities": ["signin_from_new_country", "high_risk_signin_location", "sign_in_after_period_of_inactivity"],
       "ueba.alert_severity": "High",
       "ueba.investigation_priority": 72,
-      "ueba.recommended_action": "Investigate account — confirm with user if sign-in was legitimate",
+      "ueba.recommended_action": "Investigate account - confirm with user if sign-in was legitimate",
     },
   },
   {
@@ -5951,7 +5951,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "ueba.peer_group": "Finance-Department",
       "ueba.peer_risk_score_avg": 9,
       "ueba.anomaly_type": "MassDownloadActivity",
-      "ueba.anomaly_description": "User downloaded 47 files (18.2 MB) — 3.1x above peer group average of 15 files/day",
+      "ueba.anomaly_description": "User downloaded 47 files (18.2 MB) - 3.1x above peer group average of 15 files/day",
       "ueba.deviation_factor": 3.1,
       "ueba.contributing_activities": ["unusual_file_access_volume", "sharepoint_bulk_download"],
       "ueba.alert_severity": "Medium",
@@ -5973,7 +5973,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "ueba.risk_level": "High",
       "ueba.peer_group": "IT-Operations",
       "ueba.anomaly_type": "UnusualSignInTime",
-      "ueba.anomaly_description": "Sign-in at 02:15 local time — 99th percentile for this user (typical hours: 08:00-18:00)",
+      "ueba.anomaly_description": "Sign-in at 02:15 local time - 99th percentile for this user (typical hours: 08:00-18:00)",
       "ueba.deviation_factor": 4.2,
       "ueba.contributing_activities": ["unusual_signin_hour", "sign_in_from_unfamiliar_device"],
       "ueba.alert_severity": "High",
@@ -5994,7 +5994,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "ueba.risk_level": "Low",
       "ueba.peer_group": "HR-Department",
       "ueba.anomaly_type": "NewApplicationAccess",
-      "ueba.anomaly_description": "User accessed Azure DevOps for the first time — no historical activity in this application",
+      "ueba.anomaly_description": "User accessed Azure DevOps for the first time - no historical activity in this application",
       "ueba.deviation_factor": 1.8,
       "ueba.new_application": "Azure DevOps",
       "ueba.contributing_activities": ["first_application_access"],
@@ -6025,7 +6025,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "ueba.contributing_activities": ["repeated_mfa_prompts", "unusual_signin_hour", "sign_in_from_unfamiliar_device"],
       "ueba.alert_severity": "High",
       "ueba.investigation_priority": 81,
-      "ueba.recommended_action": "Contact user immediately to verify — if denied, disable account and reset MFA",
+      "ueba.recommended_action": "Contact user immediately to verify - if denied, disable account and reset MFA",
     },
   },
   {
@@ -6042,7 +6042,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "ueba.risk_level": "Medium",
       "ueba.peer_group": "Finance-Department",
       "ueba.anomaly_type": "AbnormalDataAmount",
-      "ueba.anomaly_description": "Downloaded 500 MB today vs daily baseline of 20 MB — 25x above normal",
+      "ueba.anomaly_description": "Downloaded 500 MB today vs daily baseline of 20 MB - 25x above normal",
       "ueba.data_transferred_bytes": 524288000,
       "ueba.data_baseline_bytes": 20971520,
       "ueba.deviation_factor": 25.0,
@@ -6066,7 +6066,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "ueba.risk_level": "Low",
       "ueba.anomaly_type": null,
       "ueba.anomaly_count": 0,
-      "ueba.reset_reason": "Analyst confirmed legitimate travel — user was in Nigeria for conference",
+      "ueba.reset_reason": "Analyst confirmed legitimate travel - user was in Nigeria for conference",
       "ueba.investigation_closed_by": "soc-tier2@nexacorp.com",
       "ueba.investigation_priority": 11,
     },
@@ -6192,7 +6192,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     severity: "medium",
     description: "kubectl exec into running pod for debugging",
     it_verify_result: "confirmed",
-    it_verify_message: "Developer debugging memory leak in staging pod — approved by lead engineer",
+    it_verify_message: "Developer debugging memory leak in staging pod - approved by lead engineer",
     raw: {
       "kubernetes.audit.verb": "create",
       "kubernetes.audit.stage": "ResponseComplete",
@@ -6257,12 +6257,12 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Azure AD / Entra ID — Sign-In Events (success + failure) ─────────────────
+  // ── Azure AD / Entra ID - Sign-In Events (success + failure) ─────────────────
   {
     id: "b_aad_01", ts: T(4), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
-    description: "j.chen signed in to Microsoft 365 from Windows 11 — MFA satisfied via Authenticator app",
+    description: "j.chen signed in to Microsoft 365 from Windows 11 - MFA satisfied via Authenticator app",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -6295,7 +6295,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_aad_02", ts: T(11), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "MBP-SALES-112", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.90",
-    description: "r.williams signed in to Outlook mobile on iPhone — MFA satisfied",
+    description: "r.williams signed in to Outlook mobile on iPhone - MFA satisfied",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -6352,7 +6352,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_aad_06", ts: T(61), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.1.5",
-    description: "k.taylor signed in to SharePoint Online — Conditional Access passed, managed device",
+    description: "k.taylor signed in to SharePoint Online - Conditional Access passed, managed device",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -6391,7 +6391,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_aad_08", ts: T(89), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-FIN-2901", user_email: "m.edwards@nexacorp.com", src_ip: "10.10.20.91",
-    description: "m.edwards signed in to Microsoft 365 from a finance workstation — MFA via phone call",
+    description: "m.edwards signed in to Microsoft 365 from a finance workstation - MFA via phone call",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -6419,7 +6419,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_aad_09", ts: T(99), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "LT-ENG-4413", user_email: "k.osei@nexacorp.com", src_ip: "10.100.50.44",
-    description: "k.osei signed in to Azure portal — MFA via FIDO2 security key",
+    description: "k.osei signed in to Azure portal - MFA via FIDO2 security key",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
       "data.office365.Operation": "UserLoggedIn",
@@ -6453,7 +6453,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "SRV-NXC-DC01",
   },
 
-  // ── DC / Event Viewer — Logon / Logoff (4624 · 4625 · 4634) ─────────────────
+  // ── DC / Event Viewer - Logon / Logoff (4624 · 4625 · 4634) ─────────────────
   {
     id: "b_dc_logon_01", ts: T(5), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
@@ -6507,7 +6507,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.SubjectUserName": "-",
       "winlog.event_data.SubjectDomainName": "-",
       "logon.type": "3",
-      "logon.type_description": "Network — NTLM (legacy device)",
+      "logon.type_description": "Network - NTLM (legacy device)",
       "event.action": "logged-in",
       "event.outcome": "success",
       "source.ip": "10.10.30.55",
@@ -6596,7 +6596,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.SubjectUserName": "-",
       "winlog.event_data.SubjectDomainName": "-",
       "logon.type": "3",
-      "logon.type_description": "Network (SMB) — failed",
+      "logon.type_description": "Network (SMB) - failed",
       "event.action": "logon-failed",
       "event.outcome": "failure",
       "source.ip": "10.10.40.88",
@@ -6607,7 +6607,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_dc_logon_06", ts: T(63), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "d.morgan@nexacorp.com", src_ip: "10.10.20.77",
-    description: "d.morgan failed to remotely connect to SRV-NXC-DC01 — username not found",
+    description: "d.morgan failed to remotely connect to SRV-NXC-DC01 - username not found",
     raw: {
       "event.code": "4625",
       "winlog.channel": "Security",
@@ -6626,7 +6626,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.SubjectUserName": "-",
       "winlog.event_data.SubjectDomainName": "-",
       "logon.type": "10",
-      "logon.type_description": "RemoteInteractive (RDP) — failed",
+      "logon.type_description": "RemoteInteractive (RDP) - failed",
       "event.action": "logon-failed",
       "event.outcome": "failure",
       "source.ip": "10.10.20.77",
@@ -6637,7 +6637,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_dc_logon_07", ts: T(81), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-FILE01", user_email: "svc-backup@nexacorp.com", src_ip: "10.10.1.30",
-    description: "svc-backup failed to connect to SRV-FILE01 — its account password has expired",
+    description: "svc-backup failed to connect to SRV-FILE01 - its account password has expired",
     raw: {
       "event.code": "4625",
       "winlog.channel": "Security",
@@ -6656,7 +6656,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.SubjectUserName": "NEXACORP$",
       "winlog.event_data.SubjectDomainName": "NEXACORP",
       "logon.type": "3",
-      "logon.type_description": "Network — service account expired",
+      "logon.type_description": "Network - service account expired",
       "event.action": "logon-failed",
       "event.outcome": "failure",
       "source.ip": "10.10.1.30",
@@ -6677,7 +6677,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.TargetDomainName": "NEXACORP",
       "winlog.event_data.LogonId": "0x3a7f91",
       "logon.type": "10",
-      "logon.type_description": "RemoteInteractive (RDP) — session ended",
+      "logon.type_description": "RemoteInteractive (RDP) - session ended",
       "event.action": "logged-out",
       "event.outcome": "success",
       "host.name": "SRV-NXC-DC01",
@@ -6697,7 +6697,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.TargetDomainName": "NEXACORP",
       "winlog.event_data.LogonId": "0x2b4e12",
       "logon.type": "3",
-      "logon.type_description": "Network (SMB) — session ended",
+      "logon.type_description": "Network (SMB) - session ended",
       "event.action": "logged-out",
       "event.outcome": "success",
       "host.name": "SRV-FILE01",
@@ -6730,7 +6730,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── DC / Event Viewer — SMB Share Access (5140 · 5145) ───────────────────────
+  // ── DC / Event Viewer - SMB Share Access (5140 · 5145) ───────────────────────
   {
     id: "b_dc_smb_01", ts: T(7), source: "ad", vendor: "Windows Security",
     event_type: "file_access", severity: "informational",
@@ -6863,7 +6863,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── DC / Event Viewer — RDP Session Events (4778 · 4779 · TerminalServices) ───
+  // ── DC / Event Viewer - RDP Session Events (4778 · 4779 · TerminalServices) ───
   {
     id: "b_dc_rdp_01", ts: T(29), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
@@ -6960,7 +6960,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── DC / Event Viewer — Kerberos (4768 · 4769 · 4771) ────────────────────────
+  // ── DC / Event Viewer - Kerberos (4768 · 4769 · 4771) ────────────────────────
   {
     id: "b_dc_kerb_01", ts: T(3), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
@@ -7061,7 +7061,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── DC / Event Viewer — NTLM · Special Privileges (4776 · 4672) ──────────────
+  // ── DC / Event Viewer - NTLM · Special Privileges (4776 · 4672) ──────────────
   {
     id: "b_dc_ntlm_01", ts: T(14), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
@@ -7117,7 +7117,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     description: "Helpdesk signed in to SRV-FILE01 remotely with elevated privileges",
   },
 
-  // ── DC Events — trading-floor workstation RDP + SMB (extra) ──────────────────
+  // ── DC Events - trading-floor workstation RDP + SMB (extra) ──────────────────
   {
     id: "b_mc_dc_01", ts: T(9), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
@@ -7190,7 +7190,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.Status": "0xC000006D",
       "winlog.event_data.SubStatus": "0xC000006A",
       "logon.type": "2",
-      "logon.type_description": "Interactive (local) — smart card re-auth",
+      "logon.type_description": "Interactive (local) - smart card re-auth",
       "event.action": "logon-failed",
       "event.outcome": "failure",
       "source.ip": "10.10.30.70",
@@ -7219,7 +7219,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.SmartcardLogon": "Yes",
       "winlog.event_data.ElevatedToken": "No",
       "logon.type": "2",
-      "logon.type_description": "Interactive — smart card",
+      "logon.type_description": "Interactive - smart card",
       "event.action": "logged-in",
       "event.outcome": "success",
       "host.name": "WS-FIN-2901",
@@ -7239,7 +7239,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.TargetDomainName": "NEXACORP",
       "winlog.event_data.LogonId": "0x6d8a12",
       "logon.type": "2",
-      "logon.type_description": "Interactive — smart card removed",
+      "logon.type_description": "Interactive - smart card removed",
       "event.action": "logged-out",
       "event.outcome": "success",
       "host.name": "WS-TRADE-DESK4",
@@ -7411,13 +7411,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_mc_dlp_01", ts: T(58), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     hostname: "WS-TRADE-DESK4", user_email: "trading-desk4@nexacorp.com", src_ip: "10.10.30.70",
-    description: "DLP alert: trading-desk4 attempted to paste client IDs into personal web email — blocked by PII policy",
+    description: "DLP alert: trading-desk4 attempted to paste client IDs into personal web email - blocked by PII policy",
     raw: {
       "data.office365.Operation": "DlpRuleMatch",
       "data.office365.Workload": "Endpoint",
       "data.office365.UserId": "trading-desk4@nexacorp.com",
-      "data.office365.PolicyDetails[0].PolicyName": "Financial Data — Client PII Protection",
-      "data.office365.PolicyDetails[0].Rules[0].RuleName": "PII — Client Identifier Block",
+      "data.office365.PolicyDetails[0].PolicyName": "Financial Data - Client PII Protection",
+      "data.office365.PolicyDetails[0].Rules[0].RuleName": "PII - Client Identifier Block",
       "data.office365.PolicyDetails[0].Rules[0].Actions[0]": "BlockAccess",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "U.S. Individual Taxpayer Identification Number",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Count": "3",
@@ -7479,7 +7479,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── NexaCorp — GitHub Actions CI/CD (extra) ───────────────────────────────────
+  // ── NexaCorp - GitHub Actions CI/CD (extra) ───────────────────────────────────
   {
     id: "b_rs_ci_01", ts: T(10), source: "edr", vendor: "CrowdStrike Falcon",
     event_type: "process_create", severity: "informational",
@@ -7671,7 +7671,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── O365 Collaboration — Teams · SharePoint · Email ───────────────────────────
+  // ── O365 Collaboration - Teams · SharePoint · Email ───────────────────────────
   {
     id: "b_o365_teams_01", ts: T(8), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "teams_message", severity: "informational",
@@ -7781,7 +7781,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.RecordType": "2",
       "data.office365.UserId": "s.patel@nexacorp.com",
       "data.office365.SendAsUserSmtp": "s.patel@nexacorp.com",
-      "data.office365.Item.Subject": "May 2026 Payroll Summary — CONFIDENTIAL",
+      "data.office365.Item.Subject": "May 2026 Payroll Summary - CONFIDENTIAL",
       "data.office365.Item.AttachmentFileNames": "Payroll-May2026.xlsx",
       "data.office365.Item.Recipients[0]": "j.chen@nexacorp.com",
       "data.office365.Item.Recipients[1]": "finance-team@nexacorp.com",
@@ -7789,7 +7789,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.ClientInfoString": "Client=OWA;Action=ViaProxy",
       "email.from.address": "s.patel@nexacorp.com",
       "email.to.address": "j.chen@nexacorp.com",
-      "email.subject": "May 2026 Payroll Summary — CONFIDENTIAL",
+      "email.subject": "May 2026 Payroll Summary - CONFIDENTIAL",
       "email.spf": "pass",
       "email.dkim": "pass",
       "email.dmarc": "pass",
@@ -7894,7 +7894,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "gp.stage": "connected",
       "gp.auth_method": "PhoneAppNotification",
       "gp.mfa_vendor": "Duo Security",
-      "gp.msg": "MFA push denied by user — user declined the push notification",
+      "gp.msg": "MFA push denied by user - user declined the push notification",
       "event.action": "vpn-mfa-denied",
       "event.outcome": "failure",
       "source.ip": "85.12.44.201",
@@ -7949,7 +7949,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.Operation": "DlpRuleMatch",
       "data.office365.Workload": "Endpoint",
       "data.office365.UserId": "j.chen@nexacorp.com",
-      "data.office365.PolicyDetails[0].PolicyName": "Financial Data — USB Block",
+      "data.office365.PolicyDetails[0].PolicyName": "Financial Data - USB Block",
       "data.office365.PolicyDetails[0].Rules[0].RuleName": "Block USB transfer of financial documents",
       "data.office365.PolicyDetails[0].Rules[0].Actions[0]": "BlockAccess",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "Credit Card Number",
@@ -7973,13 +7973,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.Operation": "DlpRuleMatch",
       "data.office365.Workload": "Exchange",
       "data.office365.UserId": "s.patel@nexacorp.com",
-      "data.office365.PolicyDetails[0].PolicyName": "GDPR — Personal Data Email Protection",
+      "data.office365.PolicyDetails[0].PolicyName": "GDPR - Personal Data Email Protection",
       "data.office365.PolicyDetails[0].Rules[0].RuleName": "Block external email with NI numbers",
       "data.office365.PolicyDetails[0].Rules[0].Actions[0]": "BlockAccess",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "UK National Insurance Number",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Count": "8",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Confidence": "90",
-      "data.office365.ExchangeMetaData.Subject": "Employee NI Records — Annual Update",
+      "data.office365.ExchangeMetaData.Subject": "Employee NI Records - Annual Update",
       "data.office365.ExchangeMetaData.From": "s.patel@nexacorp.com",
       "data.office365.ExchangeMetaData.To": "payroll-services@external-payroll.co.uk",
       "event.action": "dlp-rule-match",
@@ -7991,7 +7991,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_dlp_cloud_01", ts: T(78), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
-    description: "a.jones uploaded a 28MB file to personal Google Drive — allowed, but flagged for review",
+    description: "a.jones uploaded a 28MB file to personal Google Drive - allowed, but flagged for review",
     raw: {
       "data.office365.Operation": "DlpRuleMatch",
       "data.office365.Workload": "Endpoint",
@@ -8015,7 +8015,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_dlp_print_01", ts: T(91), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
-    description: "k.taylor printed a contract containing client personal data — allowed and logged for audit",
+    description: "k.taylor printed a contract containing client personal data - allowed and logged for audit",
     raw: {
       "data.office365.Operation": "DlpRuleMatch",
       "data.office365.Workload": "Endpoint",
@@ -8141,12 +8141,12 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Windows Event Viewer — endpoint Security / System / PowerShell logs ──────
+  // ── Windows Event Viewer - endpoint Security / System / PowerShell logs ──────
   // The classic Event IDs an analyst reads in Event Viewer, as benign daily
   // noise: interactive & network logons (4624), a mistyped password (4625),
   // process creation (4688), special-privilege assignment (4672), explicit-
   // credential logon (4648), service install (7045), PowerShell scriptblock
-  // (4104) and a local-group enumeration (4798). All informational — the
+  // (4104) and a local-group enumeration (4798). All informational - the
   // baseline an analyst learns before the same IDs turn up inside an attack.
   {
     ...winLogon({
@@ -8326,13 +8326,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Windows Event Viewer — account, group & Kerberos (DC Security log) ───────
+  // ── Windows Event Viewer - account, group & Kerberos (DC Security log) ───────
   // The identity lifecycle a SOC analyst sees every day on the domain controller:
   // account create/enable/disable/delete (4720/4722/4725/4726), password change
   // & reset (4723/4724), lockout/unlock (4740/4767), group membership churn
   // (4728/4729/4756/4757/4732/4733), group-property changes (4737/4735/4755),
   // NTLM validation (4776) and Kerberos TGT/TGS (4768/4769). All benign IT
-  // operations — the baseline before the same IDs appear in a real intrusion.
+  // operations - the baseline before the same IDs appear in a real intrusion.
   {
     id: "b_dcid_4720", ts: T(70), source: "ad", vendor: "Windows Security",
     event_type: "account_create", severity: "informational",

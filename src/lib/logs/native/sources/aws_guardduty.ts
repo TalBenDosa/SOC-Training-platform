@@ -1,5 +1,5 @@
 /**
- * Amazon GuardDuty findings — native source module.
+ * Amazon GuardDuty findings - native source module.
  *
  * Card: docs/log-schemas/cloud-aws-guardduty.md. Native format = the bare finding
  * object (the `GetFindings` / export shape), nested exactly as GuardDuty produces
@@ -8,7 +8,7 @@
  * Wazuh `data.*` envelope.
  *
  * `resource` and `service` are polymorphic (one detail object per resourceType;
- * one action sub-object per actionType) — they are declared as open sub-objects.
+ * one action sub-object per actionType) - they are declared as open sub-objects.
  * The finding `id` / `detectorId` are stable per company so a finding correlates
  * with the CloudTrail events behind it.
  */
@@ -102,7 +102,7 @@ const HOSTING_ASN: [RegExp, number, string][] = [
   [/M247/i, 9009, "M247 Europe SRL"], [/Scaleway/i, 12876, "SCALEWAY S.A.S."], [/Serverius/i, 50673, "Serverius Holding B.V."], [/Selectel/i, 49505, "Selectel Ltd."],
 ];
 
-/** GuardDuty `remoteIpDetails` — the authored address with ITS geo (event geo → authored finding geo → the platform's per-IP map). */
+/** GuardDuty `remoteIpDetails` - the authored address with ITS geo (event geo → authored finding geo → the platform's per-IP map). */
 function remoteIpDetailsOf(ev: TelemetryEvent, ip: string): Record<string, unknown> {
   const R = (k: string) => G(ev, `service.action.awsApiCallAction.remoteIpDetails.${k}`) ?? G(ev, `service.action.networkConnectionAction.remoteIpDetails.${k}`);
   if (isPrivateIp(ip)) return { ipAddressV4: ip };
@@ -111,7 +111,7 @@ function remoteIpDetailsOf(ev: TelemetryEvent, ip: string): Record<string, unkno
   const ci = countryInfo(countryRaw ?? rs(ev.raw, "source.geo.country_iso_code"));
   const cityLabel = ev.geo?.city ?? R("city.cityName") ?? rs(ev.raw, "GeoLocation.city_name", "source.geo.city_name") ?? known?.city ?? ci?.city;
   const host = /\(([^)]+)\)/.exec(cityLabel ?? "")?.[1];
-  const city = cityLabel?.replace(/\s*\([^)]*\)\s*$/, "").replace(/^Tor Exit — Unknown$/, "");
+  const city = cityLabel?.replace(/\s*\([^)]*\)\s*$/, "").replace(/^Tor Exit - Unknown$/, "");
   const authoredOrg = R("organization.asnOrg") ?? R("organization.isp");
   // One network per address: the authored operator wins, then a hosting provider the geo label names, then the country's default carrier.
   const hosting = HOSTING_ASN.find(([re]) => (authoredOrg && re.test(authoredOrg)) || (!authoredOrg && host && re.test(host)));
@@ -128,7 +128,7 @@ function remoteIpDetailsOf(ev: TelemetryEvent, ip: string): Record<string, unkno
   return out;
 }
 
-/** accessKeyDetails of the principal behind the finding — the same key / principal id the CloudTrail rows of that principal show. */
+/** accessKeyDetails of the principal behind the finding - the same key / principal id the CloudTrail rows of that principal show. */
 function accessKeyDetailsOf(ev: TelemetryEvent, ctx: NativeCtx, acct: string, type: string): Record<string, unknown> {
   let pr = awsPrincipal(ev, ctx, acct);
   // Instance credentials are always a role session (ASIA), never an IAM user's long-term key.
@@ -212,7 +212,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     action.kubernetesApiCallAction = { requestUri: "/api/v1/namespaces/kube-system/pods/exec", verb: "create", sourceIPs: ip ? [ip] : [], userAgent: "kubectl/v1.30.0 (linux/amd64)", statusCode: 101, ...(remoteIpDetails ? { remoteIpDetails } : {}) };
   } else if (actionType === "NETWORK_CONNECTION") {
     action.networkConnectionAction = { connectionDirection: "OUTBOUND", protocol: "TCP", blocked: false, remotePortDetails: { port: ev.dst_port ?? 443, portName: ev.dst_port === 22 ? "SSH" : ev.dst_port === 3389 ? "RDP" : (ev.dst_port ?? 443) === 443 ? "HTTPS" : "Unknown" }, localIpDetails: { ipAddressV4: (resource.instanceDetails as { networkInterfaces?: { privateIpAddress: string }[] } | undefined)?.networkInterfaces?.[0]?.privateIpAddress ?? "10.0.3.47" }, ...(remoteIpDetails ? { remoteIpDetails } : {}) };
-  } else { // AWS_API_CALL — the call actually made (finding → event → type default)
+  } else { // AWS_API_CALL - the call actually made (finding → event → type default)
     const api = G(ev, "service.action.awsApiCallAction.api") ?? ev.cloud?.api_call ?? rs(ev.raw, "aws.cloudtrail.eventName") ?? defaultApiFor(type);
     action.awsApiCallAction = {
       api,
@@ -250,7 +250,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     createdAt,
     updatedAt,
     title: G(ev, "title") ?? type,
-    // GuardDuty's own finding text (authored raw, else keyed to the type) — not the
+    // GuardDuty's own finding text (authored raw, else keyed to the type) - not the
     // scenario narrative, which states the conclusion (L-05).
     description: G(ev, "description") ?? guardDutyDescription(type, resourceType),
   };
@@ -265,16 +265,16 @@ const useCases: UseCase[] = [
     id: "aws_guardduty.high_severity",
     title: "High / critical GuardDuty finding",
     sourceId: "aws_guardduty", severity: "high", mitre: [],
-    description: "Any GuardDuty finding with severity ≥ 7 (High) — GuardDuty's own confidence that this is a real threat, to be triaged ahead of lower-severity noise.",
+    description: "Any GuardDuty finding with severity ≥ 7 (High) - GuardDuty's own confidence that this is a real threat, to be triaged ahead of lower-severity noise.",
     logic: "SPL: severity>=7",
     match: { field: "severity", op: "gte", value: 7 },
-    falsePositives: ["Sample / demo findings (additionalInfo.sample=true) — exclude them."],
+    falsePositives: ["Sample / demo findings (additionalInfo.sample=true) - exclude them."],
   },
   {
     id: "aws_guardduty.instance_credential_exfil",
     title: "EC2 instance credentials used outside AWS",
     sourceId: "aws_guardduty", severity: "high", mitre: ["T1552.005", "T1078.004"],
-    description: "InstanceCredentialExfiltration — credentials minted for an EC2 instance role are being used from an external IP, i.e. stolen off the host (SSRF / IMDS theft / container escape).",
+    description: "InstanceCredentialExfiltration - credentials minted for an EC2 instance role are being used from an external IP, i.e. stolen off the host (SSRF / IMDS theft / container escape).",
     logic: "SPL: type=\"UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.*\"",
     match: { field: "type", op: "icontains", value: "InstanceCredentialExfiltration" },
     falsePositives: ["A VPN / NAT change that makes legitimate instance traffic appear to originate outside AWS."],
@@ -283,7 +283,7 @@ const useCases: UseCase[] = [
     id: "aws_guardduty.s3_exfil_or_public",
     title: "S3 data exfiltration or public exposure",
     sourceId: "aws_guardduty", severity: "high", mitre: ["T1530"],
-    description: "Exfiltration:S3 or Policy:S3/Bucket*Access — bulk reads from, or public exposure of, an S3 bucket flagged by GuardDuty.",
+    description: "Exfiltration:S3 or Policy:S3/Bucket*Access - bulk reads from, or public exposure of, an S3 bucket flagged by GuardDuty.",
     logic: "SPL: type IN (\"Exfiltration:S3/*\",\"Policy:S3/Bucket*Access*\")",
     match: { any: [{ field: "type", op: "icontains", value: "Exfiltration:S3" }, { field: "type", op: "regex", value: "Policy:S3/Bucket.*Access" }] },
     falsePositives: ["A bucket intentionally made public for static hosting (confirm data classification)."],
@@ -292,7 +292,7 @@ const useCases: UseCase[] = [
     id: "aws_guardduty.privilege_escalation",
     title: "IAM privilege escalation / trust-policy change",
     sourceId: "aws_guardduty", severity: "high", mitre: ["T1098"],
-    description: "PrivilegeEscalation findings — anomalous IAM API sequences (CreateUser/AttachPolicy) or a resource trust-policy granting broad/external access.",
+    description: "PrivilegeEscalation findings - anomalous IAM API sequences (CreateUser/AttachPolicy) or a resource trust-policy granting broad/external access.",
     logic: "SPL: type=\"PrivilegeEscalation:*\"",
     match: { field: "type", op: "icontains", value: "PrivilegeEscalation" },
     falsePositives: ["Legitimate admin bootstrapping a new account's IAM through IaC."],
@@ -301,7 +301,7 @@ const useCases: UseCase[] = [
     id: "aws_guardduty.bedrock_logging_disabled",
     title: "Bedrock model logging disabled (GuardDuty)",
     sourceId: "aws_guardduty", severity: "medium", mitre: ["T1685.002"],
-    description: "DefenseEvasion:IAMUser/AnomalousBehavior on DeleteModelInvocationLoggingConfiguration — GuardDuty's anomaly detection firing on the call that turns Bedrock model-invocation logging off, the LLMjacking defense-evasion step.",
+    description: "DefenseEvasion:IAMUser/AnomalousBehavior on DeleteModelInvocationLoggingConfiguration - GuardDuty's anomaly detection firing on the call that turns Bedrock model-invocation logging off, the LLMjacking defense-evasion step.",
     logic: "SPL: type=\"DefenseEvasion:IAMUser/AnomalousBehavior\" service.action.awsApiCallAction.api=DeleteModelInvocationLoggingConfiguration",
     match: { all: [{ field: "type", op: "icontains", value: "DefenseEvasion:IAMUser/AnomalousBehavior" }, { field: "service.action.awsApiCallAction.api", op: "eq", value: "DeleteModelInvocationLoggingConfiguration" }] },
     falsePositives: ["Platform team re-configuring Bedrock logging via console."],
@@ -310,7 +310,7 @@ const useCases: UseCase[] = [
     id: "aws_guardduty.kubernetes",
     title: "Kubernetes / EKS attacker behaviour",
     sourceId: "aws_guardduty", severity: "medium", mitre: ["T1609", "T1610"],
-    description: "Kubernetes findings — exec into kube-system, anonymous access, privileged workload deployment, or secrets access on an EKS cluster.",
+    description: "Kubernetes findings - exec into kube-system, anonymous access, privileged workload deployment, or secrets access on an EKS cluster.",
     logic: "SPL: type=\"*:Kubernetes/*\"",
     match: { field: "type", op: "icontains", value: "Kubernetes" },
     falsePositives: ["An operator legitimately exec-ing into a system pod to debug (rare; confirm the user)."],
@@ -319,7 +319,7 @@ const useCases: UseCase[] = [
     id: "aws_guardduty.attack_sequence",
     title: "Correlated attack sequence (Extended Threat Detection)",
     sourceId: "aws_guardduty", severity: "critical", mitre: [],
-    description: "AttackSequence findings bundle several correlated signals into one Critical finding — a confirmed multi-step intrusion, not a single anomaly.",
+    description: "AttackSequence findings bundle several correlated signals into one Critical finding - a confirmed multi-step intrusion, not a single anomaly.",
     logic: "SPL: type=\"AttackSequence:*\" OR severity>=9",
     match: { any: [{ field: "type", op: "startsWith", value: "AttackSequence" }, { field: "severity", op: "gte", value: 9 }] },
     falsePositives: ["None expected; AttackSequence is high-confidence by design."],

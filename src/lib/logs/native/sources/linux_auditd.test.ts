@@ -8,9 +8,9 @@ import { sampleLogs, violationsOf, convertAll, contains, isNoise, flatSamples } 
 
 /*
  * Card samples: all 15 records of host-linux-auditd.md (SYSCALL / EXECVE / CWD / PROCTITLE / PATH /
- * USER_CMD / CRED_ACQ / USER_START / USER_AUTH / USER_LOGIN and 3 sshd lines) are supported — none skipped.
+ * USER_CMD / CRED_ACQ / USER_START / USER_AUTH / USER_LOGIN and 3 sshd lines) are supported - none skipped.
  *
- * Documented nulls: events that are not auditd records and not sshd auth lines — cron / systemd /
+ * Documented nulls: events that are not auditd records and not sshd auth lines - cron / systemd /
  * fail2ban syslog lines, and audit record types this card does not document (CRON_JOB, SERVICE_START,
  * CONFIG_CHANGE). Those need their own card before they can be rendered.
  */
@@ -29,7 +29,7 @@ function tokens(cmd: string): string[] {
   return (cmd.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map(t => t.replace(/^["']|["']$/g, ""));
 }
 
-describe("linux_auditd — card samples", () => {
+describe("linux_auditd - card samples", () => {
   it("every supported card sample validates with zero violations", () => {
     expect(samples.skipped).toEqual([]);
     expect(samples.logs.length).toBe(flatSamples(source.schema.card).length);
@@ -37,7 +37,7 @@ describe("linux_auditd — card samples", () => {
   });
 });
 
-describe("linux_auditd — corpus conversion", () => {
+describe("linux_auditd - corpus conversion", () => {
   it("every event converts with zero violations, or is null for a documented reason", () => {
     for (const c of converted) {
       expect(c.error, c.c.ev.id).toBeUndefined();
@@ -91,7 +91,7 @@ describe("linux_auditd — corpus conversion", () => {
   });
 });
 
-describe("linux_auditd — use cases", () => {
+describe("linux_auditd - use cases", () => {
   // Brute-force fixtures built from the card's §4.5 records: 6 USER_AUTH failures and 6 sshd
   // "Failed password" lines from 198.51.100.77 within 3 minutes (the card shows the first two).
   const all = flatSamples(source.schema.card);

@@ -1,5 +1,5 @@
 /**
- * Native log registry — one module per data source (docs/log-schemas cards).
+ * Native log registry - one module per data source (docs/log-schemas cards).
  *
  *   nativize(ev, companyId, stack?)  → the event in its source's native format
  *   useCasesFor(sourceId?)            → the detection use cases written on those logs
@@ -73,7 +73,7 @@ export function stackFor(companyId: string, override?: Stack): Stack {
 /**
  * The event in its source's native format under the company's stack, or null when
  * no module covers its category yet / the chosen product has no such record.
- * Never throws — a converter bug must not take the feed down.
+ * Never throws - a converter bug must not take the feed down.
  */
 /** A named organization's identity for the renderers (a team exercise run as the instructor's org). */
 export interface NativeIdentity { domain: string; netbios: string }
@@ -182,7 +182,7 @@ export function fitsStack(ev: TelemetryEvent, companyId: string, stack?: Stack):
  * A story written for another company, run on this company's products: an event that stays
  * on the product it was written for follows the company rule (storyHonoursLocks); an event
  * shown as a DIFFERENT product (an Okta sign-in in an Entra shop) must be one that product
- * really produces (fitsStack) — never another product's record under this one's label.
+ * really produces (fitsStack) - never another product's record under this one's label.
  */
 export function storyFitsOrg(events: TelemetryEvent[], companyId: string, stack?: Stack): boolean {
   const eff = stackFor(companyId, stack);
@@ -208,7 +208,7 @@ export function storyFitsStack(events: TelemetryEvent[], companyId: string, stac
  */
 /**
  * The event as the session shows it: labelled for its products (applyStackLabels) and with
- * the OS pids every native EDR record prints for its process and parent (canonicalPids) — so
+ * the OS pids every native EDR record prints for its process and parent (canonicalPids) - so
  * the EDR console's process tree, the panel's fields and a PID quoted in the text all show the
  * number the record shows.
  */
@@ -282,7 +282,7 @@ function applyStackLabels(ev: TelemetryEvent, companyId: string, stack?: Stack):
   };
   if (cat === "collab") next.source = (id === "google_workspace" ? "gws" : base.source === "gws" ? "o365" : base.source) as TelemetryEvent["source"];
   if (cat === "idp") next.source = (id === "okta" ? "okta" : base.source === "okta" ? "o365" : base.source) as TelemetryEvent["source"];
-  // Proofpoint is a mail gateway, not part of Office 365 — the row's source badge says so.
+  // Proofpoint is a mail gateway, not part of Office 365 - the row's source badge says so.
   if (cat === "email_security") next.source = (id === "proofpoint" ? "email_gateway" : base.source === "email_gateway" ? "o365" : base.source) as TelemetryEvent["source"];
   return next;
 }
@@ -438,7 +438,7 @@ export function nativeStoryRenderer(events: TelemetryEvent[], companyId?: string
 
 /**
  * The OS pids the native EDR records print for an event's process and its parent (every EDR
- * module derives them from the process instance — ./sources/_proc-identity — never from the
+ * module derives them from the process instance - ./sources/_proc-identity - never from the
  * authored pid). For surfaces that print process.pid next to the native record (the feed's field
  * chips, the EDR console's process tree), so all of them show the same number.
  */

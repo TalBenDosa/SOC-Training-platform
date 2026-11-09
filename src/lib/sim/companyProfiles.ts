@@ -1,5 +1,5 @@
 /**
- * Company Profiles — each defines a realistic, coherent security architecture.
+ * Company Profiles - each defines a realistic, coherent security architecture.
  * One EDR, one IdP, one cloud provider. No unrealistic product mix.
  *
  * NexaCorp uses BENIGN_EVENTS from the dashboard folder (passed in from page.tsx).
@@ -8,14 +8,14 @@
 
 import type { TelemetryEvent } from "@/lib/sim/types";
 
-// The LIGHT half — interfaces, NEXACORP_PROFILE, COMPANY_PROFILES — moved to
+// The LIGHT half - interfaces, NEXACORP_PROFILE, COMPANY_PROFILES - moved to
 // companyProfilesMeta.ts so the dashboard can render from it without pulling the
 // heavy event pools below into its first-load JS. Types re-exported here so
 // existing `import ... from "@/lib/sim/companyProfiles"` consumers keep working.
 export type { CompanyArchitecture, CompanyProfile } from "./companyProfilesMeta";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company 2 — RocketStack Technologies Ltd.
+// Company 2 - RocketStack Technologies Ltd.
 // CrowdStrike + AWS + Okta + FortiGate. Cloud-native SaaS startup.
 // Mostly macOS endpoints. Google Workspace for email.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "CrowdStrike Falcon", hostname: "LAP-007", src_ip: "172.16.10.7",
     dst_ip: "52.84.241.10", dst_port: 443,
     network: { domain: "api.github.com", bytes_out: 1240, bytes_in: 5800 },
-    description: "Outbound HTTPS connection from LAP-007 to api.github.com — allowed",
+    description: "Outbound HTTPS connection from LAP-007 to api.github.com - allowed",
     raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "destination.ip": "52.84.241.10", "destination.port": "443", "network.protocol": "tcp", "action_result": "allowed" }
   },
   // ── AWS CloudTrail ────────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "FortiGate", src_ip: "172.16.10.7", dst_ip: "140.82.121.4", dst_port: 443,
     protocol: "tcp",
-    description: "Outbound HTTPS connection from LAP-007 to github.com — allowed",
+    description: "Outbound HTTPS connection from LAP-007 to github.com - allowed",
     raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000013", "data.level": "notice", "data.action": "accept", "data.policyid": "42", "data.service": "HTTPS", "data.srccountry": "Reserved", "data.sentbyte": "4096", "data.rcvdbyte": "102400", "firewall.action": "allow", "action_result": "allowed" }
   },
   {
@@ -191,7 +191,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "dns", event_type: "dns_query", severity: "informational",
     hostname: "LAP-007", src_ip: "172.16.10.7",
     network: { domain: "registry.npmjs.org" },
-    description: "DNS query from LAP-007 for registry.npmjs.org — resolved successfully",
+    description: "DNS query from LAP-007 for registry.npmjs.org - resolved successfully",
     raw: { "dns.question.name": "registry.npmjs.org", "dns.question.type": "A", "dns.response_code": "NOERROR", "action_result": "allowed" }
   },
   {
@@ -199,7 +199,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "dns", event_type: "dns_query", severity: "informational",
     hostname: "LAP-012", src_ip: "172.16.10.12",
     network: { domain: "slack.com" },
-    description: "DNS query from LAP-012 for slack.com — resolved successfully",
+    description: "DNS query from LAP-012 for slack.com - resolved successfully",
     raw: { "dns.question.type": "A", "dns.response_code": "NOERROR", "action_result": "allowed" }
   },
   {
@@ -210,7 +210,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "LAP-003 queried api.stripe.com",
     raw: { "dns.question.type": "A", "dns.response_code": "NOERROR", "action_result": "allowed" }
   },
-  // ── Okta — additional events ──────────────────────────────────────────────
+  // ── Okta - additional events ──────────────────────────────────────────────
   {
     id: "rs_okta_005", ts: "2026-05-10T11:30:00.000Z",
     source: "okta", event_type: "auth_success", severity: "low",
@@ -240,10 +240,10 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     id: "rs_okta_007", ts: "2026-05-10T14:20:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "medium",
     vendor: "Okta", user_email: "m.ben-david@rocketstack.io", src_ip: "185.176.44.10",
-    description: "m.ben-david Okta sign-in denied — device not recognised, source 185.176.44.10 (UA)",
+    description: "m.ben-david Okta sign-in denied - device not recognised, source 185.176.44.10 (UA)",
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "DENY", "okta.outcome.reason": "Sign-on policy evaluation resulted in DENY", "okta.debugContext.debugData.riskLevel": "HIGH", "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE", "okta.client.ipAddress": "185.176.44.10", "okta.client.geographicalContext.country": "UA", "action_result": "blocked" }
   },
-  // ── CrowdStrike — additional macOS events ─────────────────────────────────
+  // ── CrowdStrike - additional macOS events ─────────────────────────────────
   {
     id: "rs_cs_005", ts: "2026-05-10T09:40:00.000Z",
     source: "edr", event_type: "process_create", severity: "informational",
@@ -271,7 +271,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     process: { name: "git", pid: 5580, parent_name: "zsh", parent_pid: 5001, user: "r.cohen", cmdline: "git clone git@github.com:rocketstack/platform-core.git" },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
-  // ── AWS CloudTrail — additional API events ────────────────────────────────
+  // ── AWS CloudTrail - additional API events ────────────────────────────────
   {
     id: "rs_aws_004", ts: "2026-05-10T09:00:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "low",
@@ -300,7 +300,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "ci-pipeline retrieved rocketstack/prod/stripe-key from Secrets Manager",
     raw: { "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/stripe-key", "aws.cloudtrail.userIdentity.type": "AssumedRole", "action_result": "allowed" }
   },
-  // ── FortiGate — additional firewall events ────────────────────────────────
+  // ── FortiGate - additional firewall events ────────────────────────────────
   {
     id: "rs_fw_003", ts: "2026-05-10T11:45:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "medium",
@@ -314,11 +314,11 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "high",
     vendor: "FortiGate", src_ip: "45.83.66.131", dst_ip: "172.16.14.5", dst_port: 3389,
     protocol: "tcp", expected_verdict: "fp",
-    fp_explanation: "Opportunistic internet-wide RDP scanning hits RocketStack's public IP range constantly. The perimeter policy denied the connection before any handshake completed (0 bytes sent), and no other telemetry from 172.16.14.5 or this source IP correlates with it — routine background noise, not a targeted or successful attempt.",
-    description: "Inbound RDP connection attempt from 45.83.66.131 to 172.16.14.5 — denied by policy 1",
+    fp_explanation: "Opportunistic internet-wide RDP scanning hits RocketStack's public IP range constantly. The perimeter policy denied the connection before any handshake completed (0 bytes sent), and no other telemetry from 172.16.14.5 or this source IP correlates with it - routine background noise, not a targeted or successful attempt.",
+    description: "Inbound RDP connection attempt from 45.83.66.131 to 172.16.14.5 - denied by policy 1",
     raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "RDP", "data.srccountry": "Germany", "data.sentbyte": "0", "data.rcvdbyte": "60", "firewall.action": "block", "action_result": "blocked" }
   },
-  // ── DNS — additional query events ─────────────────────────────────────────
+  // ── DNS - additional query events ─────────────────────────────────────────
   {
     id: "rs_dns_004", ts: "2026-05-10T10:15:00.000Z",
     source: "dns", event_type: "dns_query", severity: "informational",
@@ -359,7 +359,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "cloudtrail", event_type: "cloud_api_call", severity: "medium",
     vendor: "AWS CloudTrail", user_email: "ci-pipeline@rocketstack.io", src_ip: "172.16.30.5",
     expected_verdict: "fp",
-    fp_explanation: "The CI/CD pipeline calls GetAuthorizationToken every build to authenticate against the ECR container registry. This is intentional and uses a scoped IAM role (ci-pipeline-role) with minimal permissions. The API is called hundreds of times per day from the same build server — this is normal CI/CD behaviour.",
+    fp_explanation: "The CI/CD pipeline calls GetAuthorizationToken every build to authenticate against the ECR container registry. This is intentional and uses a scoped IAM role (ci-pipeline-role) with minimal permissions. The API is called hundreds of times per day from the same build server - this is normal CI/CD behaviour.",
     description: "ci-pipeline GetAuthorizationToken for ECR (normal CI/CD auth)",
     raw: { "aws.cloudtrail.eventSource": "ecr.amazonaws.com", "aws.cloudtrail.eventName": "GetAuthorizationToken", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role", "action_result": "allowed" }
   },
@@ -368,12 +368,12 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "okta", event_type: "auth_success", severity: "medium",
     vendor: "Okta", user_email: "s.amir@rocketstack.io", src_ip: "5.79.64.10",
     expected_verdict: "fp",
-    fp_explanation: "s.amir is connecting through RocketStack's office VPN exit node in Amsterdam (5.79.64.10). The IP is the egress of the company's ZeroTier mesh — it appears foreign because the VPN exit is in the Netherlands, but all employees use this IP when tunnelling. Okta recognised the device as compliant and MFA was approved.",
-    description: "s.amir authenticated via RocketStack VPN from Netherlands exit IP — known egress node",
+    fp_explanation: "s.amir is connecting through RocketStack's office VPN exit node in Amsterdam (5.79.64.10). The IP is the egress of the company's ZeroTier mesh - it appears foreign because the VPN exit is in the Netherlands, but all employees use this IP when tunnelling. Okta recognised the device as compliant and MFA was approved.",
+    description: "s.amir authenticated via RocketStack VPN from Netherlands exit IP - known egress node",
     raw: { "okta.eventType": "user.session.start", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "MEDIUM", "okta.client.geographicalContext.country": "NL", "okta.debugContext.debugData.behaviors": "New Device=NEGATIVE", "action_result": "allowed" }
   },
 
-  // ── IT Verify events — RocketStack ──────────────────────────────────────────
+  // ── IT Verify events - RocketStack ──────────────────────────────────────────
   {
     id: "rs_itv_001", ts: "2026-05-10T10:12:00.000Z",
     source: "okta", event_type: "group_modify", severity: "medium",
@@ -425,13 +425,13 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     }
   },
 
-  // ── Normal auth-failure noise — RocketStack ──────────────────────────────────
+  // ── Normal auth-failure noise - RocketStack ──────────────────────────────────
   {
     id: "rs_fail_01", ts: "2026-05-10T08:45:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "low",
     vendor: "Okta", user_email: "j.lee@rocketstack.io", src_ip: "10.20.1.33",
     user_title: "DevOps",
-    description: "j.lee failed Okta login — incorrect password, reset pending",
+    description: "j.lee failed Okta login - incorrect password, reset pending",
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS", "okta.debugContext.debugData.riskLevel": "LOW",
            "okta.client.geographicalContext.country": "IL", "action_result": "deny" }
@@ -440,7 +440,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     id: "rs_fail_02", ts: "2026-05-10T10:55:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "low",
     vendor: "Okta", user_email: "b.cohen@rocketstack.io", src_ip: "10.20.2.55",
-    description: "b.cohen Okta MFA challenge timed out — re-authentication required",
+    description: "b.cohen Okta MFA challenge timed out - re-authentication required",
     raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "SESSION_EXPIRED", "okta.debugContext.debugData.factor": "GOOGLE_TOTP",
            "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "deny" }
@@ -466,7 +466,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     id: "rs_bf_05_baseline", is_baseline: true, ts: "2026-05-10T09:12:00.000Z",
     source: "okta", event_type: "auth_success", severity: "informational",
     vendor: "Okta", user_email: "a.kim@rocketstack.io", src_ip: "185.64.44.10",
-    description: "a.kim logged in from Tel Aviv — normal morning login",
+    description: "a.kim logged in from Tel Aviv - normal morning login",
     raw: {
       "okta.eventType":             "user.session.start",
       "okta.outcome.result":         "SUCCESS",
@@ -503,13 +503,13 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     }
   },
 
-  // ── Bulk data copy — RocketStack ─────────────────────────────────────────────
+  // ── Bulk data copy - RocketStack ─────────────────────────────────────────────
   {
     id: "rs_copy_01", ts: "2026-05-10T02:10:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
     vendor: "AWS CloudTrail", user_email: "svc-dataops@rocketstack.io", src_ip: "10.0.1.90",
     hostname: "svc-dataops",
-    description: "svc-dataops copied 12.3 GB from the prod-data bucket to the backup-rocketstack-dr bucket — scheduled nightly sync",
+    description: "svc-dataops copied 12.3 GB from the prod-data bucket to the backup-rocketstack-dr bucket - scheduled nightly sync",
     raw: {
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject",
       "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.request_parameters.source_bucket": "prod-data",
@@ -523,7 +523,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "cloudtrail", event_type: "cloud_api_call", severity: "medium",
     vendor: "AWS CloudTrail", user_email: "j.lee@rocketstack.io", src_ip: "94.188.12.50",
     user_title: "DevOps",
-    description: "j.lee downloaded 8.1 GB dataset from S3 — pre-approved data migration",
+    description: "j.lee downloaded 8.1 GB dataset from S3 - pre-approved data migration",
     expected_verdict: "fp",
     fp_explanation: "CTO pre-authorized this download for the Q2 data warehouse migration. Ticket RS-4401 covers it.",
     raw: {
@@ -571,13 +571,13 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "action_result": "detect_only" }
   },
 
-  // ── Email forwarding — RocketStack (Google Workspace Audit) ──────────────────
+  // ── Email forwarding - RocketStack (Google Workspace Audit) ──────────────────
   {
     id: "rs_fwd_01", ts: "2026-05-10T09:30:00.000Z",
     source: "gws", event_type: "account_modify", severity: "informational",
     vendor: "Google Workspace Audit", user_email: "j.lee@rocketstack.io", src_ip: "94.188.12.50",
     user_title: "DevOps",
-    description: "j.lee created a Gmail filter forwarding on-call alerts to j.lee-oncall@rocketstack.io — IT confirmed",
+    description: "j.lee created a Gmail filter forwarding on-call alerts to j.lee-oncall@rocketstack.io - IT confirmed",
     it_verify_result: "confirmed",
     raw: {
       "gws.eventName": "CREATE_GMAIL_FILTER", "gws.actorEmail": "j.lee@rocketstack.io",
@@ -590,7 +590,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "gws", event_type: "account_modify", severity: "low",
     vendor: "Google Workspace Audit", user_email: "s.kim@rocketstack.io", src_ip: "94.188.12.33",
     user_title: "Product Manager",
-    description: "s.kim created Gmail rule forwarding to s.kim.personal@gmail.com — parental leave",
+    description: "s.kim created Gmail rule forwarding to s.kim.personal@gmail.com - parental leave",
     expected_verdict: "fp",
     fp_explanation: "HR approved personal forwarding for s.kim's 3-month parental leave (ticket HR-2026-117). Common during leave periods.",
     raw: {
@@ -623,7 +623,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "action_result": "allowed" }
   },
 
-  // ── GitHub Audit Log — daily developer activity ───────────────────────────
+  // ── GitHub Audit Log - daily developer activity ───────────────────────────
   {
     id: "rs_gh_001", ts: "2026-05-10T09:05:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
@@ -667,11 +667,11 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     raw: {
       "github.action": "issues.opened", "github.actor": "d.shapira",
       "github.repo": "rocketstack/platform-core", "github.issue.number": "112",
-      "github.issue.title": "API rate limit hit in prod — need backoff strategy",
+      "github.issue.title": "API rate limit hit in prod - need backoff strategy",
       "github.issue.labels": "bug,production", "action_result": "allowed" }
   },
 
-  // ── CI/CD Pipeline — AWS CodePipeline + ECR ──────────────────────────────
+  // ── CI/CD Pipeline - AWS CodePipeline + ECR ──────────────────────────────
   {
     id: "rs_ci_001", ts: "2026-05-10T08:50:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
@@ -736,7 +736,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
            "container.services": "api,postgres,redis", "container.runtime": "docker" }
   },
 
-  // ── Google Workspace — email & calendar (normal) ──────────────────────────
+  // ── Google Workspace - email & calendar (normal) ──────────────────────────
   {
     id: "rs_gws_001", ts: "2026-05-10T09:30:00.000Z",
     source: "gws", event_type: "email_sent", severity: "informational",
@@ -745,7 +745,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "t.levy sent Q2 infrastructure cost report to CTO via Gmail",
     raw: {
       "gws.eventName": "message_sent", "gws.actorEmail": "t.levy@rocketstack.io",
-      "gws.to": "cto@rocketstack.io", "gws.subject": "Q2 Infrastructure Costs — Summary",
+      "gws.to": "cto@rocketstack.io", "gws.subject": "Q2 Infrastructure Costs - Summary",
       "gws.messageId": "<CA+JLZ3F7e2a1b9c8d4e5f6@mail.gmail.com>",
       "gws.ipAddress": "94.188.12.44", "action_result": "allowed" }
   },
@@ -787,7 +787,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     id: "rs_cw_001", ts: "2026-05-10T07:00:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "low",
     vendor: "AWS CloudWatch", user_email: undefined, src_ip: undefined,
-    description: "CloudWatch alarm 'prod-api-5xx-rate' triggered — error rate 2.3% (threshold 2%)",
+    description: "CloudWatch alarm 'prod-api-5xx-rate' triggered - error rate 2.3% (threshold 2%)",
     raw: {
       "aws.cloudtrail.eventSource": "cloudwatch.amazonaws.com",
       "aws.cloudtrail.eventName": "PutMetricAlarm",
@@ -799,7 +799,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     id: "rs_cw_002", ts: "2026-05-10T07:08:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
     vendor: "AWS CloudWatch", user_email: undefined, src_ip: undefined,
-    description: "CloudWatch alarm 'prod-api-5xx-rate' resolved — error rate back to 0.4%",
+    description: "CloudWatch alarm 'prod-api-5xx-rate' resolved - error rate back to 0.4%",
     raw: {
       "aws.cloudtrail.eventSource": "cloudwatch.amazonaws.com",
       "aws.cloudtrail.eventName": "PutMetricAlarm",
@@ -810,7 +810,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company 3 — MedCore Regional Hospital Network
+// Company 3 - MedCore Regional Hospital Network
 // SentinelOne + Azure AD (hybrid) + O365 + Check Point + Cisco VPN
 // Mix of clinical workstations, nursing stations, admin PCs
 // ─────────────────────────────────────────────────────────────────────────────
@@ -818,7 +818,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
 const MEDCORE_EVENTS: TelemetryEvent[] = [
 
   // ════════════════════════════════════════════════════════════════
-  //  ACTIVE DIRECTORY — morning shift logins, service accounts, admin ops
+  //  ACTIVE DIRECTORY - morning shift logins, service accounts, admin ops
   // ════════════════════════════════════════════════════════════════
   {
     id: "mc_ad_001", ts: "2026-05-10T06:58:00.000Z",
@@ -851,7 +851,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "ad", event_type: "auth_failure", severity: "low",
     vendor: "Windows Security", user_email: "r.bakker@medcorehealth.org", src_ip: "192.168.10.33",
     hostname: "WS-NURS-033",
-    description: "Failed logon by r.bakker@medcorehealth.org on WS-NURS-033 — bad password",
+    description: "Failed logon by r.bakker@medcorehealth.org on WS-NURS-033 - bad password",
     raw: { "winlog.event_id": "4625", "winlog.event_data.TargetUserName": "r.bakker", "winlog.event_data.TargetDomainName": "MEDCORE", "winlog.event_data.LogonType": "2", "winlog.event_data.Status": "0xC000006D", "winlog.event_data.SubStatus": "0xC000006A", "winlog.event_data.FailureReason": "%%2313", "winlog.event_data.WorkstationName": "WS-NURS-033", "action_result": "blocked" }
   },
   {
@@ -912,7 +912,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
 
   // ════════════════════════════════════════════════════════════════
-  //  SENTINELONE EDR — normal process activity + suspicious detections
+  //  SENTINELONE EDR - normal process activity + suspicious detections
   // ════════════════════════════════════════════════════════════════
   {
     id: "mc_s1_001", ts: "2026-05-10T07:01:00.000Z",
@@ -941,7 +941,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: { "s1.eventType": "Process Creation", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
   {
-    // ⚠ ATTACK STEP 1 — Spear-phishing email opened, Word doc with macro
+    // ⚠ ATTACK STEP 1 - Spear-phishing email opened, Word doc with macro
     id: "mc_s1_004", ts: "2026-05-10T08:41:00.000Z",
     source: "edr", event_type: "process_create", severity: "medium",
     vendor: "SentinelOne", hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org",
@@ -955,7 +955,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: { "s1.eventType": "Indicators", "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "process.code_signature.exists": false, "process.code_signature.trusted": false }
   },
   {
-    // ⚠ ATTACK STEP 2 — PowerShell with encoded command (not blocked)
+    // ⚠ ATTACK STEP 2 - PowerShell with encoded command (not blocked)
     id: "mc_s1_005", ts: "2026-05-10T08:43:00.000Z",
     source: "edr", event_type: "process_create", severity: "high",
     vendor: "SentinelOne", hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org",
@@ -977,7 +977,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: { "s1.eventType": "Threats", "s1.threat.threatName": "Trojan.GenericKD", "s1.threat.confidenceLevel": "malicious", "s1.threat.classification": "Trojan", "s1.threat.mitigationStatus": "mitigated", "threat.name": "Trojan.GenericKD", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true" }
   },
   {
-    // ⚠ ATTACK STEP 3 — LSASS memory read (credential dumping — detected, not blocked)
+    // ⚠ ATTACK STEP 3 - LSASS memory read (credential dumping - detected, not blocked)
     id: "mc_s1_007", ts: "2026-05-10T08:49:00.000Z",
     source: "edr", event_type: "process_access", severity: "critical",
     vendor: "SentinelOne", hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org",
@@ -992,7 +992,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   // ── Post-compromise: lateral movement from WS-MED-022 toward EMR server ──────
   // After LSASS dump, attacker uses harvested dr.vandijk credentials to pivot.
   {
-    // ⚠ ATTACK STEP 4 — SMB connection from compromised workstation to EMR server
+    // ⚠ ATTACK STEP 4 - SMB connection from compromised workstation to EMR server
     id: "mc_lat_001", ts: "2026-05-10T08:52:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "high",
     vendor: "Check Point NGFW", src_ip: "192.168.10.22", dst_ip: "192.168.10.200", dst_port: 445,
@@ -1026,7 +1026,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     }
   },
   {
-    // ⚠ ATTACK STEP 5 — NTLM lateral auth attempt on EMR server using harvested credentials
+    // ⚠ ATTACK STEP 5 - NTLM lateral auth attempt on EMR server using harvested credentials
     id: "mc_lat_002", ts: "2026-05-10T08:53:00.000Z",
     source: "ad", event_type: "auth_failure", severity: "critical",
     vendor: "Windows Security", hostname: "SRV-MEDCORE-EMR01", user_email: "dr.vandijk@medcorehealth.org",
@@ -1060,7 +1060,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     }
   },
   {
-    // ⚠ ATTACK STEP 6 — SentinelOne detects lateral movement tool (Mimikatz pass-the-hash)
+    // ⚠ ATTACK STEP 6 - SentinelOne detects lateral movement tool (Mimikatz pass-the-hash)
     id: "mc_lat_003", ts: "2026-05-10T08:54:00.000Z",
     source: "edr", event_type: "ids_signature", severity: "critical",
     vendor: "SentinelOne", hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org",
@@ -1093,7 +1093,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "net_connection", severity: "informational",
     vendor: "SentinelOne", hostname: "WS-MED-045", src_ip: "192.168.10.45",
     dst_ip: "52.96.12.14", dst_port: 443,
-    description: "Outbound HTTPS connection from WS-MED-045 to emr-api.epiqsystems.com — allowed",
+    description: "Outbound HTTPS connection from WS-MED-045 to emr-api.epiqsystems.com - allowed",
     network: { domain: "emr-api.epiqsystems.com", bytes_out: 8200, bytes_in: 1400 },
     raw: { "s1.eventType": "IP Connect", "action_result": "allowed", "process.name": "Epiq.EMR.exe" }
   },
@@ -1117,7 +1117,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
 
   // ════════════════════════════════════════════════════════════════
-  //  DNS — normal + suspicious lookups
+  //  DNS - normal + suspicious lookups
   // ════════════════════════════════════════════════════════════════
   {
     id: "mc_dns_001", ts: "2026-05-10T07:10:00.000Z",
@@ -1129,7 +1129,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "mc_dns_002", ts: "2026-05-10T08:44:00.000Z",
-    // ⚠ ATTACK STEP 2b — C2 domain resolution (typosquat, not on blocklist)
+    // ⚠ ATTACK STEP 2b - C2 domain resolution (typosquat, not on blocklist)
     source: "dns", event_type: "dns_query", severity: "high",
     vendor: "Infoblox DNS", hostname: "WS-MED-022", src_ip: "192.168.10.22",
     network: { domain: "medcore-portal.eu" },
@@ -1165,23 +1165,23 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
 
   // ════════════════════════════════════════════════════════════════
-  //  CHECK POINT NGFW — normal + suspicious outbound
+  //  CHECK POINT NGFW - normal + suspicious outbound
   // ════════════════════════════════════════════════════════════════
   {
     id: "mc_fw_001", ts: "2026-05-10T07:20:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Check Point NGFW", src_ip: "192.168.10.45", dst_ip: "52.96.12.14", dst_port: 443,
     protocol: "tcp",
-    description: "Outbound HTTPS connection from WS-MED-045 to outlook.office365.com — allowed",
+    description: "Outbound HTTPS connection from WS-MED-045 to outlook.office365.com - allowed",
     raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "124800", "firewall.action": "allow", "action_result": "allowed" }
   },
   {
     id: "mc_fw_002", ts: "2026-05-10T08:44:30.000Z",
-    // ⚠ ATTACK STEP 2c — Outbound HTTP to C2 IP (allowed — not in threat feed)
+    // ⚠ ATTACK STEP 2c - Outbound HTTP to C2 IP (allowed - not in threat feed)
     source: "firewall", event_type: "net_connection", severity: "high",
     vendor: "Check Point NGFW", src_ip: "192.168.10.22", dst_ip: "185.220.101.72", dst_port: 80,
     protocol: "tcp",
-    description: "Outbound HTTP connection from WS-MED-022 to 185.220.101.72 — uncategorised destination, review required",
+    description: "Outbound HTTP connection from WS-MED-022 to 185.220.101.72 - uncategorised destination, review required",
     mitre_technique: "T1071.001", expected_verdict: "tp", is_detection: true,
     raw: { "action": "Accept", "layer_name": "Application & URL Filtering", "service_id": "HTTP", "bytes_out": "3481", "app_category": "Uncategorized", "firewall.action": "allow", "action_result": "allowed" }
   },
@@ -1190,7 +1190,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "medium",
     vendor: "Check Point NGFW", src_ip: "192.168.10.88", dst_ip: "194.36.190.51", dst_port: 4444,
     protocol: "tcp",
-    description: "Outbound TCP connection from WS-ICU-088 to 194.36.190.51:4444 — non-standard port, blocked",
+    description: "Outbound TCP connection from WS-ICU-088 to 194.36.190.51:4444 - non-standard port, blocked",
     raw: { "action": "Drop", "layer_name": "Application & URL Filtering", "service_id": "Unknown", "firewall.action": "block", "action_result": "blocked", "destination.geo.country_name": "Russia" }
   },
   {
@@ -1198,7 +1198,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Check Point NGFW", src_ip: "192.168.10.200", dst_ip: "40.112.72.205", dst_port: 443,
     protocol: "tcp",
-    description: "Outbound HTTPS connection from SRV-MEDCORE-FILE01 to azure-backup.core.windows.net — backup traffic",
+    description: "Outbound HTTPS connection from SRV-MEDCORE-FILE01 to azure-backup.core.windows.net - backup traffic",
     raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "44040192", "firewall.action": "allow", "action_result": "allowed" }
   },
   {
@@ -1206,8 +1206,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "high",
     vendor: "Check Point NGFW", src_ip: "91.220.163.14", dst_ip: "192.168.10.1", dst_port: 3389,
     protocol: "tcp", expected_verdict: "fp",
-    fp_explanation: "91.220.163.14 is a known internet-wide scanner IP that repeatedly probes MedCore's public IP range for exposed RDP services. Check Point's Threat Prevention layer dropped the connection at the perimeter before any handshake completed — no other telemetry from this IP correlates with a targeted or successful attempt.",
-    description: "Inbound RDP scan from 91.220.163.14 to 192.168.10.1 — blocked, known scanner IP",
+    fp_explanation: "91.220.163.14 is a known internet-wide scanner IP that repeatedly probes MedCore's public IP range for exposed RDP services. Check Point's Threat Prevention layer dropped the connection at the perimeter before any handshake completed - no other telemetry from this IP correlates with a targeted or successful attempt.",
+    description: "Inbound RDP scan from 91.220.163.14 to 192.168.10.1 - blocked, known scanner IP",
     raw: { "action": "Drop", "layer_name": "Threat Prevention", "protection_name": "Microsoft RDP Scan", "protection_type": "Scanner", "firewall.action": "block", "action_result": "blocked" }
   },
   {
@@ -1215,19 +1215,19 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Check Point NGFW", src_ip: "192.168.50.15", dst_ip: "192.168.10.200", dst_port: 445,
     protocol: "tcp",
-    description: "SMB connection from MED-DEVICE-VLAN to SRV-MEDCORE-FILE01 — file share access",
+    description: "SMB connection from MED-DEVICE-VLAN to SRV-MEDCORE-FILE01 - file share access",
     raw: { "action": "Accept", "layer_name": "Network", "service_id": "Microsoft-DS", "firewall.action": "allow", "action_result": "allowed" }
   },
 
   // ════════════════════════════════════════════════════════════════
-  //  O365 / EXCHANGE — email traffic, SharePoint, Teams
+  //  O365 / EXCHANGE - email traffic, SharePoint, Teams
   // ════════════════════════════════════════════════════════════════
   {
     id: "mc_o365_001", ts: "2026-05-10T07:50:00.000Z",
     source: "o365", event_type: "email_received", severity: "informational",
     vendor: "Microsoft 365 Unified Audit Log", user_email: "dr.vandijk@medcorehealth.org",
     network: { domain: "hl7.org" },
-    description: "Newsletter email received from newsletter@hl7.org — delivered to dr.vandijk@medcorehealth.org",
+    description: "Newsletter email received from newsletter@hl7.org - delivered to dr.vandijk@medcorehealth.org",
     raw: {
       "data.office365.Operation": "MessageDelivered",
       "data.office365.ClientIP": "52.101.22.4",
@@ -1236,19 +1236,19 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "data.office365.ThreatTypes": "None",
       "email.from.address": "newsletter@hl7.org",
       "email.to.address": "dr.vandijk@medcorehealth.org",
-      "email.subject": "HL7 Newsletter — May 2026",
+      "email.subject": "HL7 Newsletter - May 2026",
       "email.spf": "pass",
       "email.dkim": "pass",
       "email.dmarc": "pass",
       "action_result": "allowed" }
   },
   {
-    // ⚠ ATTACK STEP 0 — Phishing email delivered (ATP missed the .docm attachment)
+    // ⚠ ATTACK STEP 0 - Phishing email delivered (ATP missed the .docm attachment)
     id: "mc_o365_002", ts: "2026-05-10T08:38:00.000Z",
     source: "o365", event_type: "email_received", severity: "high",
     vendor: "Microsoft 365 Unified Audit Log", user_email: "dr.vandijk@medcorehealth.org",
     network: { domain: "medconference2026.org" },
-    description: "Email with attachment MedConf2026_Schedule.docm received from agenda@medconference2026.org — delivered to dr.vandijk",
+    description: "Email with attachment MedConf2026_Schedule.docm received from agenda@medconference2026.org - delivered to dr.vandijk",
     mitre_technique: "T1566.001", expected_verdict: "tp", is_detection: true,
     raw: {
       "data.office365.Operation": "MessageDelivered",
@@ -1278,7 +1278,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "o365", event_type: "email_received", severity: "informational",
     vendor: "Microsoft 365 Unified Audit Log", user_email: "n.smits@medcorehealth.org",
     network: { domain: "medcorehealth.org" },
-    description: "HR email received from hr@medcorehealth.org — delivered to n.smits@medcorehealth.org",
+    description: "HR email received from hr@medcorehealth.org - delivered to n.smits@medcorehealth.org",
     raw: {
       "data.office365.Operation": "MessageDelivered",
       "data.office365.ClientIP": "192.168.10.1",
@@ -1286,7 +1286,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "data.office365.ThreatTypes": "None",
       "email.from.address": "hr@medcorehealth.org",
       "email.to.address": "n.smits@medcorehealth.org",
-      "email.subject": "May 2026 HR Bulletin — Staff Updates",
+      "email.subject": "May 2026 HR Bulletin - Staff Updates",
       "email.spf": "pass",
       "email.dkim": "pass",
       "email.dmarc": "pass",
@@ -1307,7 +1307,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "data.office365.DmarcResult": "Fail",
       "email.from.address": "billing@rx-pharmacy-nl.com",
       "email.to.address": "r.bakker@medcorehealth.org",
-      "email.subject": "Invoice for Medical Supplies — April 2026",
+      "email.subject": "Invoice for Medical Supplies - April 2026",
       "email.spf": "fail",
       "email.dkim": "fail",
       "email.dmarc": "fail",
@@ -1323,7 +1323,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
 
   // ════════════════════════════════════════════════════════════════
-  //  AZURE MONITOR — cloud ops, Key Vault, identity
+  //  AZURE MONITOR - cloud ops, Key Vault, identity
   // ════════════════════════════════════════════════════════════════
   {
     id: "mc_az_001", ts: "2026-05-10T07:30:00.000Z",
@@ -1344,7 +1344,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "cloud_azure", event_type: "cloud_api_call", severity: "medium",
     vendor: "Microsoft Entra ID", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
     expected_verdict: "tp",
-    description: "dr.vandijk's account queried the full Azure AD user directory — unusual for a clinical account",
+    description: "dr.vandijk's account queried the full Azure AD user directory - unusual for a clinical account",
     mitre_technique: "T1087.002",
     raw: { "azure.activitylogs.operationName": "Microsoft.Graph/users/read", "azure.resource.id": "/v1.0/users", "azure.activitylogs.resultType": "Succeeded", "azure.client_app": "Microsoft Office", "action_result": "allowed" }
   },
@@ -1381,7 +1381,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "ad", event_type: "auth_failure", severity: "medium",
     vendor: "Windows Security", user_email: "nurse.vandijk@medcorehealth.org", src_ip: "10.20.11.88",
     hostname: "NRS-TERM-088", expected_verdict: "fp",
-    fp_explanation: "A nursing staff member attempted to log in with their old password at shift start — common on the first day of a new password rotation cycle. MedCore's AD policy rotates passwords every 60 days; a single failure from a known workstation at shift-start time is an expected pattern, not an attack.",
+    fp_explanation: "A nursing staff member attempted to log in with their old password at shift start - common on the first day of a new password rotation cycle. MedCore's AD policy rotates passwords every 60 days; a single failure from a known workstation at shift-start time is an expected pattern, not an attack.",
     description: "nurse.vandijk single login failure at shift start (password rotation)",
     raw: { "winlog.event_id": "4625", "winlog.event_data.TargetUserName": "nurse.vandijk", "winlog.event_data.TargetDomainName": "MEDCORE", "winlog.event_data.LogonType": "2", "winlog.event_data.Status": "0xC000006D", "winlog.event_data.SubStatus": "0xC000006A", "winlog.event_data.FailureReason": "%%2313", "winlog.event_data.WorkstationName": "NRS-TERM-088", "action_result": "blocked" }
   },
@@ -1399,13 +1399,13 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "process_create", severity: "medium",
     vendor: "SentinelOne", hostname: "WS-MED-045", user_email: "admin.vandenberg@medcorehealth.org",
     src_ip: "192.168.10.45", expected_verdict: "fp",
-    fp_explanation: "IT admin ran a PowerShell script to bulk-reset passwords for 30 nurse accounts ahead of a compliance audit. The script uses Set-ADAccountPassword in a loop — this matches 'password brute-force preparation' heuristics but is fully authorised (change CHG-MC-441). The admin account is a Tier-1 admin with MFA, running from the IT jump server.",
+    fp_explanation: "IT admin ran a PowerShell script to bulk-reset passwords for 30 nurse accounts ahead of a compliance audit. The script uses Set-ADAccountPassword in a loop - this matches 'password brute-force preparation' heuristics but is fully authorised (change CHG-MC-441). The admin account is a Tier-1 admin with MFA, running from the IT jump server.",
     description: "admin.vandenberg bulk AD password reset (compliance audit prep)",
     process: { name: "powershell.exe", pid: 6700, parent_name: "explorer.exe", parent_pid: 5900, user: "admin.vandenberg", cmdline: "powershell.exe -File C:\\IT\\scripts\\Reset-NursePasswords.ps1 -OU 'OU=Nurses,DC=medcore,DC=nl'" },
     raw: { "s1.eventType": "Process Creation", "s1.detection.classification_source": "Engine", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
 
-  // ── IT Verify events — MedCore ───────────────────────────────────────────────
+  // ── IT Verify events - MedCore ───────────────────────────────────────────────
   {
     id: "mc_itv_001", ts: "2026-05-10T08:55:00.000Z",
     source: "ad", event_type: "account_create", severity: "medium",
@@ -1462,13 +1462,13 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     }
   },
 
-  // ── Normal auth-failure noise — MedCore ─────────────────────────────────────
+  // ── Normal auth-failure noise - MedCore ─────────────────────────────────────
   {
     id: "mc_fail_01", ts: "2026-05-10T07:12:00.000Z",
     source: "vpn", event_type: "vpn_failed", severity: "low",
     vendor: "Cisco AnyConnect", user_email: "dr.dejong@medcorehealth.org", src_ip: "84.22.114.55",
     user_title: "Cardiologist",
-    description: "dr.dejong failed Cisco VPN authentication — expired token, re-authentication required",
+    description: "dr.dejong failed Cisco VPN authentication - expired token, re-authentication required",
     raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure",
            "cisco.asa.reason": "Token expired", "cisco.asa.tunnel_group": "Clinical-VPN",
            "source.ip": "84.22.114.55", "action_result": "deny" }
@@ -1489,13 +1489,13 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "ad", event_type: "auth_failure", severity: "low",
     vendor: "Windows Security", hostname: "WS-NURS-022",
     user_email: "svc-ehr@medcorehealth.org", src_ip: "10.20.10.22",
-    description: "The svc-ehr service account failed to log in to SRV-MEDCORE-EHR01 — service restart required",
+    description: "The svc-ehr service account failed to log in to SRV-MEDCORE-EHR01 - service restart required",
     raw: { "event.code": "4625", "winlog.event_data.LogonType": "5", "winlog.event_data.SubStatus": "0xC000006A",
-           "winlog.event_data.FailureReason": "Service account NTLM failure — password likely rotated",
+           "winlog.event_data.FailureReason": "Service account NTLM failure - password likely rotated",
            "user.name": "MC\\svc-ehr", "host.name": "WS-NURS-022", "action_result": "deny" }
   },
 
-  // ── Brute-force attack events — MedCore ─────────────────────────────────────
+  // ── Brute-force attack events - MedCore ─────────────────────────────────────
   {
     id: "mc_bf_01", ts: "2026-05-10T10:15:00.000Z",
     source: "vpn", event_type: "vpn_failed", severity: "high",
@@ -1555,13 +1555,13 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
            "action_result": "blocked" }
   },
 
-  // ── Bulk data copy — MedCore ─────────────────────────────────────────────────
+  // ── Bulk data copy - MedCore ─────────────────────────────────────────────────
   {
     id: "mc_copy_01", ts: "2026-05-10T01:00:00.000Z",
     source: "edr", event_type: "process_create", severity: "informational",
     vendor: "SentinelOne", hostname: "SRV-MED-NAS01", user_email: "svc-backup@medcorehealth.org",
     src_ip: "10.50.1.10",
-    description: "svc-backup copied 47 GB of clinical records to NAS-BACKUP-01 — scheduled nightly archive",
+    description: "svc-backup copied 47 GB of clinical records to NAS-BACKUP-01 - scheduled nightly archive",
     process: { name: "robocopy.exe", pid: 2200, parent_name: "svchost.exe", parent_pid: 2100,
                user: "svc-backup", cmdline: "robocopy \\\\SRV-MED-EHR01\\records \\\\NAS-BACKUP-01\\ehr-archive /MIR /LOG:backup.log" },
     raw: {
@@ -1575,7 +1575,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "SentinelOne", hostname: "WS-MED-NL-042", user_email: "dr.smit@medcorehealth.org",
     user_title: "Cardiologist",
     src_ip: "10.50.2.42",
-    description: "dr.smit exported 3,120 anonymised EHR records — ethics-committee-approved research",
+    description: "dr.smit exported 3,120 anonymised EHR records - ethics-committee-approved research",
     expected_verdict: "fp",
     fp_explanation: "Ethics committee and DPO approved dr.smit EHR export for Utrecht oncology study. Approval ref MED-DPO-2026-08. Records are fully anonymised.",
     process: { name: "ExportTool.exe", pid: 4410, parent_name: "explorer.exe", parent_pid: 3900,
@@ -1599,7 +1599,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "s1.dlp_policy": "GDPR-Patient-PII", "s1.dlp_violation": "true",
       "usb.serial": "4A9C-0012", "usb.vendor": "SanDisk",
       "file.name": "patient_records_export.csv", "file.size_bytes": "62914560",
-      "dlp.records_count": "8400", "dlp.data_classification": "PHI — HL7 FHIR",
+      "dlp.records_count": "8400", "dlp.data_classification": "PHI - HL7 FHIR",
       "action_result": "blocked" }
   },
   {
@@ -1620,7 +1620,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "action_result": "allowed" }
   },
 
-  // ── Email forwarding — MedCore (O365) ────────────────────────────────────────
+  // ── Email forwarding - MedCore (O365) ────────────────────────────────────────
   {
     id: "mc_fwd_01", ts: "2026-05-10T07:55:00.000Z",
     source: "o365", event_type: "account_modify", severity: "informational",
@@ -1667,7 +1667,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "data.office365.Workload": "Exchange", "action_result": "allowed" }
   },
 
-  // ── EMR patient record access — clinical daily activity ─────────────────
+  // ── EMR patient record access - clinical daily activity ─────────────────
   {
     id: "mc_emr_001", ts: "2026-05-10T07:20:00.000Z",
     source: "db_monitor", event_type: "db_query", severity: "informational",
@@ -1718,7 +1718,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "emr.session_id": "EMR-1b2c3d4e", "action_result": "allowed" }
   },
 
-  // ── PACS imaging system — normal radiology activity ───────────────────────
+  // ── PACS imaging system - normal radiology activity ───────────────────────
   {
     id: "mc_pacs_001", ts: "2026-05-10T07:30:00.000Z",
     source: "edr", event_type: "net_connection", severity: "informational",
@@ -1749,7 +1749,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "pacs.patient_id": "P-19203", "network.destination": "SRV-MEDCORE-PACS01" }
   },
 
-  // ── O365 / Teams — clinical collaboration events ──────────────────────────
+  // ── O365 / Teams - clinical collaboration events ──────────────────────────
   {
     id: "mc_teams_001", ts: "2026-05-10T09:00:00.000Z",
     source: "o365", event_type: "auth_success", severity: "informational",
@@ -1772,7 +1772,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "data.office365.UserId": "k.devries@medcorehealth.org",
       "email.from.address": "k.devries@medcorehealth.org",
       "email.to.address": "it-management@medcorehealth.org",
-      "email.subject": "Monthly Patch Compliance Report — May 2026",
+      "email.subject": "Monthly Patch Compliance Report - May 2026",
       "email.spf": "pass",
       "email.dkim": "pass",
       "email.dmarc": "pass",
@@ -1818,13 +1818,13 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "s1.agent.update_type": "agent-package", "action_result": "allowed" }
   },
 
-  // ── More Check Point firewall — normal internal traffic ───────────────────
+  // ── More Check Point firewall - normal internal traffic ───────────────────
   {
     id: "mc_fw_007", ts: "2026-05-10T07:05:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Check Point NGFW", src_ip: "192.168.10.67", dst_ip: "192.168.50.10", dst_port: 11112,
     protocol: "tcp",
-    description: "Internal PACS query from WS-MED-067 to SRV-MEDCORE-PACS01 — allowed",
+    description: "Internal PACS query from WS-MED-067 to SRV-MEDCORE-PACS01 - allowed",
     raw: { "action": "Accept", "layer_name": "Network",
            "service_id": "DICOM", "bytes": "44032", "firewall.action": "allow", "action_result": "allowed" }
   },
@@ -1833,7 +1833,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Check Point NGFW", src_ip: "192.168.10.200", dst_ip: "20.190.128.1", dst_port: 443,
     protocol: "tcp",
-    description: "Outbound HTTPS from SRV-MEDCORE-EMR01 to Microsoft Azure — expected Epiq cloud sync",
+    description: "Outbound HTTPS from SRV-MEDCORE-EMR01 to Microsoft Azure - expected Epiq cloud sync",
     raw: { "action": "Accept", "layer_name": "Application & URL Filtering",
            "app_name": "Office365", "bytes_out": "204800",
            "firewall.action": "allow", "action_result": "allowed" }
@@ -1843,12 +1843,12 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Check Point NGFW", src_ip: "192.168.10.33", dst_ip: "192.168.10.200", dst_port: 443,
     protocol: "tcp",
-    description: "Nurse station WS-NURS-033 connected to Epiq EMR API on SRV-MEDCORE-EMR01 — allowed",
+    description: "Nurse station WS-NURS-033 connected to Epiq EMR API on SRV-MEDCORE-EMR01 - allowed",
     raw: { "action": "Accept", "layer_name": "Network",
            "service_id": "HTTPS", "bytes": "51200", "firewall.action": "allow", "action_result": "allowed" }
   },
 
-  // ── More Cisco VPN — remote clinical staff ────────────────────────────────
+  // ── More Cisco VPN - remote clinical staff ────────────────────────────────
   {
     id: "mc_vpn_003", ts: "2026-05-10T06:50:00.000Z",
     source: "vpn", event_type: "vpn_login", severity: "informational",
@@ -1871,7 +1871,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company 4 — GlobalLogis Distribution SA
+// Company 4 - GlobalLogis Distribution SA
 // Sophos Intercept X + AWS + On-prem AD + Cisco ASA/Firepower
 // Large fleet: office PCs, warehouse terminals, Linux servers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1926,7 +1926,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     id: "gl_sx_001", ts: "2026-05-10T06:05:00.000Z",
     source: "edr", event_type: "process_create", severity: "informational",
     vendor: "Sophos Intercept X", hostname: "WS-LOG-045", src_ip: "10.50.1.45",
-    description: "explorer.exe launched SAP.exe on WS-LOG-045 — user opened SAP ERP",
+    description: "explorer.exe launched SAP.exe on WS-LOG-045 - user opened SAP ERP",
     process: { name: "SAP.exe", pid: 2200, parent_name: "explorer.exe", parent_pid: 1900, user: "h.muller" },
     raw: { "sophos.event_type": "Process", "sophos.detection_name": "none", "action_result": "allowed" }
   },
@@ -1969,7 +1969,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "52.28.41.8", dst_port: 443,
     protocol: "tcp",
-    description: "Outbound HTTPS connection from SRV-GL-WMS01 to SAP cloud API — allowed",
+    description: "Outbound HTTPS connection from SRV-GL-WMS01 to SAP cloud API - allowed",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" }
   },
   {
@@ -1977,8 +1977,8 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "high",
     vendor: "Cisco Firepower", src_ip: "185.220.101.33", dst_ip: "10.50.1.1", dst_port: 80,
     protocol: "tcp", expected_verdict: "fp",
-    fp_explanation: "185.220.101.33 is a well-known Tor exit node that opportunistically scans internet-facing IP ranges. Cisco Firepower's Security Intelligence feed blocked the connection before any application data was exchanged, and no other GlobalLogis telemetry correlates with this IP — routine background noise, not a targeted attempt.",
-    description: "Inbound HTTP connection from TOR exit node 185.220.101.33 to 10.50.1.1 — blocked by firewall",
+    fp_explanation: "185.220.101.33 is a well-known Tor exit node that opportunistically scans internet-facing IP ranges. Cisco Firepower's Security Intelligence feed blocked the connection before any application data was exchanged, and no other GlobalLogis telemetry correlates with this IP - routine background noise, not a targeted attempt.",
+    description: "Inbound HTTP connection from TOR exit node 185.220.101.33 to 10.50.1.1 - blocked by firewall",
     raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "TOR-Anonymous", "firewall.action": "block", "action_result": "blocked" }
   },
   // ── VPN (Cisco AnyConnect) ────────────────────────────────────────────────
@@ -2002,11 +2002,11 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "sysmon", event_type: "net_connection", severity: "informational",
     vendor: "Microsoft Sysmon", hostname: "WS-LOG-045", src_ip: "10.50.1.45",
     dst_ip: "10.50.5.10", dst_port: 1433,
-    description: "MSSQL connection from WS-LOG-045 to SRV-GL-WMS01 — database query activity",
+    description: "MSSQL connection from WS-LOG-045 to SRV-GL-WMS01 - database query activity",
     network: { domain: "SRV-GL-WMS01" },
     raw: { "winlog.event_id": "3", "winlog.channel": "Microsoft-Windows-Sysmon/Operational", "winlog.provider_name": "Microsoft-Windows-Sysmon", "winlog.event_data.Image": "C:\\Program Files\\GL\\WmsClient\\WmsClient.exe", "winlog.event_data.Protocol": "tcp", "winlog.event_data.SourceIp": "10.50.1.45", "winlog.event_data.DestinationIp": "10.50.5.10", "winlog.event_data.DestinationPort": "1433", "winlog.event_data.DestinationHostname": "SRV-GL-WMS01", "action_result": "allowed" }
   },
-  // ── Sophos — additional events ────────────────────────────────────────────
+  // ── Sophos - additional events ────────────────────────────────────────────
   {
     id: "gl_sx_004", ts: "2026-05-10T07:10:00.000Z",
     source: "edr", event_type: "process_create", severity: "informational",
@@ -2031,7 +2031,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     process: { name: "robocopy.exe", pid: 6100, parent_name: "svchost.exe", parent_pid: 5900, user: "svc-backup", cmdline: "robocopy E:\\WMS\\data \\\\NAS-GL-01\\wms-backup /MIR /LOG:backup.log" },
     raw: { "sophos.event_type": "Process", "sophos.detection_name": "none", "action_result": "allowed" }
   },
-  // ── Active Directory — additional events ──────────────────────────────────
+  // ── Active Directory - additional events ──────────────────────────────────
   {
     id: "gl_ad_005", ts: "2026-05-10T05:55:00.000Z",
     source: "ad", event_type: "auth_success", severity: "informational",
@@ -2055,7 +2055,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     description: "a.weber applied GPO GL-Warehouse-Lockdown to WH-OU",
     raw: { "winlog.event_id": "5136", "winlog.event_data.ObjectClass": "groupPolicyContainer", "winlog.event_data.ObjectDN": "GL-Warehouse-Lockdown", "action_result": "allowed" }
   },
-  // ── Cisco ASA / Firepower — additional events ─────────────────────────────
+  // ── Cisco ASA / Firepower - additional events ─────────────────────────────
   {
     id: "gl_fw_003", ts: "2026-05-10T07:35:00.000Z",
     source: "vpn", event_type: "vpn_login", severity: "informational",
@@ -2068,7 +2068,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Cisco Firepower", src_ip: "10.50.5.20", dst_ip: "52.28.41.8", dst_port: 8443,
     protocol: "tcp",
-    description: "Outbound HTTPS connection from SRV-GL-ERP01 to SAP S/4HANA cloud connector — allowed",
+    description: "Outbound HTTPS connection from SRV-GL-ERP01 to SAP S/4HANA cloud connector - allowed",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "ERP-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" }
   },
   {
@@ -2076,10 +2076,10 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "medium",
     vendor: "Cisco Firepower", src_ip: "91.195.240.126", dst_ip: "10.50.1.1", dst_port: 23,
     protocol: "tcp",
-    description: "Inbound Telnet scan from 91.195.240.126 to 10.50.1.1 — blocked, legacy protocol probe",
+    description: "Inbound Telnet scan from 91.195.240.126 to 10.50.1.1 - blocked, legacy protocol probe",
     raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Scanner", "firewall.action": "block", "action_result": "blocked", "source.geo.country_name": "China" }
   },
-  // ── Sysmon — additional events ────────────────────────────────────────────
+  // ── Sysmon - additional events ────────────────────────────────────────────
   {
     id: "gl_sysmon_003", ts: "2026-05-10T09:50:00.000Z",
     source: "sysmon", event_type: "file_modify", severity: "informational",
@@ -2109,8 +2109,8 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "medium",
     vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "89.207.132.170", dst_port: 21,
     protocol: "tcp", expected_verdict: "fp",
-    fp_explanation: "SRV-GL-WMS01 connects to a logistics partner (DHL DE) via FTP every morning at 06:30 to exchange shipping manifests. The FTP session is to a whitelisted partner IP (DHL's EDI gateway) and was added to the firewall allowlist under change CHG-GL-120. The large upload is daily shipment data — expected for a logistics operator.",
-    description: "FTP connection from SRV-GL-WMS01 to DHL EDI gateway — daily shipping manifest transfer",
+    fp_explanation: "SRV-GL-WMS01 connects to a logistics partner (DHL DE) via FTP every morning at 06:30 to exchange shipping manifests. The FTP session is to a whitelisted partner IP (DHL's EDI gateway) and was added to the firewall allowlist under change CHG-GL-120. The large upload is daily shipment data - expected for a logistics operator.",
+    description: "FTP connection from SRV-GL-WMS01 to DHL EDI gateway - daily shipping manifest transfer",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-FTP-Partner", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "52428800", "firewall.action": "allow", "action_result": "allowed" }
   },
   {
@@ -2128,12 +2128,12 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "ad", event_type: "auth_success", severity: "medium",
     vendor: "Windows Security", user_email: "dc-replication@globallogis.de",
     src_ip: "10.50.100.5", hostname: "DC-GL-FRA01", expected_verdict: "fp",
-    fp_explanation: "This is the nightly AD replication sync between GlobalLogis domain controllers in Frankfurt and Warsaw. The 22:00 logon is an automated DC replication account (Event ID 4624, logon type 3) — not a human login. Replication traffic between DCs is expected and should not be flagged as suspicious.",
-    description: "Active Directory replication logon from DC-GL-FRA01 to DC-GL-WAW01 — nightly domain sync",
+    fp_explanation: "This is the nightly AD replication sync between GlobalLogis domain controllers in Frankfurt and Warsaw. The 22:00 logon is an automated DC replication account (Event ID 4624, logon type 3) - not a human login. Replication traffic between DCs is expected and should not be flagged as suspicious.",
+    description: "Active Directory replication logon from DC-GL-FRA01 to DC-GL-WAW01 - nightly domain sync",
     raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "3", "winlog.event_data.ProcessName": "lsass.exe", "winlog.event_data.AuthenticationPackageName": "Kerberos", "action_result": "allowed" }
   },
 
-  // ── IT Verify events — GlobalLogis ──────────────────────────────────────────
+  // ── IT Verify events - GlobalLogis ──────────────────────────────────────────
   {
     id: "gl_itv_001", ts: "2026-05-10T09:30:00.000Z",
     source: "ad", event_type: "account_modify", severity: "medium",
@@ -2182,7 +2182,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     }
   },
 
-  // ── Normal auth-failure noise — GlobalLogis ──────────────────────────────────
+  // ── Normal auth-failure noise - GlobalLogis ──────────────────────────────────
   {
     id: "gl_fail_01", ts: "2026-05-10T06:45:00.000Z",
     source: "ad", event_type: "auth_failure", severity: "low",
@@ -2200,7 +2200,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     user_email: "svc-erp@globallogis.de", src_ip: "10.50.5.20",
     description: "svc-erp failed SAP authentication (service restart pending)",
     raw: { "winlog.event_id": "4625", "winlog.event_data.LogonType": "5", "winlog.event_data.SubStatus": "0xC000006A",
-           "winlog.event_data.FailureReason": "Service account NTLM failure — SAP restart needed",
+           "winlog.event_data.FailureReason": "Service account NTLM failure - SAP restart needed",
            "user.name": "GL\\svc-erp", "host.name": "SRV-GL-ERP01", "action_result": "deny" }
   },
   {
@@ -2209,13 +2209,13 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", hostname: "WS-LOG-088",
     user_email: "k.bauer@globallogis.de", src_ip: "10.50.2.88",
     user_title: "Logistics Coordinator",
-    description: "k.bauer failed RDP login on SRV-GL-ERP01 — password expired, 90-day rotation policy",
+    description: "k.bauer failed RDP login on SRV-GL-ERP01 - password expired, 90-day rotation policy",
     raw: { "winlog.event_id": "4625", "winlog.event_data.LogonType": "10", "winlog.event_data.SubStatus": "0xC0000071",
            "winlog.event_data.FailureReason": "Password expired", "user.name": "GL\\k.bauer",
            "host.name": "WS-LOG-088", "action_result": "deny" }
   },
 
-  // ── Brute-force attack events — GlobalLogis ──────────────────────────────────
+  // ── Brute-force attack events - GlobalLogis ──────────────────────────────────
   {
     id: "gl_bf_01", ts: "2026-05-10T09:10:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "high",
@@ -2278,13 +2278,13 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
            "action_result": "blocked" }
   },
 
-  // ── Bulk data copy — GlobalLogis ─────────────────────────────────────────────
+  // ── Bulk data copy - GlobalLogis ─────────────────────────────────────────────
   {
     id: "gl_copy_01", ts: "2026-05-10T01:30:00.000Z",
     source: "sysmon", event_type: "process_create", severity: "informational",
     vendor: "Microsoft Sysmon", hostname: "SRV-GL-SAP01", user_email: "svc-backup@globallogis.de",
     src_ip: "10.20.1.30",
-    description: "svc-backup copied 31 GB of SAP data to NAS-GL-ARCHIVE — scheduled nightly backup job",
+    description: "svc-backup copied 31 GB of SAP data to NAS-GL-ARCHIVE - scheduled nightly backup job",
     process: { name: "robocopy.exe", pid: 5900, parent_name: "svchost.exe", parent_pid: 5800,
                user: "GL\\svc-backup", cmdline: "robocopy E:\\SAP\\export \\\\NAS-GL-ARCHIVE\\sap-nightly /MIR /LOG:sap-backup.log" },
     raw: {
@@ -2344,13 +2344,13 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
       "action_result": "allowed" }
   },
 
-  // ── Email forwarding — GlobalLogis (O365 / Exchange) ─────────────────────────
+  // ── Email forwarding - GlobalLogis (O365 / Exchange) ─────────────────────────
   {
     id: "gl_fwd_01", ts: "2026-05-10T08:12:00.000Z",
     source: "o365", event_type: "account_modify", severity: "informational",
     vendor: "Microsoft 365 Unified Audit Log", user_email: "m.wagner@globallogis.de", src_ip: "10.20.2.55",
     user_title: "Logistics Coordinator",
-    description: "m.wagner created an Exchange rule forwarding dispatch alerts to a personal Outlook address — IT confirmed",
+    description: "m.wagner created an Exchange rule forwarding dispatch alerts to a personal Outlook address - IT confirmed",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirms request INC-GL-7740: m.wagner asked to forward dispatch alerts to their personal Outlook address while on the night rota, approved by the logistics manager.",
     raw: {
@@ -2395,7 +2395,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company 5 — QuantumBank Corp.
+// Company 5 - QuantumBank Corp.
 // CrowdStrike Falcon Elite + AWS GovCloud + Okta + CyberArk PAM + Zscaler
 // Banking/Finance: strictest controls, PCI-DSS, MFA everywhere
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2452,7 +2452,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "CrowdStrike Falcon", hostname: "WKS-QB-055", user_email: "f.zimmermann@quantumbank.ch",
     user_title: "Equity Trader",
     src_ip: "10.100.1.55",
-    description: "explorer.exe launched BLOOMBERG.exe on WKS-QB-055 — user opened Bloomberg terminal",
+    description: "explorer.exe launched BLOOMBERG.exe on WKS-QB-055 - user opened Bloomberg terminal",
     process: { name: "BLOOMBERG.exe", pid: 4400, parent_name: "explorer.exe", parent_pid: 3100, user: "f.zimmermann", integrity: "medium" },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
@@ -2489,7 +2489,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     id: "qb_aws_002", ts: "2026-05-10T12:00:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "low",
     vendor: "AWS CloudTrail",
-    description: "AWS Config rule PCI-DSS-EBS-Encryption evaluated on production account — compliant",
+    description: "AWS Config rule PCI-DSS-EBS-Encryption evaluated on production account - compliant",
     raw: { "aws.cloudtrail.eventSource": "config.amazonaws.com", "aws.cloudtrail.eventName": "PutEvaluations", "aws.cloudtrail.request_parameters.config_rule_name": "PCI-DSS-EBS-Encryption", "aws.cloudtrail.request_parameters.compliance_type": "COMPLIANT", "action_result": "allowed" }
   },
   // ── Palo Alto NGFW ────────────────────────────────────────────────────────
@@ -2498,7 +2498,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     source: "firewall", event_type: "net_connection", severity: "informational",
     vendor: "Palo Alto Networks PAN-OS", src_ip: "10.100.1.55", dst_ip: "185.85.221.10", dst_port: 443,
     protocol: "tcp",
-    description: "Outbound HTTPS connection from WKS-QB-055 to bloomberg.com — allowed",
+    description: "Outbound HTTPS connection from WKS-QB-055 to bloomberg.com - allowed",
     raw: { "pan.action": "allow", "pan.app": "bloomberg", "pan.category": "financial-services", "firewall.action": "allow", "action_result": "allowed" }
   },
   {
@@ -2517,7 +2517,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Zscaler Internet Access", user_email: "a.keller@quantumbank.ch", src_ip: "10.100.1.44",
     user_title: "Quantitative Analyst",
     network: { url: "https://bankersassociation.ch/regulations/2026", method: "GET", status: 200, bytes_in: 14200 },
-    description: "Outbound HTTPS connection from WKS-QB-044 to bankersassociation.ch — allowed, industry association",
+    description: "Outbound HTTPS connection from WKS-QB-044 to bankersassociation.ch - allowed, industry association",
     raw: { "zscaler.action": "Allowed", "zscaler.category": "Banking/Finance", "zscaler.dlp_scan": "no_violation", "action_result": "allowed", "session.blocked": "false" }
   },
   {
@@ -2526,7 +2526,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Zscaler Internet Access", user_email: "p.meier@quantumbank.ch", src_ip: "10.100.1.88",
     user_title: "Operations Manager",
     network: { url: "https://file-sharing-site.biz/download/doc.zip", method: "GET", status: 403 },
-    description: "p.meier attempted upload to file-sharing-site.biz — blocked by DLP policy, uncategorised site",
+    description: "p.meier attempted upload to file-sharing-site.biz - blocked by DLP policy, uncategorised site",
     raw: { "zscaler.action": "Blocked", "zscaler.category": "Uncategorized", "zscaler.dlp_scan": "blocked", "action_result": "blocked", "session.blocked": "true", "policy.name": "DLP-Block-FileSharing" }
   },
   // ── False Positive Training Events ────────────────────────────────────────
@@ -2545,7 +2545,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     source: "okta", event_type: "auth_success", severity: "medium",
     vendor: "Okta", user_email: "cyberark.svc@quantumbank.ch", src_ip: "10.100.200.5",
     expected_verdict: "fp",
-    fp_explanation: "CyberArk PAM checks out privileged credentials on behalf of an authorised admin every day at 11:30 for routine maintenance. The Okta event is the PAM service authenticating to retrieve the vaulted credential — not a human login. The source IP (10.100.200.5) is the CyberArk appliance and is whitelisted in Okta's IP policy.",
+    fp_explanation: "CyberArk PAM checks out privileged credentials on behalf of an authorised admin every day at 11:30 for routine maintenance. The Okta event is the PAM service authenticating to retrieve the vaulted credential - not a human login. The source IP (10.100.200.5) is the CyberArk appliance and is whitelisted in Okta's IP policy.",
     description: "CyberArk PAM credential checkout at 11:30 (scheduled admin task)",
     raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.actor.displayName": "CyberArk PAM Service", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "LOW", "okta.client.geographicalContext.country": "CH", "action_result": "allowed" }
   },
@@ -2554,12 +2554,12 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     source: "cloudtrail", event_type: "cloud_api_call", severity: "high",
     vendor: "AWS CloudTrail", user_email: undefined, src_ip: "10.100.200.10",
     expected_verdict: "fp",
-    fp_explanation: "QuantumBank runs end-of-day batch settlement jobs at 03:00 UTC. The job calls multiple high-privilege AWS APIs (IAM AssumeRole, KMS Decrypt, S3 PutObject) in rapid succession — this pattern looks like credential abuse but is a fully authorised settlement pipeline (role: qb-settlement-batch). The job runs every weekday and is catalogued in the Change Advisory Board.",
-    description: "The qb-settlement-batch job decrypted settlement data and wrote results to S3 at 03:15 — scheduled end-of-day process",
+    fp_explanation: "QuantumBank runs end-of-day batch settlement jobs at 03:00 UTC. The job calls multiple high-privilege AWS APIs (IAM AssumeRole, KMS Decrypt, S3 PutObject) in rapid succession - this pattern looks like credential abuse but is a fully authorised settlement pipeline (role: qb-settlement-batch). The job runs every weekday and is catalogued in the Change Advisory Board.",
+    description: "The qb-settlement-batch job decrypted settlement data and wrote results to S3 at 03:15 - scheduled end-of-day process",
     raw: { "aws.cloudtrail.eventSource": "kms.amazonaws.com", "aws.cloudtrail.eventName": "Decrypt", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "qb-settlement-batch", "aws.cloudtrail.requestParameters.key_id": "arn:aws:kms:eu-central-2:513908224471:key/qb-settlement-key", "action_result": "allowed" }
   },
 
-  // ── IT Verify events — QuantumBank ──────────────────────────────────────────
+  // ── IT Verify events - QuantumBank ──────────────────────────────────────────
   {
     id: "qb_itv_001", ts: "2026-05-10T09:15:00.000Z",
     source: "okta", event_type: "role_assignment", severity: "high",
@@ -2567,7 +2567,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     hostname: "WKS-QB-SEC01",
     description: "security-admin assigned Privileged Vault Admin role to h.weber",
     expected_verdict: "fp",
-    fp_explanation: "Access request AR-QB-0302 was approved by the CISO and Head of IT Risk for a time-limited DR rehearsal on 2026-05-10 only; the role is auto-revoked at 18:00 via CyberArk JIT policy. A confirmed, time-boxed, pre-approved privilege grant — not an attack.",
+    fp_explanation: "Access request AR-QB-0302 was approved by the CISO and Head of IT Risk for a time-limited DR rehearsal on 2026-05-10 only; the role is auto-revoked at 18:00 via CyberArk JIT policy. A confirmed, time-boxed, pre-approved privilege grant - not an attack.",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Access request AR-QB-0302 approved by CISO and Head of IT Risk. h.weber (Senior Security Engineer) promoted to Privileged Vault Admin for a time-limited DR rehearsal (2026-05-10 only). Role will be revoked automatically at 18:00 via CyberArk JIT policy.",
     raw: {
@@ -2611,13 +2611,13 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     }
   },
 
-  // ── Normal auth-failure noise — QuantumBank ──────────────────────────────────
+  // ── Normal auth-failure noise - QuantumBank ──────────────────────────────────
   {
     id: "qb_fail_01", ts: "2026-05-10T08:10:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "low",
     vendor: "Okta", user_email: "r.keller@quantumbank.ch", src_ip: "10.100.1.33",
     hostname: "WKS-QB-033",
-    description: "r.keller failed Okta login on WKS-QB-012 — FIDO2 key not present on new laptop",
+    description: "r.keller failed Okta login on WKS-QB-012 - FIDO2 key not present on new laptop",
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS", "okta.debugContext.debugData.factor": "FIDO2",
            "okta.debugContext.debugData.riskLevel": "LOW", "okta.device.managed": "false",
@@ -2628,7 +2628,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     source: "okta", event_type: "auth_failure", severity: "low",
     vendor: "Okta", user_email: "b.schwarzer@quantumbank.ch", src_ip: "10.100.1.77",
     hostname: "WKS-QB-077",
-    description: "b.schwarzer failed OTP challenge on CyberArk PAM — wrong code, possible time drift",
+    description: "b.schwarzer failed OTP challenge on CyberArk PAM - wrong code, possible time drift",
     raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "PASSCODE_INVALID", "okta.debugContext.debugData.factor": "TOTP",
            "okta.debugContext.debugData.riskLevel": "LOW", "source.ip": "10.100.1.77", "action_result": "deny" }
@@ -2637,13 +2637,13 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     id: "qb_fail_03", ts: "2026-05-10T15:30:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "low",
     vendor: "Okta", user_email: "cyberark.svc@quantumbank.ch", src_ip: "10.100.200.5",
-    description: "CyberArk PAM session token expired for privileged account — re-authentication required",
+    description: "CyberArk PAM session token expired for privileged account - re-authentication required",
     raw: { "okta.eventType": "user.session.expire", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "SESSION_EXPIRED", "okta.debugContext.debugData.riskLevel": "LOW",
            "source.ip": "10.100.200.5", "action_result": "deny" }
   },
 
-  // ── Brute-force attack events — QuantumBank ──────────────────────────────────
+  // ── Brute-force attack events - QuantumBank ──────────────────────────────────
   {
     id: "qb_bf_01", ts: "2026-05-10T13:05:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "high",
@@ -2696,13 +2696,13 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
            "action_result": "blocked" }
   },
 
-  // ── Bulk data copy — QuantumBank ─────────────────────────────────────────────
+  // ── Bulk data copy - QuantumBank ─────────────────────────────────────────────
   {
     id: "qb_copy_01", ts: "2026-05-10T01:15:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
     vendor: "AWS CloudTrail", user_email: "svc-backup@quantumbank.ch", src_ip: "10.100.1.5",
     hostname: "SRV-QB-BACKUP01",
-    description: "svc-backup copied 18 GB from core-banking-prod to the DR vault — CyberArk-approved nightly backup",
+    description: "svc-backup copied 18 GB from core-banking-prod to the DR vault - CyberArk-approved nightly backup",
     raw: {
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject",
       "aws.cloudtrail.awsRegion": "eu-central-2",
@@ -2718,7 +2718,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     source: "cloudtrail", event_type: "cloud_api_call", severity: "medium",
     vendor: "AWS CloudTrail", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     hostname: "WKS-QB-020",
-    description: "l.brunner exported 12 GB PCI audit dataset from S3 — quarterly regulator submission",
+    description: "l.brunner exported 12 GB PCI audit dataset from S3 - quarterly regulator submission",
     expected_verdict: "fp",
     fp_explanation: "CISO and Compliance approved this export for BaFin Q2 PCI-DSS audit (QB-COMPLIANCE-2026-Q2). CyberArk session recorded. Standard quarterly process.",
     raw: {
@@ -2738,7 +2738,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     src_ip: "10.100.1.33",
     mitre_technique: "T1052.001", mitre_tactic: "Exfiltration",
     expected_verdict: "tp", is_detection: true,
-    description: "Falcon Device Control policy 'PCI-USB-Block' blocked an unmanaged USB mass-storage device h.weber connected to WKS-QB-033 at 19:22 — the drive was denied all access before any file could be written. WKS-QB-033 is a workstation that handles SWIFT financial data.",
+    description: "Falcon Device Control policy 'PCI-USB-Block' blocked an unmanaged USB mass-storage device h.weber connected to WKS-QB-033 at 19:22 - the drive was denied all access before any file could be written. WKS-QB-033 is a workstation that handles SWIFT financial data.",
     raw: {
       "crowdstrike.event_simpleName": "DcUsbDeviceConnected", "crowdstrike.PatternDispositionDescription": "blocked",
       "crowdstrike.PolicyName": "PCI-USB-Block", 
@@ -2766,7 +2766,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "transfer.objects": "28100", "action_result": "allowed" }
   },
 
-  // ── Email forwarding — QuantumBank (Okta / Zscaler) ──────────────────────────
+  // ── Email forwarding - QuantumBank (Okta / Zscaler) ──────────────────────────
   {
     id: "qb_fwd_01", ts: "2026-05-10T08:45:00.000Z",
     source: "o365", event_type: "account_modify", severity: "informational",
@@ -2787,7 +2787,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     source: "o365", event_type: "account_modify", severity: "low",
     vendor: "Microsoft 365 Unified Audit Log", user_email: "m.huber@quantumbank.ch", src_ip: "10.100.1.44",
     user_title: "Compliance Officer",
-    description: "m.huber set O365 forwarding to m.huber.sabbatical@outlook.com — approved sabbatical leave",
+    description: "m.huber set O365 forwarding to m.huber.sabbatical@outlook.com - approved sabbatical leave",
     expected_verdict: "fp",
     fp_explanation: "HR and IT pre-approved this forwarding for m.huber's 6-month sabbatical (QB-HR-2026-S14). Standard sabbatical leave procedure at QuantumBank.",
     raw: {
@@ -2817,21 +2817,21 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
   },
 ];
 
-// COMPANY_PROFILES (profile metadata) moved to companyProfilesMeta.ts — see the
+// COMPANY_PROFILES (profile metadata) moved to companyProfilesMeta.ts - see the
 // note at the top of this file. Import it from there for render-time use.
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Attack event pools — 3 chains × 4 events per company
+// Attack event pools - 3 chains × 4 events per company
 // Each chain escalates: medium → medium → high → critical
 // Chains are 4 events each; attackChainLen=4 picks one full chain per injection
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── NexaCorp Financial Ltd. (MDE + Azure AD + O365 + Palo Alto) ──────────────
 // Chain A: Phishing → O365 credential theft → inbox rule exfil
-// Chain B: BEC — CEO account takeover → wire fraud instruction
-// Chain C: Insider — departing trader bulk-downloads deal models
+// Chain B: BEC - CEO account takeover → wire fraud instruction
+// Chain C: Insider - departing trader bulk-downloads deal models
 /**
- * A SIEM alert row (Microsoft Sentinel SecurityAlert shape) — the page an analyst actually gets:
+ * A SIEM alert row (Microsoft Sentinel SecurityAlert shape) - the page an analyst actually gets:
  * entities and signals only, never the verdict or the lesson.
  */
 function chainAlert(o: { id: string; ts: string; name: string; product: string; severity: "Medium" | "High"; mitre: string;
@@ -2855,7 +2855,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     id: "nx_a1", ts: "2026-05-10T09:05:00.000Z", source: "o365", event_type: "email_received",
     severity: "medium", vendor: "Microsoft 365 Unified Audit Log", user_email: "c.thornton@nexacorp.com",
     network: { domain: "nexacorp-secure-portal.com" },
-    description: "Email from it-support@nexacorp-secure-portal.com delivered to c.thornton — DKIM and DMARC failed",
+    description: "Email from it-support@nexacorp-secure-portal.com delivered to c.thornton - DKIM and DMARC failed",
     mitre_technique: "T1566.002",
     raw: {
       "data.office365.Operation": "MessageDelivered",
@@ -3108,8 +3108,8 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
 ];
 
 // ── MedCore Regional Hospital (SentinelOne + Azure AD + Check Point) ──────────
-// Chain A: Ransomware — phishing docm → macro → C2 → EMR encryption
-// Chain B: Insider nurse — bulk patient records download → USB exfil
+// Chain A: Ransomware - phishing docm → macro → C2 → EMR encryption
+// Chain B: Insider nurse - bulk patient records download → USB exfil
 // Chain C: VPN brute force → WS-NURS lateral movement → PACS access
 const MEDCORE_ATTACKS: TelemetryEvent[] = [
   // ── Chain A ──────────────────────────────────────────────────────────────
@@ -3117,7 +3117,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     id: "mc_a1", ts: "2026-05-10T08:08:00.000Z", source: "o365", event_type: "email_received",
     severity: "medium", vendor: "Microsoft 365 Unified Audit Log", user_email: "dr.peters@medcorehealth.org",
     network: { domain: "rijksoverheid-zorg.nl" },
-    description: "Email with attachment Melding_2026_05.docm delivered from meldpunt@rijksoverheid-zorg.nl to dr.peters — DKIM and DMARC failed",
+    description: "Email with attachment Melding_2026_05.docm delivered from meldpunt@rijksoverheid-zorg.nl to dr.peters - DKIM and DMARC failed",
     mitre_technique: "T1566.001",
     raw: {
       "data.office365.Operation": "MessageDelivered",
@@ -3126,7 +3126,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
       "data.office365.SenderDomain": "rijksoverheid-zorg.nl",
       "email.from.address": "meldpunt@rijksoverheid-zorg.nl",
       "email.to.address": "dr.peters@medcorehealth.org",
-      "email.subject": "Melding zorgstelsel — actie vereist (mei 2026)",
+      "email.subject": "Melding zorgstelsel - actie vereist (mei 2026)",
       "email.spf": "pass",
       "email.dkim": "fail",
       "email.dmarc": "fail",
@@ -3143,7 +3143,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
   },
   {
     // DNS is SIEM-normalized (ECS dns.* schema), so it is attributed to the DNS feed,
-    // not to a firewall — a NGFW is not the DNS sensor of record here (audit V-02).
+    // not to a firewall - a NGFW is not the DNS sensor of record here (audit V-02).
     id: "mc_a3", ts: "2026-05-10T08:16:00.000Z", source: "dns", event_type: "dns_query",
     severity: "high", hostname: "WS-MED-PETERS", src_ip: "192.168.10.78",
     network: { domain: "cdn-medupdate.net" },
@@ -3206,7 +3206,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
   {
     id: "mc_c2", ts: "2026-05-10T13:16:00.000Z", source: "vpn", event_type: "vpn_login",
     severity: "medium", vendor: "Cisco AnyConnect", user_email: "p.hoekstra@medcorehealth.org", src_ip: "45.141.215.66",
-    description: "p.hoekstra connected to the VPN from 45.141.215.66 (Kyiv, UA) — the same IP as the earlier failures",
+    description: "p.hoekstra connected to the VPN from 45.141.215.66 (Kyiv, UA) - the same IP as the earlier failures",
     mitre_technique: "T1078",
     raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Physicians-Full", "cisco.asa.aaa_server_group": "DUO-RADIUS", "cisco.asa.username": "p.hoekstra", "source.ip": "45.141.215.66", "source.geo.country_iso_code": "UA", "action_result": "allowed" }
   },
@@ -3227,7 +3227,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     process: { name: "robocopy.exe", pid: 5512, parent_name: "cmd.exe", parent_pid: 5511, user: "p.hoekstra", cmdline: "robocopy \\\\SRV-MEDCORE-PACS01\\DICOM\\2026 C:\\Temp\\backup /E /Z" },
     raw: { "s1.indicator.name": "SUSPICIOUS_BULK_COPY", "action_result": "allowed", "robocopy.files_copied": "8841" }
   },
-  // ── Chain D — Cisco VPN brute force → clinical account compromise ──────────
+  // ── Chain D - Cisco VPN brute force → clinical account compromise ──────────
   {
     id: "mc_d1", ts: "2026-05-10T18:00:00.000Z", source: "vpn", event_type: "vpn_failed",
     severity: "high", vendor: "Cisco AnyConnect", src_ip: "194.165.16.72",
@@ -3459,7 +3459,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
   {
     id: "rs_a2", ts: "2026-05-10T10:14:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "medium", vendor: "AWS CloudTrail", user_email: "t.levy@rocketstack.io", src_ip: "185.220.101.15",
-    description: "t.levy's AWS credentials listed all S3 buckets from a TOR exit IP — reconnaissance ahead of the object read four minutes later",
+    description: "t.levy's AWS credentials listed all S3 buckets from a TOR exit IP - reconnaissance ahead of the object read four minutes later",
     mitre_technique: "T1619",
     raw: { "aws.cloudtrail.eventName": "ListBuckets", "aws.cloudtrail.userAgent": "python-urllib3/1.26.9", "aws.cloudtrail.sourceIPAddress": "185.220.101.15", "action_result": "allowed" }
   },
@@ -3488,7 +3488,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
   },
   {
     // DNS is SIEM-normalized (ECS dns.* schema), attributed to the DNS feed rather than
-    // the firewall — a FortiGate is not the DNS sensor of record here (audit V-02).
+    // the firewall - a FortiGate is not the DNS sensor of record here (audit V-02).
     id: "rs_b2", ts: "2026-05-10T08:48:00.000Z", source: "dns", event_type: "dns_query",
     severity: "medium", hostname: "LAP-003", src_ip: "172.16.10.3",
     network: { domain: "cdn-update-rs.io" },
@@ -3506,7 +3506,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
   },
   chainAlert({ id: "rs_b3b", ts: "2026-05-10T08:52:20.000Z", name: "Reverse Shell", product: "CrowdStrike Falcon", severity: "High", mitre: "T1059.004", host: "LAP-003", props: {"Process": "bash", "Parent Process": "node", "Remote Address": "203.0.113.41:4444"}, description: "Sentinel received the CrowdStrike Falcon detection \"Reverse Shell\" (High) on LAP-003: bash under node, remote address 203.0.113.41:4444." }),
   {
-    // Note: kept as ONE CloudTrail record (AttachUserPolicy) — a real CloudTrail
+    // Note: kept as ONE CloudTrail record (AttachUserPolicy) - a real CloudTrail
     // event is always a single API call, never a "CreateUser,AttachUserPolicy"
     // composite; the preceding CreateUser call by the same actor/session is
     // referenced in the description as context, not fabricated as a raw field.
@@ -3534,7 +3534,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", "crowdstrike.FileName": "xmrig", "crowdstrike.FilePath": "/tmp/.cache/", "crowdstrike.ParentBaseFileName": "sh", "crowdstrike.UserName": "root", "crowdstrike.SHA256HashData": "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf", "action_result": "allowed" }
   },
   {
-    // LAP-007 is t.levy's laptop, not an EC2 instance — it has no instance-profile
+    // LAP-007 is t.levy's laptop, not an EC2 instance - it has no instance-profile
     // metadata service to abuse. The escaped container instead used t.levy's own
     // cached AWS SSO (Okta-federated) session credentials found in ~/.aws on the
     // host, so this is an AssumedRole call from the laptop's own IP, not IMDS.
@@ -3551,7 +3551,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     mitre_technique: "T1048",
     raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000013", "data.level": "notice", "data.action": "accept", "data.service": "PGSQL", "data.app": "PostgreSQL", "data.policyname": "dev-to-prod", "data.sentbyte": "12480", "data.rcvdbyte": "4404019200", "data.duration": "612", "data.srccountry": "Reserved", "firewall.action": "allow", "action_result": "allowed" }
   },
-  // ── Chain D — Okta credential stuffing → AWS console compromise ───────────
+  // ── Chain D - Okta credential stuffing → AWS console compromise ───────────
   {
     id: "rs_d1", ts: "2026-05-10T18:10:00.000Z", source: "okta", event_type: "auth_failure",
     severity: "high", vendor: "Okta", src_ip: "89.248.171.44",
@@ -3609,14 +3609,14 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
 // ── GlobalLogis Distribution SA (Sophos + AWS EU + Cisco Firepower) ───────────
 // Chain A: Finance phishing → WMS server compromise → FTP exfil
 // Chain B: Warehouse terminal malware → lateral to ERP → bulk export
-// Chain C: Disgruntled employee — bulk customer database download + upload
+// Chain C: Disgruntled employee - bulk customer database download + upload
 const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
   // ── Chain A ──────────────────────────────────────────────────────────────
   {
     id: "gl_a1", ts: "2026-05-10T09:05:00.000Z", source: "o365", event_type: "email_received",
     severity: "medium", vendor: "Microsoft 365 Unified Audit Log", user_email: "k.schmidt@globallogis.de",
     network: { domain: "globallogis-rechnungen.de" },
-    description: "Email with attachment GL_Rechnung_8812.xlsm delivered from rechnungen@globallogis-rechnungen.de to k.schmidt — DKIM and DMARC failed",
+    description: "Email with attachment GL_Rechnung_8812.xlsm delivered from rechnungen@globallogis-rechnungen.de to k.schmidt - DKIM and DMARC failed",
     mitre_technique: "T1566.001",
     raw: {
       "data.office365.Operation": "MessageDelivered",
@@ -3625,7 +3625,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
       "data.office365.SenderDomain": "globallogis-rechnungen.de",
       "email.from.address": "rechnungen@globallogis-rechnungen.de",
       "email.to.address": "k.schmidt@globallogis.de",
-      "email.subject": "Rechnung 8812 — GlobalLogis Auftrag Mai 2026",
+      "email.subject": "Rechnung 8812 - GlobalLogis Auftrag Mai 2026",
       "email.spf": "pass",
       "email.dkim": "fail",
       "email.dmarc": "fail",
@@ -3652,7 +3652,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
   {
     id: "gl_a4", ts: "2026-05-10T10:05:00.000Z", source: "firewall", event_type: "net_connection",
     severity: "critical", vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "195.123.226.33", dst_port: 21,
-    description: "142MB FTP data transfer from SRV-GL-WMS01 to external server 195.123.226.33 — large outbound transfer on legacy protocol",
+    description: "142MB FTP data transfer from SRV-GL-WMS01 to external server 195.123.226.33 - large outbound transfer on legacy protocol",
     mitre_technique: "T1048.003",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "148897792", "cisco.ftd.rule_name": "default-outbound", "firewall.action": "allow", "action_result": "allowed" }
   },
@@ -3725,7 +3725,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     file: { path: "C:\\Windows\\Temp\\svchostd.exe", sha256: "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa" },
     raw: { "sophos.event_type": "Process", "sophos.detection_name": "Mal/Wiper-A", "action_result": "process_killed", "process.killed": "true", "file.hash.sha256": "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa", "process.parent.name": "cmd.exe", "process.parent.command_line": "cmd.exe /c net stop MSSQLSERVER /y && C:\\Windows\\Temp\\svchostd.exe" }
   },
-  // ── Chain D — SSH brute force → Linux server root compromise ──────────────
+  // ── Chain D - SSH brute force → Linux server root compromise ──────────────
   {
     id: "gl_d1", ts: "2026-05-10T18:05:00.000Z", source: "firewall", event_type: "net_connection",
     severity: "high", vendor: "Cisco Firepower", src_ip: "45.142.212.100",
@@ -3782,14 +3782,14 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
 
 // ── QuantumBank Corp. (CrowdStrike Falcon Elite + Okta + CyberArk + Zscaler) ──
 // Chain A: MFA fatigue → Cobalt Strike → session takeover in core banking
-// Chain B: CyberArk vault abuse — unauthorized privilege escalation
-// Chain C: Rogue trading — market manipulation via authorized account
+// Chain B: CyberArk vault abuse - unauthorized privilege escalation
+// Chain C: Rogue trading - market manipulation via authorized account
 const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
   // ── Chain A ──────────────────────────────────────────────────────────────
   {
     id: "qb_a1", ts: "2026-05-10T08:55:00.000Z", source: "okta", event_type: "mfa_challenge",
     severity: "medium", vendor: "Okta", user_email: "m.huber@quantumbank.ch", src_ip: "91.234.100.22",
-    description: "m.huber — 14 MFA pushes from Moldova, approved on #14 (MFA fatigue)",
+    description: "m.huber - 14 MFA pushes from Moldova, approved on #14 (MFA fatigue)",
     mitre_technique: "T1621",
     raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "CRITICAL", "okta.outcome.result": "SUCCESS", "okta.client.ipAddress": "91.234.100.22", "okta.client.geographicalContext.country": "MD", "action_result": "allowed" }
   },
@@ -3829,16 +3829,16 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
   {
     id: "qb_b2", ts: "2026-05-10T11:08:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "medium", vendor: "AWS CloudTrail", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
-    description: "l.brunner disabled encryption on the qb-trades-db01 database — no change ticket on file",
+    description: "l.brunner disabled encryption on the qb-trades-db01 database - no change ticket on file",
     mitre_technique: "T1565.001",
     raw: { "aws.cloudtrail.eventName": "ModifyDBInstance", "aws.cloudtrail.request_parameters.db_instance_id": "qb-trades-db01", "aws.cloudtrail.request_parameters.storage_encrypted": "false", "aws.cloudtrail.awsRegion": "eu-central-2", "action_result": "allowed" }
   },
   {
     id: "qb_b3", ts: "2026-05-10T11:20:00.000Z", source: "proxy", event_type: "http_request",
     severity: "high", vendor: "Zscaler Internet Access", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
-    description: "l.brunner attempted upload of trading-positions-may2026.pdf to transfer.sh — blocked by DLP, confidential financial data violation",
+    description: "l.brunner attempted upload of trading-positions-may2026.pdf to transfer.sh - blocked by DLP, confidential financial data violation",
     mitre_technique: "T1567",
-    raw: { "zscaler.action": "Blocked", "zscaler.dlp_scan": "confidential_financial_data", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Confidential — Financial Records / Trading Positions (312 matches)", "session.blocked": "true", "action_result": "blocked" }
+    raw: { "zscaler.action": "Blocked", "zscaler.dlp_scan": "confidential_financial_data", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Confidential - Financial Records / Trading Positions (312 matches)", "session.blocked": "true", "action_result": "blocked" }
   },
   {
     id: "qb_b4", ts: "2026-05-10T11:32:00.000Z", is_detection: true, source: "edr", event_type: "process_create",
@@ -3878,7 +3878,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     mitre_technique: "T1685.002",
     raw: { "aws.cloudtrail.eventName": "DeleteObject", "aws.cloudtrail.requestParameters.bucketName": "qb-audit-logs-immutable", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-trading-okta-role/a.keller@quantumbank.ch", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAQBTRADINGKELLER", "aws.cloudtrail.recipientAccountId": "552134008821", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "Access Denied because object protected by object lock.", "aws.cloudtrail.sourceIPAddress": "188.166.44.12", "action_result": "blocked" }
   },
-  // ── Chain D — SWIFT password spray → core banking session hijack ──────────
+  // ── Chain D - SWIFT password spray → core banking session hijack ──────────
   {
     id: "qb_d1", ts: "2026-05-10T18:20:00.000Z", source: "okta", event_type: "auth_failure",
     severity: "high", vendor: "Okta", src_ip: "5.188.210.100",
@@ -3939,7 +3939,7 @@ export const COMPANY_EVENTS: Record<string, TelemetryEvent[]> = {
   quantumbank:  QUANTUMBANK_EVENTS
 };
 
-// Attack pools keyed by company id — 3 chains × 4 events each (attackChainLen=4)
+// Attack pools keyed by company id - 3 chains × 4 events each (attackChainLen=4)
 export const COMPANY_ATTACKS: Record<string, TelemetryEvent[]> = {
   nexacorp:    NEXACORP_ATTACKS,
   rocketstack: ROCKETSTACK_ATTACKS,

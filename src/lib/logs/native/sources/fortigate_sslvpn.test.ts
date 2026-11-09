@@ -9,7 +9,7 @@ import { isGatewayHost, hms } from "./remote-access-shared";
 const CARD = "vpn-fortigate-sslvpn.md";
 const asLog = (r: Record<string, unknown>): NativeLog => ({ sourceId: "fortigate_sslvpn", kind: kindOf(r) ?? "?", format: "kv", record: r, timeMs: Math.floor(Number(String(r.eventtime).slice(0, 13))) });
 
-describe("fortigate_sslvpn — card samples", () => {
+describe("fortigate_sslvpn - card samples", () => {
   const recs = cardRecords(CARD);
   it("every card sample validates with zero violations (no sample skipped)", () => {
     expect(recs.length).toBe(9);
@@ -23,7 +23,7 @@ describe("fortigate_sslvpn — card samples", () => {
   });
 });
 
-describe("fortigate_sslvpn — corpus conversion", () => {
+describe("fortigate_sslvpn - corpus conversion", () => {
   const conv = convertCorpus(source);
 
   it("converted logs validate with zero violations and carry a raw line", () => {
@@ -66,7 +66,7 @@ describe("fortigate_sslvpn — corpus conversion", () => {
   });
 });
 
-describe("fortigate_sslvpn — use cases", () => {
+describe("fortigate_sslvpn - use cases", () => {
   const conv = convertCorpus(source);
   const recs = cardRecords(CARD);
   const fail = recs.find(r => r.action === "ssl-login-fail")!;

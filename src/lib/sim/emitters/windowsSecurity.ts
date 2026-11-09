@@ -1,7 +1,7 @@
 /**
  * Windows Security event-log EMITTERS (the microsoft-active-directory vendor).
  *
- * The AD / identity half of the estate — the Security event log a domain controller or
+ * The AD / identity half of the estate - the Security event log a domain controller or
  * a member server writes: 4625 failed logon, 4624 successful logon, 5140 share access,
  * 4663 object access. These are the events the brute-force / lateral-movement scenarios
  * live in. Same contract as the endpoint emitters: a typed call renders a complete
@@ -38,7 +38,7 @@ interface WinCtx {
   description?: string;
   /** Which plane logged it. A domain controller's Security log is the directory
    *  ("ad", the default); a MEMBER server's own Security/System log is host
-   *  telemetry ("windows_security") — a 4624 written by FS-SRV-03 is not an
+   *  telemetry ("windows_security") - a 4624 written by FS-SRV-03 is not an
    *  Active Directory event. */
   logSource?: "ad" | "windows_security";
 }
@@ -78,7 +78,7 @@ function emailOf(c: WinCtx): string | undefined {
   return d ? `${c.targetUser}@${d}` : undefined;
 }
 
-// ── 4625 — an account failed to log on ───────────────────────────────────────────────
+// ── 4625 - an account failed to log on ───────────────────────────────────────────────
 export interface WinFailedLogonOpts extends WinCtx {
   subStatus: string;            // 0xC0000064 (no such user) | 0xC000006A (bad password) …
   logonType?: number;           // 3 network, 10 RemoteInteractive …
@@ -129,7 +129,7 @@ export function winFailedLogon(o: WinFailedLogonOpts): TelemetryEvent {
   };
 }
 
-// ── 4624 — an account was successfully logged on ─────────────────────────────────────
+// ── 4624 - an account was successfully logged on ─────────────────────────────────────
 export interface WinLogonOpts extends WinCtx {
   logonType?: number;
   authPackage?: string;
@@ -141,7 +141,7 @@ export interface WinLogonOpts extends WinCtx {
   subjectSid?: string;          // the caller (e.g. SRV$ for a RemoteInteractive)
   subjectUser?: string;
   processName?: string;
-  lmPackage?: string;           // LmPackageName (e.g. "NTLM V2") — an NTLM-logon tell
+  lmPackage?: string;           // LmPackageName (e.g. "NTLM V2") - an NTLM-logon tell
   keyLength?: string;           // KeyLength (e.g. "0" for NTLM)
 }
 export function winLogon(o: WinLogonOpts): TelemetryEvent {
@@ -192,7 +192,7 @@ export function winLogon(o: WinLogonOpts): TelemetryEvent {
   };
 }
 
-// ── 5140 — a network share object was accessed ───────────────────────────────────────
+// ── 5140 - a network share object was accessed ───────────────────────────────────────
 export interface WinShareAccessOpts extends WinCtx {
   shareName: string;            // \\*\HR-Confidential
   shareLocalPath?: string;
@@ -232,7 +232,7 @@ export function winShareAccess(o: WinShareAccessOpts): TelemetryEvent {
   };
 }
 
-// ── 4663 — an attempt was made to access an object (a file read) ──────────────────────
+// ── 4663 - an attempt was made to access an object (a file read) ──────────────────────
 export interface WinObjectAccessOpts extends WinCtx {
   objectName: string;           // full path of the file
   fileName?: string;
@@ -276,7 +276,7 @@ export function winObjectAccess(o: WinObjectAccessOpts): TelemetryEvent {
   };
 }
 
-// ── 4672 — special privileges assigned to a new logon ─────────────────────────────────
+// ── 4672 - special privileges assigned to a new logon ─────────────────────────────────
 const ADMIN_PRIVS = "SeSecurityPrivilege\n\t\t\tSeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeDebugPrivilege\n\t\t\tSeTcbPrivilege";
 export interface WinSpecialPrivsOpts extends WinCtx {
   logonId?: string;
@@ -313,7 +313,7 @@ export function winSpecialPrivileges(o: WinSpecialPrivsOpts): TelemetryEvent {
   };
 }
 
-// ── 4673 — a privileged service was called (sensitive-privilege use) ──────────────────
+// ── 4673 - a privileged service was called (sensitive-privilege use) ──────────────────
 export interface WinSensitivePrivUseOpts extends WinCtx {
   logonId?: string;
   privilegeUsed?: string;          // e.g. "SeImpersonatePrivilege"
@@ -353,7 +353,7 @@ export function winSensitivePrivUse(o: WinSensitivePrivUseOpts): TelemetryEvent 
   };
 }
 
-// ── 7045 — a new service was installed (SCM; the PsExec / remote-service pattern) ──────
+// ── 7045 - a new service was installed (SCM; the PsExec / remote-service pattern) ──────
 export interface WinServiceInstallOpts extends WinCtx {
   serviceName: string;
   imagePath: string;
@@ -388,8 +388,8 @@ export function winServiceInstall(o: WinServiceInstallOpts): TelemetryEvent {
   };
 }
 
-// ── 4776 — the DC attempted to validate an account's credentials (NTLM) ───────────────
-// Logged by the DOMAIN CONTROLLER that validated an NTLM logon on a member server —
+// ── 4776 - the DC attempted to validate an account's credentials (NTLM) ───────────────
+// Logged by the DOMAIN CONTROLLER that validated an NTLM logon on a member server -
 // the directory-side twin of a Type-3 NTLM 4624. Workstation is the CLIENT's name.
 export interface WinCredValidationOpts extends WinCtx {
   workstation: string;
@@ -423,7 +423,7 @@ export function winCredentialValidation(o: WinCredValidationOpts): TelemetryEven
   };
 }
 
-// ── 5145 — a network share object was checked for access (detailed file share) ────────
+// ── 5145 - a network share object was checked for access (detailed file share) ────────
 // The per-FILE twin of 5140: which file under which share, with which access. A PsExec
 // landing shows up as WriteData on PSEXESVC.exe under ADMIN$ plus the svcctl pipe
 // under IPC$ (the Service Control Manager RPC endpoint used to create the service).
@@ -472,7 +472,7 @@ export function winDetailedShareAccess(o: WinDetailedShareOpts): TelemetryEvent 
   };
 }
 
-// ── 4688 — a new process was created (Windows Security process-creation auditing) ──────
+// ── 4688 - a new process was created (Windows Security process-creation auditing) ──────
 export interface WinProcessCreateOpts extends WinCtx {
   processName: string;
   processPath: string;
@@ -525,7 +525,7 @@ export function winProcessCreate(o: WinProcessCreateOpts): TelemetryEvent {
   };
 }
 
-// ── 4662 — an operation was performed on a directory-service object ───────────────────
+// ── 4662 - an operation was performed on a directory-service object ───────────────────
 // The DACL-audited AD object read/write (DCSync source object, AD FS DKM key, …). The
 // acting principal is the subject; there is no target user, so `targetUser` carries the
 // subject account name.
@@ -575,7 +575,7 @@ export function winDirectoryAccess(o: WinDirectoryAccessOpts): TelemetryEvent {
   };
 }
 
-// ── 5058 — key file operation (CNG/private-key read/export) ───────────────────────────
+// ── 5058 - key file operation (CNG/private-key read/export) ───────────────────────────
 export interface WinKeyFileOpOpts extends WinCtx {
   subjectSid?: string;
   subjectLogonId?: string;
@@ -625,7 +625,7 @@ export function winKeyFileOp(o: WinKeyFileOpOpts): TelemetryEvent {
   };
 }
 
-// ── AD FS 1200 — a federation token was issued (AD FS/Admin audit) ────────────────────
+// ── AD FS 1200 - a federation token was issued (AD FS/Admin audit) ────────────────────
 // The attributable record every genuine federation token leaves on the AD FS server; its
 // ABSENCE is the Golden-SAML tell. Distinct channel/provider from the Security log.
 export interface AdfsTokenIssueOpts extends WinCtx {
@@ -673,7 +673,7 @@ export function adfsTokenIssue(o: AdfsTokenIssueOpts): TelemetryEvent {
   };
 }
 
-// ── 4720 — a user account was created ─────────────────────────────────────────────────
+// ── 4720 - a user account was created ─────────────────────────────────────────────────
 export interface WinAccountCreateOpts extends WinCtx {
   subjectUser: string;          // the creator (SubjectUserName)
   subjectSid: string;
@@ -719,7 +719,7 @@ export function winAccountCreate(o: WinAccountCreateOpts): TelemetryEvent {
   };
 }
 
-// ── 4728 / 4732 / 4756 — a member was added to a security-enabled group ────────────────
+// ── 4728 / 4732 / 4756 - a member was added to a security-enabled group ────────────────
 export interface WinGroupMemberAddOpts extends WinCtx {
   eventId?: "4728" | "4732" | "4756"; // global / local / universal (default 4728)
   subjectUser: string;

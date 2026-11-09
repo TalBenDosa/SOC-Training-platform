@@ -1,10 +1,10 @@
 /**
  * Fortinet FortiGate log EMITTERS.
  *
- * The perimeter firewall for the FortiGate shops — allowed/denied sessions, IPS
+ * The perimeter firewall for the FortiGate shops - allowed/denied sessions, IPS
  * and AV blocks, web filtering, and SSL-VPN logins. The registry pins FortiGate
  * to an EXACT field set (no prefixes), so these emitters render the FortiGate
- * native `data.*` fields alongside the shared ECS fields — every key checked to
+ * native `data.*` fields alongside the shared ECS fields - every key checked to
  * be one the registry allows. Client host/IP/user come from the company fabric;
  * remote geography is deterministic from the peer IP (@/lib/geo/resolveGeo).
  *
@@ -172,7 +172,7 @@ export function fgThreat(o: FgThreatOpts): TelemetryEvent {
   };
 }
 
-// ── Web request (UTM webfilter / filefilter — allowed or logged, not a block) ─────────
+// ── Web request (UTM webfilter / filefilter - allowed or logged, not a block) ─────────
 // The allowed-but-logged half of FortiGate's UTM: a file-filter record for a download
 // that isn't on the block list, or a web-filter passthrough for an uncategorised URL.
 // Distinct from fgThreat (a block/detection, is_detection true): this is transport
@@ -184,11 +184,11 @@ export interface FgWebOpts extends Ctx {
   url: string;
   domain: string;
   subtype?: "webfilter" | "filefilter";
-  eventtype?: string;              // data.eventtype — "ftgd_allow" | "filefilter" …
+  eventtype?: string;              // data.eventtype - "ftgd_allow" | "filefilter" …
   action?: "passthrough" | "log-only" | "blocked";
   msg?: string;
   logid?: string;
-  level?: string;                  // data.level — "notice" | "warning" …
+  level?: string;                  // data.level - "notice" | "warning" …
   category?: string;               // data.catdesc (FortiGuard name), e.g. "Newly Registered Domain"; the number follows it
   categoryId?: string;             // data.cat (numeric), e.g. "91"; used when the name is not given
   method?: "GET" | "POST";
@@ -269,14 +269,14 @@ export function fgWeb(o: FgWebOpts): TelemetryEvent {
 // 200 to an admin path is the pre-auth-bypass tell. Optionally carries a written file
 // (a portal web-shell) → event_type file_create.
 export interface FgWafOpts extends Ctx {
-  attackerIp: string;              // data.srcip — the external source
-  applianceIp: string;             // data.dstip — the appliance WAN IP
-  portal?: string;                 // data.hostname — the portal fqdn
-  url: string;                     // data.url — the API/admin path
+  attackerIp: string;              // data.srcip - the external source
+  applianceIp: string;             // data.dstip - the appliance WAN IP
+  portal?: string;                 // data.hostname - the portal fqdn
+  url: string;                     // data.url - the API/admin path
   method?: "GET" | "POST" | "PUT" | "DELETE";
   status?: number;                 // http.response.status_code
   action?: "pass" | "block" | "detected";
-  requester?: string;              // data.user — blank ("") on a pre-auth bypass
+  requester?: string;              // data.user - blank ("") on a pre-auth bypass
   userAgent?: string;              // data.agent
   country?: string;                // data.srccountry
   bytesSent?: number;              // data.sentbyte (a write/PUT)
@@ -337,14 +337,14 @@ export function fgWaf(o: FgWafOpts): TelemetryEvent {
 // The FortiOS event log a login to the appliance's own management interface or API writes
 // (logid 0100032001 success / 0100032002 fail), rendered by the fortigate native module's
 // systemEvent path. `data.user` is the administrator the appliance attributes the session
-// to — the field that carries the published CVE-2022-40684 indicator `Local_Process_Access`
+// to - the field that carries the published CVE-2022-40684 indicator `Local_Process_Access`
 // (the pseudo-identity FortiOS records when the management API is driven without an
 // authenticated session). Source is the external client; no company user is attached.
 export interface FgAdminLoginOpts extends Ctx {
-  adminUser: string;               // data.user — the admin account the appliance logs (e.g. "Local_Process_Access")
-  attackerIp: string;              // data.srcip — the external source
-  applianceIp: string;             // data.dstip — the appliance management IP
-  ui?: string;                     // data.ui — the management channel ("Node.js", "Report Runner", "https(ip)")
+  adminUser: string;               // data.user - the admin account the appliance logs (e.g. "Local_Process_Access")
+  attackerIp: string;              // data.srcip - the external source
+  applianceIp: string;             // data.dstip - the appliance management IP
+  ui?: string;                     // data.ui - the management channel ("Node.js", "Report Runner", "https(ip)")
   outcome?: "success" | "failure";
   country?: string;                // data.srccountry
   logid?: string;

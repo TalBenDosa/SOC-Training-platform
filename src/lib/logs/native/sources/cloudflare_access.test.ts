@@ -11,7 +11,7 @@ const asLog = (r: Record<string, unknown>): NativeLog => ({ sourceId: "cloudflar
 /** §4.2 is an ```ndjson block (three lines) that cardSamples() does not parse as one JSON value. */
 const ndjson = () => fencedBlocks(CARD, "ndjson").flatMap(b => b.split(/\r?\n/)).filter(l => l.trim().startsWith("{")).map(l => JSON.parse(l) as Record<string, unknown>);
 
-describe("cloudflare_access — card samples", () => {
+describe("cloudflare_access - card samples", () => {
   const recs = [...cardRecords(CARD), ...ndjson()];
   it("every card sample (json + ndjson) validates with zero violations", () => {
     expect(recs.length).toBe(8);
@@ -22,7 +22,7 @@ describe("cloudflare_access — card samples", () => {
   });
 });
 
-describe("cloudflare_access — corpus conversion (cross-vendor: the corpus has no Cloudflare-authored events)", () => {
+describe("cloudflare_access - corpus conversion (cross-vendor: the corpus has no Cloudflare-authored events)", () => {
   const conv = convertCorpus(source);
 
   it("converted logs validate with zero violations and use native value types", () => {
@@ -65,7 +65,7 @@ describe("cloudflare_access — corpus conversion (cross-vendor: the corpus has 
   });
 });
 
-describe("cloudflare_access — use cases", () => {
+describe("cloudflare_access - use cases", () => {
   const conv = convertCorpus(source);
   const cardLogs = [...cardRecords(CARD), ...ndjson()].map(asLog);
   it("each use case fires on card/story logs; high/critical stay quiet on noise", () => {

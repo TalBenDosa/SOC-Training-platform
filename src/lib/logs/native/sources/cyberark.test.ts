@@ -24,7 +24,7 @@ const isCyberArk = (c: CorpusEvent) => /cyberark/i.test(c.ev.vendor ?? "");
 const rec = (l: NativeLog) => l.record as Record<string, string>;
 const pick = (raw: Record<string, unknown>, ...keys: string[]) => keys.map(k => raw[k]).find(v => v !== undefined && v !== "") as string | undefined;
 
-describe("cyberark — card samples", () => {
+describe("cyberark - card samples", () => {
   it("every card sample validates with zero violations", () => {
     expect(samples.skipped).toEqual([]);
     expect(samples.logs.length).toBe(flatSamples(source.schema.card).length);
@@ -38,7 +38,7 @@ describe("cyberark — card samples", () => {
   });
 });
 
-describe("cyberark — conversion", () => {
+describe("cyberark - conversion", () => {
   it("every CyberArk event converts with zero violations; other iam vendors are null", () => {
     for (const c of converted) {
       expect(c.error, c.c.ev.id).toBeUndefined();
@@ -113,7 +113,7 @@ describe("cyberark — conversion", () => {
   });
 });
 
-describe("cyberark — use cases", () => {
+describe("cyberark - use cases", () => {
   const card = samples.logs;
   const byCode = (code: string) => card.find(l => l.kind === code)!;
   const clone = (l: NativeLog, timeMs: number, patch: Record<string, string>): NativeLog => ({ ...l, timeMs, record: { ...l.record, ...patch } });

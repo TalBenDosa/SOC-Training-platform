@@ -1,5 +1,5 @@
 /**
- * Microsoft Defender for Endpoint log EMITTERS — Advanced Hunting schema.
+ * Microsoft Defender for Endpoint log EMITTERS - Advanced Hunting schema.
  *
  * Same contract as the other vendor emitters (see crowdstrike.ts). MDE's dialect is the
  * Advanced Hunting tables: DeviceProcessEvents / DeviceNetworkEvents / DeviceFileEvents /
@@ -86,7 +86,7 @@ export function mdeDetection(o: MdeDetectionOpts): TelemetryEvent {
 
 // ── Incident alert (AlertEvidence / Defender incident summary) ───────────────────────
 // A behavioural incident that ties the earlier evidence together. Unlike mdeDetection it
-// carries NO process of its own — it is the alert row that opens the ticket, so the EDR
+// carries NO process of its own - it is the alert row that opens the ticket, so the EDR
 // console shows it in the timeline/feed, not as another tree node.
 export interface MdeAlertOpts extends Ctx {
   alertTitle: string;
@@ -161,7 +161,7 @@ export interface MdeProcessOpts extends Ctx {
   severity?: Severity;
   isDetection?: boolean;
   /** any other Advanced-Hunting / mde.* / threat.* fields (InitiatingProcess chain,
-   *  DeviceId, ProcessTokenElevation, mde.AlertTitle, …) — registry-validated. */
+   *  DeviceId, ProcessTokenElevation, mde.AlertTitle, …) - registry-validated. */
   extra?: Record<string, string | number | boolean>;
   description?: string;
 }

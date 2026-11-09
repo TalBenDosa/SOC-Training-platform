@@ -1,6 +1,6 @@
 /**
- * Cisco ASA (and FTD's LINA engine) core connection messages — 106023 (ACL deny),
- * 302013 (built TCP), 302014 (teardown TCP) — rendered per docs/log-schemas/fw-cisco.md
+ * Cisco ASA (and FTD's LINA engine) core connection messages - 106023 (ACL deny),
+ * 302013 (built TCP), 302014 (teardown TCP) - rendered per docs/log-schemas/fw-cisco.md
  * §ASA: `timestamp`, `device_id`, `Level`, `Message_number` and the free-text
  * `Message_text` kept VERBATIM in Cisco's message pattern. ASA defines no key names
  * for the body, so none are invented (no src_ip / dst_port keys).
@@ -50,7 +50,7 @@ function teardownReason(f: FwFacts): string {
 function render(f: FwFacts, ctx: NativeCtx): { num: string; text: string } | null {
   const [ii, oi] = ifaces(f);
   if (f.blocked) {
-    if (f.cls !== "traffic") return null; // content verdict (IPS/URL/file) — not an ASA capability
+    if (f.cls !== "traffic") return null; // content verdict (IPS/URL/file) - not an ASA capability
     if (f.proto === "icmp") return null;
     const acl = `${ii}_access_in`;
     const h = `0x${ctx.hex(`${ctx.companyId}:asa:acl:${f.rule}`, 8)}`;
@@ -128,7 +128,7 @@ export const useCases: UseCase[] = [
   {
     id: "cisco_asa.large-transfer", title: "Teardown of an outbound connection that moved ≥ 100 MB", sourceId: "cisco_asa", kinds: ["302014"],
     severity: "high", mitre: ["T1048", "T1567.002"],
-    description: "302014 reports the TOTAL bytes of both directions (no upload/download split — confirm direction with FTD 430003 or NetFlow). An outbound connection closing with ≥100,000,000 bytes is worth checking against the destination's reputation and the duration.",
+    description: "302014 reports the TOTAL bytes of both directions (no upload/download split - confirm direction with FTD 430003 or NetFlow). An outbound connection closing with ≥100,000,000 bytes is worth checking against the destination's reputation and the duration.",
     logic: "SPL: sourcetype=cisco:asa message_id=302014 | rex \"for outside:(?<dst>[\\d.]+)/(?<dport>\\d+) to inside:(?<src>[\\d.]+)/\\d+ duration (?<dur>\\S+) bytes (?<bytes>\\d+)\" | where bytes>=100000000",
     match: { field: "Message_text", op: "regex", value: "for outside:\\S+ to inside:\\S+ duration \\S+ bytes \\d{9,} " },
     falsePositives: ["Backups and large software downloads (download volume is included in the total)"],

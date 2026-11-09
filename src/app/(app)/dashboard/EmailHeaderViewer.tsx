@@ -46,7 +46,7 @@ function AuthBadge({ label, raw }: { label: string; raw: string }) {
     fail:     { cls: "border-severity-high/60 bg-severity-high/10 text-severity-high", Icon: ShieldX, text: "fail" },
     none:     { cls: "border-slate-600/60 bg-slate-700/20 text-slate-400", Icon: ShieldAlert, text: "none" },
     neutral:  { cls: "border-slate-600/60 bg-slate-700/20 text-slate-400", Icon: ShieldAlert, text: "neutral" },
-    unknown:  { cls: "border-slate-600/60 bg-slate-700/20 text-slate-400", Icon: ShieldAlert, text: raw || "—" },
+    unknown:  { cls: "border-slate-600/60 bg-slate-700/20 text-slate-400", Icon: ShieldAlert, text: raw || "-" },
   };
   const { cls, Icon, text } = cfg[r];
   return (
@@ -68,7 +68,7 @@ function WarnRow({ label, value, warn, detail }: { label: string; value: string;
       <span className="w-28 shrink-0 text-[10px] text-slate-400">{label}</span>
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className={cn("break-all font-mono text-[10px]", warn ? "text-neon-amber" : "text-slate-200")}>
-          {value || "—"}
+          {value || "-"}
         </span>
         {warn && detail && (
           <span className="flex items-center gap-1 text-[9px] text-neon-amber/80">
@@ -198,13 +198,13 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
               label="Reply-To"
               value={replyTo || "(same as From)"}
               warn={!!replyToMismatch}
-              detail={replyToMismatch ? `Domain mismatch — From: ${fromDomain} / Reply-To: ${replyToDomain}` : undefined}
+              detail={replyToMismatch ? `Domain mismatch - From: ${fromDomain} / Reply-To: ${replyToDomain}` : undefined}
             />
             <WarnRow
               label="Return-Path"
               value={returnPath || "(same as From)"}
               warn={!!returnPathMismatch}
-              detail={returnPathMismatch ? `Envelope sender domain differs — From: ${fromDomain} / Return-Path: ${returnDomain}` : undefined}
+              detail={returnPathMismatch ? `Envelope sender domain differs - From: ${fromDomain} / Return-Path: ${returnDomain}` : undefined}
             />
             {msgId     && <WarnRow label="Message-ID"  value={msgId} />}
             {origIp    && <WarnRow label="Originating IP" value={origIp} />}

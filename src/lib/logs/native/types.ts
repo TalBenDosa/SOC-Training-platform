@@ -1,7 +1,7 @@
 /**
  * Native log contract (Tal, 2026-10-01: "no schema mixing").
  *
- * Every log the platform shows is rendered in its SOURCE's NATIVE format — the
+ * Every log the platform shows is rendered in its SOURCE's NATIVE format - the
  * exact structure and field names the product emits / its official API returns,
  * as documented in docs/log-schemas/<card>.md. One module per source lives in
  * ./sources/<sourceId>.ts and exports a {@link NativeSource}.
@@ -9,7 +9,7 @@
  * The conversion input is the platform's structured TelemetryEvent (user, host,
  * process, file, network, dns, auth, cloud … plus the legacy `raw` map). Because
  * the input is vendor-neutral, ANY module of a category can render ANY event of
- * that category — that is how one attack story is shown as CrowdStrike for one
+ * that category - that is how one attack story is shown as CrowdStrike for one
  * team and SentinelOne for another.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -97,7 +97,7 @@ export interface SourceSchema {
 export interface NativeCtx {
   companyId: string;
   /** The organization's name as it appears in its own resource names (the domain's first label:
-   *  nexacorp → nexacorp.service-now.com, nexacorp-customer-data) — follows a renamed tenant. */
+   *  nexacorp → nexacorp.service-now.com, nexacorp-customer-data) - follows a renamed tenant. */
   org: string;
   /** Primary email/AD domain, e.g. "nexacorp.com". */
   domain: string;
@@ -139,7 +139,7 @@ export interface NativeSource {
   /**
    * Render a platform event in this source's native format. Return null when the
    * event cannot be represented truthfully by this source (never fake a field the
-   * product does not have — the spec's rule: such stories are not offered).
+   * product does not have - the spec's rule: such stories are not offered).
    */
   fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null;
   /**
@@ -174,7 +174,7 @@ export interface UseCase {
   kinds?: string[];
   severity: "low" | "medium" | "high" | "critical";
   mitre: string[];
-  /** What it detects and why it matters — shown to students. */
+  /** What it detects and why it matters - shown to students. */
   description: string;
   /** The same logic as analysts would write it (pseudo-SPL / KQL / Sigma-ish), shown to students. */
   logic: string;

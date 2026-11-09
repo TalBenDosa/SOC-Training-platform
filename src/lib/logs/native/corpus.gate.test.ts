@@ -36,7 +36,7 @@ describe("native corpus gate", () => {
         const v = validateNative(log, NATIVE_SOURCES[sid]!.schema);
         if (v.length) bad.push(`${c.ev.id} [${sid}] ${v.slice(0, 3).map(x => `${x.problem}:${x.path}`).join(", ")}`);
       }
-      console.log(`[gate] ${companyId}: rendered ${rendered}, null-by-product ${nullByProduct}, no-module ${noModule} — ` +
+      console.log(`[gate] ${companyId}: rendered ${rendered}, null-by-product ${nullByProduct}, no-module ${noModule} - ` +
         [...byCat].map(([k, s]) => `${k} ${s.r}/${s.r + s.n}`).join(" · "));
       expect(bad.slice(0, 20)).toEqual([]);
     });

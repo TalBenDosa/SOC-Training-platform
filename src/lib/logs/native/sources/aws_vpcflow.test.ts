@@ -20,7 +20,7 @@ function cardLogs(): NativeLog[] {
   return out;
 }
 
-describe("aws_vpcflow — card samples", () => {
+describe("aws_vpcflow - card samples", () => {
   it("every flow sample (v2, NODATA, custom v5, NAT v6) validates with zero violations", () => {
     const logs = cardLogs();
     expect(logs.length).toBeGreaterThanOrEqual(5);
@@ -31,13 +31,13 @@ describe("aws_vpcflow — card samples", () => {
   });
 });
 
-describe("aws_vpcflow — conversion", () => {
-  it("declines every CloudTrail / firewall event (none are VPC flow records) — never fakes a flow", () => {
+describe("aws_vpcflow - conversion", () => {
+  it("declines every CloudTrail / firewall event (none are VPC flow records) - never fakes a flow", () => {
     let rendered = 0;
     for (const c of corpusFor(source.schema.telemetrySources)) {
       if (source.fromTelemetry(c.ev, makeCtx(c.companyId))) rendered++;
     }
-    console.log(`[aws_vpcflow] CloudTrail/firewall events rendered as flow: ${rendered} (expected 0 — flows are an ENI network record, not API/firewall events)`);
+    console.log(`[aws_vpcflow] CloudTrail/firewall events rendered as flow: ${rendered} (expected 0 - flows are an ENI network record, not API/firewall events)`);
     expect(rendered).toBe(0);
   });
 
@@ -60,7 +60,7 @@ describe("aws_vpcflow — conversion", () => {
   });
 });
 
-describe("aws_vpcflow — use cases", () => {
+describe("aws_vpcflow - use cases", () => {
   const attackLogs = cardLogs();
   it("each use case fires on at least one card-sample log", () => {
     for (const uc of source.useCases) {

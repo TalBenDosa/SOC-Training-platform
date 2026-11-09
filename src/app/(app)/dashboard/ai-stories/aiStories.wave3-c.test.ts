@@ -1,5 +1,5 @@
 /**
- * Wave 3 part C (AI stories) — the investigability facts each story must keep.
+ * Wave 3 part C (AI stories) - the investigability facts each story must keep.
  * Modelled on aiStories.batch6.test.ts: a real detection row, neutral attack-row
  * descriptions, and the key chronology / correlation anchors.
  */
@@ -73,7 +73,7 @@ describe("AI wave3-c stories", () => {
     expect(String(raw(link, "ExtendedProperties.Key last read on host"))).toBe("LAP-DEV-12");
   });
 
-  it("pickle: python spawns sh, the connect syscall, then the cron write — in order", () => {
+  it("pickle: python spawns sh, the connect syscall, then the cron write - in order", () => {
     const sid = "ai-malicious-model-pickle";
     const spawn = ev(sid, "aimp03");
     const connect = ev(sid, "aimp05");

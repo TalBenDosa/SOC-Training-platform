@@ -1,18 +1,18 @@
 /**
- * AI-related attack stories — foundation + advanced additions (live feed & team training).
+ * AI-related attack stories - foundation + advanced additions (live feed & team training).
  *
- *  2. ai-claude-shared-secret         (foundation, rocketstack) — a developer uploads the payments
+ *  2. ai-claude-shared-secret         (foundation, rocketstack) - a developer uploads the payments
  *     service's prod-deploy.env to a Claude Enterprise project, opens an artifact of that project to
  *     external sharing and publishes it; hours later the AWS honeytoken planted in the file fires from
  *     a hosting IP and the file's real CI key is used from the same IP (CloudTrail, GuardDuty), until
  *     the key is deactivated.
- *  3. ai-claude-compliance-key-harvest (advanced, rocketstack)   — Okta push fatigue on the Claude
+ *  3. ai-claude-compliance-key-harvest (advanced, rocketstack)   - Okta push fatigue on the Claude
  *     Enterprise organisation owner; the owner session removes the API-key IP restriction and creates
  *     an API key; the key calls the Compliance API in bulk from a hosting provider, and an org data
  *     export is started, completed and downloaded.
  *
  * Every Claude Enterprise event is built by the shared emitter (the Compliance API activity
- * record; activity types and actor fields as in Anthropic's Compliance API reference) — it
+ * record; activity types and actor fields as in Anthropic's Compliance API reference) - it
  * carries NO prompt or file content.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -47,7 +47,7 @@ const noHost = (ev: TelemetryEvent): TelemetryEvent => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. ai-claude-shared-secret — RocketStack: Claude Enterprise → honeytoken → CloudTrail / GuardDuty
+// 2. ai-claude-shared-secret - RocketStack: Claude Enterprise → honeytoken → CloudTrail / GuardDuty
 // ══════════════════════════════════════════════════════════════════════════════
 function buildClaudeSharedSecret(): TelemetryEvent[] {
   const cx = "rocketstack";
@@ -79,7 +79,7 @@ function buildClaudeSharedSecret(): TelemetryEvent[] {
       severity: "medium", mitre: "T1567", tactic: "Exfiltration",
       description: "26 seconds later r.cohen published a version of the artifact, 11 minutes after prod-deploy.env was uploaded to the same project. The record carries the artifact id only, not its content." }),
 
-    // The honeytoken in the file is used from the internet — the first alert.
+    // The honeytoken in the file is used from the internet - the first alert.
     {
       id: "aicas8", ts: "2026-09-23T13:52:07.000Z", source: "siem", vendor: "Thinkst Canary", event_type: "ioc_hit",
       severity: "high", src_ip: ext, is_detection: true, edr_scope: "non_edr",
@@ -154,7 +154,7 @@ function buildClaudeSharedSecret(): TelemetryEvent[] {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 3. ai-claude-compliance-key-harvest — RocketStack, Okta + Claude Enterprise
+// 3. ai-claude-compliance-key-harvest - RocketStack, Okta + Claude Enterprise
 // ══════════════════════════════════════════════════════════════════════════════
 function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
   const cx = "rocketstack";
@@ -175,7 +175,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
     // Baseline: the SIEM collector's own key polling the Activity Feed from the office egress.
     claudeActivity({ id: "aicak0", ts: "2026-09-24T02:10:00.412Z", org, type: "compliance_api_accessed", apiKeyId: collectorKey,
       ip: RS_OFFICE_IP, geo: RS_OFFICE_GEO, userAgent: "python-httpx/0.27.2", isBaseline: true, expectedVerdict: "fp",
-      fpExplanation: "The SIEM collector's own Compliance Access Key, polling the Activity Feed every minute from the office egress — the organisation's only API key until tonight.",
+      fpExplanation: "The SIEM collector's own Compliance Access Key, polling the Activity Feed every minute from the office egress - the organisation's only API key until tonight.",
       description: "A Compliance API call by the SIEM collector's key from the RocketStack office egress address, part of its once-a-minute Activity Feed poll." }),
 
     // Push fatigue: two rejected pushes, then one approved.
@@ -193,7 +193,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
       mitre: "T1078.004", tactic: "Initial Access",
       description: "Okta started a session for a.kim (Claude Enterprise organization owner) from 146.70.117.35 after the approved push; ThreatInsight marked the request as suspected. a.kim's sign-ins in the last 30 days came from the office or the home ISP." }),
 
-    // The correlation rule on the push pattern — the first alert.
+    // The correlation rule on the push pattern - the first alert.
     {
       ...noHost(sentinelAlert({
         companyId: cx, id: "aicak15", ts: "2026-09-24T02:15:44.000Z", user: owner, srcIp: vpnIp,

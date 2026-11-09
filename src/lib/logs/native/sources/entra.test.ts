@@ -12,8 +12,8 @@ const rep = standardChecks(source, kindOf, {
     .filter((x): x is string => typeof x === "string" && x.length > 2))],
 });
 
-describe("entra — native Graph signIn / directoryAudit", () => {
-  it("card samples validate (the Azure Monitor envelope sample is a different representation — skipped)", () => {
+describe("entra - native Graph signIn / directoryAudit", () => {
+  it("card samples validate (the Azure Monitor envelope sample is a different representation - skipped)", () => {
     console.log(`[entra] card checked ${rep.cardChecked}, skipped ${rep.cardSkipped}`);
     expect(rep.cardChecked).toBeGreaterThanOrEqual(8);
     expect(rep.cardViolations).toEqual([]);

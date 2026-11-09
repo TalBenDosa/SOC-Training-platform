@@ -1,5 +1,5 @@
 /**
- * Azure AI workload EMITTERS — what the SIEM receives when an Azure OpenAI / Foundry
+ * Azure AI workload EMITTERS - what the SIEM receives when an Azure OpenAI / Foundry
  * model deployment is used or attacked.
  *
  *  - azureOpenAiRequest   Azure OpenAI resource log, category RequestResponse (Azure Monitor
@@ -7,7 +7,7 @@
  *                         deployment, model, latency, HTTP result, request/response LENGTHS.
  *                         No prompt or completion text. The caller IP arrives with its last
  *                         octet masked ("x.y.z.***"), as Azure writes it.
- *  - defenderAiAlert      Microsoft Defender for Cloud — threat protection for AI services.
+ *  - defenderAiAlert      Microsoft Defender for Cloud - threat protection for AI services.
  *                         Alert display names / types are the documented AI.Azure_* set
  *                         (learn.microsoft.com › defender-for-cloud › alerts-ai-workloads).
  *                         Carries the full client IP and, with "user prompt evidence" on,
@@ -134,7 +134,7 @@ export function azureOpenAiRequest(o: AzureOpenAiRequestOpts): TelemetryEvent {
   };
 }
 
-// ── Microsoft Defender for Cloud — AI threat protection alert ────────────────
+// ── Microsoft Defender for Cloud - AI threat protection alert ────────────────
 export const AI_ALERTS = {
   jailbreakBlocked: { name: "A Jailbreak attempt on an Azure AI model deployment was blocked by Azure AI Content Safety Prompt Shields", type: "AI.Azure_Jailbreak.ContentFiltering.BlockedAttempt", sev: "Medium", intent: "PrivilegeEscalation, DefenseEvasion" },
   jailbreakDetected: { name: "A Jailbreak attempt on an Azure AI model deployment was detected by Azure AI Content Safety Prompt Shields", type: "AI.Azure_Jailbreak.ContentFiltering.DetectedAttempt", sev: "Medium", intent: "PrivilegeEscalation, DefenseEvasion" },

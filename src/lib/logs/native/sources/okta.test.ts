@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { source, kindOf } from "./okta";
 import { standardChecks } from "../testing/standardChecks";
 
-// Okta is SaaS: a corporate user's private address never reaches it — the record carries the
+// Okta is SaaS: a corporate user's private address never reaches it - the record carries the
 // company egress (and client.zone "Corporate HQ") instead, so a private src_ip is not evidence here.
 const isPrivate = (ip?: string) => !!ip && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(ip);
 const rep = standardChecks(source, kindOf, {
@@ -12,7 +12,7 @@ const rep = standardChecks(source, kindOf, {
     .filter((x): x is string => typeof x === "string" && x.length > 2),
 });
 
-describe("okta — native System Log LogEvent", () => {
+describe("okta - native System Log LogEvent", () => {
   it("card samples validate", () => {
     console.log(`[okta] card checked ${rep.cardChecked}, skipped ${rep.cardSkipped}`);
     expect(rep.cardChecked).toBeGreaterThanOrEqual(8);
@@ -21,7 +21,7 @@ describe("okta — native System Log LogEvent", () => {
   it("corpus converts cleanly; ≥95% of Okta-authored events render", () => {
     console.log(`[okta] native ${rep.nativeConverted}/${rep.nativeTotal}, cross ${rep.crossConverted}/${rep.crossTotal}`);
     expect(rep.violations).toEqual([]);
-    expect(rep.nativeConverted / rep.nativeTotal).toBeGreaterThanOrEqual(0.9);   // documented nulls: event types the card does not document — system.org.rate_limit.warning, application.integration.rate_limit_exceeded, user.lifecycle.suspend / activate, app.oauth2.token.grant.id_token, user.session.expire
+    expect(rep.nativeConverted / rep.nativeTotal).toBeGreaterThanOrEqual(0.9);   // documented nulls: event types the card does not document - system.org.rate_limit.warning, application.integration.rate_limit_exceeded, user.lifecycle.suspend / activate, app.oauth2.token.grant.id_token, user.session.expire
   });
   it("evidence survives and output is deterministic", () => {
     expect(rep.evidenceMissing).toEqual([]);

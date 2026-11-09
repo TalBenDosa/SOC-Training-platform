@@ -11,7 +11,7 @@
  * the facts onto its own native field names only.
  *
  * All filler values are deterministic (ctx.hex / ctx.int seeded from the event id,
- * the company or the entity) — never Math.random / Date.now.
+ * the company or the entity) - never Math.random / Date.now.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
@@ -51,7 +51,7 @@ export interface FwFacts {
   domain?: string;
   /** URL with scheme (https://host/path?q). */
   url?: string;
-  /** host/path?q (no scheme) — PAN `misc` style. */
+  /** host/path?q (no scheme) - PAN `misc` style. */
   urlNoScheme?: string;
   /** Path + query only ("/api/login"). */
   path?: string;
@@ -129,7 +129,7 @@ export function egressIp(ctx: NativeCtx): string {
   const k = `${ctx.companyId}:egress`;
   return `${PUB_FIRST[ctx.int(k, 0, PUB_FIRST.length - 1)]}.${ctx.int(k + "b", 1, 254)}.${ctx.int(k + "c", 1, 254)}.10`;
 }
-/** A published (public) address of the company — used only when the authored event lacks a destination. */
+/** A published (public) address of the company - used only when the authored event lacks a destination. */
 export function companyVip(ctx: NativeCtx, seed: string): string {
   const e = egressIp(ctx).split(".");
   // R5: every egress is a documentation address, several companies share one /24: each company's
@@ -357,7 +357,7 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
 
   if (!isIp(src)) src = undefined;
   if (!isIp(dst)) dst = undefined;
-  // Missing destination: derive deterministically (never evidence — the authored event had none).
+  // Missing destination: derive deterministically (never evidence - the authored event had none).
   if (!dst) {
     if (dstName) dst = internalIpFor(ctx, dstName);
     else if (domain) dst = publicIpForDomain(ctx, domain);
@@ -417,7 +417,7 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
   else if (file && (ev.event_type === "http_request" || ev.event_type === "file_create")) cls = "file";
   else if (rawPanType === "THREAT" && rawPanSub === "url") cls = "url";
   // An authored URL record (a FortiGate web-filter / WAF row, a PAN URL log) stays a URL record in
-  // either direction — rendering it as plain traffic would drop the URL, method and user it carries.
+  // either direction - rendering it as plain traffic would drop the URL, method and user it carries.
   else if (/^(webfilter|waf)$/i.test(rawGet(raw, "data.subtype") ?? "") && url) cls = "url";
   else if (dir === "outbound" && (ev.event_type === "http_request" || ev.event_type === "http_blocked") && (url || domain)) cls = "url";
   else if (dir === "outbound" && ev.event_type === "net_connection" && domain && webPort && !startOnly && (bytesOutRaw ?? 0) < 10 * 1024 * 1024 && rawPanType !== "TRAFFIC" && !rawGet(raw, "data.type")) cls = "url";

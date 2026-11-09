@@ -1,5 +1,5 @@
 /**
- * Wave 3 part D (AI stories) — the investigability facts each story must keep.
+ * Wave 3 part D (AI stories) - the investigability facts each story must keep.
  * Modelled on aiStories.batch6.test.ts.
  */
 import { describe, expect, it } from "vitest";

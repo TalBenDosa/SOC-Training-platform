@@ -1,11 +1,11 @@
 /**
- * Company metadata — the LIGHT half of the old companyProfiles.ts.
+ * Company metadata - the LIGHT half of the old companyProfiles.ts.
  *
  * This file holds only the small, render-time data: the two interfaces and the
- * company profile records (name, industry, architecture — a few KB total). The
+ * company profile records (name, industry, architecture - a few KB total). The
  * heavy per-company EVENT POOLS (COMPANY_EVENTS / COMPANY_ATTACKS and their
  * thousands of TelemetryEvents) stay in companyProfiles.ts, which the dashboard
- * now loads LAZILY (only when a training shift starts) — see dashboard/simData.ts.
+ * now loads LAZILY (only when a training shift starts) - see dashboard/simData.ts.
  *
  * Why split: the dashboard is a client component, so anything it imports
  * statically ships in its first-load JS. It needs these profiles to render the
@@ -42,7 +42,7 @@ export interface CompanyProfile {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company 1 — NexaCorp Financial Ltd.
+// Company 1 - NexaCorp Financial Ltd.
 // Microsoft-centric: MDE + Azure AD + O365 + Palo Alto
 // (events populated by page.tsx from benignEvents.ts)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ export const NEXACORP_PROFILE: Omit<CompanyProfile, "events"> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company registry — profile metadata only (event pools live in companyProfiles.ts)
+// Company registry - profile metadata only (event pools live in companyProfiles.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
@@ -97,7 +97,7 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
   {
     id:          "medcore",
     name:        "MedCore Regional Hospital",
-    tagline:     "Healthcare Network — 6 Facilities",
+    tagline:     "Healthcare Network - 6 Facilities",
     industry:    "Healthcare",
     size:        3800,
     hq:          "Amsterdam, Netherlands",
@@ -157,7 +157,7 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
 // The hostname convention, primary internal subnet, DNS domain and NetBIOS realm
 // each company actually uses in its SIEM feed (companyProfiles.ts COMPANY_EVENTS).
 // instantiateStory() remaps a shared attack story onto THESE, so the EDR console
-// shows the same host and IP the analyst just saw in the feed — correlation holds —
+// shows the same host and IP the analyst just saw in the feed - correlation holds -
 // instead of a generic NexaCorp workstation for every company. Kept here (the light
 // module) so the adaptation layer needn't pull in the heavy event pools. Values are
 // aligned with the real conventions in COMPANY_EVENTS; a regression gate asserts it.
@@ -198,7 +198,7 @@ export interface CompanyAssets {
 
 // The per-company asset fabric (R-01 + emitter layer). One source of truth for the
 // hostnames, internal subnet, domain, NetBIOS realm, human roster, service accounts,
-// DC and file server each company uses — aligned with COMPANY_EVENTS. instantiateStory
+// DC and file server each company uses - aligned with COMPANY_EVENTS. instantiateStory
 // draws host/IP/domain swaps from it, and the vendor emitters (src/lib/sim/emitters/*)
 // draw a plausible native identity + asset for every generated log line. Kept in this
 // LIGHT module so both the adaptation layer and the emitters can use it without pulling
@@ -206,7 +206,7 @@ export interface CompanyAssets {
 export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
   // vantageindustrial appears only in scenario packs (e.g. destructiveWiper), not in
   // the live feed, but it is registered here so the emitters resolve its netbios/domain
-  // deterministically — the same single-source-of-truth every other company uses.
+  // deterministically - the same single-source-of-truth every other company uses.
   vantageindustrial: {
     hosts: ["VNT-WKS-27", "VNT-WKS-19", "VNT-WKS-11", "VNT-SRV-FS01", "VNT-SRV-DC01"],
     subnet: "10.60.8", domain: "vantageindustrial.com", netbios: "VANTAGE",

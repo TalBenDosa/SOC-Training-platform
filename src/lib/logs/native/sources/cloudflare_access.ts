@@ -1,15 +1,15 @@
 /**
- * Cloudflare Zero Trust — Access authentication events (Logpush dataset `access_requests`).
+ * Cloudflare Zero Trust - Access authentication events (Logpush dataset `access_requests`).
  * Card: docs/log-schemas/ztna-cloudflare-access.md
  *
  * JSON-native: the full 15-field flat object, timestamp_format=rfc3339 (UTC, "Z").
  * Kind = Action ("login" / "logout").
  *
- * Rendering of the platform's VPN events (cross-vendor — the corpus has no Cloudflare-authored
+ * Rendering of the platform's VPN events (cross-vendor - the corpus has no Cloudflare-authored
  * events): a remote-access login becomes the WARP client's Access login
  * (AppDomain `<team>.cloudflareaccess.com/warp`, the device-enrolment application), a logout
  * becomes Action=logout. Returns null for:
- *   - authentication failures / MFA challenge / MFA denied — Access delegates authentication to the
+ *   - authentication failures / MFA challenge / MFA denied - Access delegates authentication to the
  *     IdP (SAML/OIDC), so password guessing and MFA prompts are logged by the IdP; an Access
  *     `Allowed:false` record means the IdP step SUCCEEDED and Access policy denied, which is a
  *     different fact than a wrong password;
@@ -88,7 +88,7 @@ const useCases: UseCase[] = [
     kinds: ["login"],
     severity: "high",
     mitre: ["T1078", "T1550.004"],
-    description: "Three or more Action=login records with Allowed=false for the same Email inside 10 minutes. The Email is only filled in after the IdP step succeeded, so these are valid credentials (or a stolen session) being stopped by Access policy — geo, device posture or group. Treat the account as compromised and check the IdP sign-in for the same IPAddress.",
+    description: "Three or more Action=login records with Allowed=false for the same Email inside 10 minutes. The Email is only filled in after the IdP step succeeded, so these are valid credentials (or a stolen session) being stopped by Access policy - geo, device posture or group. Treat the account as compromised and check the IdP sign-in for the same IPAddress.",
     logic: "SPL: index=cloudflare sourcetype=cloudflare:access Action=login Allowed=false Email=* | bin _time span=10m | stats count values(AppDomain) values(Country) values(IPAddress) BY Email _time | where count>=3",
     match: { all: [{ field: "Allowed", op: "eq", value: false }, { field: "Email", op: "exists" }] },
     threshold: { groupBy: ["Email"], count: 3, windowSec: 600 },
@@ -113,7 +113,7 @@ const useCases: UseCase[] = [
     kinds: ["login"],
     severity: "high",
     mitre: ["T1078"],
-    description: "Allowed logins for the same UserUID from two different Country values within 2 hours — impossible travel. Compare the two IPAddress values: a hosting-provider ASN on the second one is an attacker relay.",
+    description: "Allowed logins for the same UserUID from two different Country values within 2 hours - impossible travel. Compare the two IPAddress values: a hosting-provider ASN on the second one is an attacker relay.",
     logic: "SPL: index=cloudflare sourcetype=cloudflare:access Action=login Allowed=true | stats dc(Country) AS countries values(Country) values(IPAddress) BY UserUID Email span=2h | where countries>1",
     match: { field: "Allowed", op: "eq", value: true },
     threshold: { groupBy: ["UserUID"], count: 2, windowSec: 2 * 3600, distinct: "Country" },
@@ -138,7 +138,7 @@ const useCases: UseCase[] = [
     kinds: ["login"],
     severity: "low",
     mitre: ["T1078"],
-    description: "TemporaryAccessDuration > 0 — someone requested and was granted time-boxed access to a protected app. Verify the PurposeJustificationResponse references a real, approved change ticket in the ITSM.",
+    description: "TemporaryAccessDuration > 0 - someone requested and was granted time-boxed access to a protected app. Verify the PurposeJustificationResponse references a real, approved change ticket in the ITSM.",
     logic: "SPL: index=cloudflare sourcetype=cloudflare:access TemporaryAccessDuration>0 | table CreatedAt Email AppDomain PurposeJustificationResponse TemporaryAccessApprovers{} TemporaryAccessDuration",
     match: { field: "TemporaryAccessDuration", op: "gt", value: 0 },
     falsePositives: ["Routine approved maintenance"],

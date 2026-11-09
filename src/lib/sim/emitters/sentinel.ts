@@ -1,7 +1,7 @@
 /**
  * Microsoft Sentinel (SIEM) log EMITTERS.
  *
- * The correlation / enrichment layer — a Sentinel analytics or UEBA alert that ties
+ * The correlation / enrichment layer - a Sentinel analytics or UEBA alert that ties
  * endpoint + network evidence together and adds host-and-identity context (software
  * installed today, autoruns added, whether the account is a local admin). Same contract
  * as the other emitters: a typed call renders a complete TelemetryEvent whose raw block
@@ -19,7 +19,7 @@ import { entraObjectId } from "@/lib/logs/native/sources/_identity-common";
 
 const VENDOR = "Microsoft Sentinel";
 
-/** Deterministic, GUID-shaped id from a seed — so the same event always renders the same
+/** Deterministic, GUID-shaped id from a seed - so the same event always renders the same
  *  SystemAlertId / VendorOriginalId / TenantId (stable across re-renders, realistic shape). */
 function guidFrom(seed: string): string {
   let h = 0x811c9dc5;
@@ -105,7 +105,7 @@ export function sentinelTactics(tactics: string[] | undefined, tactic: string | 
 const minutesFrom = (seed: string, lo: number, hi: number) => { let h = 0x811c9dc5; for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return lo + (h % (hi - lo + 1)); };
 
 /**
- * Sentinel's alert/incident severity enum is High | Medium | Low | Informational —
+ * Sentinel's alert/incident severity enum is High | Medium | Low | Informational -
  * there is no "Critical". A caller asking for critical gets the product's ceiling
  * (High) both in the raw block and on the event, so the feed never shows a
  * severity the named product cannot produce.
@@ -130,20 +130,20 @@ export interface SentinelAlertOpts extends Ctx {
   fullName?: string;           // user.full_name
   department?: string;
   title?: string;
-  /** ExtendedProperties.<Name> — string, number or string[] enrichment values */
+  /** ExtendedProperties.<Name> - string, number or string[] enrichment values */
   extendedProperties?: Record<string, string | number | string[]>;
   eventAction?: string;        // default "correlation-alert"
   eventOutcome?: string;       // default "alerted"
   description?: string;
-  // ── SecurityAlert realism (Tal, 2026-10-04) — all optional; defaults are derived from
+  // ── SecurityAlert realism (Tal, 2026-10-04) - all optional; defaults are derived from
   //    the event so a plain sentinelAlert({alertName}) already renders a realistic record.
   tenantId?: string;
-  vendorName?: string;                 // SecurityAlert.VendorName — default "Microsoft"
-  productName?: string;                // SecurityAlert.ProductName — default per source
+  vendorName?: string;                 // SecurityAlert.VendorName - default "Microsoft"
+  productName?: string;                // SecurityAlert.ProductName - default per source
   providerName?: string;               // SecurityAlert.ProviderName
   alertType?: string;                  // default a slug of alertName
   status?: "New" | "InProgress" | "Resolved" | "Dismissed";   // default "New"
-  tactics?: string[];                  // SecurityAlert.Tactics[] — else [tactic]
+  tactics?: string[];                  // SecurityAlert.Tactics[] - else [tactic]
   startTime?: string; endTime?: string;
   remediationSteps?: string[];
   alertLink?: string;
@@ -171,7 +171,7 @@ export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
   const provider = o.providerName ?? kind.provider;
   const domain = r.email?.includes("@") ? r.email.split("@")[1] : undefined;
   const sam = r.bareUser && r.bareUser !== "-" ? r.bareUser : undefined;
-  // SecurityAlert Entities — the real array-of-typed-objects shape (host / account / ip).
+  // SecurityAlert Entities - the real array-of-typed-objects shape (host / account / ip).
   const entities = o.entities ?? [
     ...(r.host ? [{ "$id": "1", Type: "host", HostName: r.host, ...(domain ? { DnsDomain: domain, FQDN: `${r.host}.${domain}` } : {}) }] : []),
     ...(sam ? [{ "$id": "2", Type: "account", Name: sam, ...(domain ? { UPNSuffix: domain } : {}), ...(r.email ? { AadUserId: aadUserIdOf(o.companyId, r.email) } : {}) }] : []),

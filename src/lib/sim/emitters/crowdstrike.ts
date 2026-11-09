@@ -2,13 +2,13 @@
  * CrowdStrike Falcon log EMITTERS.
  *
  * Instead of hand-typing a `raw: { "crowdstrike.event_simpleName": … }` block per event
- * — the artisanal process that produced years of field drift (snake_case vs camelCase,
- * invented `cs.*` keys, `crowdstrike.Confidence` that doesn't exist) — an author calls a
+ * - the artisanal process that produced years of field drift (snake_case vs camelCase,
+ * invented `cs.*` keys, `crowdstrike.Confidence` that doesn't exist) - an author calls a
  * typed function that RENDERS a well-formed Falcon event: a Detection Summary, a
  * ProcessRollup2, a NetworkConnectIP4, a DnsRequest, a file write. Every key an emitter
  * writes is drawn from the CrowdStrike vocabulary in scripts/log-field-registry.json
  * (exactFields + the crowdstrike./file./pe./process. prefixes), so emitter output passes
- * the log-field gate by construction — correctness is structural, not checked after.
+ * the log-field gate by construction - correctness is structural, not checked after.
  *
  * Each emitter returns a complete TelemetryEvent: the structured fields the feed and the
  * EDR console read (process tree, file, network, hostname, src_ip, user, mitre) AND the
@@ -26,15 +26,15 @@ const VENDOR = "CrowdStrike Falcon";
 
 // ── Falcon field dictionary helpers ──────────────────────────────────────────────────
 // Falcon keys a process by its OWN id, not the OS PID:
-//   TargetProcessId  — Falcon's unique process id (UPID) of the process the event is about
-//   ParentProcessId  — the parent's Falcon UPID (ProcessRollup2)
-//   ContextProcessId — the Falcon UPID of the process that PERFORMED a network / DNS /
-//                      file action (NetworkConnectIP4, DnsRequest, …) — i.e. that
+//   TargetProcessId  - Falcon's unique process id (UPID) of the process the event is about
+//   ParentProcessId  - the parent's Falcon UPID (ProcessRollup2)
+//   ContextProcessId - the Falcon UPID of the process that PERFORMED a network / DNS /
+//                      file action (NetworkConnectIP4, DnsRequest, …) - i.e. that
 //                      process's TargetProcessId
-//   RawProcessId     — the operating-system PID (what Task Manager / ps shows)
+//   RawProcessId     - the operating-system PID (what Task Manager / ps shows)
 // The UPID is derived from (sensor, OS pid) so a child's ParentProcessId always equals
 // its parent's TargetProcessId, and a connection's ContextProcessId equals the
-// connecting process's TargetProcessId — the pivot an analyst actually performs.
+// connecting process's TargetProcessId - the pivot an analyst actually performs.
 export function falconUpid(aid: string, osPid: number): string {
   const h = hashString(`upid:${aid}:${osPid}`);
   return String(4_294_967_296 + (h % 900_000_000) * 97 + (osPid % 97));
@@ -76,7 +76,7 @@ export const PATTERN_DISPOSITION: Record<"detected" | "killed" | "quarantined" |
 
 // ── Incident alert (DetectionSummaryEvent, no process node) ──────────────────────────
 // A behavioural Falcon detection that summarises a chain (or a browser/renderer finding)
-// and carries NO process of its own — the alert row that opens the ticket, shown in the
+// and carries NO process of its own - the alert row that opens the ticket, shown in the
 // feed/timeline rather than as another tree node. Use csDetection when the alert IS a
 // concrete flagged process+hash; use csAlert when it is a behavioural summary.
 export interface CsAlertOpts extends Ctx {
@@ -112,8 +112,8 @@ export function csAlert(o: CsAlertOpts): TelemetryEvent {
   const dispoDesc = PATTERN_DISPOSITION[o.action ?? "detected"];
   const result = o.action === "killed" || o.action === "quarantined" ? "process_killed"
     : o.action === "prevented" ? "prevented" : "detected";
-  // A detection names at most three generations of its chain — the triggering process
-  // (FileName) and its Parent/Grandparent image — never a free-text "process tree".
+  // A detection names at most three generations of its chain - the triggering process
+  // (FileName) and its Parent/Grandparent image - never a free-text "process tree".
   const chain = (o.processTree ?? "").split(/\s*>\s*/).map(n => n.replace(/\s*\(.*\)\s*$/, "").trim()).filter(Boolean);
   const fileName = o.processName ?? chain.at(-1);
   const parentImage = o.parentPath ?? (chain.length > 1 ? chain.at(-2) : undefined);
@@ -235,7 +235,7 @@ export interface CsProcessOpts extends Ctx {
   sha256?: string;
   signed?: boolean;             // authenticode result; drives the console's signed field
   signatureSubject?: string;    // code_signature.subject_name (e.g. "Microsoft Corporation")
-  originalFileName?: string;    // PE embedded OriginalFileName — the rename tell (rclone → svchost-update)
+  originalFileName?: string;    // PE embedded OriginalFileName - the rename tell (rclone → svchost-update)
   runAsUser?: string;           // token owner override (verbatim DOMAIN\user, e.g. "NT AUTHORITY\\SYSTEM")
   integrity?: "low" | "medium" | "high" | "system";
   simpleName?: string;          // override crowdstrike.event_simpleName (e.g. "RawDiskAccess")
@@ -281,12 +281,12 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
       ...(sha256 ? { "crowdstrike.SHA256HashData": sha256, "crowdstrike.MD5HashData": md5For(sha256) } : {}),
       ...(o.integrity ? { "crowdstrike.IntegrityLevel": INTEG_RID[o.integrity] } : {}),
       // PE version-info OriginalFilename (Falcon's PeVersionInfo data, shown on the
-      // process details panel) — the rename tell.
+      // process details panel) - the rename tell.
       ...(o.originalFileName ? { "crowdstrike.OriginalFilename": o.originalFileName } : {}),
       // Authenticode result as shown on Falcon's process-details panel. ProcessRollup2
       // itself has no readable signing field (SignInfoFlags is an undocumented bitmask);
-      // this is the one ECS attribute kept — process.code_signature.exists / .trusted, as
-      // Elastic's CrowdStrike integration maps it — because several benign-control
+      // this is the one ECS attribute kept - process.code_signature.exists / .trusted, as
+      // Elastic's CrowdStrike integration maps it - because several benign-control
       // scenarios hinge on "signed by Microsoft" vs "unsigned".
       ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
       ...(o.signatureSubject ? { "process.code_signature.subject_name": o.signatureSubject } : {}),
@@ -295,7 +295,7 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
   };
 }
 
-// ── Registry persistence (AsepValueUpdate — Run key, service, …) ─────────────────────
+// ── Registry persistence (AsepValueUpdate - Run key, service, …) ─────────────────────
 export interface CsRegistryOpts extends Ctx {
   keyPath: string;              // e.g. HKCU\Software\Microsoft\Windows\CurrentVersion\Run
   valueName: string;           // e.g. WindowsUpdateHelper
@@ -343,8 +343,8 @@ export interface CsProcessAccessOpts extends Ctx {
   sha256?: string;
   signed?: boolean;
   targetProcess?: string;       // the process being read/hooked/injected
-  targetPid?: number;           // not on the Falcon record (no target-pid field) — carried as process.target.pid
-  grantedAccess?: string;       // access mask in hex, e.g. 0x1FFFFF (PROCESS_ALL_ACCESS) — the LSASS tell; emitted as DesiredAccess (decimal)
+  targetPid?: number;           // not on the Falcon record (no target-pid field) - carried as process.target.pid
+  grantedAccess?: string;       // access mask in hex, e.g. 0x1FFFFF (PROCESS_ALL_ACCESS) - the LSASS tell; emitted as DesiredAccess (decimal)
   simpleName?: string;          // override the Falcon event name
   api?: string;                 // e.g. SetWindowsHookExW / OpenProcess / WriteProcessMemory
   threatName?: string;          // detection name when this is alert-grade
@@ -385,7 +385,7 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
       ...(o.tactic ? { "crowdstrike.Tactic": o.tactic } : {}),
       ...(o.technique ? { "crowdstrike.Technique": o.technique } : {}),
       // FalconProcessHandleOpDetectInfo: the opened process (TargetProcessImageFileName) and the requested
-      // access mask as Falcon writes it — a decimal string (0x1FFFFF → "2097151"). The record names no
+      // access mask as Falcon writes it - a decimal string (0x1FFFFF → "2097151"). The record names no
       // target OS pid and no API, so targetPid / api shape the scenario, not the log.
       ...(o.targetProcess ? { "crowdstrike.TargetProcessImageFileName": o.targetProcess } : {}),
       ...(o.grantedAccess ? { "crowdstrike.DesiredAccess": String(parseInt(o.grantedAccess, 16)) } : {}),
@@ -411,7 +411,7 @@ export interface CsNetworkOpts extends Ctx {
   parentName?: string;
   parentPid?: number;
   sha256?: string;
-  bytesOut?: number;            // transferred volume — shown in the console, not a CS raw field
+  bytesOut?: number;            // transferred volume - shown in the console, not a CS raw field
   bytesIn?: number;
   extra?: Record<string, string | number | boolean>; // extra crowdstrike.* fields (DetectName, threat.*…)
   mitre?: string;
@@ -439,7 +439,7 @@ export function csNetwork(o: CsNetworkOpts): TelemetryEvent {
       // A real NetworkConnectIP4 (NetworkReceiveAcceptIP4 for inbound): Local*/Remote*
       // address + port pairs, IANA protocol number, ConnectionDirection (0 = outbound,
       // 1 = inbound) and the connecting process's Falcon UPID in ContextProcessId. It
-      // carries NO domain name and NO byte counts — those live in DnsRequest and in
+      // carries NO domain name and NO byte counts - those live in DnsRequest and in
       // the firewall's session record respectively.
       "crowdstrike.event_simpleName": dir === "inbound" ? "NetworkReceiveAcceptIP4" : "NetworkConnectIP4",
       "crowdstrike.aid": r.sensorId,
@@ -464,7 +464,7 @@ export interface CsDnsOpts extends Ctx {
   processName?: string;         // the requesting process (ContextBaseFileName)
   processPath?: string;
   cmdline?: string;
-  pid?: number;                 // its OS pid — becomes ContextProcessId (Falcon UPID)
+  pid?: number;                 // its OS pid - becomes ContextProcessId (Falcon UPID)
   parentName?: string;
   parentPid?: number;
   sha256?: string;

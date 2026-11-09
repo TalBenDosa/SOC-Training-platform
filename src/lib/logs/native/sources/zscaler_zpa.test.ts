@@ -11,7 +11,7 @@ const CARD = "ztna-zscaler-zpa.md";
 const timeOf = (r: Record<string, unknown>) => Date.parse(String(r.TimestampAuthentication || r.TimestampConnectionStart || r.TimestampUnAuthentication));
 const asLog = (r: Record<string, unknown>): NativeLog => ({ sourceId: "zscaler_zpa", kind: kindOf(r) ?? "?", format: "json", record: r, timeMs: timeOf(r) });
 
-describe("zscaler_zpa — card samples", () => {
+describe("zscaler_zpa - card samples", () => {
   const recs = cardRecords(CARD);
   it("every card sample validates with zero violations (no sample skipped)", () => {
     expect(recs.length).toBe(6);
@@ -22,7 +22,7 @@ describe("zscaler_zpa — card samples", () => {
   });
 });
 
-describe("zscaler_zpa — corpus conversion (cross-vendor: the corpus has no ZPA-authored events)", () => {
+describe("zscaler_zpa - corpus conversion (cross-vendor: the corpus has no ZPA-authored events)", () => {
   const conv = convertCorpus(source);
 
   it("converted logs validate with zero violations", () => {
@@ -75,7 +75,7 @@ describe("zscaler_zpa — corpus conversion (cross-vendor: the corpus has no ZPA
   });
 });
 
-describe("zscaler_zpa — use cases", () => {
+describe("zscaler_zpa - use cases", () => {
   const conv = convertCorpus(source);
   const recs = cardRecords(CARD);
   const blocked = recs.find(r => r.InternalReason === "BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY")!;

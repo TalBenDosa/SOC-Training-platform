@@ -7,7 +7,7 @@ function fnv(s: string): number {
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
-/** murmur3 32-bit finaliser — full avalanche, so consecutive chunks look independent. */
+/** murmur3 32-bit finaliser - full avalanche, so consecutive chunks look independent. */
 function fmix32(x: number): number {
   x ^= x >>> 16; x = Math.imul(x, 0x85ebca6b);
   x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35);
@@ -42,7 +42,7 @@ const digits = (seed: string, n: number) => {
   return s.slice(0, n).replace(/^0/, "1");
 };
 
-// Domain + NetBIOS come from the company asset registry — the same email domain and realm
+// Domain + NetBIOS come from the company asset registry - the same email domain and realm
 // the authored content uses (the renderers had drifted: medcore-health.org vs
 // @medcorehealth.org mail, QBANK vs QUANTUMBANK). Time zone = the HQ's (companyProfilesMeta).
 const TIME_ZONES: Record<string, string> = {
@@ -59,7 +59,7 @@ const DOMAINS: Record<string, { domain: string; netbios: string; timeZone: strin
   }),
 );
 
-/** The company's NetBIOS domain — one realm per tenant everywhere. */
+/** The company's NetBIOS domain - one realm per tenant everywhere. */
 export function companyNetbios(companyId: string): string {
   return DOMAINS[companyId]?.netbios ?? companyId.toUpperCase().slice(0, 15);
 }
@@ -70,7 +70,7 @@ export function companyTimeZone(companyId: string): string {
 }
 
 /**
- * Seeds whose value is a fact about the world, not about a tenant — a file's hash, a public
+ * Seeds whose value is a fact about the world, not about a tenant - a file's hash, a public
  * domain's address, a vendor's signature / app / pattern / indicator id, an OS image's build hash.
  * The same in every company, so a payload hash or a C2 address carries over between stacks.
  * (rhex-style helpers wrap a seed as "<i>|<seed>|…", hence the "|" alternative.)
@@ -79,7 +79,7 @@ const GLOBAL_SEED = /(^|\|)(sha1:|img:|dom:|threat:|s1:indicator:|role-template:
 /**
  * Every other seed is scoped to the tenant: an id seeded from an event id alone (a session id, a NAT
  * source port, an alert / threat id, a trace id …) would otherwise be identical in two companies
- * playing the same story — visible side by side in team / multi-company mode.
+ * playing the same story - visible side by side in team / multi-company mode.
  */
 const tenantSeed = (companyId: string, seed: string) => (GLOBAL_SEED.test(seed) ? seed : `${companyId}\u0002${seed}`);
 

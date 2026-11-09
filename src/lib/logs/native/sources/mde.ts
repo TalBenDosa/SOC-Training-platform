@@ -1,7 +1,7 @@
 /**
- * Microsoft Defender for Endpoint — native module (card: docs/log-schemas/edr-defender-endpoint.md).
+ * Microsoft Defender for Endpoint - native module (card: docs/log-schemas/edr-defender-endpoint.md).
  *
- * Representation: ONE element of the Defender XDR Streaming API `records[]` array —
+ * Representation: ONE element of the Defender XDR Streaming API `records[]` array -
  *   { time, tenantId, operationName:"Publish", category:"AdvancedHunting-<Table>", properties:{ <AH row> } }
  * with `properties` holding the untouched Advanced Hunting columns. The kind is the table name.
  *
@@ -142,7 +142,7 @@ function proc(ctx: NativeCtx, s: ProcScope, p: EdrProc): Proc {
   const path = (name ? imagePath({ ...p, name }) : undefined) ?? fixPath(p.path) ?? null;
   const pid = name ? procPid(ctx, s, p) ?? null : null;
   const key = name ? procKey(ctx, s, p) : undefined;
-  // An image with no story hash: one hash per path (./_proc-identity imageHashes) — the fleet build of a
+  // An image with no story hash: one hash per path (./_proc-identity imageHashes) - the fleet build of a
   // well-known binary, and the same value every record of that file shows (file rows, alerts, Sysmon).
   const fleet = path && /[\\/]/.test(path) ? imageHashes(ctx, path) : null;
   const sha256 = p.sha256 ?? fleet?.sha256 ?? null;
@@ -159,7 +159,7 @@ interface Who { name: string | null; domain: string | null; sid: string | null; 
 const NOBODY: Who = { name: null, domain: null, sid: null, upn: null, objectId: null, logonId: null, system: false };
 /**
  * The account columns of one process: the story's user (authored SID / logon id when the story has
- * them — EdrFacts.sid / logonId — else the user's directory SID and a per-host-per-day session).
+ * them - EdrFacts.sid / logonId - else the user's directory SID and a per-host-per-day session).
  * `account` names another account the process runs as (a parent that ran as SYSTEM).
  */
 function who(ctx: NativeCtx, f: EdrFacts, host: string, account?: string): Who {
@@ -189,7 +189,7 @@ function integrity(f: EdrFacts, u: Who, authored = f.proc.integrity): Integ {
   const elevation = level === "High" ? "TokenElevationTypeFull" : level === "Medium" ? "TokenElevationTypeLimited" : "TokenElevationTypeDefault";
   return { level, elevation };
 }
-/** The creator of a new process runs as ITS own account and integrity (its own row, or a service host's account) — not the child's. */
+/** The creator of a new process runs as ITS own account and integrity (its own row, or a service host's account) - not the child's. */
 function creatorAccount(ctx: NativeCtx, f: EdrFacts, host: string, creator: Proc, u: Who): { cu: Who; ci: Integ } {
   const account = f.parent.user ?? (creator.name ? SERVICE_ACCOUNT[creator.name.toLowerCase()] : undefined);
   const cu = account ? who(ctx, f, host, account) : u;
@@ -232,7 +232,7 @@ function initiatingCols(p: Proc, parent: Proc | null, u: Who, integ: { level: st
 
 /**
  * DeviceEvents ActionType ScheduledTaskCreated: the account that created the task, the registrar as
- * InitiatingProcess*, and AdditionalFields {TaskName, TaskContent} — TaskContent is the task's XML,
+ * InitiatingProcess*, and AdditionalFields {TaskName, TaskContent} - TaskContent is the task's XML,
  * holding only what the event says (author, URI, the Exec command; no invented trigger).
  */
 function scheduledTaskRow(ctx: NativeCtx, scope: ProcScope, t: TaskFacts, f: EdrFacts, u: Who,
@@ -273,7 +273,7 @@ function familyOf(ev: TelemetryEvent, name?: string): string | null {
   const named = parts.slice(1).filter(x => !/^(\d+|v\d+|[A-Z]{1,2}|generic|gen|variant|agent)$/i.test(x));
   return named.length ? named[named.length - 1] : null;
 }
-/** A dotted engine signature ("Type.Family[.Variant]") — no spaces, at least two segments. */
+/** A dotted engine signature ("Type.Family[.Variant]") - no spaces, at least two segments. */
 const SIGNATURE_NAME = /^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
 const TYPE_WORD = /^(trojan|ransomware|ransom|backdoor|worm|pup|pua|adware|riskware|spyware|malware|virus|hacktool|exploit|troj|mal|app)$/i;
 
@@ -340,8 +340,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     });
   }
   // A service installation is DeviceEvents ServiceInstalled, recorded by services.exe (the SCM), naming the
-  // service and its binary — not a ProcessCreated row of the binary.
-  // (Only when the event's process IS the service binary — started by services.exe; an event whose process is
+  // service and its binary - not a ProcessCreated row of the binary.
+  // (Only when the event's process IS the service binary - started by services.exe; an event whose process is
   // the installer (msiexec /i …) stays that installer's ProcessCreated row, which carries its command line.)
   if (f.kind === "process" && f.service && f.os === "Win" && /^services\.exe$/i.test(f.parent.name ?? "")) {
     const scm = proc(ctx, scope, { name: "services.exe" });
@@ -363,7 +363,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   switch (f.kind) {
     case "process": {
-      if (!p.name) return null; // no image identity at all — Defender never emits a nameless ProcessCreated row
+      if (!p.name) return null; // no image identity at all - Defender never emits a nameless ProcessCreated row
       const creator = parent ?? proc(ctx, scope, {});
       const { cu, ci } = creatorAccount(ctx, f, host, creator, u);
       return wrap("DeviceProcessEvents", {
@@ -435,7 +435,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         SHA256: f.file.sha256 ?? null,
         MD5: f.file.md5 ?? null,
         FileSize: f.file.size ?? null,
-        // FileOriginUrl comes from Mark-of-the-Web — only for browser/mail downloads (card §4.4 note): the URL
+        // FileOriginUrl comes from Mark-of-the-Web - only for browser/mail downloads (card §4.4 note): the URL
         // the row or the story's own download request authored (EdrFacts.originUrl), else the row's URL.
         FileOriginUrl: browser ? f.originUrl ?? f.net.url ?? null : f.originUrl && authoredOrigin ? f.originUrl : null,
         FileOriginReferrerUrl: browser || authoredOrigin ? f.referrerUrl ?? null : null,
@@ -512,7 +512,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     }
     case "usb": {
       // DeviceEvents ActionType UsbDriveMounted (card §DeviceEvents ActionTypes "…"): the drive letter and the
-      // device's identity in AdditionalFields — the record that ties a removable drive to the files later written to it.
+      // device's identity in AdditionalFields - the record that ties a removable drive to the files later written to it.
       const usb = f.usb ?? {};
       if (!usb.drive && !usb.serial) return null;
       return wrap("DeviceEvents", {
@@ -613,7 +613,7 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
       FileSize: sameImage ? f.file.size ?? null : null,
       AccountName: u.name, AccountDomain: u.domain, AccountSid: u.sid, AccountObjectId: u.objectId, AccountUpn: u.upn,
       ProcessCommandLine: p.cmdline,
-      // The process entity as Defender serialises it — its parent too (the parent's command line is often the evidence).
+      // The process entity as Defender serialises it - its parent too (the parent's command line is often the evidence).
       AdditionalFields: JSON.stringify({
         ProcessId: p.pid === null ? null : String(p.pid), CommandLine: p.cmdline ?? undefined, ImageFile: { FileName: p.name, FolderPath: procDir },
         ...(parent?.name ? { ParentProcess: { ProcessId: parent.pid === null ? null : String(parent.pid), CommandLine: parent.cmdline ?? undefined, ImageFile: { FileName: parent.name, FolderPath: dirOf(parent.path ?? undefined) ?? null } } } : {}),
@@ -635,7 +635,7 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
 
 /**
  * The AlertInfo row (one per alert) that accompanies an AlertEvidence row produced by
- * fromTelemetry — same AlertId / Title / Severity / techniques, joinable on AlertId.
+ * fromTelemetry - same AlertId / Title / Severity / techniques, joinable on AlertId.
  */
 /** The AttackTechniques column as authored for Defender (raw AttackTechniques / mde.AttackTechniques), else "[]". */
 function nativeTechniques(ev: TelemetryEvent): string {
@@ -679,8 +679,8 @@ const useCases: UseCase[] = [
     id: "mde.office-encoded-script-host",
     title: "Office application spawned a script host with an encoded command",
     sourceId: "mde", kinds: ["DeviceProcessEvents"], severity: "high", mitre: ["T1566.001", "T1204.002", "T1059.001", "T1027"],
-    description: "A Word/Excel/PowerPoint/Outlook process created PowerShell, cmd, wscript, cscript or mshta whose command line carries an encoded-command switch. Documents have no business launching hidden encoded scripts — this is the classic macro-dropper chain. In DeviceProcessEvents the creator is InitiatingProcessFileName and the new process is FileName.",
-    logic: "// KQL — Microsoft Defender XDR Advanced Hunting\nDeviceProcessEvents\n| where ActionType == \"ProcessCreated\"\n| where InitiatingProcessFileName in~ (\"winword.exe\",\"excel.exe\",\"powerpnt.exe\",\"outlook.exe\",\"onenote.exe\",\"mspub.exe\",\"msaccess.exe\",\"visio.exe\")\n| where FileName in~ (\"powershell.exe\",\"pwsh.exe\",\"cmd.exe\",\"wscript.exe\",\"cscript.exe\",\"mshta.exe\")\n| where ProcessCommandLine matches regex @\"(?i)\\s[-/]e(nc|ncodedcommand|c)?\\s\"\n| project Timestamp, DeviceName, AccountName, InitiatingProcessFileName, InitiatingProcessCommandLine, FileName, ProcessCommandLine, SHA1",
+    description: "A Word/Excel/PowerPoint/Outlook process created PowerShell, cmd, wscript, cscript or mshta whose command line carries an encoded-command switch. Documents have no business launching hidden encoded scripts - this is the classic macro-dropper chain. In DeviceProcessEvents the creator is InitiatingProcessFileName and the new process is FileName.",
+    logic: "// KQL - Microsoft Defender XDR Advanced Hunting\nDeviceProcessEvents\n| where ActionType == \"ProcessCreated\"\n| where InitiatingProcessFileName in~ (\"winword.exe\",\"excel.exe\",\"powerpnt.exe\",\"outlook.exe\",\"onenote.exe\",\"mspub.exe\",\"msaccess.exe\",\"visio.exe\")\n| where FileName in~ (\"powershell.exe\",\"pwsh.exe\",\"cmd.exe\",\"wscript.exe\",\"cscript.exe\",\"mshta.exe\")\n| where ProcessCommandLine matches regex @\"(?i)\\s[-/]e(nc|ncodedcommand|c)?\\s\"\n| project Timestamp, DeviceName, AccountName, InitiatingProcessFileName, InitiatingProcessCommandLine, FileName, ProcessCommandLine, SHA1",
     match: { all: [
       { field: "properties.ActionType", op: "eq", value: "ProcessCreated" },
       { field: "properties.InitiatingProcessFileName", op: "regex", value: OFFICE },
@@ -700,7 +700,7 @@ const useCases: UseCase[] = [
       { field: "properties.RemoteIPType", op: "eq", value: "Public" },
       { field: "properties.InitiatingProcessFileName", op: "regex", value: LOLBIN },
     ] },
-    falsePositives: ["IT automation that uses PowerShell/curl to reach vendor APIs or package feeds — baseline by RemoteUrl and the signer of the parent", "Software updaters invoked through rundll32"],
+    falsePositives: ["IT automation that uses PowerShell/curl to reach vendor APIs or package feeds - baseline by RemoteUrl and the signer of the parent", "Software updaters invoked through rundll32"],
   },
   {
     id: "mde.dropped-executable-run-from-user-folder",
@@ -721,13 +721,13 @@ const useCases: UseCase[] = [
       ] },
     ] },
     threshold: { groupBy: ["properties.DeviceId", "properties.FileName"], count: 2, windowSec: 3600, distinct: "category" },
-    falsePositives: ["Per-user installers (Teams, Zoom, Chrome) that unpack into AppData and run — allow-list by signer", "Portable admin tools run from Downloads by IT staff"],
+    falsePositives: ["Per-user installers (Teams, Zoom, Chrome) that unpack into AppData and run - allow-list by signer", "Portable admin tools run from Downloads by IT staff"],
   },
   {
     id: "mde.credential-access-alert",
     title: "Defender alert in the Credential Access category",
     sourceId: "mde", kinds: ["AlertInfo", "AlertEvidence"], severity: "high", mitre: ["T1003", "T1555", "T1539"],
-    description: "Any Defender alert whose Category (AlertInfo) or Categories (AlertEvidence) is CredentialAccess — credential dumping, browser credential theft, cookie theft. Stolen credentials let the attacker log in as the user anywhere, so these alerts are escalated even when the process was stopped: reset the account and revoke sessions.",
+    description: "Any Defender alert whose Category (AlertInfo) or Categories (AlertEvidence) is CredentialAccess - credential dumping, browser credential theft, cookie theft. Stolen credentials let the attacker log in as the user anywhere, so these alerts are escalated even when the process was stopped: reset the account and revoke sessions.",
     logic: "// KQL\nAlertInfo\n| where Category == \"CredentialAccess\"\n| join kind=inner (AlertEvidence | where EntityType in (\"Process\",\"File\",\"User\",\"Machine\")) on AlertId\n| project Timestamp, AlertId, Title, Severity, EntityType, DeviceName, AccountName, FileName, ProcessCommandLine",
     match: { any: [
       { field: "properties.Category", op: "eq", value: "CredentialAccess" },
@@ -739,7 +739,7 @@ const useCases: UseCase[] = [
     id: "mde.high-severity-alert",
     title: "High-severity Defender alert",
     sourceId: "mde", kinds: ["AlertInfo", "AlertEvidence"], severity: "high", mitre: [],
-    description: "Defender rates the alert High (its top severity — Defender has no 'Critical'). High alerts go to the front of the queue: open the alert story, check whether the activity was prevented, and decide on isolating the device.",
+    description: "Defender rates the alert High (its top severity - Defender has no 'Critical'). High alerts go to the front of the queue: open the alert story, check whether the activity was prevented, and decide on isolating the device.",
     logic: "// KQL\nAlertInfo\n| where Severity == \"High\"\n| join kind=inner AlertEvidence on AlertId\n| summarize Entities=make_set(EntityType), Devices=make_set(DeviceName) by AlertId, Title, Category, DetectionSource",
     match: { field: "properties.Severity", op: "eq", value: "High" },
     falsePositives: ["Known test files (EICAR) and sanctioned security tooling", "Duplicate alerts for an already-contained incident"],
@@ -754,7 +754,7 @@ const useCases: UseCase[] = [
       { field: "properties.ActionType", op: "eq", value: "RegistryValueSet" },
       { field: "properties.RegistryKey", op: "regex", value: "\\\\CurrentVersion\\\\Run(Once)?$" },
     ] },
-    falsePositives: ["Software installers and updaters (OneDrive, Teams, vendor agents) registering autostart entries — check the signer and the folder"],
+    falsePositives: ["Software installers and updaters (OneDrive, Teams, vendor agents) registering autostart entries - check the signer and the folder"],
   },
   {
     id: "mde.event-log-cleared-wevtutil",

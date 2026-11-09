@@ -2,8 +2,8 @@
  * Shared plumbing for the vendor log emitters (crowdstrike / sentinelone / mde …).
  *
  * The vendors differ only in their raw-block dialect and their disposition vocabulary.
- * Everything else — resolving a company-native host / user / IP from the asset fabric,
- * the deterministic sensor id and PID, the default on-disk paths, the severity label —
+ * Everything else - resolving a company-native host / user / IP from the asset fabric,
+ * the deterministic sensor id and PID, the default on-disk paths, the severity label -
  * is identical, and lives here so each vendor module writes ONLY its own field mapping.
  */
 import type { Severity } from "../types";
@@ -18,7 +18,7 @@ export interface Ctx {
   companyId?: string;
   host?: string;
   /** login name or email; rendered DOMAIN\user in the raw block. null = no user (a
-   *  pre-auth firewall connection, a system event) — never draw one from the fabric. */
+   *  pre-auth firewall connection, a system event) - never draw one from the fabric. */
   user?: string | null;
   srcIp?: string;
   incidentId?: string;
@@ -30,7 +30,7 @@ export interface Resolved {
   email: string | undefined;
   domainUser: string;
   srcIp: string;
-  sensorId: string;   // agent/sensor uuid — stable per host
+  sensorId: string;   // agent/sensor uuid - stable per host
 }
 
 /** Resolve identity + asset for an event, drawing from the fabric when not given. */

@@ -52,30 +52,30 @@ interface Props {
   companyId: string;
   /** The open incident ("none" before the attack starts): the draft belongs to it alone. */
   incidentId: string;
-  /** Real indicator values from the actual attack — grader ground truth */
+  /** Real indicator values from the actual attack - grader ground truth */
   realIndicators: string[];
   /**
    * Serialized ground-truth attack events (raw included). The grader treats any
-   * IP/email/hash the student cites that appears in this text as REAL — so a
+   * IP/email/hash the student cites that appears in this text as REAL - so a
    * value visible in a log's raw block (an MD5, a private host IP, a vendor-keyed
    * field) is never mis-flagged as "fabricated" just because it wasn't in the
    * discrete realIndicators list. Mirrors the scenario grader's eventsBlob.
    */
   evidenceText?: string;
   attackTitle: string | null;
-  /** MITRE technique IDs the real attack used — sent to grader as ground truth */
+  /** MITRE technique IDs the real attack used - sent to grader as ground truth */
   attackMitreTechniques?: string[];
   /**
    * Benign "decoy" events the student saw this session, each with the written
    * explanation of why it is a false positive. Revealed only in the passed
-   * state as a teaching debrief (never before/on failure — see render).
+   * state as a teaching debrief (never before/on failure - see render).
    */
   decoys?: { label: string; source: string; fp_explanation: string }[];
-  /** Response time (ms) for this incident — from the attack's first phase to the
+  /** Response time (ms) for this incident - from the attack's first phase to the
    *  catch / this report. Surfaced as a coaching point below; it NEVER affects
    *  pass/fail or the score. null when unmeasured. */
   responseMs?: number | null;
-  /** Response-time target in seconds — the coaching benchmark (default 15 min). */
+  /** Response-time target in seconds - the coaching benchmark (default 15 min). */
   responseTargetSeconds?: number;
   /** True when a passing report would close and credit an open incident. False
    *  when no incident is open (the attack has not started) or it was already
@@ -104,7 +104,7 @@ export function IncidentReportModal({
   onClose,
   onPassed,
 }: Props) {
-  // Draft persistence — this modal unmounts entirely when closed (X / Cancel /
+  // Draft persistence - this modal unmounts entirely when closed (X / Cancel /
   // Escape), which used to wipe whatever the student had typed. Everything the
   // student writes is now saved to localStorage per company and restored the
   // next time they open the report, so closing to go re-check the feed never
@@ -146,7 +146,7 @@ export function IncidentReportModal({
   const [credited, setCredited] = useState(false);
 
   // Guided mode: 4 labelled fields matching the grading rubric, concatenated
-  // into the summary on submit — beginners get structure, the API is unchanged.
+  // into the summary on submit - beginners get structure, the API is unchanged.
   const [guided, setGuided] = useState(() => {
     if (draft) return draft.guided;
     if (typeof window !== "undefined" && lsGet("soc_report_mode_v1") === "free") return false;
@@ -175,7 +175,7 @@ export function IncidentReportModal({
   }, [onClose]);
 
   // a11y: this is a deliberately NON-modal drawer (the feed beside it must stay
-  // clickable while the analyst writes), so focus is not trapped — but focus
+  // clickable while the analyst writes), so focus is not trapped - but focus
   // moves into it on open (the first field autoFocuses) and returns to whatever
   // opened it (normally "Report Incident") when it closes.
   useEffect(() => {
@@ -195,7 +195,7 @@ export function IncidentReportModal({
   ].filter(Boolean).join("\n");
 
   const effectiveSummary = guided ? buildGuidedSummary() : summary;
-  // All four guided fields are required — they mirror the four rubric components
+  // All four guided fields are required - they mirror the four rubric components
   // (identification, evidence, action, impact), and the grader docks points for a
   // missing action or impact, so the form must not let them be skipped. This keeps
   // the form and the score saying the same thing (L-10).
@@ -237,12 +237,12 @@ export function IncidentReportModal({
       if (data.passed) { onPassed(data.score); lsRemove(draftKey); }
       setPhase("result");
     } catch (e) {
-      // NEVER fail-open. A network/grader failure must not award a pass — that
+      // NEVER fail-open. A network/grader failure must not award a pass - that
       // would let a junk report of sufficient length "secure the company". The
       // server always returns a deterministic heuristic grade even when the LLM
       // is down, so reaching here means the request itself failed. Send the
       // analyst back to the form with a retry prompt; their draft is preserved.
-      setError(`Couldn't grade the report — ${userMessageFor(e)} Your report is saved below.`);   // E-09
+      setError(`Couldn't grade the report - ${userMessageFor(e)} Your report is saved below.`);   // E-09
       setPhase("form");
     }
   };
@@ -250,7 +250,7 @@ export function IncidentReportModal({
   return (
     /* Docked as a side drawer, NOT a centered modal with a blocking backdrop.
        The report explicitly asks the analyst to quote IOCs from the logs
-       "exactly" — so covering the event feed while they write made the task
+       "exactly" - so covering the event feed while they write made the task
        self-defeating. With no full-screen overlay the feed stays visible AND
        clickable: rows can still be expanded to re-read raw fields mid-write,
        which is how a real analyst works (SIEM on one side, case ticket on the
@@ -268,7 +268,7 @@ export function IncidentReportModal({
               <FileText className="h-5 w-5 text-cyber-300 shrink-0" />
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Tier-1 Analyst Report</p>
-                <h2 id="incident-report-title" className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
+                <h2 id="incident-report-title" className="text-sm font-bold text-white">Incident Report - {companyName}</h2>
               </div>
             </div>
             <button type="button" onClick={onClose} aria-label="Close incident report" className="rounded p-1 text-slate-400 hover:text-white transition">
@@ -288,13 +288,13 @@ export function IncidentReportModal({
               <div className="rounded border border-neon-amber/20 bg-neon-amber/5 px-3 py-2.5">
                 <p className="text-[10px] text-neon-amber font-semibold uppercase tracking-wider mb-1">What to include</p>
                 <p className="text-[10px] text-slate-400 leading-relaxed">
-                  Describe: <span className="text-slate-300">what attack occurred</span> · <span className="text-slate-300">which <Term k="ioc">IOCs</Term> from the logs prove it (real IPs, users, hosts — quote them exactly)</span> · <span className="text-slate-300">what action to take</span> · <span className="text-slate-300">business impact</span>
+                  Describe: <span className="text-slate-300">what attack occurred</span> · <span className="text-slate-300">which <Term k="ioc">IOCs</Term> from the logs prove it (real IPs, users, hosts - quote them exactly)</span> · <span className="text-slate-300">what action to take</span> · <span className="text-slate-300">business impact</span>
                 </p>
                 {/* Only true on lg+ where the drawer is 480px and the feed sits
                     beside it. On mobile the drawer is full-width and covers the
-                    feed, so this promise would be false — hide it there. */}
+                    feed, so this promise would be false - hide it there. */}
                 <p className="mt-2 hidden text-[10px] text-slate-400 lg:block">
-                  The feed stays live beside you — click any row to re-read its raw fields while you write.
+                  The feed stays live beside you - click any row to re-read its raw fields while you write.
                 </p>
               </div>
 
@@ -328,18 +328,18 @@ export function IncidentReportModal({
                 </div>
               </div>
 
-              {/* Guided mode — 4 fields mirroring the grading rubric */}
+              {/* Guided mode - 4 fields mirroring the grading rubric */}
               {guided ? (
                 <div className="space-y-2.5">
                   {[
                     { label: "What happened?", req: true, value: gWhat, set: setGWhat, rows: 2,
-                      ph: "Name the specific attack — e.g. \"A password spray attack against multiple accounts, followed by an account takeover of r.patel.\"" },
-                    { label: "Evidence — which IOCs prove it?", req: true, value: gIocs, set: setGIocs, rows: 2,
-                      ph: "Quote the values you collected — e.g. \"Source IP 91.108.4.154 (40+ failed logins), compromised user r.patel@nexacorp.com.\"" },
+                      ph: "Name the specific attack - e.g. \"A password spray attack against multiple accounts, followed by an account takeover of r.patel.\"" },
+                    { label: "Evidence - which IOCs prove it?", req: true, value: gIocs, set: setGIocs, rows: 2,
+                      ph: "Quote the values you collected - e.g. \"Source IP 91.108.4.154 (40+ failed logins), compromised user r.patel@nexacorp.com.\"" },
                     { label: "Recommended action", req: true, value: gAction, set: setGAction, rows: 2,
                       ph: "e.g. \"Block the IP at the firewall, reset r.patel's password, review all logins from that IP.\"" },
                     { label: "Business impact", req: true, value: gImpact, set: setGImpact, rows: 2,
-                      ph: "e.g. \"The attacker had access to customer financial data — potential data-breach and regulatory exposure.\"" },
+                      ph: "e.g. \"The attacker had access to customer financial data - potential data-breach and regulatory exposure.\"" },
                   ].map((f, i) => (
                     <div key={f.label}>
                       <p id={`ir-guided-label-${i}`} className="mb-1 text-[10px] font-semibold text-slate-400">
@@ -359,7 +359,7 @@ export function IncidentReportModal({
                   ))}
                 </div>
               ) : (
-                /* Free-text mode — the classic single textarea */
+                /* Free-text mode - the classic single textarea */
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
                     <span id="ir-summary-count" className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-400" : "text-neon-green")}>
@@ -448,7 +448,7 @@ export function IncidentReportModal({
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-400">
-                    {passed ? "Threshold: 60/100 — you met it." : "Threshold: 60/100 — keep monitoring and try again."}
+                    {passed ? "Threshold: 60/100 - you met it." : "Threshold: 60/100 - keep monitoring and try again."}
                   </p>
                 </div>
               </div>
@@ -480,7 +480,7 @@ export function IncidentReportModal({
                 )}
               </div>
 
-              {/* Response-time coaching — a gentle pace note, NEVER part of the
+              {/* Response-time coaching - a gentle pace note, NEVER part of the
                   grade. Within target → a positive note; over target → a soft
                   "areas to improve" nudge. The live feed is practice, so time is
                   only ever coaching (see useLiveEvents: no miss, no penalty). */}
@@ -510,15 +510,15 @@ export function IncidentReportModal({
                     </p>
                     <p className={cn("text-[10px] leading-relaxed", within ? "text-neon-green" : "text-neon-amber")}>
                       {within
-                        ? `Good pace — within the ${targetMin}-minute response target.`
-                        : `Response time exceeded the ${targetMin}-minute target by ${overBy} — work on faster triage next shift.`}
+                        ? `Good pace - within the ${targetMin}-minute response target.`
+                        : `Response time exceeded the ${targetMin}-minute target by ${overBy} - work on faster triage next shift.`}
                     </p>
-                    <p className="text-[9px] text-slate-500">Coaching only — this does not affect your score.</p>
+                    <p className="text-[9px] text-slate-500">Coaching only - this does not affect your score.</p>
                   </div>
                 );
               })()}
 
-              {/* Decoy debrief — only after a PASS. Recognising false positives is
+              {/* Decoy debrief - only after a PASS. Recognising false positives is
                   half of SOC work; these benign events looked suspicious this
                   session, and this is the context that clears each one. Withheld
                   on a failed report so it can't be used to deduce the real attack
@@ -528,12 +528,12 @@ export function IncidentReportModal({
                   <div className="flex items-center gap-1.5">
                     <Shield className="h-3.5 w-3.5 text-cyber-300 shrink-0" />
                     <p className="text-[10px] font-bold uppercase tracking-wider text-cyber-300">
-                      False Positives You Saw — Why They Were Benign
+                      False Positives You Saw - Why They Were Benign
                     </p>
                   </div>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
                     Not every alarming log is an attack. These events looked suspicious but were
-                    legitimate — clearing them correctly is as important as catching the real intrusion.
+                    legitimate - clearing them correctly is as important as catching the real intrusion.
                   </p>
                   <div className="space-y-1.5 pt-0.5">
                     {decoys.map((d, i) => (
@@ -583,7 +583,7 @@ export function IncidentReportModal({
                   onClick={onClose}
                   className="w-full rounded border border-cyber-500/40 bg-cyber-500/10 py-2.5 text-xs font-bold text-cyber-300 hover:bg-cyber-500/20 transition"
                 >
-                  {passed ? "Close & Continue Monitoring" : "Close — Keep Monitoring"}
+                  {passed ? "Close & Continue Monitoring" : "Close - Keep Monitoring"}
                 </button>
               </div>
             </div>

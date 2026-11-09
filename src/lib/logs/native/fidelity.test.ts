@@ -144,7 +144,7 @@ describe("#21 Windows pids / tids are multiples of 4", () => {
   });
 });
 
-describe("canonicalPids — the pid every EDR record prints, for UIs that show process.pid", () => {
+describe("canonicalPids - the pid every EDR record prints, for UIs that show process.pid", () => {
   it("equals CrowdStrike RawProcessId, S1 tgt.process.pid and Defender ProcessId / InitiatingProcessId", () => {
     const c = canonicalPids(installer, "nexacorp");
     expect(String(c.pid)).toBe(render("crowdstrike", installer).record.RawProcessId);

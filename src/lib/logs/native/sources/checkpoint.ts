@@ -1,5 +1,5 @@
 /**
- * Check Point Quantum Security Gateway — default Log Exporter (syslog) format,
+ * Check Point Quantum Security Gateway - default Log Exporter (syslog) format,
  * rendered per docs/log-schemas/fw-checkpoint.md: a FLAT object keyed by the
  * Check Point field names, all values strings, repeated match-table keys
  * (layer_name, rule_name, rule_uid …) as JSON arrays in emitted order.
@@ -280,7 +280,7 @@ export const useCases: UseCase[] = [
   {
     id: "checkpoint.urlf-block-malicious", title: "URL Filtering blocked a malicious category", sourceId: "checkpoint", kinds: ["url_filtering"],
     severity: "medium", mitre: ["T1189", "T1566.002"],
-    description: "URL Filtering Block with matched_category Spyware / Malicious Sites, Phishing, Botnets or Anonymizer. The request was stopped, but something on src_machine_name generated it — check the referring page or process.",
+    description: "URL Filtering Block with matched_category Spyware / Malicious Sites, Phishing, Botnets or Anonymizer. The request was stopped, but something on src_machine_name generated it - check the referring page or process.",
     logic: "SmartConsole: blade:\"URL Filtering\" AND action:Block | SPL: sourcetype=cp_log product=\"URL Filtering\" action IN (Block, Drop) matched_category IN (\"Spyware / Malicious Sites\", Phishing, Botnets, Anonymizer, Uncategorized)",
     match: { all: [{ field: "action", op: "in", value: ["Block", "Drop", "Reject"] }, { field: "matched_category", op: "in", value: ["Spyware / Malicious Sites", "Phishing", "Botnets", "Anonymizer", "High Risk", "Critical Risk", "Uncategorized"] }] },
     falsePositives: ["Ad-network redirects", "Mis-categorised sites"],
@@ -296,7 +296,7 @@ export const useCases: UseCase[] = [
   {
     id: "checkpoint.script-client-uncategorized", title: "Non-browser client reaching an uncategorised site", sourceId: "checkpoint", kinds: ["url_filtering"],
     severity: "high", mitre: ["T1071.001", "T1059"],
-    description: "web_client_type \"Other: …\" (Python-urllib, curl, PowerShell) talking to an Uncategorized domain from a user workstation is how scripted implants beacon — browsers report Chrome/Edge/Firefox.",
+    description: "web_client_type \"Other: …\" (Python-urllib, curl, PowerShell) talking to an Uncategorized domain from a user workstation is how scripted implants beacon - browsers report Chrome/Edge/Firefox.",
     logic: "SPL: sourcetype=cp_log product=\"URL Filtering\" action=Accept app_category=Uncategorized web_client_type=\"Other:*\"",
     match: { all: [{ field: "action", op: "eq", value: "Accept" }, { field: "app_category", op: "eq", value: "Uncategorized" }, { field: "web_client_type", op: "startsWith", value: "Other:" }] },
     falsePositives: ["Developer tooling and package managers hitting new mirrors"],
@@ -304,7 +304,7 @@ export const useCases: UseCase[] = [
   {
     id: "checkpoint.large-outbound-transfer", title: "Large upload (client_outbound_bytes ≥ 100 MB)", sourceId: "checkpoint", kinds: ["firewall", "app_control", "url_filtering"],
     severity: "high", mitre: ["T1048", "T1567.002"],
-    description: "Accounting logs re-emit a connection with growing counters (same loguid, higher sequencenum). client_outbound_bytes = what the internal client uploaded. ≥100 MB to an External zone — especially to File Storage and Sharing apps — is an exfiltration indicator. Dedupe by loguid and keep the latest.",
+    description: "Accounting logs re-emit a connection with growing counters (same loguid, higher sequencenum). client_outbound_bytes = what the internal client uploaded. ≥100 MB to an External zone - especially to File Storage and Sharing apps - is an exfiltration indicator. Dedupe by loguid and keep the latest.",
     logic: "SPL: sourcetype=cp_log logid=6 outzone=External | dedup loguid sortby -sequencenum | where client_outbound_bytes>=104857600 | table start_time elapsed src src_machine_name dst appi_name client_outbound_bytes client_inbound_bytes",
     match: { all: [{ field: "outzone", op: "eq", value: "External" }, { field: "client_outbound_bytes", op: "gte", value: 104857600 }] },
     falsePositives: ["Sanctioned backup / replication jobs"],
@@ -312,7 +312,7 @@ export const useCases: UseCase[] = [
   {
     id: "checkpoint.port-scan", title: "Port scan: one source dropped on many services", sourceId: "checkpoint", kinds: ["firewall"],
     severity: "medium", mitre: ["T1046", "T1595.001"],
-    description: "Ten or more distinct destination ports (service) dropped for one src within five minutes — reconnaissance. On Check Point the destination port is `service`, the source port is `s_port`.",
+    description: "Ten or more distinct destination ports (service) dropped for one src within five minutes - reconnaissance. On Check Point the destination port is `service`, the source port is `s_port`.",
     logic: "SPL: sourcetype=cp_log product=\"VPN-1 & FireWall-1\" action=Drop | bin _time span=5m | stats dc(service) as ports by src _time | where ports>=10",
     match: { field: "action", op: "in", value: ["Drop", "Reject"] },
     threshold: { groupBy: ["src"], count: 10, windowSec: 300, distinct: "service" },

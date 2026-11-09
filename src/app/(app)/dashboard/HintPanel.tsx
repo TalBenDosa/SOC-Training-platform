@@ -1,6 +1,6 @@
 "use client";
 /**
- * HintPanel — tiered, in-flow "nudges" for a stuck analyst.
+ * HintPanel - tiered, in-flow "nudges" for a stuck analyst.
  *
  * Design principle (sacred): NO hints in the raw logs and NO premature answer.
  * These nudges are META methodology guidance shown in a SEPARATE, opt-in panel.
@@ -9,18 +9,18 @@
  *
  * The student opens the panel by choice ("Need a nudge?") and reveals hints one
  * tier at a time:
- *   Tier 1 — pure methodology, story-agnostic (how to hunt in any feed).
- *   Tier 2 — narrows by the active story's MITRE TACTIC only (not the technique,
+ *   Tier 1 - pure methodology, story-agnostic (how to hunt in any feed).
+ *   Tier 2 - narrows by the active story's MITRE TACTIC only (not the technique,
  *            not the IOC).
- *   Tier 3 — points at the CATEGORY of source/host to examine (not the exact
+ *   Tier 3 - points at the CATEGORY of source/host to examine (not the exact
  *            host, IP, user, or verdict).
  *
  * No penalty: consistent with the dashboard's no-fail philosophy, requesting a
  * nudge never docks XP. Hint usage is tracked locally only (for the student's
- * own awareness) — no DB, no migration.
+ * own awareness) - no DB, no migration.
  *
  * Reset: the parent passes `resetKey` (the active incident / story id). When it
- * changes — a new attack arms, or a new shift starts — the panel closes and the
+ * changes - a new attack arms, or a new shift starts - the panel closes and the
  * revealed tiers reset to zero.
  */
 import { useEffect, useState } from "react";
@@ -31,7 +31,7 @@ import type { AttackStory } from "./attackStories";
 import type { LogSource, Severity } from "@/lib/sim/types";
 
 interface Props {
-  /** The story currently in play — source of the Tier 2 tactic and Tier 3 source category. */
+  /** The story currently in play - source of the Tier 2 tactic and Tier 3 source category. */
   story: AttackStory | null;
   /** Changes when a new attack arms / new session starts → resets hint state. */
   resetKey: string | null;
@@ -58,18 +58,18 @@ const TACTIC_PRIORITY: string[] = [
 
 const TACTIC_HINT: Record<string, string> = {
   TA0040: "This attack builds toward impact (encryption, destruction, or resource hijacking). Find the most damaging-looking event, then trace backwards to how it started.",
-  TA0010: "This involves data exfiltration — focus on unusually large or unusual-destination outbound transfers, uploads, or email flows.",
-  TA0006: "This involves credential access — focus on authentication, identity, and secrets-store events (failed/odd logons, MFA, credential dumping, token or vault activity).",
-  TA0004: "This involves privilege escalation — watch for a normal account or process suddenly gaining elevated rights.",
-  TA0008: "This involves lateral movement — follow the same identity or host as it appears across more than one system.",
-  TA0003: "The attacker sets up persistence — look for new accounts, scheduled tasks, services, run keys, or mailbox rules being created.",
-  TA0011: "This involves command-and-control — focus on repeated or beaconing outbound connections to an unfamiliar destination.",
-  TA0009: "This involves data collection — look for staging, bulk file access, or new mail-forwarding / inbox rules.",
+  TA0010: "This involves data exfiltration - focus on unusually large or unusual-destination outbound transfers, uploads, or email flows.",
+  TA0006: "This involves credential access - focus on authentication, identity, and secrets-store events (failed/odd logons, MFA, credential dumping, token or vault activity).",
+  TA0004: "This involves privilege escalation - watch for a normal account or process suddenly gaining elevated rights.",
+  TA0008: "This involves lateral movement - follow the same identity or host as it appears across more than one system.",
+  TA0003: "The attacker sets up persistence - look for new accounts, scheduled tasks, services, run keys, or mailbox rules being created.",
+  TA0011: "This involves command-and-control - focus on repeated or beaconing outbound connections to an unfamiliar destination.",
+  TA0009: "This involves data collection - look for staging, bulk file access, or new mail-forwarding / inbox rules.",
   TA0112: "The attacker tries to impair defenses: watch for cleared or disabled logs, stopped or tampered security tooling, and weakened firewall or auth controls.",
   TA0005: "The attacker tries to stay hidden: watch for a process masquerading under a trusted name, obfuscated commands, or signed system binaries proxying execution.",
-  TA0007: "This involves discovery — look for enumeration of accounts, hosts, groups, or the network.",
-  TA0002: "This involves code execution — focus on unusual process launches and, crucially, their parent processes.",
-  TA0001: "Start at the entry point — focus on how the first foothold was gained (a phishing email, an exploit, or valid stolen accounts).",
+  TA0007: "This involves discovery - look for enumeration of accounts, hosts, groups, or the network.",
+  TA0002: "This involves code execution - focus on unusual process launches and, crucially, their parent processes.",
+  TA0001: "Start at the entry point - focus on how the first foothold was gained (a phishing email, an exploit, or valid stolen accounts).",
 };
 
 // ── Tier 3: source → category (never the exact host / IP / user) ──────────────
@@ -142,7 +142,7 @@ export function HintPanel({ story, resetKey }: Props) {
   const category = deriveCategory(story);
 
   // Build the tier list. Tier 2/3 fall back to generic guidance if the story
-  // metadata can't supply a specific tactic/category — never a dead button.
+  // metadata can't supply a specific tactic/category - never a dead button.
   const tiers: { label: string; body: string }[] = [
     {
       label: "Tier 1 · Methodology",
@@ -152,7 +152,7 @@ export function HintPanel({ story, resetKey }: Props) {
       label: "Tier 2 · Attack stage",
       body: tactic
         ? `${TACTIC_HINT[tactic.id] ?? `This centers on ${tactic.name}.`} (MITRE tactic: ${tactic.name}.)`
-        : "Ask which stage of an intrusion the standout event belongs to — initial access, execution, credential access, or exfiltration — and hunt for the events on either side of it.",
+        : "Ask which stage of an intrusion the standout event belongs to - initial access, execution, credential access, or exfiltration - and hunt for the events on either side of it.",
     },
     {
       label: "Tier 3 · Where to look",
@@ -169,7 +169,7 @@ export function HintPanel({ story, resetKey }: Props) {
           Stuck?
         </span>
         <span className="text-[11px] text-slate-400">
-          Optional nudges — they point you at where to look, never at the verdict, and asking costs nothing.
+          Optional nudges - they point you at where to look, never at the verdict, and asking costs nothing.
         </span>
         <button
           type="button"
@@ -218,7 +218,7 @@ export function HintPanel({ story, resetKey }: Props) {
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-slate-500">
-                All nudges shown — the rest is your call. State it in the Incident Report.
+                All nudges shown - the rest is your call. State it in the Incident Report.
               </span>
               <button
                 onClick={() => { setRevealed(0); setOpen(false); }}

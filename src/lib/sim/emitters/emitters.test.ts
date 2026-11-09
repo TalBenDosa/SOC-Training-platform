@@ -19,7 +19,7 @@ function validatorFor(vendorKey: string) {
 
 const T = (m: number) => new Date(Date.UTC(2026, 4, 10, 9, m, 0)).toISOString();
 
-// One kit per vendor — the same five emitter shapes, different dialect.
+// One kit per vendor - the same five emitter shapes, different dialect.
 interface Kit {
   name: string; regKey: string; companyId: string; subnet: string;
   detection: (o: { id: string; ts: string; companyId: string; host?: string; processName: string; threatName: string; mitre?: string; tactic?: string; severity?: "critical" | "high"; action?: "quarantined"; expectedVerdict?: "tp"; parentName?: string }) => TelemetryEvent;
@@ -99,7 +99,7 @@ describe.each(KITS)("$name emitters", (kit) => {
   });
 });
 
-describe("emitters — cross-vendor", () => {
+describe("emitters - cross-vendor", () => {
   it("flip src/dst correctly for an inbound connection (all vendors)", () => {
     const inb = [
       csNetwork({ id: "i1", ts: T(6), companyId: "quantumbank", host: "WKS-QB-012", remoteIp: "203.0.113.9", remotePort: 8443, direction: "inbound" }),

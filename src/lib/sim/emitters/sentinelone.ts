@@ -1,5 +1,5 @@
 /**
- * SentinelOne Singularity log EMITTERS — Deep Visibility / Threat schema.
+ * SentinelOne Singularity log EMITTERS - Deep Visibility / Threat schema.
  *
  * Same contract as the CrowdStrike emitters (see crowdstrike.ts): a typed call renders a
  * complete TelemetryEvent whose raw block uses only registry-valid SentinelOne fields

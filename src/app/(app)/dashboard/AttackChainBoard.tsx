@@ -149,7 +149,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">LO-3 — Attack Chain Reconstruction</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">LO-3 - Attack Chain Reconstruction</p>
             <h2 id="attack-chain-title" className="text-sm font-bold text-white">Build the Kill Chain</h2>
           </div>
           <button onClick={onClose} aria-label="Close kill chain board" className="rounded p-1 text-slate-400 hover:text-white transition">
@@ -160,7 +160,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
           {/* Instructions */}
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            Drag each event below into its correct Kill-Chain phase — or click an event to select it, then click a phase slot to drop it there. Benign events should be left unassigned.
+            Drag each event below into its correct Kill-Chain phase - or click an event to select it, then click a phase slot to drop it there. Benign events should be left unassigned.
             <span className="text-neon-purple"> +5 XP per correct slot, +50 XP bonus for a perfect chain.</span>
           </p>
 

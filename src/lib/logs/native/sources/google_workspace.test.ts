@@ -11,7 +11,7 @@ const toLog = (record: Record<string, unknown>): NativeLog =>
   ({ sourceId: "google_workspace", kind: kindOf(record)!, format: "json", record, timeMs: Date.parse(String((record.id as Record<string, unknown>).time)) });
 
 // Card samples: G1–G10 (G9 = two activities) → 11 activities. SKIPPED: the §2 response-page envelope
-// ({kind:"admin#reports#activities", items:[…]}) — it is the list wrapper, not an activity (kindOf → null).
+// ({kind:"admin#reports#activities", items:[…]}) - it is the list wrapper, not an activity (kindOf → null).
 const samples = cardSamples(schema.card) as Record<string, unknown>[];
 const sampleLogs = samples.filter(r => kindOf(r) !== null).map(toLog);
 const evName = (r: Record<string, unknown>) => ((r.events as Array<Record<string, unknown>>)[0].name as string);
@@ -27,14 +27,14 @@ const documentedNull = (c: (typeof converted)[number]) => {
   return r["gws.eventName"] === "CREATE_GMAIL_FILTER" || r["gws.event.type"] === "email_log_search" || r["gws.eventName"] === "calendar.event.created";
 };
 
-describe("google_workspace — card samples", () => {
+describe("google_workspace - card samples", () => {
   it("every card activity validates with zero violations", () => {
     expect(sampleLogs.length).toBe(11);
     for (const l of sampleLogs) expect(validateNative(l, schema), evName(l.record)).toEqual([]);
   });
 });
 
-describe("google_workspace — corpus conversion", () => {
+describe("google_workspace - corpus conversion", () => {
   it("validates; native coverage ≥ 95 % (excluding documented nulls); cross-vendor floor", () => {
     for (const { ce, log } of converted) if (log) expect(validateNative(log, schema), ce.ev.id).toEqual([]);
     const eligible = native.filter(c => !documentedNull(c));
@@ -109,7 +109,7 @@ describe("google_workspace — corpus conversion", () => {
   });
 });
 
-describe("google_workspace — use cases", () => {
+describe("google_workspace - use cases", () => {
   const g6 = sample("download");
   const burst = Array.from({ length: 60 }, (_, i) => toLog({ ...g6, id: { ...(g6.id as object), time: `2026-09-29T08:${String(6 + Math.floor(i / 10)).padStart(2, "0")}:${String((i * 7) % 60).padStart(2, "0")}.000Z`, uniqueQualifier: String(1000 + i) } }));
   const g1 = sample("login_success");

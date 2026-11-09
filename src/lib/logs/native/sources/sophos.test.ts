@@ -11,7 +11,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 /*
  * Card samples (edr-sophos.md): 6 of 7 blocks are supported kinds (3 SIEM events, 1 SIEM alert,
- * 1 Detections API item, 1 Data Lake row). SKIPPED: §4.7 Live Discover journal row {time, sophosPID, name} —
+ * 1 Detections API item, 1 Data Lake row). SKIPPED: §4.7 Live Discover journal row {time, sophosPID, name} -
  * the card marks its column set UNVERIFIED and it is an on-demand query result, not a native stream.
  *
  * Documented nulls (fromTelemetry → null):
@@ -47,7 +47,7 @@ function representable(ev: TelemetryEvent): boolean {
   return false;
 }
 
-describe("sophos — card samples", () => {
+describe("sophos - card samples", () => {
   it("every supported card sample validates with zero violations (only the §4.7 journal row is skipped)", () => {
     const skipped = raw.filter(r => !kindOf(r));
     expect(skipped.length).toBe(1);
@@ -57,7 +57,7 @@ describe("sophos — card samples", () => {
   });
 });
 
-describe("sophos — corpus conversion", () => {
+describe("sophos - corpus conversion", () => {
   it("converts every representable EDR/AV event with zero violations, null otherwise", () => {
     for (const { c, log } of converted) {
       if (!representable(c.ev)) { expect(log, `${c.ev.id} should be null`).toBeNull(); continue; }
@@ -99,7 +99,7 @@ describe("sophos — corpus conversion", () => {
       if (f.user) expect(contains(r, f.user), `${id} user`).toBe(true);
       if (isPrivate(f.hostIp)) expect(contains(r, f.hostIp!), `${id} device ip`).toBe(true);
       if (log.kind === "event") {
-        // SIEM events have no command-line field (card §6) — only hashes, paths, user, device.
+        // SIEM events have no command-line field (card §6) - only hashes, paths, user, device.
         const sha = f.file.sha256 ?? f.proc.sha256;
         if (sha) expect(contains(r, sha), `${id} sha256`).toBe(true);
         if (f.file.path && !/^memory:/i.test(f.file.path)) expect(contains(r, f.file.path), `${id} file path`).toBe(true);
@@ -125,7 +125,7 @@ describe("sophos — corpus conversion", () => {
   });
 });
 
-describe("sophos — use cases", () => {
+describe("sophos - use cases", () => {
   const story = converted.filter(x => x.c.origin === "story" && x.log).map(x => x.log!);
   const pool = [...samples, ...story];
   const noise = converted.filter(x => isNoise(x.c) && x.log).map(x => x.log!);

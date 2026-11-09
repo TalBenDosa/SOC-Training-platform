@@ -1,7 +1,7 @@
 /**
  * Zscaler Internet Access (ZIA) log EMITTER.
  *
- * The cloud proxy that sees ALL egress for the Zscaler shops — the web request an
+ * The cloud proxy that sees ALL egress for the Zscaler shops - the web request an
  * analyst reads for phishing click-through, newly-registered-domain access, C2 over
  * HTTPS, and malware download blocks. Renders registry-valid Zscaler fields (the
  * zscaler./url./http. prefixes + ECS), client identity from the fabric, remote

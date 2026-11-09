@@ -9,7 +9,7 @@ const CARD = "proxy-zscaler-zia.md";
 const ev = (r: Record<string, unknown>) => r.event as Record<string, string>;
 const asLog = (r: Record<string, unknown>): NativeLog => ({ sourceId: "zscaler_zia", kind: kindOf(r) ?? "?", format: "json", record: r, timeMs: Date.parse(`${ev(r).datetime.replace(" ", "T")}Z`) });
 
-describe("zscaler_zia — card samples", () => {
+describe("zscaler_zia - card samples", () => {
   const recs = cardRecords(CARD);
   it("every card sample validates with zero violations (no sample skipped)", () => {
     expect(recs.length).toBe(5);
@@ -20,7 +20,7 @@ describe("zscaler_zia — card samples", () => {
   });
 });
 
-describe("zscaler_zia — corpus conversion", () => {
+describe("zscaler_zia - corpus conversion", () => {
   const conv = convertCorpus(source);
 
   it("converted logs validate with zero violations; every value is a string", () => {
@@ -64,7 +64,7 @@ describe("zscaler_zia — corpus conversion", () => {
   });
 });
 
-describe("zscaler_zia — use cases", () => {
+describe("zscaler_zia - use cases", () => {
   const conv = convertCorpus(source);
   const cardLogs = cardRecords(CARD).map(asLog);
   it("each use case fires on card/story logs; high/critical stay quiet on noise", () => {

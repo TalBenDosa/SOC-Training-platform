@@ -1,5 +1,5 @@
 /**
- * Microsoft Defender for Office 365 — Advanced Hunting email tables, delivered
+ * Microsoft Defender for Office 365 - Advanced Hunting email tables, delivered
  * through the Defender XDR Streaming API (Event Hub / Storage).
  * Card: docs/log-schemas/email-defender-o365.md
  *
@@ -14,7 +14,7 @@
  * fromTelemetry() returns the primary row of an event (EmailEvents for a delivery /
  * block, UrlClickEvents for a click, EmailPostDeliveryEvents for a ZAP / remediation).
  * The EmailUrlInfo / EmailAttachmentInfo rows of the same message are produced by
- * {@link companionLogs} (same NetworkMessageId + ReportId) — the NativeSource contract
+ * {@link companionLogs} (same NetworkMessageId + ReportId) - the NativeSource contract
  * returns one log per event (see final report).
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -28,7 +28,7 @@ import { nameFromLogin } from "./_identity-common";
 // ── Schema ───────────────────────────────────────────────────────────────────
 
 const ENV_REQ = ["time", "tenantId", "category"];
-const ENV_OPT = ["operationName"]; // present in real streaming records, not in the doc snippet (UNVERIFIED) — accepted, never emitted
+const ENV_OPT = ["operationName"]; // present in real streaming records, not in the doc snippet (UNVERIFIED) - accepted, never emitted
 const P = (cols: string[]) => cols.map(c => `properties.${c}`);
 const kind = (req: string[], opt: string[]): KindSchema => ({ required: [...ENV_REQ, ...P(req)], optional: [...ENV_OPT, ...P(opt)] });
 
@@ -82,7 +82,7 @@ const MAIL_EVENTS = new Set(["email_received", "email_blocked", "email_quarantin
 
 /** NetworkMessageId: authored value, else stable per Internet Message-ID (so the message, its clicks and its ZAP share it). */
 export function networkMessageId(ctx: NativeCtx, f: EmailFacts, ev: TelemetryEvent): string {
-  // NetworkMessageId is assigned by the tenant's Exchange Online — an authored value is re-keyed per
+  // NetworkMessageId is assigned by the tenant's Exchange Online - an authored value is re-keyed per
   // tenant (still one value per message), so two companies never show the same message id.
   const seed = f.networkMessageId ? entitySeed(ctx, "nmid-authored", f.networkMessageId)
     : f.internetMessageId ? entitySeed(ctx, "nmid", f.internetMessageId) : `${ev.id}:nmid`;
@@ -135,7 +135,7 @@ interface Msg { f: EmailFacts; user: string; nmid: string; imid: string; ts: str
 const WEAPON_EXT = /^(zip|rar|7z|gz|iso|img|vhd|vhdx|exe|scr|dll|com|msi|js|jse|vbs|vbe|wsf|hta|lnk|bat|cmd|ps1|docm|xlsm|pptm|dotm|one)$/i;
 /**
  * The verdict Defender reaches on the message. A lure whose weapon is an attached payload (no link)
- * is a Malware verdict from Safe Attachments detonation — "Phish" is for credential-harvest links /
+ * is a Malware verdict from Safe Attachments detonation - "Phish" is for credential-harvest links /
  * forms and impersonation, not for a ZIP that drops a trojan.
  */
 function verdictOf(f: EmailFacts): string[] {
@@ -213,7 +213,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   }
 
   // ── EmailAttachmentInfo / EmailUrlInfo: a row authored as that table (raw `category`, the
-  // streaming envelope's own field) — the attachment's SHA256 / the URL live there, not in EmailEvents.
+  // streaming envelope's own field) - the attachment's SHA256 / the URL live there, not in EmailEvents.
   const table = /AdvancedHunting-(EmailAttachmentInfo|EmailUrlInfo)/.exec(rs(raw, "category") ?? "")?.[1];
   if (table) {
     const row = companionLogs(ev, ctx).find(l => l.kind === table);
@@ -239,13 +239,13 @@ function deliveryAction(ev: TelemetryEvent): string {
 /**
  * Default MDO policy quarantines a Malware / high-confidence Phish verdict. A message the story
  * DELIVERS with no override in the event (transport-rule allow, Org/User-level allow) was therefore
- * clean at delivery — the verdict was missed (the card's "delivered clean, convicted later" case) and
+ * clean at delivery - the verdict was missed (the card's "delivered clean, convicted later" case) and
  * the conviction belongs to a later ZAP record.
  */
 function deliveredClean(ev: TelemetryEvent, m: Msg): boolean {
   const raw: Raw = ev.raw ?? {};
   if (deliveryAction(ev) !== "Delivered") return false;
-  // No allow (transport rule, org / user allow) delivers a Malware verdict — Defender always
+  // No allow (transport rule, org / user allow) delivers a Malware verdict - Defender always
   // quarantines malware. A delivered message with malware was clean at delivery; ZAP convicts it later.
   if (m.threats.includes("Malware")) return true;
   const etr = /transport rule/i.test(rs(raw, "block.reason") ?? "");
@@ -387,7 +387,7 @@ const useCases: UseCase[] = [
     id: "defender_o365.phish-clicked-after-delivery",
     title: "User clicked a link in a message that is (now) known phish",
     sourceId: "defender_o365", kinds: ["EmailEvents", "UrlClickEvents"], severity: "high", mitre: ["T1566.002", "T1204.001"],
-    description: "Joins, per NetworkMessageId, an EmailEvents row carrying a Phish verdict (at delivery or after re-verdict) with an allowed Safe Links click. \"Delivered clean, clicked, convicted later\" is exactly the case Safe Links could not stop — check the clicker's sign-ins (AccountUpn + IPAddress) right after the click.",
+    description: "Joins, per NetworkMessageId, an EmailEvents row carrying a Phish verdict (at delivery or after re-verdict) with an allowed Safe Links click. \"Delivered clean, clicked, convicted later\" is exactly the case Safe Links could not stop - check the clicker's sign-ins (AccountUpn + IPAddress) right after the click.",
     logic: "Defender KQL:\nEmailEvents | where ThreatTypes has \"Phish\" | distinct NetworkMessageId, RecipientEmailAddress\n| join kind=inner (UrlClickEvents | where ActionType == \"ClickAllowed\") on NetworkMessageId\n| project Timestamp, AccountUpn, Url, IPAddress, IsClickedThrough",
     match: { any: [
       { all: [{ field: "category", op: "eq", value: "AdvancedHunting-EmailEvents" }, { field: "properties.ThreatTypes", op: "contains", value: "Phish" }] },
@@ -400,7 +400,7 @@ const useCases: UseCase[] = [
     id: "defender_o365.safe-links-click-through",
     title: "User clicked through a Safe Links warning page",
     sourceId: "defender_o365", kinds: ["UrlClickEvents"], severity: "high", mitre: ["T1204.001"],
-    description: "IsClickedThrough=true: Safe Links showed the warning page and the user pressed \"Continue anyway\". Treat the account as possibly phished — check sign-ins from new IPs minutes later.",
+    description: "IsClickedThrough=true: Safe Links showed the warning page and the user pressed \"Continue anyway\". Treat the account as possibly phished - check sign-ins from new IPs minutes later.",
     logic: "Defender KQL:\nUrlClickEvents | where IsClickedThrough == true | project Timestamp, AccountUpn, Url, ThreatTypes, IPAddress, NetworkMessageId",
     match: { field: "properties.IsClickedThrough", op: "eq", value: true },
     falsePositives: ["Analysts verifying a reported URL from a sandbox"],
@@ -418,7 +418,7 @@ const useCases: UseCase[] = [
     id: "defender_o365.risky-attachment-type-delivered",
     title: "HTML / SVG / macro / archive attachment delivered",
     sourceId: "defender_o365", kinds: ["EmailAttachmentInfo"], severity: "medium", mitre: ["T1566.001", "T1027.006"],
-    description: "Attachments with FileExtension html/htm/shtml/svg (HTML smuggling, credential forms), docm/xlsm (macros) or zip/iso/img reaching mailboxes. Not malicious by default — hunt for first-contact senders and inspect the file.",
+    description: "Attachments with FileExtension html/htm/shtml/svg (HTML smuggling, credential forms), docm/xlsm (macros) or zip/iso/img reaching mailboxes. Not malicious by default - hunt for first-contact senders and inspect the file.",
     logic: "Defender KQL:\nEmailAttachmentInfo | where FileExtension in~ (\"html\",\"htm\",\"shtml\",\"svg\",\"docm\",\"xlsm\",\"zip\",\"iso\",\"img\")\n| join (EmailEvents | where DeliveryAction == \"Delivered\") on NetworkMessageId",
     match: { field: "properties.FileExtension", op: "in", value: ["html", "htm", "shtml", "svg", "docm", "xlsm", "pptm", "zip", "iso", "img"] },
     falsePositives: ["Vendors sending signed macro workbooks", "Zipped invoices from known suppliers"],
@@ -436,7 +436,7 @@ const useCases: UseCase[] = [
     id: "defender_o365.post-delivery-zap",
     title: "Message removed after delivery (ZAP / remediation)",
     sourceId: "defender_o365", kinds: ["EmailPostDeliveryEvents"], severity: "medium", mitre: ["T1566"],
-    description: "Phish ZAP / Malware ZAP or a manual remediation pulled a message that had already been delivered. Everything that happened between delivery and the ZAP (opens, clicks, attachment launches) still needs investigation — the removal does not undo it.",
+    description: "Phish ZAP / Malware ZAP or a manual remediation pulled a message that had already been delivered. Everything that happened between delivery and the ZAP (opens, clicks, attachment launches) still needs investigation - the removal does not undo it.",
     logic: "Defender KQL:\nEmailPostDeliveryEvents | where ActionType in (\"Phish ZAP\",\"Malware ZAP\",\"Manual remediation\")\n| join kind=leftouter UrlClickEvents on NetworkMessageId",
     match: { field: "properties.ActionType", op: "in", value: ["Phish ZAP", "Malware ZAP", "Manual remediation"] },
     falsePositives: ["Bulk clean-up of spam campaigns by admins"],

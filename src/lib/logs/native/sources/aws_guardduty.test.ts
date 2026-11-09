@@ -21,7 +21,7 @@ function cardLogs(): NativeLog[] {
   return out;
 }
 
-describe("aws_guardduty — card samples", () => {
+describe("aws_guardduty - card samples", () => {
   it("every finding + EventBridge-envelope sample validates with zero violations", () => {
     const logs = cardLogs();
     expect(logs.length).toBeGreaterThanOrEqual(6);
@@ -32,7 +32,7 @@ describe("aws_guardduty — card samples", () => {
   });
 });
 
-describe("aws_guardduty — corpus conversion", () => {
+describe("aws_guardduty - corpus conversion", () => {
   const mine = corpusFor(source.schema.telemetrySources, source.schema.vendorMatch);
 
   it("≥95% of GuardDuty events convert and validate clean", () => {
@@ -58,7 +58,7 @@ describe("aws_guardduty — corpus conversion", () => {
   });
 });
 
-describe("aws_guardduty — evidence & determinism", () => {
+describe("aws_guardduty - evidence & determinism", () => {
   it("preserves finding type, severity and IP evidence", () => {
     for (const c of corpusFor(source.schema.telemetrySources, source.schema.vendorMatch)) {
       const log = source.fromTelemetry(c.ev, makeCtx(c.companyId));
@@ -80,12 +80,12 @@ describe("aws_guardduty — evidence & determinism", () => {
   });
 });
 
-describe("aws_guardduty — use cases", () => {
+describe("aws_guardduty - use cases", () => {
   const storyLogs = corpusFor(source.schema.telemetrySources)
     .filter(c => c.origin === "story")
     .map(c => source.fromTelemetry(c.ev, makeCtx(c.companyId)))
     .filter((l): l is NativeLog => !!l);
-  // No AttackSequence / severity-9 finding exists in corpus or card — prove that
+  // No AttackSequence / severity-9 finding exists in corpus or card - prove that
   // critical detection with a representative finding run through the converter.
   const attackSeq = source.fromTelemetry({
     id: "syn_attackseq", ts: "2026-09-30T03:00:00.000Z", source: "cloudtrail", vendor: "AWS GuardDuty",
@@ -115,7 +115,7 @@ describe("aws_guardduty — use cases", () => {
 });
 
 // ── resource / action / location derived from the finding (storyline review 2026-10-02 §C.5) ──
-describe("aws_guardduty — the finding names the authored principal, call and address", () => {
+describe("aws_guardduty - the finding names the authored principal, call and address", () => {
   type Rec = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   const gd = (id: string, raw: Record<string, unknown>, extra: Record<string, unknown> = {}): Rec =>
     source.fromTelemetry({ id, ts: "2026-06-18T09:10:00.000Z", source: "cloudtrail", vendor: "AWS GuardDuty", event_type: "cloud_alert", src_ip: "62.210.71.148", raw, ...extra } as never, ctx)!.record as Rec;
@@ -128,7 +128,7 @@ describe("aws_guardduty — the finding names the authored principal, call and a
     expect(f.resource.accessKeyDetails).toEqual({ accessKeyId: c.userIdentity.accessKeyId, principalId: c.userIdentity.principalId, userType: "IAMUser", userName: "svc-build-release" });
   });
 
-  it("an instance-credential finding is an AssumedRole session (ASIA) of the authored role — the session the CloudTrail rows show", () => {
+  it("an instance-credential finding is an AssumedRole session (ASIA) of the authored role - the session the CloudTrail rows show", () => {
     const f = gd("t_gd_inst", { "aws.guardduty.type": "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/ci-deploy-role/i-0abc123def4567890" });
     const c = ct({ "aws.cloudtrail.eventName": "GetCallerIdentity", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/ci-deploy-role/i-0abc123def4567890" });
     expect(f.resource.accessKeyDetails.userType).toBe("AssumedRole");
@@ -138,7 +138,7 @@ describe("aws_guardduty — the finding names the authored principal, call and a
     expect(f.accountId).toBe("247316892041");
   });
 
-  it("the API is the call actually made (finding → event → type), the address carries its own geo — no fixed svc-account / ListBuckets / Unknown", () => {
+  it("the API is the call actually made (finding → event → type), the address carries its own geo - no fixed svc-account / ListBuckets / Unknown", () => {
     const f = gd("t_gd_api", { "aws.guardduty.type": "Stealth:IAMUser/CloudTrailLoggingDisabled" }, { user_email: "svc-ops@rocketstack.io" });
     expect(f.service.action.awsApiCallAction.api).toBe("StopLogging");
     expect(f.service.action.awsApiCallAction.serviceName).toBe("cloudtrail.amazonaws.com");

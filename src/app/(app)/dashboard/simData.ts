@@ -5,7 +5,7 @@
  * in its first-load JS. The benign-event pool (~433KB), the per-company event
  * pools (~260KB) and the attack-story registry (which pulls in all 24
  * scenario-packs) together add up to hundreds of KB the browser downloads and
- * parses on entry — yet none of it is needed until the analyst presses "Start
+ * parses on entry - yet none of it is needed until the analyst presses "Start
  * Training" (the feed is idle until then). Loading it through `import()` here
  * moves all of it into a separate chunk fetched on demand, so it never taxes the
  * dashboard's time-to-interactive.
@@ -19,7 +19,7 @@ import type { AttackStory } from "./attackStories";
 import type { EdrInvestigation } from "@/lib/edr/investigations";
 
 /** Training difficulty. Defined here (a leaf module) rather than in page.tsx so
- *  simData and page.tsx don't form an import cycle — page.tsx re-exports it. */
+ *  simData and page.tsx don't form an import cycle - page.tsx re-exports it. */
 export type Difficulty = "easy" | "medium" | "hard";
 
 export interface SimData {

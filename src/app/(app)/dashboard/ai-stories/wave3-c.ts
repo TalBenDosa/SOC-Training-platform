@@ -1,8 +1,8 @@
 /**
- * AI-related attack stories — wave 3, part C (live feed & team training). Two advanced
+ * AI-related attack stories - wave 3, part C (live feed & team training). Two advanced
  * chains around AI developer tooling, each grounded in real defender telemetry:
  *
- *  1. ai-mcp-tool-poisoning  (advanced, rocketstack) — a developer connects an AI coding
+ *  1. ai-mcp-tool-poisoning  (advanced, rocketstack) - a developer connects an AI coding
  *     agent to a third-party MCP (Model Context Protocol) server. A poisoned tool
  *     description (hidden instructions) makes the agent read the local ~/.aws/credentials
  *     file and pass it back in a tool call. Hours later the long-term access key is used
@@ -13,7 +13,7 @@
  *       OWASP LLM Top 10 (2025): LLM01 Prompt Injection, LLM03 Supply Chain. MCP tool
  *       poisoning (Invariant Labs, Apr 2025). MITRE ATLAS tool/agent abuse.
  *
- *  2. ai-malicious-model-pickle  (advanced, rocketstack and globallogis, the estates with Linux servers) — a data scientist
+ *  2. ai-malicious-model-pickle  (advanced, rocketstack and globallogis, the estates with Linux servers) - a data scientist
  *     downloads a model file from a public model hub and loads it in a Jupyter
  *     environment on a Linux ML server. Loading the pickle-based file runs embedded code
  *     that opens an outbound connection and installs a cron persistence entry. Linux
@@ -25,7 +25,7 @@
  *
  * Iron laws honoured. EDR has no native "file read" record in the platform's cards, so
  * the agent's access to ~/.aws/credentials is shown as EDR PROCESS telemetry (the agent's
- * own shell tool reading the file) — the on-endpoint artifact a real sensor records. The
+ * own shell tool reading the file) - the on-endpoint artifact a real sensor records. The
  * GuardDuty findings are the anomalous-behaviour family (the leaked key is a developer's
  * LONG-TERM IAM user key, so the EC2-only InstanceCredentialExfiltration type would be
  * wrong). Descriptions stay product-neutral for the swapped categories (EDR / firewall).
@@ -43,7 +43,7 @@ const UA_AWS_CLI = "aws-cli/2.17.19 Python/3.11.9 Linux/6.8.0-generic exe/x86_64
 const UA_BOTO = "Boto3/1.34.100 md/Botocore#1.34.100 ua/2.0 os/linux#6.5.0 md/arch#x86_64 lang/python#3.11.9 cfg/retry-mode#legacy Botocore/1.34.100";
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 1. ai-mcp-tool-poisoning — advanced, rocketstack
+// 1. ai-mcp-tool-poisoning - advanced, rocketstack
 // ══════════════════════════════════════════════════════════════════════════════
 function buildMcpToolPoisoning(): TelemetryEvent[] {
   const INC = "inc:aimcp:1";
@@ -105,7 +105,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
     }),
     // 4. PROCESS: the agent's shell tool reads the local AWS credentials file (T1552.001).
     //    EDR has no native file-read record; the on-endpoint artifact is the agent's own
-    //    shell tool opening the file — shown as process telemetry.
+    //    shell tool opening the file - shown as process telemetry.
     csProcess({
       companyId: cx, id: "aimcp04", ts: "2026-10-06T10:03:08.000Z", host, srcIp: hostIp, user,
       processName: "cat", processPath: "/usr/bin/cat", cmdline: `cat /home/${bareUser}/.aws/credentials`,
@@ -200,7 +200,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. ai-malicious-model-pickle — advanced, rocketstack
+// 2. ai-malicious-model-pickle - advanced, rocketstack
 // ══════════════════════════════════════════════════════════════════════════════
 
 /** One Linux auditd record authored inline (vendor-native field names), with the
