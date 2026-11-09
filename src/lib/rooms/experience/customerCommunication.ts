@@ -99,6 +99,14 @@ export const CUSTOMER_COMMUNICATION: RoomExperience = {
   look: { primary: "#e879f9", secondary: "#bef264", warn: "#f43f5e" },
   scene: "facilitybadnews",
   layout: "facility",
+  story: {
+    intro: { title: "Midnight Sale", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-intro-b55e6624.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-intro-dac2b08e.jpg" },
+    afterStation: {
+      firstupdate: { title: "Still Inside", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-ch2-efc8031f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-ch2-d80ac596.jpg" },
+      clock: { title: "The Red Line", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-ch3-5c19d5e5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-ch3-813f592d.jpg" },
+      badnews: { title: "Bad News", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-finale-4b1e2297.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/customer-communication/badnews-finale-03ea472a.jpg" },
+    },
+  },
   stations: [
     {
       id: "firstupdate",
