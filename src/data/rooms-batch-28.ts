@@ -47,23 +47,43 @@ const lsassAccessEvent: TelemetryEvent = {
       sha256: "b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a",
     },
   },
+  // Event Streams EppDetectionSummaryEvent: the detection format that carries AggregateId (with
+  // CompositeId as the detection's own id and AgentId as the sensor). Field names and value forms
+  // follow the Elastic crowdstrike integration falcon samples (test-falcon-epp-detection-summary.log):
+  // FilePath is the full NT device path of the file, ParentImageFileName the bare parent name with
+  // ParentImageFilePath its device path, UserName the bare account with LogonDomain, Hostname the host,
+  // ProcessId / ParentProcessId the Falcon UPIDs (the same ids as the handle-op record below).
   raw: {
-    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-    "crowdstrike.DetectId": "ldt:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:88213",
+    "crowdstrike.event_simpleName": "EppDetectionSummaryEvent",
+    "crowdstrike.AgentId": "9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e",
+    "crowdstrike.CompositeId": "c7e4a1d93b2f4e8a9d6c5b0f1e3a7d24:ind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:4320931770-10356-88213",
     "crowdstrike.AggregateId": "aggind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:2670376644",
+    "crowdstrike.Type": "ldt",
+    "crowdstrike.Name": "Attacker Methodology",
+    "crowdstrike.Severity": 90,
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.Tactic": "Credential Access",
     "crowdstrike.Technique": "OS Credential Dumping",
+    "crowdstrike.Objective": "Gain Access",
     "threat.technique.id": "T1003",
     "threat.technique.subtechnique.id": "T1003.001",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
+    "crowdstrike.PatternDispositionValue": 0,
     "crowdstrike.FileName": "UpdateHelper.exe",
-    "crowdstrike.FilePath": "\\Device\\HarddiskVolume3\\Users\\r.callahan\\AppData\\Local\\Temp",
+    "crowdstrike.FilePath": "\\Device\\HarddiskVolume3\\Users\\r.callahan\\AppData\\Local\\Temp\\UpdateHelper.exe",
     "crowdstrike.CommandLine": "\"UpdateHelper.exe\"",
-    "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
+    "crowdstrike.ProcessId": 4320931770,
+    "crowdstrike.ParentProcessId": 4320917442,
+    "crowdstrike.ParentImageFileName": "explorer.exe",
+    "crowdstrike.ParentImageFilePath": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
     "crowdstrike.SHA256String": "b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a",
-    "crowdstrike.UserName": "NEXACORP\\r.callahan",
-    "crowdstrike.ComputerName": "WKS-FIN-0231",
+    "crowdstrike.UserName": "r.callahan",
+    "crowdstrike.LogonDomain": "NEXACORP",
+    "crowdstrike.Hostname": "WKS-FIN-0231",
+    "crowdstrike.PlatformName": "Windows",
+    "crowdstrike.SourceProducts": "Falcon Insight",
+    "crowdstrike.SourceVendors": "CrowdStrike",
+    "crowdstrike.DataDomains": "Endpoint",
   },
 };
 
@@ -81,7 +101,7 @@ const lsassHandleOpEvent: TelemetryEvent = {
     "crowdstrike.event_platform": "Win",
     "crowdstrike.aid": "9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e",
     "crowdstrike.ComputerName": "WKS-FIN-0231",
-    "crowdstrike.UserName": "NEXACORP\\r.callahan",
+    "crowdstrike.UserName": "r.callahan",
     "crowdstrike.ContextProcessId": "4320931770",
     "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\Users\\r.callahan\\AppData\\Local\\Temp\\UpdateHelper.exe",
     "crowdstrike.CommandLine": "\"UpdateHelper.exe\"",
@@ -120,24 +140,40 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
       sha256: "3c9f81a46b2d0e758f1a3c6d9e0b4f275a8d3c61e97f0b426c1a9d38f04e7b25",
     },
   },
+  // EppDetectionSummaryEvent, same format as the WKS-FIN-0231 detection (see lsassAccessEvent). The
+  // launcher is ParentImageFileName / ParentImageFilePath: ContextBaseFileName / ParentBaseFileName are
+  // FDR telemetry names and are not on a detection.
   raw: {
-    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-    "crowdstrike.DetectId": "ldt:8006beb3bcd2593362266fe370c2b36f:55102",
+    "crowdstrike.event_simpleName": "EppDetectionSummaryEvent",
+    "crowdstrike.AgentId": "8006beb3bcd2593362266fe370c2b36f",
+    "crowdstrike.CompositeId": "c7e4a1d93b2f4e8a9d6c5b0f1e3a7d24:ind:8006beb3bcd2593362266fe370c2b36f:4295188120-10412-55102",
     "crowdstrike.AggregateId": "aggind:8006beb3bcd2593362266fe370c2b36f:2147925683",
+    "crowdstrike.Type": "ldt",
+    "crowdstrike.Name": "Suspicious Activity",
+    "crowdstrike.Severity": 70,
     "crowdstrike.SeverityName": "High",
     "crowdstrike.Tactic": "Stealth",
     "crowdstrike.Technique": "System Binary Proxy Execution",
+    "crowdstrike.Objective": "Keep Access",
     "threat.technique.id": "T1218",
     "threat.technique.subtechnique.id": "T1218.010",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-    "crowdstrike.ContextBaseFileName": "regsvr32.exe",
-    "crowdstrike.ParentBaseFileName": "cmd.exe",
+    "crowdstrike.PatternDispositionValue": 0,
     "crowdstrike.FileName": "regsvr32.exe",
-    "crowdstrike.FilePath": "C:\\Windows\\System32\\regsvr32.exe",
+    "crowdstrike.FilePath": "\\Device\\HarddiskVolume3\\Windows\\System32\\regsvr32.exe",
     "crowdstrike.CommandLine": "regsvr32.exe /s C:\\ProgramData\\NexaDeploy\\Modules\\ReportViewerCtl.dll",
+    "crowdstrike.ProcessId": 4295188120,
+    "crowdstrike.ParentProcessId": 4295187362,
+    "crowdstrike.ParentImageFileName": "cmd.exe",
+    "crowdstrike.ParentImageFilePath": "\\Device\\HarddiskVolume3\\Windows\\System32\\cmd.exe",
     "crowdstrike.SHA256String": "3c9f81a46b2d0e758f1a3c6d9e0b4f275a8d3c61e97f0b426c1a9d38f04e7b25",
-    "crowdstrike.UserName": "NEXACORP\\svc-sccm",
-    "crowdstrike.ComputerName": "SRV-DEPLOY-07",
+    "crowdstrike.UserName": "svc-sccm",
+    "crowdstrike.LogonDomain": "NEXACORP",
+    "crowdstrike.Hostname": "SRV-DEPLOY-07",
+    "crowdstrike.PlatformName": "Windows",
+    "crowdstrike.SourceProducts": "Falcon Insight",
+    "crowdstrike.SourceVendors": "CrowdStrike",
+    "crowdstrike.DataDomains": "Endpoint",
   },
 };
 
@@ -185,7 +221,7 @@ const edrDetectionInvestigationRoom = {
       content:
         "Every major EDR platform reduces 'what happened' down to a specific, learnable set of fields. Reading them fluently (instead of skimming a detection's title and severity color) is the actual difference between an analyst who investigates and one who just reacts to labels.\n\n" +
         "**CrowdStrike Falcon's core fields.** Tactic and Technique are the MITRE ATT&CK category and specific method Falcon's behavioral engine matched, useful for framing what kind of goal the activity serves, but not a verdict by itself, since a single technique like System Binary Proxy Execution fires just as reliably against a benign internal deployment script as against a real attacker. SeverityName is Falcon's own automatic rating (Critical, High, Medium, Low), assigned the instant the behavior pattern matches, before any human has added context, which is exactly why Reading 6 later spends a full reading on why this field is not the analyst's final word. PatternDispositionDescription answers a different, sharper question: what did Falcon actually do about it. A value like 'Detection, standard detection.' means the behavior was only observed; 'Prevention, process killed.' means Falcon actually intervened. Severity tells you how seriously the tool rated the pattern; PatternDispositionDescription tells you whether the potentially malicious action already ran to completion.\n\n" +
-        "**The process-identity fields.** ContextBaseFileName is the process that actually performed the action on a network, file or process-access event, and ParentBaseFileName is the process that launched it: one link of the process tree, readable without opening the full graphical view. On a process-access event, two more fields matter: DesiredAccess is the access mask the acting process requested against the target process (0x1FFFFF means full control), and the acting process's own module loads (Falcon ImageHash events with the same ContextProcessId, each naming one DLL in ImageFileName) show which libraries it pulled in just before (dbghelp.dll points at the MiniDumpWriteDump routine). CommandLine is the exact string of arguments the flagged process executed with, including any Base64 encoding, unusual file paths, or suspicious destination arguments. FileName, FilePath, and SHA256HashData identify the specific binary, where it lives on disk, and its cryptographic fingerprint: the fingerprint being the single most useful field for pivoting entirely outside the console, into hash-reputation lookups and fleet-wide hunting, which Reading 7 builds on directly.\n\n" +
+        "**The process-identity fields.** ContextBaseFileName is the process that actually performed the action on a network or file event (on Falcon's handle-operation record, FalconProcessHandleOpDetectInfo, the acting process is ImageFileName instead), and ParentBaseFileName is the process that launched it: one link of the process tree, readable without opening the full graphical view. On a process-access event, two more fields matter: DesiredAccess is the access mask the acting process requested against the target process (0x1FFFFF means full control), and the acting process's own module loads (Falcon ImageHash events with the same ContextProcessId, each naming one DLL in ImageFileName) show which libraries it pulled in just before (dbghelp.dll points at the MiniDumpWriteDump routine). CommandLine is the exact string of arguments the flagged process executed with, including any Base64 encoding, unusual file paths, or suspicious destination arguments. FileName, FilePath, and SHA256HashData identify the specific binary, where it lives on disk, and its cryptographic fingerprint: the fingerprint being the single most useful field for pivoting entirely outside the console, into hash-reputation lookups and fleet-wide hunting, which Reading 7 builds on directly.\n\n" +
         "**Microsoft Defender for Endpoint's equivalents.** The underlying questions are identical; only the field names change. mde.AlertTitle and mde.Category summarize what fired and its broad classification. mde.InitiatingProcessFileName and mde.InitiatingProcessCommandLine describe the process that LAUNCHED the flagged one, Defender's version of ParentBaseFileName; the flagged process's own name, command line and hash are FileName, ProcessCommandLine and SHA256, and every InitiatingProcess* column (InitiatingProcessSHA256 included) points one level up the tree. mde.SHA256 and mde.DeviceName complete the identification, and mde.DetectionSource tells you which Defender component (the EDR behavioral engine, the antivirus scanning engine, or another) actually generated the alert in the first place. What Defender did about it is recorded separately, in the action and remediation status of the alert, which is the counterpart of PatternDispositionDescription.\n\n" +
         "**Why this matters before anything else in the room.** Whichever vendor's console is open in front of you, the questions are the same: what ran, launched by what, with what exact arguments, identified by what hash, and what did the tool actually do in response. Every later reading in this room builds directly on top of these fields.",
       codeExample:
@@ -475,7 +511,7 @@ const edrDetectionInvestigationRoom = {
       event: regsvr32DeploymentEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "crowdstrike.UserName is NEXACORP\\svc-sccm, a known deployment service account, not a human user's account behaving unusually. crowdstrike.CommandLine points at an internal deployment path (C:\\ProgramData\\NexaDeploy\\Modules\\...) rather than a generic Temp or AppData location. crowdstrike.PatternDispositionDescription reads 'Detection, standard detection.', which only tells you the command ran; as in the log analysis task, a disposition says whether the action happened, not whether it was benign, so it neither clears nor condemns this case. What decides it is the IT verification note: change ticket CHG0052291 authorizing exactly this rollout, on this host, during this window. SeverityName 'High' and Tactic 'Stealth' were assigned automatically the instant the regsvr32 pattern matched, Reading 6's exact point, regardless of who ran it or why. The verdict is benign true positive: the detection correctly caught a real regsvr32 proxy execution, and change ticket CHG0052291 is the justification; it is not a false positive, because the rule did its job and calling it a misfire would invite weakening a LOLBin detection that works.",
+        "crowdstrike.UserName is svc-sccm (crowdstrike.LogonDomain NEXACORP), a known deployment service account, not a human user's account behaving unusually. crowdstrike.CommandLine points at an internal deployment path (C:\\ProgramData\\NexaDeploy\\Modules\\...) rather than a generic Temp or AppData location. crowdstrike.PatternDispositionDescription reads 'Detection, standard detection.', which only tells you the command ran; as in the log analysis task, a disposition says whether the action happened, not whether it was benign, so it neither clears nor condemns this case. What decides it is the IT verification note: change ticket CHG0052291 authorizing exactly this rollout, on this host, during this window. SeverityName 'High' and Tactic 'Stealth' were assigned automatically the instant the regsvr32 pattern matched, Reading 6's exact point, regardless of who ran it or why. The verdict is benign true positive: the detection correctly caught a real regsvr32 proxy execution, and change ticket CHG0052291 is the justification; it is not a false positive, because the rule did its job and calling it a misfire would invite weakening a LOLBin detection that works.",
       fp_trap:
         "A High-severity System Binary Proxy Execution detection is precisely the kind of alert that gets escalated on reflex, because this room's earlier reading and log analysis task both taught you to take LOLBin patterns and credential-access attempts seriously. But High severity here is the tool's automatic technique-based rating, not a verdict on its own: the service account, the internal (not generic) deployment path and the matching change ticket are the specific fields that separate this case from the log analysis task's genuine credential-access attempt. Escalating every LOLBin detection without checking these fields either buries a SOC in noise on every deployment night, or, just as dangerously, teaches the team to stop reading past the technique name entirely.",
       xp: 35,
@@ -504,11 +540,11 @@ const edrDetectionInvestigationRoom = {
     {
       type: "flag" as const,
       id: "edr-f1",
-      event: lsassAccessEvent, // show the WKS-FIN-0231 log this flag reads
+      event: lsassAccessEvent, // show the WKS-FIN-0231 detection this flag reads
       prompt:
-        "Before you scope the fleet, you want every behavior Falcon grouped with this detection on WKS-FIN-0231, not just this one record. Enter the value you would pull them by, exactly as it appears in the raw event.",
+        "Below is the WKS-FIN-0231 detection itself (EppDetectionSummaryEvent). Before you scope the fleet, you want every behavior Falcon grouped with this detection, not just this one record. Enter the value you would pull them by, exactly as it appears in the raw event.",
       answer: "aggind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:2670376644",
-      hint: "Two long IDs in the raw event start with the same sensor portion. One names this single detection; the other is the grouping from the sibling-alerts reading.",
+      hint: "Two long IDs in the raw event both contain this host's AgentId. One names this single detection; the other is the grouping from the sibling-alerts reading.",
       xp: 20,
     },
     // ── Question 4 — containment decision ────────────────────────────────────
