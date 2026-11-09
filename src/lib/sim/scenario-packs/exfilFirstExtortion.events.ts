@@ -306,8 +306,8 @@ export function exfilFirstExtortionScenarioEvents() {
     {
       id: "evt_efe_08a_extortion_email", ts: T(2 * HOUR + 33 * MIN), source: "email_gateway", vendor: "Microsoft Defender for Office 365",
       event_type: "email_received", severity: "high", user_email: "security@nexacorp.com", incident_id: INCIDENT,
-      // Proton's own outbound relay (185.70.40.0/22): the real sender of mail from proton.me (R5).
-      src_ip: "185.70.43.17",
+      // The sending relay of the proton.me mail, a documentation address like every other public address here (R5).
+      src_ip: "198.51.100.170",
       description: "An external sender delivered a message to security@nexacorp.com at 03:38 referencing a volume of NexaCorp client records and linking to a leak-site address.",
       raw: {
         "email.from.address": "recovery.desk@proton.me",
