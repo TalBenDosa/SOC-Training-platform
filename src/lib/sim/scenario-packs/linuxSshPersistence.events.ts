@@ -350,7 +350,7 @@ export function linuxSshPersistenceScenarioEvents() {
       event_type: "linux_execve",
       hostname: host.name,
       src_ip: attacker.success,
-      severity: "medium",
+      severity: "low",
       mitre_technique: "T1033",
       mitre_tactic: "Discovery",
       description:
@@ -851,7 +851,7 @@ export function linuxSshPersistenceScenarioEvents() {
       remoteIp: backupRepo.ip, remotePort: 443, localPort: 40112, application: "tls",
       processName: "restic", processPath: "/usr/bin/restic", pid: 2103, parentName: "cron", parentPid: 2101,
       cmdline: `/usr/bin/restic -r s3:https://${backupRepo.domain}/${backupRepo.bucket} backup /srv/data --exclude-caches --quiet`,
-      sha256: makeSha256("restic_0_16_4_linux_amd64"), severity: "informational",
+      sha256: makeSha256("restic_0_16_4_linux_amd64"), severity: "medium",
       description: "restic (pid 2103) on nix-bkp-01 connected to 149.137.140.21 on port 443 from local port 40112.",
     }),
 

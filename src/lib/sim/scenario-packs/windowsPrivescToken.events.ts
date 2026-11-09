@@ -78,7 +78,7 @@ export function windowsPrivescTokenScenarioEvents() {
       companyId: cxN, id: "evt_wpe_02_special_privs", ts: T(1 * SEC), host: host.hostname, fqdn: host.fqdn,
       targetUser: svc.sam, targetSid: svcSid, logonId: svcLogonId, eventType: "privileged_operation", eventAction: "special-privileges-assigned",
       privilegeList: "SeAssignPrimaryTokenPrivilege\n\t\t\tSeAuditPrivilege\n\t\t\tSeImpersonatePrivilege",
-      recordId: "5540912", severity: "low", incidentId: INCIDENT,
+      recordId: "5540912", severity: "medium", incidentId: INCIDENT,
       description: "A 4672 on WEB-APP-04 for the svc-web logon session (0x8F41C2), enumerating the special privileges assigned to it at logon.",
     }),
 
@@ -97,7 +97,7 @@ export function windowsPrivescTokenScenarioEvents() {
       ...sysmonFile({
         companyId: cxN, id: "evt_wpe_03a_tool_written", ts: T(3 * MIN + 30 * SEC), host: host.hostname, user: svc.email,
         processName: "w3wp.exe", processPath: W3WP, pid: PID.w3wp, processGuid: "{a1b2c3d4-0c40-64dc-1a01-000000005e00}",
-        path: toolPath, sha256: toolSha256, fileSize: 27_136, incidentId: INCIDENT, severity: "high", mitre: "T1105", tactic: "Command and Control",
+        path: toolPath, sha256: toolSha256, fileSize: 27_136, incidentId: INCIDENT, severity: "medium", mitre: "T1105", tactic: "Command and Control",
         description: "Sysmon Event 11: w3wp.exe created C:\\Windows\\Temp\\spf.exe, 27 KB, thirty seconds after the web shell first ran a command.",
       }),
       process: { name: "w3wp.exe", pid: PID.w3wp, path: W3WP, user: svcAcct, integrity: "high" as const },
@@ -118,7 +118,7 @@ export function windowsPrivescTokenScenarioEvents() {
     sysmonPipeCreated({
       companyId: cxN, id: "evt_wpe_05a_pipe_create", ts: T(3 * MIN + 43 * SEC), host: host.hostname, userEmail: svc.email, runAsUser: svcAcct,
       image: toolPath, pid: PID.spf, processGuid: "{a1b2c3d4-1f28-64dc-3001-000000005e00}", pipeName,
-      incidentId: INCIDENT, mitre: "T1134.001", tactic: "Privilege Escalation", severity: "high",
+      incidentId: INCIDENT, mitre: "T1134.001", tactic: "Privilege Escalation", severity: "low",
       description: "Sysmon Event 17 (Pipe Created) on WEB-APP-04: C:\\Windows\\Temp\\spf.exe created the named pipe \\WEB-APP-04\\pipe\\spoolss.",
     }),
 

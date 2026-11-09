@@ -223,8 +223,12 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
         {showJson ? (
           <pre className="max-h-72 overflow-auto rounded border border-border bg-bg-elevated p-3 font-mono text-[10px] leading-relaxed text-slate-300">
             {/* Native record (wire line for text-native sources). Without a native module
-                this is the viewer's display projection, as before. */}
-            {nativeView ? (nativeView.log.rawLine ?? JSON.stringify(nativeView.log.record, null, 2)) : JSON.stringify(ev, null, 2)}
+                this is the vendor's own raw block (R1: no platform fields such as
+                is_detection, edr_scope or incident_id in a "raw log"); the whole event
+                only when an event carries no raw block at all. */}
+            {nativeView
+              ? (nativeView.log.rawLine ?? JSON.stringify(nativeView.log.record, null, 2))
+              : JSON.stringify(ev.raw && Object.keys(ev.raw).length ? ev.raw : ev, null, 2)}
           </pre>
         ) : (
           <>

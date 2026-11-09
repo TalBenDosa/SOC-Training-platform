@@ -5585,7 +5585,8 @@ export function oauthConsentPhishingScenarioEvents() {
       event_type: "role_assignment", severity: "high", mitre_technique: "T1528",
       user_email: EMAIL, src_ip: HOME_IP,
       description: "j.chen granted OAuth consent to an app named Productivity Suite Pro, requesting Mail.ReadWrite, MailboxSettings.ReadWrite, Files.ReadWrite.All, and Calendars.Read.",
-      it_context: { result: "confirmed", message: "IT has no ticket or change record for Productivity Suite Pro. The tenant's user-consent policy lets staff approve apps for their own mail and files, so the grant itself was permitted." },
+      // An attack row: IT has no record of the app, so the call comes back unverified (itVerify rule 3, R7).
+      it_context: { result: "unverified", message: "IT has no ticket or change record for Productivity Suite Pro, and nobody in IT recognises the app. The tenant's user-consent policy lets staff approve apps for their own mail and files, so the grant itself was not blocked." },
       fp_explanation: "OAuth consent grants are extremely common: users consent to dozens of productivity apps. This looks like Slack/Zoom/Notion onboarding by a user working in the evening from home.",
       raw: {
         "data.office365.Operation": "Consent to application",
