@@ -33,6 +33,14 @@ export const DEFENDER_XDR: RoomExperience = {
   look: { primary: "#fbbf24", secondary: "#2dd4bf", warn: "#f43f5e" },
   scene: "facilitylastword",
   layout: "facility",
+  story: {
+    intro: { title: "Nine Days", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-intro-90a9e1d3.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-intro-da26d08a.jpg" },
+    afterStation: {
+      incident: { title: "Nine Alerts", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-ch2-5cda9483.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-ch2-c8a891d3.jpg" },
+      timeline: { title: "Before the Alert", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-ch3-bd081700.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-ch3-94b29c70.jpg" },
+      lastword: { title: "The Last Word", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-finale-5b8425eb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/defender-xdr/lastword-finale-bb2eba14.jpg" },
+    },
+  },
   stations: [
     {
       id: "incident",
