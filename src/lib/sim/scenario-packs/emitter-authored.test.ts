@@ -448,8 +448,10 @@ describe("emitter-authored scenario packs", () => {
     const lsass = s.events.find(e => e.id === "evt_mhi_fs3_lsass");
     expect(lsass?.event_type).toBe("process_access");
     expect(lsass?.raw?.["crowdstrike.DesiredAccess"]).toBe("2097151");   // 0x1FFFFF, as Falcon writes it
-    expect(lsass?.raw?.["crowdstrike.TargetProcessImageFileName"]).toBe("lsass.exe");
-    expect(lsass?.raw?.["crowdstrike.event_simpleName"]).not.toBe("ProcessAccessIOC"); // real name
+    // Falcon's handle-operation record names the opened image as an NT device path
+    expect(lsass?.raw?.["crowdstrike.TargetProcessImageFileName"]).toBe("\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe");
+    expect(lsass?.raw?.["crowdstrike.event_simpleName"]).toBe("FalconProcessHandleOpDetectInfo"); // the FDR record that carries both fields
+    expect(lsass?.raw?.["crowdstrike.DetectName"]).toBeUndefined();                              // the detection is its own row (csAlert)
     // the missing link: svc_backup (from the dump) logs on to BKP-SRV-02 from FS-SRV-03,
     // plus 7045 PSEXESVC and 5145 ADMIN$/IPC$ for the PsExec step
     const bkLogon = s.events.find(e => e.id === "evt_mhi_bk0_logon");

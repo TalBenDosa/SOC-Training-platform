@@ -21,6 +21,7 @@ import { makeSha256 } from "../iocs";
 import { hashString } from "../rng";
 import { type Ctx, resolve, pidFrom, SEV_NAME, downloadsPath } from "./_core";
 import { ecsTechnique, ecsCodeSignature, type SignState } from "@/lib/logs/ecsFields";
+import { osImagePath } from "@/lib/logs/native/sources/_proc-identity";
 
 const VENDOR = "CrowdStrike Falcon";
 
@@ -343,7 +344,7 @@ export interface CsProcessAccessOpts extends Ctx {
   sha256?: string;
   signed?: boolean;
   targetProcess?: string;       // the process being read/hooked/injected
-  targetPid?: number;           // not on the Falcon record (no target-pid field) - carried as process.target.pid
+  targetPid?: number;           // OS pid, carried as process.target.pid; the record has only its Falcon UPID (TargetProcessId)
   grantedAccess?: string;       // access mask in hex, e.g. 0x1FFFFF (PROCESS_ALL_ACCESS) - the LSASS tell; emitted as DesiredAccess (decimal)
   simpleName?: string;          // override the Falcon event name
   api?: string;                 // e.g. SetWindowsHookExW / OpenProcess / WriteProcessMemory
@@ -361,6 +362,9 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
   const pid = o.pid ?? pidFrom(o.id);
   const path = o.processPath ?? `C:\\Users\\${r.bareUser}\\AppData\\Roaming\\${o.processName}`;
   const cmdline = o.cmdline ?? o.processName;
+  const hook = o.api?.startsWith("SetWindowsHook");
+  const simpleName = o.simpleName ?? (hook ? "SuspiciousWindowsHook" : "FalconProcessHandleOpDetectInfo");
+  if (simpleName === "FalconProcessHandleOpDetectInfo") return handleOpRecord(o, r, pid, path, cmdline);
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "process_access",
     severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
@@ -370,7 +374,7 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
     process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined,
       target: o.targetProcess ? { name: o.targetProcess, pid: o.targetPid } : undefined },
     raw: {
-      "crowdstrike.event_simpleName": o.simpleName ?? (o.api?.startsWith("SetWindowsHook") ? "SuspiciousWindowsHook" : "CrossProcessOpen"),
+      "crowdstrike.event_simpleName": simpleName,
       "crowdstrike.event_platform": platformOf(path),
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.UserName": r.domainUser,
@@ -384,13 +388,54 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
       ...(o.threatName ? { "crowdstrike.DetectName": o.threatName } : {}),
       ...(o.tactic ? { "crowdstrike.Tactic": o.tactic } : {}),
       ...(o.technique ? { "crowdstrike.Technique": o.technique } : {}),
-      // FalconProcessHandleOpDetectInfo: the opened process (TargetProcessImageFileName) and the requested
-      // access mask as Falcon writes it - a decimal string (0x1FFFFF → "2097151"). The record names no
-      // target OS pid and no API, so targetPid / api shape the scenario, not the log.
-      ...(o.targetProcess ? { "crowdstrike.TargetProcessImageFileName": o.targetProcess } : {}),
-      ...(o.grantedAccess ? { "crowdstrike.DesiredAccess": String(parseInt(o.grantedAccess, 16)) } : {}),
       ...(o.sha256 ? { "crowdstrike.SHA256HashData": o.sha256, "crowdstrike.MD5HashData": md5For(o.sha256) } : {}),
       ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
+    },
+  };
+}
+
+/** Falcon's NT device-path form of a Windows image path ("C:\X" → "\Device\HarddiskVolume3\X"). */
+function ntDevice(p: string): string {
+  const m = /^([A-Za-z]):\\(.*)$/.exec(p);
+  return m ? `\\Device\\HarddiskVolume${3 + Math.max(0, m[1].toUpperCase().charCodeAt(0) - 67)}\\${m[2]}` : p;
+}
+
+/**
+ * FDR FalconProcessHandleOpDetectInfo - the handle-operation record Falcon logs with a handle-op
+ * detection (an LSASS read, a full-access handle on another process). It is the Falcon event that
+ * names the opened process (TargetProcessImageFileName, an NT device path) and the requested access
+ * mask (DesiredAccess, a decimal string: 0x1FFFFF → "2097151"), next to the acting process's
+ * ImageFileName / CommandLine / ContextProcessId and its parent's ParentImageFileName / ParentProcessId.
+ * Process ids are Falcon UPIDs. It carries no detection name, tactic, technique or hash: those are on
+ * the DetectionSummaryEvent (csAlert), which in turn names neither the target nor the mask.
+ * Field set: Elastic crowdstrike integration data_stream/fdr (fields.yml, test-fdr-new-events.log,
+ * test-windows.log).
+ */
+function handleOpRecord(o: CsProcessAccessOpts, r: ReturnType<typeof resolve>, pid: number, path: string, cmdline: string): TelemetryEvent {
+  const target = o.targetProcess ? (/[\\/]/.test(o.targetProcess) ? o.targetProcess : osImagePath(o.targetProcess) ?? o.targetProcess) : undefined;
+  const parentPath = o.parentName ? (/[\\/]/.test(o.parentName) ? o.parentName : osImagePath(o.parentName)) : undefined;
+  return {
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "process_access",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
+    expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
+    description: o.description ?? `${o.processName} accessed ${o.targetProcess ?? "another process"} on ${r.host}`,
+    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined,
+      target: o.targetProcess ? { name: o.targetProcess.replace(/^.*[\\/]/, ""), pid: o.targetPid } : undefined },
+    raw: {
+      "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+      "crowdstrike.event_platform": platformOf(path),
+      "crowdstrike.ComputerName": r.host,
+      "crowdstrike.UserName": r.domainUser,
+      "crowdstrike.aid": r.sensorId,
+      "crowdstrike.ContextProcessId": falconUpid(r.sensorId, pid),
+      "crowdstrike.ImageFileName": ntDevice(path),
+      "crowdstrike.CommandLine": cmdline,
+      ...(o.parentPid !== undefined ? { "crowdstrike.ParentProcessId": falconUpid(r.sensorId, o.parentPid) } : {}),
+      ...(parentPath ? { "crowdstrike.ParentImageFileName": ntDevice(parentPath) } : {}),
+      ...(target ? { "crowdstrike.TargetProcessImageFileName": ntDevice(target) } : {}),
+      ...(o.targetPid !== undefined ? { "crowdstrike.TargetProcessId": falconUpid(r.sensorId, o.targetPid) } : {}),
+      ...(o.grantedAccess ? { "crowdstrike.DesiredAccess": String(parseInt(o.grantedAccess, 16)) } : {}),
     },
   };
 }
