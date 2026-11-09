@@ -39,6 +39,14 @@ export const SOAR_AUTOMATION: RoomExperience = {
   look: { primary: "#7aa2f7", secondary: "#fde68a", warn: "#fb5607" },
   scene: "facilityautopilot",
   layout: "facility",
+  story: {
+    intro: { title: "07:12", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-intro-9394a0dd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-intro-e29023e2.jpg" },
+    afterStation: {
+      playbook: { title: "What Ran", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-ch2-ea76c034.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-ch2-297fa9e1.jpg" },
+      gate: { title: "Until Friday", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-ch3-6c758d7e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-ch3-6e32f350.jpg" },
+      trust: { title: "Trust", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-finale-e9c4efd7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soar-automation/autopilot-finale-929d9d12.jpg" },
+    },
+  },
   stations: [
     {
       id: "playbook",
