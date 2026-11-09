@@ -28,6 +28,8 @@ export interface ShiftRow {
   attack: boolean;
   event: LiveEvent;
   authoredTs?: string;
+  /** Story rows: the placed row before enrichment (what useLiveEvents keeps as the incident's `injected`). */
+  placed?: TelemetryEvent;
 }
 export interface Shift { company: string; difficulty: "easy" | "medium" | "hard"; seed: number; story: AttackStory; rows: ShiftRow[] }
 
@@ -89,9 +91,10 @@ export function playShift(company: string, difficulty: "easy" | "medium" | "hard
       const placed = placePhase(sc, story.events.slice(cursor, cursor + n), clock).rows;
       let attackRows = 0;
       placed.forEach((e, i) => {
-        const le = enrich({ ...e, id: `atk_${story.events[cursor + i].id}_${clock}_${i}` });
+        const inj = { ...e, id: `atk_${story.events[cursor + i].id}_${clock}_${i}` };
+        const le = enrich(inj);
         const attack = isAttackEvent(le);
-        rows.push({ kind: "story", mirror: false, storyIdx: cursor + i, attack, event: le, authoredTs: story.events[cursor + i].ts });
+        rows.push({ kind: "story", mirror: false, storyIdx: cursor + i, attack, event: le, authoredTs: story.events[cursor + i].ts, placed: inj });
         const m = siemMirror(le, gi++);
         if (m) rows.push({ kind: "story", mirror: true, storyIdx: cursor + i, attack, event: m });
         if (attack) attackRows += m ? 2 : 1;
