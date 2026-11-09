@@ -151,11 +151,10 @@ const SYSTEM_LOG_LAB: Portal = {
       table: {
         columns: LOG_COLUMNS,
         rows: [
-          { id: "b-fail", cells: ["Wed 08:11:40", "Ellis Vance", "User login to Okta", "user.session.start", "FAILURE", "198.51.100.20"], record: "b-fail" },
+          { id: "b-eval", cells: ["Wed 08:11:40", "Ellis Vance", "Evaluation of sign-on policy", "policy.evaluate_sign_on", "CHALLENGE", "198.51.100.20"], record: "b-eval" },
           { id: "b-mfa", cells: ["Wed 08:12:03", "Ellis Vance", "Authentication of user via MFA", "user.authentication.auth_via_mfa", "SUCCESS", "198.51.100.20"], record: "b-mfa" },
           { id: "b-sess", cells: ["Wed 08:12:04", "Ellis Vance", "User login to Okta", "user.session.start", "SUCCESS", "198.51.100.20"], record: "b-sess" },
-          { id: "a-fail", cells: ["Wed 23:37:52", "Ellis Vance", "User login to Okta", "user.session.start", "FAILURE", "203.0.113.58"], record: "a-fail", tone: "medium" },
-          { id: "a-eval", cells: ["Wed 23:37:53", "Ellis Vance", "Evaluation of sign-on policy", "policy.evaluate_sign_on", "CHALLENGE", "203.0.113.58"], record: "a-eval" },
+          { id: "a-eval", cells: ["Wed 23:37:53", "Ellis Vance", "Evaluation of sign-on policy", "policy.evaluate_sign_on", "CHALLENGE", "203.0.113.58"], record: "a-eval", tone: "medium" },
           { id: "a-sms", cells: ["Wed 23:37:53", "Ellis Vance", "Send second factor auth SMS", "system.sms.send_factor_verify_message", "SUCCESS", "203.0.113.58"], record: "a-sms" },
           { id: "a-mfa", cells: ["Wed 23:38:21", "Ellis Vance", "Authentication of user via MFA", "user.authentication.auth_via_mfa", "SUCCESS", "203.0.113.58"], record: "a-mfa" },
           { id: "a-sess", cells: ["Wed 23:38:22", "Ellis Vance", "User login to Okta", "user.session.start", "SUCCESS", "203.0.113.58"], record: "a-sess" },
@@ -168,7 +167,6 @@ const SYSTEM_LOG_LAB: Portal = {
       table: {
         columns: LOG_COLUMNS,
         rows: [
-          { id: "s-fail", cells: ["Wed 23:37:52", "Ellis Vance", "User login to Okta", "user.session.start", "FAILURE", "203.0.113.58"], record: "a-fail" },
           { id: "s-eval", cells: ["Wed 23:37:53", "Ellis Vance", "Evaluation of sign-on policy", "policy.evaluate_sign_on", "CHALLENGE", "203.0.113.58"], record: "a-eval" },
           { id: "s-sms", cells: ["Wed 23:37:53", "Ellis Vance", "Send second factor auth SMS", "system.sms.send_factor_verify_message", "SUCCESS", "203.0.113.58"], record: "a-sms" },
           { id: "s-mfa", cells: ["Wed 23:38:21", "Ellis Vance", "Authentication of user via MFA", "user.authentication.auth_via_mfa", "SUCCESS", "203.0.113.58"], record: "a-mfa" },
@@ -185,11 +183,10 @@ const SYSTEM_LOG_LAB: Portal = {
     },
   },
   records: {
-    "b-fail": logEvent("b-fail", "user.session.start", "User login to Okta", "Wed 08:11:40", VANCE, OFFICE, [["outcome.result", "FAILURE"], ["outcome.reason", "MFA_REQUIRED"], ["transaction.id", "TxH4d9Pn"]], []),
+    "b-eval": logEvent("b-eval", "policy.evaluate_sign_on", "Evaluation of sign-on policy", "Wed 08:11:40", VANCE, OFFICE, [["outcome.result", "CHALLENGE"], ["outcome.reason", "Sign-on policy evaluation resulted in CHALLENGE"], ["transaction.id", "TxH4d9Pn"]], [["target.0.type", "PolicyEntity"], ["target.0.displayName", "Quayside global session policy"], ["target.1.type", "PolicyRule"], ["target.1.displayName", "Catch-all"]]),
     "b-mfa": logEvent("b-mfa", "user.authentication.auth_via_mfa", "Authentication of user via MFA", "Wed 08:12:03", VANCE, OFFICE, [["outcome.result", "SUCCESS"], ["transaction.id", "TxH4d9Pn"]], [["target.0.type", "AuthenticatorEnrollment"], ["target.0.displayName", "Phone"]]),
     "b-sess": logEvent("b-sess", "user.session.start", "User login to Okta", "Wed 08:12:04", VANCE, OFFICE, [["outcome.result", "SUCCESS"], ["transaction.id", "TxH4d9Pn"]], []),
-    "a-fail": logEvent("a-fail", "user.session.start", "User login to Okta", "Wed 23:37:52", VANCE, NIGHT, [["outcome.result", "FAILURE"], ["outcome.reason", "MFA_REQUIRED"], ["transaction.id", "TxW7k2Jc"], ["authenticationContext.externalSessionId", "trsG5vQ1mYbZ8sLn"]], []),
-    "a-eval": logEvent("a-eval", "policy.evaluate_sign_on", "Evaluation of sign-on policy", "Wed 23:37:53", VANCE, NIGHT, [["outcome.result", "CHALLENGE"], ["transaction.id", "TxW7k2Jc"]], [["target.0.type", "PolicyEntity"], ["target.0.displayName", "Quayside global session policy"], ["target.1.type", "PolicyRule"], ["target.1.displayName", "Catch-all"]]),
+    "a-eval": logEvent("a-eval", "policy.evaluate_sign_on", "Evaluation of sign-on policy", "Wed 23:37:53", VANCE, NIGHT, [["outcome.result", "CHALLENGE"], ["outcome.reason", "Sign-on policy evaluation resulted in CHALLENGE"], ["transaction.id", "TxW7k2Jc"], ["authenticationContext.externalSessionId", "trsG5vQ1mYbZ8sLn"]], [["target.0.type", "PolicyEntity"], ["target.0.displayName", "Quayside global session policy"], ["target.1.type", "PolicyRule"], ["target.1.displayName", "Catch-all"]]),
     "a-sms": logEvent("a-sms", "system.sms.send_factor_verify_message", "Send second factor auth SMS", "Wed 23:37:53", VANCE, NIGHT, [["outcome.result", "SUCCESS"], ["transaction.id", "TxW7k2Jc"]], []),
     "a-mfa": logEvent("a-mfa", "user.authentication.auth_via_mfa", "Authentication of user via MFA", "Wed 23:38:21", VANCE, NIGHT, [["outcome.result", "SUCCESS"], ["transaction.id", "TxW7k2Jc"], ["debugContext.debugData.factor", "SMS_FACTOR"]], [["target.0.type", "AuthenticatorEnrollment"], ["target.0.displayName", "Phone"]]),
     "a-sess": logEvent("a-sess", "user.session.start", "User login to Okta", "Wed 23:38:22", VANCE, NIGHT, [["outcome.result", "SUCCESS"], ["transaction.id", "TxW7k2Jc"], ["authenticationContext.externalSessionId", "trsG5vQ1mYbZ8sLn"]], []),
@@ -210,9 +207,9 @@ const SYSTEM_LOG_LAB: Portal = {
   },
   steps: [
     { id: "log", ask: "Start where every event in this org is written.", hint: "Reports, at the bottom of the menu.", target: "menu:syslog", why: "One log for the whole org. The filter is already on e.vance's sign-in events, so you can see the account's normal morning next to last night." },
-    { id: "open", ask: "Open the sign-in the SIEM flagged: 23:37, result FAILURE.", hint: "Read the Time and Client IP columns.", target: "row:a-fail", why: "The list shows the result, not the reason. Everything you need is in the event's tabs." },
+    { id: "open", ask: "Open the sign-in the SIEM flagged: 23:37, the first event from that address.", hint: "Read the Time and Client IP columns.", target: "row:a-eval", why: "The list shows the result, not the reason. Everything you need is in the event's tabs." },
     { id: "net", ask: "Before anything else, find out what kind of network that request came from.", hint: "One of the tabs across the event.", target: "action:client", why: "Northpier Hosting Ltd, a hosting company's range in Rotterdam. Ellis's sign-in that morning came from Harbour Fibre, the office line. The network doesn't fit the person." },
-    { id: "out", ask: "Now find out how far this attempt got.", hint: "Result is one field. The tab next door has its partner.", target: "action:outcome", why: "FAILURE with reason MFA_REQUIRED, and now you know what that reason proves. The morning sign-in shows the same pair, which is how an ordinary SMS sign-in begins." },
+    { id: "out", ask: "Now find out how far this attempt got.", hint: "Result is one field. The tab next door has its partner.", target: "action:outcome", why: "CHALLENGE, reason 'Sign-on policy evaluation resulted in CHALLENGE'. The policy only asks for a factor once the password is accepted, so the password was right. The morning sign-in shows the same pair, which is how an ordinary SMS sign-in begins." },
     { id: "mfa", ask: "Follow the same transaction. Open the event that shows whether the second factor passed.", hint: "Look down the eventType column, a few rows later, for MFA.", target: "row:a-mfa", why: "SUCCESS, 28 seconds after the SMS went out. target.0.displayName says Phone, debugData says SMS_FACTOR. Ellis says the phone has had no signal since 23:20, and a code goes wherever the number goes." },
     { id: "pivot", ask: "This view shows sign-ins only. Look at everything that address did.", hint: "There's a saved search under Reports.", target: "menu:bysource", why: "Filtering on the source shows all that address touched, whichever account it used. Same address, same session ID, minutes apart: that's one timeline." },
     { id: "rule", ask: "Open the change to the policy you compared this morning.", hint: "The leading segment of eventType is the category you want.", target: "row:s-rule", why: "Six minutes after the session opened: policy.rule.update on Vendor network, and zone.update just before it. Open the Target tab if you want the rule's ID. The log gives you who, when and from where." },
@@ -404,29 +401,29 @@ export const OKTA_IDENTITY_FUNDAMENTALS: RoomExperience = {
       {
         kind: "trace",
         title: "How Far Did It Get?",
-        prompt: "Tuesday night a source worked down Quayside's staff list, one try per account, about one every three minutes. Every row says FAILURE. Ngaire Holm wants to know whether any of them should worry you.",
+        prompt: "Tuesday night a source worked down Quayside's staff list, one try per account, about one every three minutes. Nearly every row says FAILURE. Ngaire Holm wants to know whether any of them should worry you.",
         primer: {
           title: "Result says what. Reason says how far",
           points: [
             "`outcome.result` covers one step: SUCCESS, FAILURE, ALLOW, DENY, SKIPPED or CHALLENGE. `outcome.reason` is where the detail lives.",
             "A sign-in moves in stages: password, then a second factor if policy asks for one, then a session.",
             "`INVALID_CREDENTIALS`: the credentials weren't accepted. `LOCKED_OUT`: too many failures, so the account is locked.",
-            "`MFA_REQUIRED` means the sign-in has moved past the password stage: policy now wants a second factor.",
+            "A right password is not logged as a failure. The sign-on policy runs next: `policy.evaluate_sign_on` with result `CHALLENGE` (reason `Sign-on policy evaluation resulted in CHALLENGE`) means the password stage is passed and policy now wants a second factor.",
             "To confirm it, look at what Okta logged next under the same `transaction.id` or `externalSessionId`: a challenge going out, then the factor's result.",
           ],
           example: {
             label: "Worked example: passport control",
             lines: [
-              "A border desk stamps a form: refused, visa required. The officer only gets to that line after the passport has checked out.",
-              "The traveller didn't get in, and you still learn the passport was good. Read the reason, not only the word refused.",
+              "A border desk sends a traveller on to a second check. The officer only does that after the passport has checked out.",
+              "The traveller may never get in, and you still learn the passport was good. Read which desk wrote the line, not only whether the traveller got through.",
             ],
           },
         },
-        lead: "A source at 203.0.113.58, Tuesday from 22:41, one try per account, all FAILURE",
+        lead: "A source at 203.0.113.58, Tuesday from 22:41, one try per account",
         steps: [
           {
             id: "who",
-            ask: "All eight rows are FAILURE. Find the one where the password was right.",
+            ask: "Eight tries, one per account. Find the one where the password was right.",
             source: "System Log · client.ipAddress eq 203.0.113.58",
             columns: ["published", "actor.alternateId", "eventType", "outcome.result", "outcome.reason"],
             rows: [
@@ -434,13 +431,13 @@ export const OKTA_IDENTITY_FUNDAMENTALS: RoomExperience = {
               ["22:43:40", "b.lindqvist", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
               ["22:46:05", "c.duarte", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
               ["22:49:31", "d.achebe", "user.session.start", "FAILURE", "LOCKED_OUT"],
-              ["22:52:17", "e.vance", "user.session.start", "FAILURE", "MFA_REQUIRED"],
+              ["22:52:17", "e.vance", "policy.evaluate_sign_on", "CHALLENGE", "Sign-on policy evaluation resulted in CHALLENGE"],
               ["22:54:02", "f.novak", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
               ["22:56:48", "g.sato", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
               ["22:58:10", "h.ibsen", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
             ],
             answer: 4,
-            why: "MFA_REQUIRED only comes after the password stage, so e.vance's password was right. d.achebe's LOCKED_OUT tells you the account was already locked, which proves nothing about the password tried.",
+            why: "The sign-on policy answers CHALLENGE only after the password stage, so e.vance's password was right. d.achebe's LOCKED_OUT tells you the account was already locked, which proves nothing about the password tried.",
             learned: "e.vance: password accepted at 22:52:17",
           },
           {
@@ -449,14 +446,13 @@ export const OKTA_IDENTITY_FUNDAMENTALS: RoomExperience = {
             source: "System Log · around 22:52",
             columns: ["published", "eventType", "actor.alternateId", "outcome.result", "transaction.id"],
             rows: [
-              ["22:52:17", "user.session.start", "e.vance", "FAILURE", "TxQ7m2Lk"],
-              ["22:52:18", "policy.evaluate_sign_on", "e.vance", "CHALLENGE", "TxQ7m2Lk"],
+              ["22:52:17", "policy.evaluate_sign_on", "e.vance", "CHALLENGE", "TxQ7m2Lk"],
               ["22:52:18", "system.sms.send_factor_verify_message", "e.vance", "SUCCESS", "TxQ7m2Lk"],
               ["22:53:02", "system.sms.send_factor_verify_message", "j.adeyemi", "SUCCESS", "Tx8bN4pW"],
               ["22:54:02", "user.session.start", "f.novak", "FAILURE", "TxC2r9Vd"],
             ],
-            answer: 2,
-            why: "Same transaction.id, one second later: the SMS went to Ellis's number. The row below it is another person's ordinary sign-in on another transaction. Always match on the transaction, not only on the time.",
+            answer: 1,
+            why: "Same transaction.id, one second after the CHALLENGE: the SMS went to Ellis's number. The SMS row below it is another person's ordinary sign-in on another transaction. Always match on the transaction, not only on the time.",
             learned: "Same transaction: SMS sent to e.vance's number",
           },
           {
@@ -466,7 +462,7 @@ export const OKTA_IDENTITY_FUNDAMENTALS: RoomExperience = {
             columns: ["published", "actor.alternateId", "eventType", "outcome.result", "outcome.reason"],
             rows: [
               ["23:01:22", "l.marsh", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
-              ["23:03:51", "m.okoye", "user.session.start", "FAILURE", "MFA_REQUIRED"],
+              ["23:03:51", "m.okoye", "policy.evaluate_sign_on", "CHALLENGE", "Sign-on policy evaluation resulted in CHALLENGE"],
               ["23:06:14", "n.pereira", "user.session.start", "FAILURE", "LOCKED_OUT"],
               ["23:08:37", "o.frey", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
               ["23:11:05", "p.stroud", "user.session.start", "FAILURE", "INVALID_CREDENTIALS"],
@@ -489,10 +485,10 @@ export const OKTA_IDENTITY_FUNDAMENTALS: RoomExperience = {
         items: [
           { id: "a", text: "One try, reason INVALID_CREDENTIALS, then silence", bucket: "none", why: "The attempt stopped at the first stage. Nothing here says the source learned anything." },
           { id: "b", text: "Reason LOCKED_OUT after a run of failures", bucket: "none", why: "Locked means too many failures. It doesn't tell you any attempt was right." },
-          { id: "c", text: "Reason MFA_REQUIRED, an SMS sent, the code never entered", bucket: "pass", why: "The second factor held and nothing opened, and the SMS only went out because the password was accepted." },
-          { id: "d", text: "Reason MFA_REQUIRED on a contractor account, then two silent days", bucket: "pass", why: "Silence afterwards doesn't take the password back. It only means nobody has used it yet." },
-          { id: "e", text: "MFA_REQUIRED, then auth_via_mfa SUCCESS, then user.session.start SUCCESS and admin activity", bucket: "sess", why: "Every stage passed, and the activity after it shows the session being used." },
-          { id: "f", text: "user.session.start SUCCESS under a rule needing no second factor, then app access", bucket: "sess", why: "You won't see MFA_REQUIRED here, because no policy asked for a factor. The password alone was enough." },
+          { id: "c", text: "Sign-on policy CHALLENGE, an SMS sent, the code never entered", bucket: "pass", why: "The second factor held and nothing opened, and the SMS only went out because the password was accepted." },
+          { id: "d", text: "Sign-on policy CHALLENGE on a contractor account, then two silent days", bucket: "pass", why: "Silence afterwards doesn't take the password back. It only means nobody has used it yet." },
+          { id: "e", text: "CHALLENGE, then auth_via_mfa SUCCESS, then user.session.start SUCCESS and admin activity", bucket: "sess", why: "Every stage passed, and the activity after it shows the session being used." },
+          { id: "f", text: "user.session.start SUCCESS under a rule needing no second factor, then app access", bucket: "sess", why: "You won't see a CHALLENGE here, because no policy asked for a factor. The password alone was enough." },
         ],
       },
     ],
