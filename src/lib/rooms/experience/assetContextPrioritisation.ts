@@ -44,6 +44,14 @@ export const ASSET_CONTEXT_PRIORITISATION: RoomExperience = {
   look: { primary: "#f4c95d", secondary: "#b79cff", warn: "#ff6b6b" },
   scene: "facilitycrownjewels",
   layout: "facility",
+  story: {
+    intro: { title: "03:10", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-intro-da60c5ef.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-intro-2dfd5c30.jpg" },
+    afterStation: {
+      register: { title: "The List", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-ch2-80e3679d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-ch2-44833e2e.jpg" },
+      priority: { title: "Ginger Preserve", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-ch3-bb42d8a6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-ch3-fe55237c.jpg" },
+      crownjewels: { title: "In Order", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-finale-762f6279.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/asset-context-prioritisation/crownjewels-finale-2a681cf0.jpg" },
+    },
+  },
   stations: [
     {
       id: "register",
