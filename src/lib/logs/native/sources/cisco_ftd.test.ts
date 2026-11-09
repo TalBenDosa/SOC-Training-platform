@@ -30,6 +30,18 @@ describe("cisco_ftd: wire format", () => {
       if (log.kind === "430002") expect(log.record.ConnectionDuration).toBeUndefined();
     }
   });
+  it("a web request to a destination on an SI IP feed is an SI IP Block, not a URL-rule block", () => {
+    const c = corpusFor(source.schema.telemetrySources).find(x => x.ev.id === "evt_fbu_07_c2_blocked");
+    expect(c).toBeDefined();
+    const r = source.fromTelemetry(c!.ev, makeCtx("globallogis"))!.record;
+    expect(r.Message_number).toBe("430002");
+    expect(r.AccessControlRuleReason).toBe("IP Block");
+    expect(r.IPReputationSICategory).toBe("CnC");
+    expect(r.SecIntMatchingIP).toBe("Destination");
+    expect(r.AccessControlRuleName).toBeUndefined();
+    expect(r.URL).toBeUndefined();
+    expect(r.InitiatorPackets).toBe("1");
+  });
 });
 
 runFirewallSuite({
@@ -44,6 +56,8 @@ runFirewallSuite({
     if (log.kind !== "430004") ex.push("sha256");
     // 430001 carries no URL key (card §3.2).
     if (log.kind === "430001") ex.push("network.domain", "network.url");
+    // An SI IP Block drops the first packet, before any HTTP or TLS SNI is seen: no URL key.
+    if (log.record.AccessControlRuleReason === "IP Block") ex.push("network.domain", "network.url");
     if (log.record.IngressZone === "OUTSIDE") ex.push("user");
     return ex;
   },

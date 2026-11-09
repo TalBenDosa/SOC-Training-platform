@@ -1959,7 +1959,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "198.51.100.99 is a well-known Tor exit node that opportunistically scans internet-facing IP ranges. Cisco Firepower's Security Intelligence feed blocked the connection before any application data was exchanged, and no other GlobalLogis telemetry correlates with this IP - routine background noise, not a targeted attempt.",
     description: "Inbound HTTP connection from TOR exit node 198.51.100.99 to 10.50.1.1 - blocked by firewall",
-    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "TOR-Anonymous", "action_result": "blocked" }
+    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Tor_exit_node", "action_result": "blocked" }
   },
   // ── VPN (Cisco AnyConnect) ────────────────────────────────────────────────
   {
@@ -2057,7 +2057,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "198.51.100.194", dst_ip: "10.50.1.1", dst_port: 23,
     protocol: "tcp",
     description: "Inbound Telnet scan from 198.51.100.194 to 10.50.1.1 - blocked, legacy protocol probe",
-    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Scanner", "action_result": "blocked", "source.geo.country_name": "China" }
+    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Attackers", "action_result": "blocked", "source.geo.country_name": "China" }
   },
   // ── Sysmon - additional events ────────────────────────────────────────────
   {

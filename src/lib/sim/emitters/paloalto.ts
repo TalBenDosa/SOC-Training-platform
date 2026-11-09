@@ -73,6 +73,10 @@ export interface PanWebOpts extends Ctx, PanFlowOpts {
   tactic?: string;
   severity?: Severity;
   description?: string;
+  /** The destination address is on a Security Intelligence IP feed (Talos category, e.g. "CnC").
+   *  A world fact, not a PAN field: PAN-OS still writes its URL-filtering record, while a Cisco
+   *  Firepower in the same seat drops the session first as an SI "IP Block" with this category. */
+  ipFeedCategory?: string;
 }
 export function panWeb(o: PanWebOpts): TelemetryEvent {
   const r = resolve(o);
@@ -127,6 +131,9 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
       "http.request.method": method,
       "http.response.status_code": String(o.status ?? 200),
       "action_result": actionStr,
+      // The SI feed fact the native firewall layer reads (firewall-shared siCategory); the
+      // PAN-OS renderer does not print it.
+      ...(o.ipFeedCategory && blocked ? { "cisco.ftd.security_intelligence_category": o.ipFeedCategory } : {}),
     },
   };
 }

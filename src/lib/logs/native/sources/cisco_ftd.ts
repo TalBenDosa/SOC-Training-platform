@@ -101,7 +101,10 @@ function client(f: FwFacts, r: Rec): void {
 function connection(f: FwFacts, ctx: NativeCtx): Rec {
   const end = !f.blocked && !f.startOnly;
   const r = head(f, ctx, end ? "430003" : "430002");
-  const si = f.blocked && f.siCategory && f.cls !== "url";
+  // Security Intelligence runs before the access control rules: a destination on an IP feed is
+  // dropped at its first packet as an "IP Block", so the record has no rule name, no URL and no
+  // App-ID, even when the session was a web request the URL rules would also have refused.
+  const si = !!(f.blocked && f.siCategory);
   r.EventPriority = si ? "High" : "Low";
   ids(f, ctx, r);
   r.AccessControlRuleAction = f.blocked ? "Block" : "Allow";
@@ -111,12 +114,12 @@ function connection(f: FwFacts, ctx: NativeCtx): Rec {
   if (!si) r.AccessControlRuleName = f.rule;
   r["Prefilter Policy"] = "Default Prefilter Policy";
   r.User = user(f, ctx);
-  client(f, r);
+  if (!si) client(f, r);
   const a = APPS[f.app];
-  if (appProto(f) && !(f.blocked && !f.url)) r.ApplicationProtocol = appProto(f)!;
+  if (appProto(f) && !(f.blocked && !f.url) && !si) r.ApplicationProtocol = appProto(f)!;
   if (a?.ftdWebApp && !f.blocked) r.WebApplication = a.ftdWebApp;
   if (end) r.ConnectionDuration = String(f.elapsed);
-  if (f.blocked && f.cls === "url") {
+  if (f.blocked && f.cls === "url" && !si) {
     r.InitiatorPackets = String(ctx.int(`${f.ev.id}:ip`, 3, 6)); r.ResponderPackets = "2";
     r.InitiatorBytes = String(ctx.int(`${f.ev.id}:ib`, 520, 900)); r.ResponderBytes = "132";
   } else if (f.blocked) {
@@ -126,9 +129,9 @@ function connection(f: FwFacts, ctx: NativeCtx): Rec {
     r.InitiatorBytes = String(f.bytesOut); r.ResponderBytes = String(f.bytesIn);
   }
   r.NAPPolicy = "Balanced Security and Connectivity";
-  if (f.referer) r.HTTPReferer = f.referer;
-  if (f.domain && f.blocked) r.ReferencedHost = f.domain;
-  if (f.domain) {
+  if (f.referer && !si) r.HTTPReferer = f.referer;
+  if (f.domain && f.blocked && !si) r.ReferencedHost = f.domain;
+  if (f.domain && !si) {
     const cat = (f.category && CATEGORIES[f.category]) || CATEGORIES["computer-and-internet-info"];
     if (f.blocked) { r.URL = f.url ?? `https://${f.domain}`; r.URLCategory = cat.talos; r.URLReputation = urlRep(f.category); }
     else { r.URLCategory = cat.talos; r.URLReputation = urlRep(f.category); r.URL = f.url ?? `https://${f.domain}`; }
