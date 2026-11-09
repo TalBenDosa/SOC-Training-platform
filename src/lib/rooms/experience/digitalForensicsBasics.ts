@@ -27,6 +27,14 @@ export const DIGITAL_FORENSICS_BASICS: RoomExperience = {
   look: { primary: "#14b8a6", secondary: "#fbbf24", warn: "#f87171" },
   scene: "coldcase",
   layout: "stage",
+  story: {
+    intro: { title: "Lot 117", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-intro-b2b0b7b8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-intro-5ff094c8.jpg" },
+    afterStation: {
+      bag: { title: "Eighteen Hours, No Name", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-ch2-aac2612f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-ch2-69dacf53.jpg" },
+      memory: { title: "Three S's", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-ch3-e7cb9c07.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-ch3-852f2174.jpg" },
+      court: { title: "It Holds Up", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-finale-67843fc1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-finale-8dd1d830.jpg" },
+    },
+  },
   stations: [
     {
       id: "bag",
