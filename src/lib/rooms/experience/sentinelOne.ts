@@ -27,6 +27,14 @@ export const SENTINEL_ONE: RoomExperience = {
   look: { primary: "#8b5cf6", secondary: "#22d3ee", warn: "#e5484d" },
   scene: "storyline",
   layout: "stage",
+  story: {
+    intro: { title: "Purple Monday", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-intro-2cacc9d9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-intro-04c95e21.jpg" },
+    afterStation: {
+      center: { title: "Mitigated Is Not Finished", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-ch2-8c339cc9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-ch2-922c00b8.jpg" },
+      shell: { title: "Restart=always", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-ch3-14ab3cc9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-ch3-90535d03.jpg" },
+      rollout: { title: "Rewind", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-finale-09df0174.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-finale-be899063.jpg" },
+    },
+  },
   stations: [
     {
       id: "center",
