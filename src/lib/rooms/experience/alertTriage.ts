@@ -27,6 +27,14 @@ export const ALERT_TRIAGE: RoomExperience = {
   look: { primary: "#f59e0b", secondary: "#38bdf8", warn: "#ef4444" },
   scene: "facilitytriage",
   layout: "facility",
+  story: {
+    intro: { title: "212 Before Sailing", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-intro-428ff0e4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-intro-c5629083.jpg" },
+    afterStation: {
+      queue: { title: "Four Decisions", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-ch2-f9145ffa.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-ch2-46ca5e3f.jpg" },
+      steps: { title: "Prove It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-ch3-6696e46e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-ch3-08118bfd.jpg" },
+      handover: { title: "Clean Handover", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-finale-9911d368.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/alert-triage/nightqueue-finale-015f2621.jpg" },
+    },
+  },
   stations: [
     {
       id: "queue",
