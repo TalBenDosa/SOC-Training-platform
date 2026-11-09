@@ -2226,8 +2226,8 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
            "cisco.ftd.rule_name": "OUTSIDE-IN-MGMT",
            "cisco.ftd.initiator_bytes": "3040", "cisco.ftd.responder_bytes": "5120",
            "cisco.ftd.connection_duration": "1",
-           "source.ip": "198.51.100.97", "source.geo.country_iso_code": "UA",
-           "destination.address": "SRV-GL-LINUX01", "destination.port": "22",
+           "source.ip": "198.51.100.97", "source.geo.country_name": "Ukraine",
+           "destination.ip": "10.50.9.31", "destination.port": "22",
            "action_result": "allowed" }
   },
   {
@@ -2242,7 +2242,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
            "cisco.ftd.initiator_bytes": "2880", "cisco.ftd.responder_bytes": "4864",
            "cisco.ftd.connection_duration": "1",
            "source.ip": "198.51.100.97",
-           "source.geo.country_iso_code": "UA", "destination.address": "SRV-GL-APP02",
+           "source.geo.country_name": "Ukraine", "destination.ip": "10.50.6.45",
            "destination.port": "22", "action_result": "allowed" }
   },
   {
@@ -2272,7 +2272,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
            "cisco.ftd.application_protocol": "SSH",
            "cisco.ftd.ingress_interface": "outside", "cisco.ftd.egress_interface": "inside",
            "network.transport": "tcp",
-           "source.ip": "198.51.100.97", "source.geo.country_iso_code": "UA",
+           "source.ip": "198.51.100.97", "source.geo.country_name": "Ukraine",
            "destination.port": "22",
            "action_result": "blocked" }
   },
@@ -2330,7 +2330,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   {
     id: "gl_copy_atk_02", ts: "2026-05-10T21:18:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "high",
-    vendor: "Cisco Firepower", hostname: "SRV-GL-APP02", src_ip: "10.50.6.45",
+    vendor: "Cisco Firepower", hostname: "SRV-GL-APP02", src_ip: "10.50.6.45", user_email: "j.gruber@globallogis.de",
     mitre_technique: "T1048", mitre_tactic: "Exfiltration",
     expected_verdict: "tp", is_detection: true,
     description: "SRV-GL-APP02 sent 2.1 GB of customer data over SFTP to an external IP after hours",
@@ -2338,8 +2338,8 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
       "cisco.ftd.action": "Allow", "cisco.ftd.application_protocol": "sftp",
       "source.ip": "10.50.6.45", "destination.ip": "93.184.216.119",
       "destination.port": "22", "cisco.ftd.initiator_bytes": "2254857216",
-      "cisco.ftd.connection_duration": "820", "source.geo.country_iso_code": "DE",
-      "cisco.asa.username": "j.gruber", "cisco.ftd.rule_name": "default-outbound",
+      "cisco.ftd.connection_duration": "820",
+      "cisco.ftd.rule_name": "default-outbound",
       "action_result": "allowed" }
   },
 
@@ -3737,13 +3737,13 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
            "cisco.ftd.rule_name": "OUTSIDE-IN-MGMT",
            "cisco.ftd.initiator_bytes": "6880", "cisco.ftd.responder_bytes": "11008",
            "cisco.ftd.connection_duration": "1",
-           "source.ip": "198.51.100.97", "source.geo.country_iso_code": "UA",
-           "destination.address": "SRV-GL-LINUX01", "destination.port": "22",
+           "source.ip": "198.51.100.97", "source.geo.country_name": "Ukraine",
+           "destination.ip": "10.50.9.31", "destination.port": "22",
            "action_result": "allowed" }
   },
   {
     id: "gl_d2", ts: "2026-05-10T18:08:00.000Z", source: "firewall", event_type: "net_connection",
-    severity: "high", vendor: "Cisco Firepower", src_ip: "198.51.100.97",
+    severity: "high", vendor: "Cisco Firepower", src_ip: "198.51.100.97", dst_ip: "10.50.6.45",
     hostname: "SRV-GL-APP02",
     description: "The same source IP switched target and opened 43 further SSH connections to SRV-GL-APP02",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
@@ -3751,7 +3751,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
            "cisco.ftd.rule_name": "OUTSIDE-IN-MGMT",
            "cisco.ftd.initiator_bytes": "3440", "cisco.ftd.responder_bytes": "5504",
            "cisco.ftd.connection_duration": "1",
-           "source.ip": "198.51.100.97", "destination.address": "SRV-GL-APP02",
+           "source.ip": "198.51.100.97", "destination.ip": "10.50.6.45",
            "destination.port": "22", "action_result": "allowed" }
   },
   {
