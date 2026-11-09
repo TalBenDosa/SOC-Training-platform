@@ -27,7 +27,7 @@ const managedIdentityKeyVaultEvent: TelemetryEvent = {
     "azure.keyvault.requestUri": "https://nexacorp-prod-kv.vault.azure.net/secrets/sql-connection-string",
     "azure.keyvault.httpStatusCode": 200,
     "cloud.provider": "azure",
-    "cloud.subscription_id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
+    "cloud.account.id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
     "action_result": "allowed",
   },
 };
@@ -37,7 +37,7 @@ const nsgRdpExposureEvent: TelemetryEvent = {
   id: "evt-azure-nsg-rdp-001",
   ts: "2026-06-15T02:34:51.000Z",
   source: "cloud_azure",
-  vendor: "Azure NSG Flow Logs",
+  vendor: "Azure Activity Log",
   event_type: "net_connection",
   severity: "critical",
   user_email: "svc-webapp-mi@nexacorp.onmicrosoft.com",
@@ -60,12 +60,10 @@ const nsgRdpExposureEvent: TelemetryEvent = {
     "azure.activitylogs.caller": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
     "azure.activitylogs.callerIpAddress": "203.0.113.44",
     "azure.activitylogs.properties.requestbody": "{\"properties\":{\"direction\":\"Inbound\",\"access\":\"Allow\",\"protocol\":\"Tcp\",\"sourcePortRange\":\"*\",\"destinationPortRange\":\"3389\",\"sourceAddressPrefix\":\"*\",\"destinationAddressPrefix\":\"10.40.2.15\",\"priority\":100}}",
-    "azure.nsgflowlogs.rule": "allow-rdp-temp",
-    "azure.nsgflowlogs.mac": "00-0D-3A-1F-4C-2B",
-    "azure.nsgflowlogs.flowTuples": "1781490937,203.0.113.44,10.40.2.15,51422,3389,T,I,A,B",
-    "azure.nsgflowlogs.nsgResourceId": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourceGroups/nexacorp-prod-rg/providers/Microsoft.Network/networkSecurityGroups/nexacorp-prod-vm-nsg",
+    "azure.activitylogs.category": "Administrative",
+    "azure.activitylogs.level": "Informational",
     "cloud.provider": "azure",
-    "cloud.subscription_id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
+    "cloud.account.id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
     "action_result": "allowed",
   },
 };
@@ -96,7 +94,7 @@ const automationServicePrincipalEvent: TelemetryEvent = {
     "azure.activitylogs.category": "Administrative",
     "azure.activitylogs.level": "Informational",
     "cloud.provider": "azure",
-    "cloud.subscription_id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
+    "cloud.account.id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
     "action_result": "allowed",
   },
 };
@@ -129,7 +127,7 @@ const storagePublicSasEvent: TelemetryEvent = {
     "azure.activitylogs.callerIpAddress": "203.0.113.44",
     "azure.activitylogs.properties.requestbody": "{\"properties\":{\"publicAccess\":\"Container\"}}",
     "cloud.provider": "azure",
-    "cloud.subscription_id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
+    "cloud.account.id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
     "action_result": "allowed",
   },
 };
@@ -733,7 +731,7 @@ const azureSecurityRoom = {
       id: "azure-la2",
       heading: "Investigating an NSG Rule Change That Exposed RDP to the Internet",
       context:
-        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event (besides Key Vault Secrets User, the identity also holds an over-broad Contributor role on the resource group, which is what lets it edit NSG rules). The NSG flow log for that VM is shown alongside the change. Review the event below.",
+        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event (besides Key Vault Secrets User, the identity also holds an over-broad Contributor role on the resource group, which is what lets it edit NSG rules). The rule change is the record below.\n\n**The NSG flow log for that VM, 46 seconds later,** holds this flow tuple under rule allow-rdp-temp: 1781490937,203.0.113.44,10.40.2.15,51422,3389,T,I,A,B",
       event: nsgRdpExposureEvent,
       questions: [
         {
@@ -752,7 +750,7 @@ const azureSecurityRoom = {
         },
         {
           question:
-            "Decode the azure.nsgflowlogs.flowTuples value in this event. What does it show?",
+            "Decode the NSG flow tuple quoted in the context. What does it show?",
           options: [
             "An outbound RDP connection from the VM to 203.0.113.44 that the NSG denied",
             "An inbound TCP connection from 203.0.113.44 to 10.40.2.15:3389 that was allowed",

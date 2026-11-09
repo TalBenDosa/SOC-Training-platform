@@ -13,27 +13,28 @@ const nacPostureEvent: TelemetryEvent = {
   description:
     "Endpoint quarantined: posture assessment failed - AV signatures 45 days out of date, Windows patches missing",
   raw: {
-    "cisco.ise.step": "11002",
-    "cisco.ise.message_code": "5200",
-    "cisco.ise.authentication_identity_store": "AD1",
-    "cisco.ise.identity_group": "Domain Users",
-    "cisco.ise.authorization_rule": "Posture-NonCompliant",
-    "cisco.ise.selected_authorization_profile": "QUARANTINE",
-    "cisco.ise.network_device_name": "SW-ACCESS-FL2-01",
-    "cisco.ise.network_device_ip": "10.10.0.1",
-    "cisco.ise.nas_port": "GigabitEthernet1/0/14",
-    "cisco.ise.calling_station_id": "3C:22:FB:A1:D7:09",
-    "cisco.ise.endpoint_mac_address": "3C:22:FB:A1:D7:09",
-    "cisco.ise.endpoint_profile": "Windows10-Workstation",
-    "cisco.ise.posture_assessment_status": "NonCompliant",
-    "cisco.ise.posture_failure_reasons":
-      "AntivirusDefinitionOutOfDate, MissingWindowsPatches",
-    "cisco.ise.selected_vlan": "VLAN-50-QUARANTINE",
-    "cisco.ise.acl": "ACL-QUARANTINE-REMEDIATION",
-    "cisco.ise.cisco_av_pair":
-      "url-redirect=https://ise-psn-01.corp.local/guestportal/gateway",
-    "user.name": "CORP\\t.goldberg",
-    "source.ip": "10.10.5.67",
+    "CISE_Category": "CISE_Passed_Authentications",
+    "MessageCode": "5200",
+    "MessageDescription": "Authentication succeeded",
+    "Step": "11002",
+    "NetworkDeviceName": "SW-ACCESS-FL2-01",
+    "Device IP Address": "10.10.0.1",
+    "NAS-Port-Id": "GigabitEthernet1/0/14",
+    "User-Name": "CORP\\t.goldberg",
+    "Calling-Station-ID": "3C-22-FB-A1-D7-09",
+    "EndPointMACAddress": "3C-22-FB-A1-D7-09",
+    "Framed-IP-Address": "10.10.5.67",
+    "AuthenticationMethod": "dot1x",
+    "AuthenticationIdentityStore": "AD1",
+    "IdentityGroup": "Domain Users",
+    "EndPointMatchedProfile": "Windows10-Workstation",
+    "PostureAssessmentStatus": "NonCompliant",
+    "AuthorizationPolicyMatchedRule": "Posture-NonCompliant",
+    "SelectedAuthorizationProfiles": "QUARANTINE",
+    "Tunnel-Private-Group-ID": "(tag=1) VLAN-50-QUARANTINE",
+    "Filter-ID": "ACL-QUARANTINE-REMEDIATION.in",
+    "cisco-av-pair": "url-redirect=https://ise-psn-01.corp.local:8443/portal/gateway?sessionId=0A0A00010000004F2C9D3E71&portal=posture",
+    "ISEPolicySetName": "Wired-802.1X",
   },
 };
 
@@ -639,7 +640,8 @@ const nacMasterclass = {
         "  ISE Profiler: 'Expected: Printer profile\n" +
         "                 Observed: Windows DHCP options, HTTP User-Agent\n" +
         "                 Result:   Profile mismatch - alert!'\n" +
-        "  SIEM rule: cisco.ise.posture_assessment_status = unexpected_profile\n\n" +
+        "  SIEM rule: EndPointMatchedProfile for one MAC changes from a printer\n" +
+        "             profile to a Windows profile\n\n" +
         "BYPASS TECHNIQUE 2: 802.1X PASS-THROUGH (HUB INSERTION)\n" +
         "==========================================================\n\n" +
         "  Wall port (multi-host 802.1X configured)\n" +
@@ -693,12 +695,12 @@ const nacMasterclass = {
       id: "nac-la1",
       heading: "Cisco ISE: Investigating a Posture Failure Quarantine Event",
       context:
-        "You are a SOC analyst monitoring Cisco ISE events in the SIEM. An alert fires: endpoint quarantined due to posture failure. The event shows a Windows 10 workstation belonging to t.goldberg@corp.com was placed in quarantine VLAN when connecting to access switch SW-ACCESS-FL2-01, port GigabitEthernet1/0/14. Review the ISE log fields carefully. Each field tells you something specific about what NAC checked and what action was taken.",
+        "You are a SOC analyst monitoring Cisco ISE events in the SIEM. An alert fires: endpoint quarantined due to posture failure. The event shows a Windows 10 workstation belonging to t.goldberg@corp.com was placed in the quarantine VLAN when connecting to access switch SW-ACCESS-FL2-01, port GigabitEthernet1/0/14. Below is the ISE Passed-Authentication syslog record (message 5200), with its attributes as ISE names them; the RADIUS attributes ISE returned to the switch (VLAN, ACL, cisco-av-pair) are in it too. ISE's posture report for the same session lists the failed requirements: AntivirusDefinitionOutOfDate, MissingWindowsPatches. Review the record carefully. Each attribute tells you something specific about what NAC checked and what action was taken.",
       event: nacPostureEvent,
       questions: [
         {
           question:
-            "The cisco.ise.selected_vlan field shows VLAN-50-QUARANTINE and cisco.ise.acl shows ACL-QUARANTINE-REMEDIATION. Together, what do these two fields tell you about the access this device has received?",
+            "Tunnel-Private-Group-ID returns VLAN-50-QUARANTINE and Filter-ID applies ACL-QUARANTINE-REMEDIATION. Together, what do these two fields tell you about the access this device has received?",
           options: [
             "The port is effectively blocked: VLAN 50 has no routes and the ACL drops all traffic",
             "The device is isolated in VLAN 50, and the ACL limits it to remediation services",
@@ -712,7 +714,7 @@ const nacMasterclass = {
         },
         {
           question:
-            "The cisco.ise.posture_failure_reasons field shows 'AntivirusDefinitionOutOfDate, MissingWindowsPatches'. Which triage assessment of this combination is most accurate?",
+            "The posture report lists 'AntivirusDefinitionOutOfDate, MissingWindowsPatches' as the failed requirements. Which triage assessment of this combination is most accurate?",
           options: [
             "Low risk: current attacks seldom use malware that signature-based AV would detect",
             "Elevated risk: AV may miss recent malware and missing patches leave known flaws open",
@@ -726,7 +728,7 @@ const nacMasterclass = {
         },
         {
           question:
-            "The cisco.ise.cisco_av_pair field contains 'url-redirect=https://ise-psn-01.corp.local/guestportal/gateway'. What is the purpose of this attribute, and what will the user experience?",
+            "The cisco-av-pair attribute contains 'url-redirect=https://ise-psn-01.corp.local:8443/portal/gateway?...'. What is the purpose of this attribute, and what will the user experience?",
           options: [
             "It marks a failed authentication and sends the browser to the IT helpdesk page",
             "The switch intercepts the user's web requests and sends them to the ISE remediation portal",
@@ -747,7 +749,7 @@ const nacMasterclass = {
       prompt:
         "In the quarantine event, ISE returned one result to the switch, and one policy entry's conditions decided that result. Enter the name of the entry whose conditions this endpoint matched, exactly as logged.",
       answer: "Posture-NonCompliant",
-      hint: "Two cisco.ise.* fields describe the authorization step: one names the policy match, the other names what was sent to the switch.",
+      hint: "Two attributes describe the authorization step: one names the policy rule that matched, the other names the authorization profile that was sent to the switch.",
       xp: 30,
     },
   ],

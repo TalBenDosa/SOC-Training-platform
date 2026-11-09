@@ -25,32 +25,40 @@ const introToCyberEvent: TelemetryEvent = {
   description: "Malware detected on HR workstation as it was downloaded by the web browser",
   mitre_technique: "T1566.002",
   mitre_tactic: "Initial Access",
+  // Event 1117 (MALWAREPROTECTION_STATE_MALWARE_ACTION_TAKEN) as Winlogbeat ships it from the
+  // Microsoft-Windows-Windows Defender/Operational channel. 1116 is the detection only; the
+  // action (Quarantine) and its result are recorded in 1117, so the question about the action
+  // needs this event. Defender writes the download URL and browser pid inside `Path` (webfile).
   raw: {
-    EventID: 1116,
-    DetectionSource: "NIS",
-    ThreatName: "Trojan:Win32/Emotet.AL!MTB",
-    ThreatID: "2147812831",
-    Severity: "High",
-    Action: "Quarantine",
-    ActionSuccess: true,
-    FilePath: "C:\\Users\\sarah.jones\\Downloads\\invoice_Q1_2024.exe",
-    FileSize: 284672,
-    SHA256: "76f742c920bc0aacf0d20dfb5b00325db6d48e2cac7957597b96d4cc150462a0",
-    MD5: "42268af028499333858a9ec22709a6dc",
-    ProcessName: "msedge.exe",
-    ProcessPID: 4892,
-    OriginUrl: "http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe",
-    ThreatCategory: "Trojan",
-    DetectionTime: "2024-03-15T14:22:07.441Z",
-    ProductVersion: "4.18.24020.7",
-    SignatureVersion: "1.407.0.0",
-    EngineVersion: "1.1.24020.9",
-    UserName: "ACMECORP\\sarah.jones",
-    ComputerName: "DESKTOP-HR-042",
-    AdditionalActionsBitmask: 0,
-    RemediationUser: "NT AUTHORITY\\SYSTEM",
-    ErrorCode: "0x00000000",
-    ErrorDescription: "The operation completed successfully.",
+    "winlog.event_id": "1117",
+    "winlog.channel": "Microsoft-Windows-Windows Defender/Operational",
+    "winlog.provider_name": "Microsoft-Windows-Windows Defender",
+    "winlog.computer_name": "DESKTOP-HR-042.acmecorp.com",
+    "winlog.record_id": "8841",
+    "winlog.event_data.Product Name": "Microsoft Defender Antivirus",
+    "winlog.event_data.Product Version": "4.18.24020.7",
+    "winlog.event_data.Detection ID": "{6F3B2C1A-9D4E-4B7F-A2C8-3E5D1F0B7A94}",
+    "winlog.event_data.Detection Time": "2024-03-15T14:22:07.441Z",
+    "winlog.event_data.Threat ID": "2147812831",
+    "winlog.event_data.Threat Name": "Trojan:Win32/Emotet.AL!MTB",
+    "winlog.event_data.Severity Name": "Severe",
+    "winlog.event_data.Category Name": "Trojan",
+    "winlog.event_data.Source Name": "Downloads and attachments",
+    "winlog.event_data.Process Name": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "winlog.event_data.Detection User": "ACMECORP\\sarah.jones",
+    "winlog.event_data.Path": "file:_C:\\Users\\sarah.jones\\Downloads\\invoice_Q1_2024.exe; webfile:_C:\\Users\\sarah.jones\\Downloads\\invoice_Q1_2024.exe|http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe|pid:4892,ProcessStart:133549847211230000",
+    "winlog.event_data.Origin Name": "Internet",
+    "winlog.event_data.Execution Name": "Unknown",
+    "winlog.event_data.Type Name": "Concrete",
+    "winlog.event_data.Action ID": "2",
+    "winlog.event_data.Action Name": "Quarantine",
+    "winlog.event_data.Error Code": "0x00000000",
+    "winlog.event_data.Error Description": "The operation completed successfully. ",
+    "winlog.event_data.Post Clean Status": "0",
+    "winlog.event_data.Additional Actions String": "No additional actions required",
+    "winlog.event_data.Remediation User": "NT AUTHORITY\\SYSTEM",
+    "winlog.event_data.Security intelligence Version": "AV: 1.407.0.0, AS: 1.407.0.0, NIS: 1.407.0.0",
+    "winlog.event_data.Engine Version": "AM: 1.1.24020.9, NIS: 1.1.24020.9",
   },
 };
 
@@ -276,7 +284,7 @@ Next, the people who attack these systems, and how they do it.`,
       id: "intro-cyber-la1",
       heading: "Analysing Your First Security Alert",
       context:
-        "You are a Tier-1 SOC Analyst at ACME Corp. Your SIEM (Security Information and Event Management) dashboard just flagged an alert from Microsoft Defender: the antivirus software installed on employee workstations. Review the log event below and answer the questions. Focus on the key fields: ThreatName, FilePath, OriginUrl, Action, and ActionSuccess.",
+        "You are a Tier-1 SOC Analyst at ACME Corp. Your SIEM (Security Information and Event Management) dashboard just flagged an alert from Microsoft Defender: the antivirus software installed on employee workstations. Review the log event below (Windows event 1117: Defender took an action on a threat) and answer the questions. Focus on the key fields: Threat Name, Path, Process Name, Action Name and Error Description.",
       event: introToCyberEvent,
       questions: [
         {
@@ -290,12 +298,12 @@ Next, the people who attack these systems, and how they do it.`,
           ],
           answer: 1,
           explanation:
-            'The "Action" field shows "Quarantine" and "ActionSuccess" is true. Quarantine means Defender moved the file to a secure, isolated location where it cannot execute or spread. This is different from deletion: the file still exists in quarantine for forensic review. The event confirms the action succeeded.',
+            'The "Action Name" field shows "Quarantine", and "Error Description" reads "The operation completed successfully." Quarantine means Defender moved the file to a secure, isolated location where it cannot execute or spread. This is different from deletion: the file still exists in quarantine for forensic review. Event 1117 itself means "action taken"; a failed action would be logged as event 1118 or 1119 with a non-zero Error Code.',
           xp: 20,
         },
         {
           question:
-            "The OriginUrl field shows where the file was downloaded from. What does this URL suggest about the nature of the attack?",
+            "The webfile entry in the Path field records the URL the file was downloaded from. What does this URL suggest about the nature of the attack?",
           options: [
             "A trusted internal host: the 'acme' in the domain shows it belongs to the company",
             "A look-alike external domain (invoice-portal-acme.ru) imitating the company, typical of phishing",
@@ -304,12 +312,12 @@ Next, the people who attack these systems, and how they do it.`,
           ],
           answer: 1,
           explanation:
-            "The OriginUrl is 'http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe'. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-acme' mimics ACME Corp's name to appear legitimate, a classic phishing tactic called brand impersonation (here 'combosquatting': the real company name combined with extra words on an attacker-owned domain). The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting ACME Corp employees.",
+            "The webfile entry in Path reads 'webfile:_<local path>|http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe|pid:4892,...': Defender records the local file, the URL it came from and the process id that downloaded it. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-acme' mimics ACME Corp's name to appear legitimate, a classic phishing tactic called brand impersonation (here 'combosquatting': the real company name combined with extra words on an attacker-owned domain). The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting ACME Corp employees.",
           xp: 25,
         },
         {
           question:
-            "The ProcessName field shows 'msedge.exe', and the file sits in the user's Downloads folder. Together with the OriginUrl, what does this tell you about how the user encountered the malicious file?",
+            "The Process Name field shows msedge.exe, Origin Name is 'Internet', and the file sits in the user's Downloads folder. Together with the URL in Path, what does this tell you about how the user encountered the malicious file?",
           options: [
             "The malware was delivered through a USB drive inserted into the computer",
             "The user clicked a link (most likely in a phishing email) and the web browser downloaded the file from the external site",
@@ -318,7 +326,7 @@ Next, the people who attack these systems, and how they do it.`,
           ],
           answer: 1,
           explanation:
-            "msedge.exe is Microsoft Edge, the web browser. It is the process that was writing the file when Defender caught it. The OriginUrl shows the file came from an external website, and C:\\Users\\sarah.jones\\Downloads is the browser's default download folder. Together these point to a web download: the user followed a link (the look-alike domain and invoice lure are typical of a phishing email, MITRE T1566.002, Spearphishing Link) and the browser fetched the file. An Outlook attachment would show outlook.exe as the process and no web OriginUrl; a USB delivery would show a removable-drive path; and nothing here suggests an administrator install.",
+            "msedge.exe is Microsoft Edge, the web browser. It is the process that was writing the file when Defender caught it (pid 4892 in the webfile entry). Origin Name 'Internet' and the URL in Path show the file came from an external website, and C:\\Users\\sarah.jones\\Downloads is the browser's default download folder. Together these point to a web download: the user followed a link (the look-alike domain and invoice lure are typical of a phishing email, MITRE T1566.002, Spearphishing Link) and the browser fetched the file. An Outlook attachment would show outlook.exe as the process and no web URL; a USB delivery would show a removable-drive path; and nothing here suggests an administrator install.",
           xp: 20,
         },
       ],
@@ -818,11 +826,11 @@ const killChainEvent: TelemetryEvent = {
   severity: "critical",
   hostname: "WORKSTATION-FIN-07",
   user_email: "carlos.mendez@targetcorp.com",
-  description: "Outbound connection to known C2 infrastructure: high beacon frequency",
+  description: "URL filtering: outbound TLS session from WORKSTATION-FIN-07 to a newly registered domain",
   mitre_technique: "T1071.001",
   mitre_tactic: "Command and Control",
   src_ip: "10.20.5.107",
-  dst_ip: "91.92.248.115",
+  dst_ip: "198.51.100.73",
   dst_port: 443,
   protocol: "HTTPS",
   geo: {
@@ -831,33 +839,46 @@ const killChainEvent: TelemetryEvent = {
     latitude: 55.7558,
     longitude: 37.6173,
   },
+  // PAN-OS URL Filtering log (type THREAT, subtype url) in the PAN-OS 11.x variable names the Live
+  // Feed renders. No decryption on this rule, so `misc` holds the TLS SNI host. URL logs always
+  // carry threatid (9999) and severity informational; the SIEM rule, not the firewall, rated it.
   raw: {
+    receive_time: "2024/05/22 02:11:44",
+    serial: "013201004487",
+    type: "THREAT",
+    subtype: "url",
+    time_generated: "2024/05/22 02:11:44",
+    src: "10.20.5.107",
+    dst: "198.51.100.73",
+    natsrc: "203.0.113.24",
+    natdst: "198.51.100.73",
     rule: "ALLOW_OUTBOUND_WEB",
-    action: "allow",
+    srcuser: "targetcorp\\carlos.mendez",
     app: "ssl",
-    category: "newly-registered-domain",
+    vsys: "vsys1",
     from: "trust",
     to: "untrust",
-    inbound_if: "ethernet1/1",
-    outbound_if: "ethernet1/2",
-    src: "10.20.5.107",
-    dst: "91.92.248.115",
-    dport: 443,
-    sport: 54921,
-    proto: "6",
-    session_id: "2847391",
+    inbound_if: "ethernet1/2",
+    outbound_if: "ethernet1/1",
+    sessionid: "2847391",
+    repeatcnt: "1",
+    sport: "54921",
+    dport: "443",
+    natsport: "31877",
+    natdport: "443",
     flags: "0x400000",
-    start: "2024-05-22T02:11:44.003Z",
-    repeatcount: 1,
-    app_category: "general-internet",
-    threat_id: "30001",
-    threat_category: "network-traffic-anomaly",
-    severity: "critical",
+    proto: "tcp",
+    action: "alert",
+    misc: "updates.microsoft-cdn-services.net/",
+    threatid: "(9999)",
+    category: "newly-registered-domain",
+    severity: "informational",
     direction: "client-to-server",
-    domain: "updates.microsoft-cdn-services.net",
-    serial: "009401002233",
-    vsys: "vsys1",
-    logtype: "THREAT",
+    srcloc: "10.0.0.0-10.255.255.255",
+    dstloc: "RU",
+    device_name: "PA-TC-EDGE01",
+    url_category_list: "newly-registered-domain,medium-risk",
+    high_res_timestamp: "2024-05-22T02:11:44.003+00:00",
   },
 };
 
@@ -1128,7 +1149,7 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       id: "ckc-la1",
       heading: "Kill Chain in Action: Identifying C2 Communication",
       context:
-        "You are a threat hunter at TargetCorp. Your SIEM has flagged a critical-severity event from your Palo Alto Networks next-generation firewall (NGFW) for outbound traffic from a finance workstation, WORKSTATION-FIN-07. A SIEM search shows 121 sessions like this one from the same workstation to the same destination over the past hour, one roughly every 30 seconds. Threat-intel enrichment adds two facts the firewall record does not carry: the domain was registered 14 days ago, and the destination IP geolocates to Moscow, Russia. Review the log below.",
+        "You are a threat hunter at TargetCorp. Your SIEM has raised a critical-severity alert on outbound traffic from a finance workstation, WORKSTATION-FIN-07, seen by your Palo Alto Networks next-generation firewall (NGFW). The record below is the firewall's own URL Filtering log for one session: on its own the firewall only logged it as informational. A SIEM search shows 121 sessions like this one from the same workstation to the same destination over the past hour, one roughly every 30 seconds. Threat-intel enrichment adds two facts the firewall record does not carry: the domain was registered 14 days ago, and the destination IP geolocates to Moscow, Russia. Review the log below.",
       event: killChainEvent,
       questions: [
         {
@@ -1142,7 +1163,7 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
           ],
           answer: 2,
           explanation:
-            "The defence matrix pairs the C2 stage with DNS monitoring and the NGFW: blocking updates.microsoft-cdn-services.net and 91.92.248.115 cuts the attacker's control channel, so the implant cannot receive instructions and the chain breaks before Actions on Objectives. Email filtering is a Delivery control: useful against the next attempt, but this attacker is already past that stage. Patching is an Exploitation control and does not remove malware that is already installed and beaconing. Backups are an Actions-on-Objectives control: they soften the impact but do not stop the attacker reaching it.",
+            "The defence matrix pairs the C2 stage with DNS monitoring and the NGFW: blocking updates.microsoft-cdn-services.net and 198.51.100.73 cuts the attacker's control channel, so the implant cannot receive instructions and the chain breaks before Actions on Objectives. Email filtering is a Delivery control: useful against the next attempt, but this attacker is already past that stage. Patching is an Exploitation control and does not remove malware that is already installed and beaconing. Backups are an Actions-on-Objectives control: they soften the impact but do not stop the attacker reaching it.",
           xp: 25,
         },
         {
@@ -1222,60 +1243,64 @@ const mitreAttackEvent: TelemetryEvent = {
   description: "Entra ID alert: failed sign-ins from one source address across several accounts",
   mitre_technique: "T1110.003",
   mitre_tactic: "Credential Access",
-  src_ip: "5.188.206.201",
+  src_ip: "198.51.100.214",
   geo: {
     country: "Ukraine",
     city: "Kyiv",
     latitude: 50.4501,
     longitude: 30.5234,
   },
+  // One Entra ID sign-in record (Microsoft Graph signIn shape, as the Live Feed renders Entra).
+  // A sign-in record names exactly one account; the spray (eight accounts from one IP) is the
+  // SIEM's count across eight such records, given to the learner in the task context.
   raw: {
-    OperationName: "Sign-in activity",
-    ResultType: "50126",
-    ResultDescription: "Invalid username or password",
-    CallerIpAddress: "5.188.206.201",
-    CorrelationId: "b7c8d9e0-f1a2-b3c4-d5e6-f7a8b9c0d1e2",
-    InitiatedBy: {
-      user: {
-        id: null,
-        displayName: null,
-        userPrincipalName: null,
-        ipAddress: "5.188.206.201",
-      },
+    id: "4f1c9a27-63be-4d0e-9b8a-2c71e5d40a9b",
+    createdDateTime: "2024-06-10T09:33:15.772Z",
+    userDisplayName: "Admin Service",
+    userPrincipalName: "admin.service@fintech-global.com",
+    userId: "a3e9c1d4-7b52-4f08-8e6a-91d2c4b7f035",
+    userType: "member",
+    appId: "1b730954-1685-4b74-9bfd-dac224a7b894",
+    appDisplayName: "Azure Active Directory PowerShell",
+    ipAddress: "198.51.100.214",
+    clientAppUsed: "Mobile Apps and Desktop clients",
+    userAgent: "python-requests/2.31.0",
+    correlationId: "b7c8d9e0-f1a2-4b3c-95e6-f7a8b9c0d1e2",
+    conditionalAccessStatus: "notApplied",
+    appliedConditionalAccessPolicies: [],
+    isInteractive: true,
+    authenticationProtocol: "ropc",
+    authenticationRequirement: "singleFactorAuthentication",
+    tokenIssuerType: "AzureAD",
+    resourceDisplayName: "Windows Azure Active Directory",
+    resourceId: "00000002-0000-0000-c000-000000000000",
+    riskDetail: "none",
+    riskLevelAggregated: "none",
+    riskLevelDuringSignIn: "none",
+    riskState: "none",
+    status: {
+      errorCode: 50126,
+      failureReason: "Error validating credentials due to invalid username or password.",
+      additionalDetails: "The user didn't enter the right credentials. It's expected to see some number of these errors in your logs due to users making mistakes.",
     },
-    TargetResources: [
-      { userPrincipalName: "alice.brown@fintech-global.com" },
-      { userPrincipalName: "bob.smith@fintech-global.com" },
-      { userPrincipalName: "carol.white@fintech-global.com" },
-      { userPrincipalName: "david.jones@fintech-global.com" },
-      { userPrincipalName: "emily.davis@fintech-global.com" },
-      { userPrincipalName: "admin.service@fintech-global.com" },
-      { userPrincipalName: "helpdesk@fintech-global.com" },
-      { userPrincipalName: "hr.manager@fintech-global.com" },
-    ],
-    AuthenticationMethod: "UsernamePassword",
-    ClientAppUsed: "Mobile Apps and Desktop clients",
-    DeviceDetail: {
-      operatingSystem: "Linux",
-      browser: "Python-Requests/2.31.0",
+    deviceDetail: {
+      deviceId: "",
+      displayName: "",
+      operatingSystem: "",
+      browser: "Python Requests 2.31",
+      isCompliant: false,
+      isManaged: false,
+      trustType: "",
     },
-    ConditionalAccessStatus: "notApplied",
-    IsInteractive: false,
-    TokenIssuerType: "AzureAD",
-    UserAgent: "python-requests/2.31.0",
-    Location: {
+    location: {
       city: "Kyiv",
+      state: "Kyiv City",
       countryOrRegion: "UA",
       geoCoordinates: {
         latitude: 50.4501,
         longitude: 30.5234,
       },
     },
-    RiskState: "atRisk",
-    RiskLevel: "high",
-    RiskDetail: "none",
-    DetectionSource: "MicrosoftCloudAppSecurity",
-    AlertId: "ALERT-2024-061047832",
   },
 };
 
@@ -1519,7 +1544,7 @@ Suppose a Microsoft Entra ID (formerly Azure AD) alert is mapped to **T1110.003:
 
 What is Password Spraying? Instead of trying many passwords against one account (which would lock it out), the attacker tries *one common password* against *many accounts*. This evades account lockout policies. In sign-in logs this shows up as one source failing against many different accounts within a few minutes: classic spray behaviour.
 
-Two sign-in log fields show what sent those requests. **UserAgent** names the software behind a request: web browsers send a long string that begins Mozilla/5.0, while a programming library usually sends its own name and version. **IsInteractive** false marks a sign-in that a client program performed, with no person entering anything at a sign-in prompt.
+Two sign-in log fields show what sent those requests. **userAgent** names the software behind a request: web browsers send a long string that begins Mozilla/5.0, while a programming library usually sends its own name and version. **deviceDetail** is what Entra ID could tell about the device from that string: a browser name and an operating system for a person at a laptop, a library name and an empty operating system for a script. A sign-in record names one account, so a spray is something you see by counting many records, never inside one.
 
 ATT&CK's mitigation guidance for T1110.003 includes:
 - Implement **Multi-Factor Authentication (MFA)**, even if the password is stolen, the attacker cannot log in without the second factor
@@ -1559,12 +1584,12 @@ This is the ATT&CK framework in action: observation → identification → detec
       id: "mitre-la1",
       heading: "Identifying an ATT&CK Technique From a Log",
       context:
-        "You are a Tier-2 SOC analyst at Fintech-Global. Microsoft Entra ID (your cloud identity platform, formerly called Azure AD) has fired a high-severity alert. The log below shows authentication activity. Your job is to identify the ATT&CK technique being used, understand why this pattern is dangerous, and determine what mitigation ATT&CK recommends. The alert groups the failed sign-ins (ResultType 50126) that one source address produced within about three minutes; the accounts it tried are listed under TargetResources.",
+        "You are a Tier-2 SOC analyst at Fintech-Global. Microsoft Entra ID (your cloud identity platform, formerly called Azure AD) has fired a high-severity alert. Your job is to identify the ATT&CK technique being used, understand why this pattern is dangerous, and determine what mitigation ATT&CK recommends.\n\n**What the alert tells you:** it grouped eight failed sign-ins (error code 50126) from the one address 198.51.100.214 within about three minutes, each against a different account: alice.brown, bob.smith, carol.white, david.jones, emily.davis, admin.service, helpdesk and hr.manager (all @fintech-global.com).\n\n**What the log itself tells you:** the record below is one of those eight sign-ins, the one against admin.service. Each record names only its own account; the count across accounts is the alert's work.",
       event: mitreAttackEvent,
       questions: [
         {
           question:
-            "One source IP failed to sign in to each account listed in TargetResources within about three minutes, every time with ResultType 50126. Which sub-technique does this pattern fit?",
+            "One source IP failed to sign in to each of the eight accounts the alert lists within about three minutes, every time with error code 50126. Which sub-technique does this pattern fit?",
           options: [
             "T1110.001 Password Guessing: many passwords tried against one account",
             "T1110.002 Password Cracking: passwords recovered offline from stolen hashes",
@@ -1573,12 +1598,12 @@ This is the ATT&CK framework in action: observation → identification → detec
           ],
           answer: 2,
           explanation:
-            "Eight different accounts failing from one source in a few minutes is the spray shape: a few common passwords across many accounts, so no single account reaches its lockout threshold. Password Guessing concentrates many attempts on one account, but this log is spread across eight. Password Cracking happens offline against stolen hashes and produces no sign-in attempts at all. Valid Accounts means signing in successfully with working credentials, yet every attempt here failed (50126: invalid username or password). The identity provider never logs the password itself, so you read the spray from who was targeted, from where, and how fast.",
+            "Eight different accounts failing from one source in a few minutes is the spray shape: a few common passwords across many accounts, so no single account reaches its lockout threshold. Password Guessing concentrates many attempts on one account, but these failures are spread across eight. Password Cracking happens offline against stolen hashes and produces no sign-in attempts at all. Valid Accounts means signing in successfully with working credentials, yet every attempt here failed (50126: invalid username or password). The identity provider never logs the password itself, so you read the spray from who was targeted, from where, and how fast.",
           xp: 25,
         },
         {
           question:
-            "The UserAgent field shows 'python-requests/2.31.0' and IsInteractive is false. What do these fields tell you about the nature of this attack?",
+            "The userAgent field shows 'python-requests/2.31.0', and deviceDetail names the browser as 'Python Requests 2.31' with no operating system. What do these fields tell you about the nature of this attack?",
           options: [
             "A developer is testing the login API from a company-managed device running Python tools",
             "The attempts are automated: a Python script is sending them, not a person typing",
@@ -1587,7 +1612,7 @@ This is the ATT&CK framework in action: observation → identification → detec
           ],
           answer: 1,
           explanation:
-            "A real browser like Chrome or Edge would show a user agent string like 'Mozilla/5.0...', not 'python-requests/2.31.0'. The python-requests library is a popular Python HTTP library used in scripts and automation. Combined with IsInteractive: false (meaning this is not a human typing in a browser window) and the systematic targeting of 8 accounts, this confirms the attack is fully automated. An attacker is running a Python script that programmatically sends login requests at machine speed. This is the standard tooling for automated credential attacks.",
+            "A real browser like Chrome or Edge would show a user agent string like 'Mozilla/5.0...', not 'python-requests/2.31.0'. The python-requests library is a popular Python HTTP library used in scripts and automation. Combined with a deviceDetail that has no operating system (Entra ID found no browser or device to describe, only a library) and the systematic targeting of 8 accounts, this confirms the attack is fully automated. An attacker is running a Python script that programmatically sends login requests at machine speed. This is the standard tooling for automated credential attacks.",
           xp: 20,
         },
         {

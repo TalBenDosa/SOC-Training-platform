@@ -371,7 +371,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       id: "det-rules-la1",
       heading: "Analyze This EDR Alert: Real Threat or Benign Activity?",
       context:
-        "Your EDR (Endpoint Detection & Response) system fired an alert titled 'Suspicious PowerShell Download'. The rule triggers whenever PowerShell downloads a file from the internet. Examine the alert details below and determine whether this is a real threat or benign activity that needs a narrow, owned exception.",
+        "Your EDR (Endpoint Detection & Response, here Microsoft Defender for Endpoint) fired the custom detection 'Suspicious PowerShell Download' (severity High). The rule triggers whenever PowerShell runs a download command against an internet URL. Below is the process event the alert was raised on, as Advanced Hunting shows it. Examine it and determine whether this is a real threat or benign activity that needs a narrow, owned exception.",
       event: {
         id: "evt-det-rules-001",
         ts: "2025-06-24T02:14:33Z",
@@ -382,26 +382,33 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
         user_email: "svc-wsus@corp.com",
         description: "PowerShell downloading file from internet",
         mitre_technique: "T1059.001",
+        vendor: "Microsoft Defender for Endpoint",
+        // DeviceProcessEvents row behind the custom detection. The rule name and severity are
+        // the alert's, given in the context; the row itself carries only what the sensor saw.
         raw: {
-          "@timestamp": "2025-06-24T02:14:33Z",
-          "rule.name": "Suspicious PowerShell Download",
-          "rule.level": "10",
-          "rule.description":
-            "PowerShell downloading file from internet: possible malware dropper or C2 staging",
-          "data.cmdline":
-            "powershell.exe -Command Invoke-WebRequest -Uri https://updates.microsoft.com/kb123456.msp -OutFile C:\\Windows\\Temp\\update.msp",
-          "data.user": "svc-wsus",
-          "data.hostname": "WSUS-SERVER-01",
-          "data.process.parent": "svchost.exe",
-          "data.file.extension": ".msp",
-          "data.network.dst_domain": "updates.microsoft.com",
-          "rule.groups": ["powershell", "download", "network"],
+          Timestamp: "2025-06-24T02:14:33.0000000Z",
+          DeviceId: "c41a7e02f9b85d3316e0a7d2b98f4c51e6a03d27",
+          DeviceName: "wsus-server-01.corp.com",
+          ActionType: "ProcessCreated",
+          FileName: "powershell.exe",
+          FolderPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          ProcessId: 9124,
+          ProcessCommandLine:
+            "powershell.exe -NoProfile -Command Invoke-WebRequest -Uri https://download.windowsupdate.com/c/msdownload/update/software/updt/2025/06/kb5002700.msp -OutFile C:\\Windows\\Temp\\kb5002700.msp",
+          ProcessIntegrityLevel: "High",
+          AccountDomain: "corp",
+          AccountName: "svc-wsus",
+          InitiatingProcessFileName: "svchost.exe",
+          InitiatingProcessCommandLine: "svchost.exe -k netsvcs -p -s Schedule",
+          InitiatingProcessId: 1388,
+          InitiatingProcessAccountName: "system",
+          ReportId: 40417,
         },
       } as TelemetryEvent,
       questions: [
         {
           question:
-            "Looking at the user ('svc-wsus'), hostname ('WSUS-SERVER-01'), destination domain ('updates.microsoft.com'), and time (02:14 UTC), what is your assessment of this alert?",
+            "Looking at the user ('svc-wsus'), hostname ('WSUS-SERVER-01'), destination domain in the URL ('download.windowsupdate.com'), parent process and time (02:14 UTC), what is your assessment of this alert?",
           options: [
             "Critical threat: PowerShell downloading .msp files from the internet is malicious",
             "Benign true positive: the patch server's service account downloading a legitimate Microsoft patch",
@@ -410,7 +417,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           ],
           answer: 1,
           explanation:
-            "The telemetry fields themselves point to legitimate activity, with no prose verdict needed: the actor is a service account (svc-wsus), not a human; the host is named as a patch-management server (WSUS-SERVER-01); the destination is Microsoft's own update domain (updates.microsoft.com); the parent is svchost.exe, where the Windows Update service legitimately runs; and the 02:14 timing fits an overnight patch window. Note too that hashing powershell.exe in VirusTotal would return zero detections (it is a signed Microsoft binary) so the command line and destination, not the hash, are the evidence here. The rule correctly flags 'PowerShell download' generically but lacks the context to tell this benign pattern apart. That makes it a benign true positive: the rule did its job on a real download, and the documented patch window is the justification; it is not a false positive, because nothing misfired.",
+            "The telemetry fields themselves point to legitimate activity, with no prose verdict needed: the actor is a service account (svc-wsus), not a human; the host is named as a patch-management server (WSUS-SERVER-01); the destination is Microsoft's own update download domain (download.windowsupdate.com); the parent is svchost.exe running the Task Scheduler service (-s Schedule), which is how a scheduled patch job starts; and the 02:14 timing fits an overnight patch window. Note too that hashing powershell.exe in VirusTotal would return zero detections (it is a signed Microsoft binary) so the command line and destination, not the hash, are the evidence here. The rule correctly flags 'PowerShell download' generically but lacks the context to tell this benign pattern apart. That makes it a benign true positive: the rule did its job on a real download, and the documented patch window is the justification; it is not a false positive, because nothing misfired.",
           xp: 40,
         },
         {
@@ -419,12 +426,12 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           options: [
             "Exclude the whole server OU from the rule, since patch servers cause most of the noise",
             "Lower the rule's severity from High to Low so these alerts stop paging analysts",
-            "Exclude user 'svc-wsus' AND host 'WSUS-SERVER-01' AND destination 'updates.microsoft.com'",
+            "Exclude user 'svc-wsus' AND host 'WSUS-SERVER-01' AND destination 'download.windowsupdate.com'",
             "Raise the detection threshold so it only alerts after 100 download attempts",
           ],
           answer: 2,
           explanation:
-            "The correct tuning approach is a specific exception that excludes this exact legitimate combination: service account 'svc-wsus' on host 'WSUS-SERVER-01' downloading from 'updates.microsoft.com'. All three conditions together keep the exception tight: an attacker would need that machine, that account, and Microsoft's domain all at once to slip through. Excluding the whole server OU is far too broad: it blinds the rule across every server in the OU, not just this one benign case. Lowering the severity from High to Low only hides the alert without addressing the benign pattern, so analysts still wade through it. Raising the threshold to 100 download attempts would let a real dropper run 99 times before alerting, destroying coverage.",
+            "The correct tuning approach is a specific exception that excludes this exact legitimate combination: service account 'svc-wsus' on host 'WSUS-SERVER-01' downloading from 'download.windowsupdate.com'. All three conditions together keep the exception tight: an attacker would need that machine, that account, and Microsoft's domain all at once to slip through. Excluding the whole server OU is far too broad: it blinds the rule across every server in the OU, not just this one benign case. Lowering the severity from High to Low only hides the alert without addressing the benign pattern, so analysts still wade through it. Raising the threshold to 100 download attempts would let a real dropper run 99 times before alerting, destroying coverage.",
           xp: 40,
         },
       ],
@@ -554,18 +561,18 @@ Developed by ArcSight (HP), now the dominant standard for security appliances. C
 
 \`CEF:Version|Device Vendor|Device Product|Device Version|Device Event Class ID|Name|Severity|Extension\`
 
-Real example from a Palo Alto firewall:
-\`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=203.0.113.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName\`
+Real example from a Palo Alto firewall (a TRAFFIC log, shortened):
+\`CEF:0|Palo Alto Networks|PAN-OS|10.1.6|deny|TRAFFIC|1|rt=Jun 24 2025 14:32:11 GMT deviceExternalId=013201004487 src=203.0.113.45 dst=10.0.1.50 cs1Label=Rule cs1=block-ssh-brute app=ssh cn1Label=SessionID cn1=88412093 spt=54321 dpt=22 proto=tcp act=deny\`
 
 Breaking it down:
 - \`CEF:0\`: CEF format version 0
 - \`Palo Alto Networks\`: vendor
 - \`PAN-OS\`: product
-- \`10.1\`: product version
-- \`threat\`: event class (threat detected)
-- \`general\`: event name
-- \`7\`: severity (0-10 scale)
-- Extension fields: \`rt\` (receive time), \`src\` (source IP), \`dst\` (destination IP), \`spt\` (source port), \`dpt\` (destination port), \`proto\` (protocol), \`act\` (action), \`cs1\` (custom string 1 = rule name)
+- \`10.1.6\`: product version
+- \`deny\`: Device Event Class ID; PAN-OS puts the log subtype here (for a threat log, the threat name and ID)
+- \`TRAFFIC\`: Name; PAN-OS puts the log type here
+- \`1\`: severity (CEF allows 0-10; each vendor maps its own levels onto it)
+- Extension fields: \`rt\` (receive time), \`src\` (source IP), \`dst\` (destination IP), \`spt\` (source port), \`dpt\` (destination port), \`proto\` (protocol), \`act\` (action), \`cs1\` (custom string 1, here the rule name)
 
 CEF has a fixed set of standard fields plus custom extension fields (cs1-cs6, cn1-cn3, etc.). The \`cs1Label\` field tells you what \`cs1\` means.
 
@@ -829,7 +836,7 @@ If the test event appears: integration is working. If not: check the agent statu
       id: "log-src-la1",
       heading: "Parse This CEF Log: Palo Alto Firewall",
       context:
-        "A Palo Alto Networks firewall is configured to send its threat logs to your SIEM via Syslog in CEF format. The following raw log arrived at your Syslog collector. Your task is to parse the CEF fields and answer questions about the event.",
+        "A Palo Alto Networks firewall is configured to send its traffic logs to your SIEM via Syslog in CEF format (PAN-OS fills the CEF header and extension from its own log fields; the csN fields carry a label that names them). The following raw log arrived at your Syslog collector. Your task is to parse the CEF fields and answer questions about the event.",
       event: {
         id: "evt-log-src-001",
         ts: "2025-06-24T14:32:11Z",
@@ -839,20 +846,20 @@ If the test event appears: integration is working. If not: check the agent statu
         hostname: "palo-alto-01",
         src_ip: "203.0.113.45",
         dst_ip: "10.0.1.50",
-        description: "SSH brute force blocked by firewall: CEF format log",
+        description: "Inbound SSH connection denied by firewall: CEF format log",
+        // PAN-OS TRAFFIC log in its CEF syslog format (header: version|vendor|product|version|
+        // subtype|type|severity), plus the header fields as the SIEM's CEF parser splits them.
         raw: {
           message:
-            "CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=203.0.113.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName",
-          "log.source": "syslog",
-          "syslog.hostname": "palo-alto-01",
-          "log.format": "CEF",
+            "CEF:0|Palo Alto Networks|PAN-OS|10.1.6|deny|TRAFFIC|1|rt=Jun 24 2025 14:32:11 GMT deviceExternalId=013201004487 src=203.0.113.45 dst=10.0.1.50 cs1Label=Rule cs1=block-ssh-brute app=ssh cs4Label=Source Zone cs4=untrust cs5Label=Destination Zone cs5=dmz cn1Label=SessionID cn1=88412093 cnt=1 spt=54321 dpt=22 proto=tcp act=deny in=74 out=0 reason=policy-deny",
+          "log.syslog.hostname": "palo-alto-01",
           "cef.version": "0",
-          "cef.device_vendor": "Palo Alto Networks",
-          "cef.device_product": "PAN-OS",
-          "cef.device_version": "10.1",
-          "cef.event_class_id": "threat",
-          "cef.name": "general",
-          "cef.severity": "7",
+          "cef.device.vendor": "Palo Alto Networks",
+          "cef.device.product": "PAN-OS",
+          "cef.device.version": "10.1.6",
+          "cef.device.event_class_id": "deny",
+          "cef.name": "TRAFFIC",
+          "cef.severity": "1",
         },
       } as TelemetryEvent,
       questions: [
@@ -860,14 +867,14 @@ If the test event appears: integration is working. If not: check the agent statu
           question:
             "Reading the direction, action and ports in this single CEF record, what can you correctly conclude (and what would it be a mistake to conclude) from this one event?",
           options: [
-            "The attacker successfully authenticated over SSH, because act=block only means the event was written to the log, not that the connection was stopped",
+            "The attacker successfully authenticated over SSH, because act=deny only means the event was written to the log, not that the connection was stopped",
             "The firewall blocked one inbound SSH attempt (external src to dpt=22 on 10.0.1.50); to call it a brute force you would corroborate the volume of similar blocked attempts from that source over time",
             "The internal host 10.0.1.50 is compromised, because a connection reached it on destination port 22 from an external address",
             "This is outbound command-and-control from 10.0.1.50 to 203.0.113.45 over port 22, because the internal host initiated the session",
           ],
           answer: 1,
           explanation:
-            "The fields show an external source (203.0.113.45) reaching dpt=22 on internal 10.0.1.50, with act=block, so one inbound SSH attempt was stopped: a single blocked packet is evidence of an attempt, not yet a confirmed brute force despite the rule name, which many identical attempts over time would establish. act=block means the firewall denied the connection, so the claim that it only logged and the attacker got in is wrong. Receiving one blocked attempt does not make the target compromised, so that conclusion overreaches. The source IP is the external address and the destination is internal, so reading it as outbound C2 reverses the direction.",
+            "The fields show an external source (203.0.113.45) reaching dpt=22 on internal 10.0.1.50, with act=deny, so one inbound SSH attempt was stopped: a single blocked packet is evidence of an attempt, not yet a confirmed brute force despite the rule name, which many identical attempts over time would establish. act=deny means the firewall refused the connection (out=0: nothing came back), so the claim that it only logged and the attacker got in is wrong. Receiving one blocked attempt does not make the target compromised, so that conclusion overreaches. The source IP is the external address and the destination is internal, so reading it as outbound C2 reverses the direction.",
           xp: 40,
         },
         {
@@ -875,13 +882,13 @@ If the test event appears: integration is working. If not: check the agent statu
             "In the CEF format, what does the 'cs1' field represent, and how do you know what it means?",
           options: [
             "cs1 is a fixed, reserved CEF field that always holds the two-letter source country code derived from the src IP address",
-            "cs1 is a custom string field: the 'cs1Label=RuleName' field tells you that in this log, cs1 contains the firewall rule name",
+            "cs1 is a custom string field: the 'cs1Label=Rule' field tells you that in this log, cs1 contains the firewall rule name",
             "cs1 is a duplicate of the CEF header's own severity field, just repeated inside the extension for convenience when parsing",
             "cs1 is a fixed, reserved CEF field that always holds the authenticated username of whoever triggered the logged event",
           ],
           answer: 1,
           explanation:
-            "CEF supports up to 6 custom string fields (cs1 through cs6) whose meaning varies by vendor and event type. The corresponding 'cs1Label' field exists specifically to tell the reader what cs1 contains in this particular log. Here, cs1Label=RuleName means cs1 contains the firewall rule name, which is 'block-ssh-brute'. This pattern (csN + csNLabel) is a core part of CEF design. You always check the Label field to understand what the numbered custom field means.",
+            "CEF supports up to 6 custom string fields (cs1 through cs6) whose meaning varies by vendor and event type. The corresponding 'cs1Label' field exists specifically to tell the reader what cs1 contains in this particular log. Here, cs1Label=Rule means cs1 contains the firewall rule name, which is 'block-ssh-brute'. This pattern (csN + csNLabel) is a core part of CEF design. You always check the Label field to understand what the numbered custom field means.",
           xp: 40,
         },
       ],
@@ -893,7 +900,7 @@ If the test event appears: integration is working. If not: check the agent statu
       id: "log-src-flag1",
       event: null,
       prompt:
-        "Parse the CEF message below, a later record from the same firewall. It blocked a connection to a destination port on the internal server. Name the application-layer service that listens on that destination port by default: the service the external source was trying to reach.\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:41:52Z src=203.0.113.45 dst=10.0.1.50 spt=54388 dpt=22 proto=TCP act=block cs1=inbound-default-deny cs1Label=RuleName`\n\nEnter the service name.",
+        "Parse the CEF message below, a later record from the same firewall. It blocked a connection to a destination port on the internal server. Name the application-layer service that listens on that destination port by default: the service the external source was trying to reach.\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1.6|deny|TRAFFIC|1|rt=Jun 24 2025 14:41:52 GMT deviceExternalId=013201004487 src=203.0.113.45 dst=10.0.1.50 cs1Label=Rule cs1=inbound-default-deny app=ssh cs4Label=Source Zone cs4=untrust cs5Label=Destination Zone cs5=dmz cn1Label=SessionID cn1=88415726 cnt=1 spt=54388 dpt=22 proto=tcp act=deny in=74 out=0 reason=policy-deny`\n\nEnter the service name.",
       answer: "SSH",
       hint: "First locate the destination port in the extension, then recall which well-known service listens on that port by default. The answer is a protocol, not a number.",
       xp: 50,
@@ -1277,8 +1284,8 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
           "data.office365.Parameters[4].Value": "True",
           "rule.description": "New-InboxRule operation detected",
           "rule.groups": ["exchange", "audit"],
-          "geoip.country_name": "Russia",
-          "geoip.city_name": "Moscow",
+          "GeoLocation.country_name": "Russia",
+          "GeoLocation.city_name": "Moscow",
         },
       } as TelemetryEvent,
       questions: [
@@ -1755,15 +1762,19 @@ A failed sign-in from a suspicious location does not close the case. Entra repor
         event_type: "auth_failure" as const,
         severity: "critical" as const,
         user_email: "ceo@corp.com",
-        src_ip: "223.73.88.12",
+        src_ip: "198.51.100.88",
         description:
-          "High-risk sign-in failure: CEO account targeted from unusual geographic location with risky IP",
+          "Failed sign-in for ceo@corp.com (UserLoginFailed, error 50126)",
         mitre_technique: "T1078",
         vendor: "Microsoft 365 Unified Audit Log",
         raw: {
           "data.office365.Operation": "UserLoginFailed",
           "data.office365.UserId": "ceo@corp.com",
-          "data.office365.ActorIpAddress": "223.73.88.12",
+          "data.office365.ActorIpAddress": "198.51.100.88",
+          "data.office365.ClientIP": "198.51.100.88",
+          "data.office365.CreationTime": "2025-06-24T08:33:17",
+          "data.office365.RecordType": "15",
+          "data.office365.LogonError": "InvalidUserNameOrPassword",
           "data.office365.ErrorNumber": "50126",
           "data.office365.Workload": "AzureActiveDirectory",
           "data.office365.AzureActiveDirectoryEventType": 1,
@@ -1777,7 +1788,7 @@ A failed sign-in from a suspicious location does not close the case. Entra repor
             { Name: "ResultStatusDetail", Value: "InvalidUserNameOrPassword" },
           ],
           "rule.description": "UserLoginFailed operation detected",
-          "rule.level": "15",
+          "rule.level": "5",
           "rule.groups": ["identity", "azuread"],
         },
       } as TelemetryEvent,

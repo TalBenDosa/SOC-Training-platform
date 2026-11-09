@@ -142,10 +142,10 @@ The **p= (policy) field** is the most important:
 Every email received by Exchange Online gets an **Authentication-Results** header added to it. This is where SOC analysts look to quickly check the authentication status of a suspicious email.
 
 Example:
-\`Authentication-Results: spf=fail (sender IP is 185.234.5.6); dkim=none; dmarc=fail action=none header.from=corp.com\`
+\`Authentication-Results: spf=fail (sender IP is 203.0.113.81); dkim=none; dmarc=fail action=none header.from=corp.com\`
 
 Breaking this down:
-- **spf=fail**: The sending IP (185.234.5.6) is NOT in corp.com's SPF record. This IP is not authorised.
+- **spf=fail**: The sending IP (203.0.113.81) is NOT in corp.com's SPF record. This IP is not authorised.
 - **dkim=none**: No DKIM signature was present at all. Legitimate email from Microsoft 365 always has DKIM.
 - **dmarc=fail**: Because both SPF and DKIM failed, DMARC also fails.
 - **action=none**: The DMARC policy is \`p=none\`, so the email was delivered anyway (just monitored). That policy is the one published by the domain in the visible From: header, not by the company receiving the mail, so an attacker who owns the sending domain sets it themselves.
@@ -286,7 +286,7 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
       type: "log_analysis",
       id: "exch-sec-la1",
       heading: "Suspicious Email: Wire Transfer Request",
-      context: "You are a SOC analyst at Corp Inc. The email security system has flagged an inbound message received by the Finance team. The message trace log below was pulled from the Exchange Admin Center. Analyse the event and answer the questions.",
+      context: "You are a SOC analyst at Corp Inc. The email security system has flagged an inbound message received by the Finance team. You pulled the message's internet headers (the ones Exchange Online Protection stamped on it at delivery) from the Finance mailbox. Analyse them and answer the questions.",
       event: {
         id: "exch-la1-001",
         ts: "2025-11-14T09:23:41.000Z",
@@ -298,21 +298,24 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
         user_email: "finance@corp.com",
         mitre_technique: "T1566.002",
         mitre_tactic: "Initial Access",
-        vendor: "Microsoft 365 Unified Audit Log",
+        vendor: "Microsoft Defender for Office 365",
+        // The internet headers Exchange Online Protection stamped on the delivered message.
+        // The Unified Audit Log does not record received mail; the headers are where SCL,
+        // BCL and Authentication-Results live.
         raw: {
-          "data.office365.Operation": "MessageReceived",
-          "data.office365.InternetMessageId": "<7f3a9b21@mail.c0rp.com>",
-          "data.office365.SenderAddress": "ceo@c0rp.com",
-          "data.office365.RecipientAddress": "finance@corp.com",
-          "data.office365.Subject": "URGENT: Wire Transfer Required, Confidential",
-          "data.office365.AuthenticationResults": "spf=fail (sender IP is 185.234.91.7 not in c0rp.com SPF); dkim=none; dmarc=fail action=none",
-          "data.office365.SCL": "1",
-          "data.office365.BCL": "0",
-          "data.office365.P2SenderDomain": "c0rp.com",
-          "data.office365.DeliveryAction": "Delivered",
-          "data.office365.DeliveryLocation": "Inbox",
-          "data.office365.NetworkMessageId": "ae9f2c1d-4b77-4e3a-9123-fa8d2b3c9e01",
-          "data.office365.ClientIP": "185.234.91.7"
+          "email.headers.Received": "from mail.c0rp.com (198.51.100.27) by AM6EUR05FT012.mail.protection.outlook.com (10.167.240.12) with Microsoft SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.8158.14 via Frontend Transport; Fri, 14 Nov 2025 09:23:41 +0000",
+          "email.headers.Received-SPF": "Fail (protection.outlook.com: domain of c0rp.com does not designate 198.51.100.27 as permitted sender) receiver=protection.outlook.com; client-ip=198.51.100.27; helo=mail.c0rp.com;",
+          "email.headers.Authentication-Results": "spf=fail (sender IP is 198.51.100.27) smtp.mailfrom=c0rp.com; dkim=none (message not signed) header.d=none;dmarc=fail action=none header.from=c0rp.com;",
+          "email.headers.From": "\"Daniel Hayes\" <ceo@c0rp.com>",
+          "email.headers.To": "finance@corp.com",
+          "email.headers.Subject": "URGENT: Wire Transfer Required, Confidential",
+          "email.headers.Date": "Fri, 14 Nov 2025 09:23:38 +0000",
+          "email.headers.Message-ID": "<7f3a9b21@mail.c0rp.com>",
+          "email.headers.Return-Path": "ceo@c0rp.com",
+          "email.headers.X-MS-Exchange-Organization-Network-Message-Id": "ae9f2c1d-4b77-4e3a-9123-fa8d2b3c9e01",
+          "email.headers.X-MS-Exchange-Organization-SCL": "1",
+          "email.headers.X-Forefront-Antispam-Report": "CIP:198.51.100.27;CTRY:NL;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:mail.c0rp.com;PTR:mail.c0rp.com;CAT:NONE;SFS:(13230040)(4636009)(376014);DIR:INB;",
+          "email.headers.X-Microsoft-Antispam": "BCL:0;"
         },
       } satisfies TelemetryEvent,
       questions: [
@@ -331,13 +334,13 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
         {
           question: "Which field in this record most directly shows that the message is pretending to come from your own company?",
           options: [
-            "AuthenticationResults: corp.com's SPF record does not list the sending IP",
-            "P2SenderDomain: c0rp.com uses a zero where your corp.com domain has an o",
-            "InternetMessageId: the ID was generated by a server outside your tenant",
-            "DeliveryLocation: Inbox shows that a spoofed corp.com message got through"
+            "Authentication-Results: corp.com's SPF record does not list the sending IP",
+            "From: c0rp.com uses a zero where your corp.com domain has an o",
+            "Message-ID: the ID was generated by a server outside your tenant",
+            "X-Forefront-Antispam-Report: SFV:NSPM shows a spoofed corp.com message got through"
           ],
           answer: 1,
-          explanation: "`P2SenderDomain` is the domain the recipient sees in From:, and `c0rp.com` swaps the letter o for a zero to pass as `corp.com`: a typosquatted lookalike built to fool a reader at a glance. The SPF result is for c0rp.com, not corp.com (the header says the IP is not in c0rp.com's SPF), so it says nothing about your own domain. Every external email has a Message-ID from a server outside your tenant, so that field is normal. DeliveryLocation only shows where the message landed; nothing in the record shows corp.com being spoofed.",
+          explanation: "`From` (also `header.from` in Authentication-Results) is the address the recipient sees, and `c0rp.com` swaps the letter o for a zero to pass as `corp.com`: a typosquatted lookalike built to fool a reader at a glance. The SPF result is for c0rp.com, not corp.com (the header says the IP is not in c0rp.com's SPF), so it says nothing about your own domain. Every external email has a Message-ID from a server outside your tenant, so that field is normal. SFV:NSPM only says the spam filter judged the message not spam; nothing in the record shows corp.com being spoofed.",
           xp: 40,
         },
       ],
@@ -348,7 +351,7 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
       type: "flag",
       id: "exch-sec-f1",
       prompt: "Blocking the lookalike domain is not enough: the mail-flow team also wants to block the infrastructure that delivered this message. Using the log above, what is the IP address of the server that actually sent it to Exchange Online?",
-      answer: "185.234.91.7",
+      answer: "198.51.100.27",
       hint: "SPF judges the server that connected to EOP, not the From: address.",
       xp: 50,
     } satisfies FlagTask,
@@ -620,31 +623,41 @@ When you receive a DLP alert or a bulk-download alert:
       type: "log_analysis",
       id: "spt-teams-la1",
       heading: "Mass File Download Alert: SharePoint",
-      context: "You are reviewing alerts in the Microsoft Purview compliance portal. A bulk-download alert has fired for a user in the Finance department. The alert aggregated 847 individual FileDownloaded operations into this summary event. The user's last day of employment is in 3 days according to HR records.",
+      context: "You are reviewing alerts in the Microsoft Purview compliance portal. A bulk-download alert has fired for a user in the Finance department. The alert counted 847 FileDownloaded operations from the Finance site in 4 minutes; below is one of them, the audit record exactly as the Unified Audit Log stores it. The user's last day of employment is in 3 days according to HR records. The office reaches Microsoft 365 through one public egress address, 203.0.113.60.",
       event: {
         id: "spt-la1-001",
         ts: "2025-11-21T22:47:15.000Z",
         source: "sharepoint",
         event_type: "sharepoint_download",
         severity: "high",
-        description: "Mass file download alert: possible data exfiltration by departing employee",
+        description: "FileDownloaded on the Finance SharePoint site by departing.employee@corp.com",
         user_email: "departing.employee@corp.com",
-        src_ip: "10.0.1.55",
+        src_ip: "203.0.113.60",
         mitre_technique: "T1213.002",
         mitre_tactic: "Collection",
         vendor: "Microsoft 365 Unified Audit Log",
+        // One SharePoint FileDownloaded record (Unified Audit Log, as the SIEM indexes it). The
+        // count of 847 is the Purview alert's, in the context; a single record never carries it.
         raw: {
+          "data.office365.CreationTime": "2025-11-21T22:47:15",
+          "data.office365.Id": "9b3e6f12-7c44-4d0a-a1e5-2f8c6d07b341",
           "data.office365.Operation": "FileDownloaded",
-          "data.office365.UserId": "departing.employee@corp.com",
-          "data.office365.ClientIP": "10.0.1.55",
-          "data.office365.ObjectId": "https://corp.sharepoint.com/sites/Finance/Shared Documents/Q4_Revenue_Report.xlsx",
+          "data.office365.OrganizationId": "5c2a8e41-0d6b-4f3e-9a17-b84c2e9d6f03",
+          "data.office365.RecordType": "6",
+          "data.office365.UserType": "0",
+          "data.office365.Version": "1",
           "data.office365.Workload": "SharePoint",
+          "data.office365.UserId": "departing.employee@corp.com",
+          "data.office365.ClientIP": "203.0.113.60",
+          "data.office365.UserAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
+          "data.office365.EventSource": "SharePoint",
+          "data.office365.ItemType": "File",
+          "data.office365.ObjectId": "https://corp.sharepoint.com/sites/Finance/Shared Documents/Q4_Revenue_Report.xlsx",
+          "data.office365.SiteUrl": "https://corp.sharepoint.com/sites/Finance/",
+          "data.office365.SourceRelativeUrl": "Shared Documents",
           "data.office365.SourceFileName": "Q4_Revenue_Report.xlsx",
-          "data.office365.SourceRelativeUrl": "/sites/Finance/Shared Documents/",
-          "rule.description": "Mass file download detected: 847 files in 4 minutes",
-          "data.office365.SiteUrl": "https://corp.sharepoint.com/sites/Finance",
-          "data.office365.EventData": "{\"ListItemUniqueId\":\"a7f9c2e1-...\",\"DestinationUrl\":\"\"}",
-          "rule.level": "high"
+          "data.office365.SourceFileExtension": "xlsx",
+          "data.office365.ListItemUniqueId": "a7f9c2e1-3b5d-4e86-9c01-6d2f8a4b7e53"
         },
       } satisfies TelemetryEvent,
       questions: [
@@ -654,10 +667,10 @@ When you receive a DLP alert or a bulk-download alert:
             "Benign: the OneDrive sync client re-downloading the library after a laptop refresh",
             "Likely insider data theft before departure; escalate to IR, HR and Legal now",
             "Expected: Finance staff pull large report sets during the month-end close",
-            "Low priority: the client IP is internal, so the files are still inside the network"
+            "Low priority: the client IP is the office's own egress, so the files stayed inside the company network"
           ],
           answer: 1,
-          explanation: "The signals converge: 847 files in 4 minutes from the Finance site, late in the evening (22:47 UTC), by a user who leaves in 3 days. That is the classic pre-departure pattern, so escalate and preserve evidence. A sync-client re-download is the plausible benign story, but the sync client logs `FileSyncDownloadedFull`, and this record's Operation is `FileDownloaded`, a direct download. 21 November is not month-end, and month-end work would not explain this volume at this hour. An internal IP only shows where the download landed; from that laptop the files can still go out by USB, personal cloud or email.",
+          explanation: "The signals converge: 847 files in 4 minutes from the Finance site, late in the evening (22:47 UTC), by a user who leaves in 3 days. That is the classic pre-departure pattern, so escalate and preserve evidence. A sync-client re-download is the plausible benign story, but the sync client logs `FileSyncDownloadedFull`, and this record's Operation is `FileDownloaded`, a direct download. 21 November is not month-end, and month-end work would not explain this volume at this hour. The office egress address only shows the download came from inside the office; from the laptop that made it, the files can still go out by USB, personal cloud or email.",
           xp: 40,
         },
         {
@@ -669,7 +682,7 @@ When you receive a DLP alert or a bulk-download alert:
             "Initial Access: the T1213.002 mapping marks how the user first reached the site"
           ],
           answer: 1,
-          explanation: "Pulling files out of a repository such as SharePoint onto a device is **Collection** (T1213.002 is a Collection technique). The data is gathered, but nothing in this record shows it leaving the organisation. To prove exfiltration you need follow-on evidence such as a USB copy, an upload to personal cloud storage or a large outbound email. Calling it exfiltration already is the common misreading: the download went to a device on the internal network. Discovery would be browsing or listing content, but here the files themselves were downloaded. The user already had legitimate access, so there is no Initial Access, and T1213.002 is not an Initial Access technique.",
+          explanation: "Pulling files out of a repository such as SharePoint onto a device is **Collection** (T1213.002 is a Collection technique). The data is gathered, but nothing in this record shows it leaving the organisation. To prove exfiltration you need follow-on evidence such as a USB copy, an upload to personal cloud storage or a large outbound email. Calling it exfiltration already is the common misreading: the download went to a device behind the office egress. Discovery would be browsing or listing content, but here the files themselves were downloaded. The user already had legitimate access, so there is no Initial Access, and T1213.002 is not an Initial Access technique.",
           xp: 40,
         },
       ],
@@ -679,9 +692,9 @@ When you receive a DLP alert or a bulk-download alert:
     {
       type: "flag",
       id: "spt-teams-f1",
-      prompt: "To prove exfiltration you must find the endpoint that now holds the downloaded Finance files, then check its USB, personal-cloud and email activity. Using the bulk-download log above, what address do you pivot on to identify that endpoint?",
-      answer: "10.0.1.55",
-      hint: "The audit record notes where each download request came from.",
+      prompt: "To prove exfiltration you must find the endpoint that now holds the downloaded Finance files, then check its USB, personal-cloud and email activity. Using the bulk-download log above, which address do you look up in the firewall's NAT log for 22:43 to 22:47 UTC to find that endpoint?",
+      answer: "203.0.113.60",
+      hint: "The audit record notes where each download request came from: the office's public egress, which the firewall's NAT log maps back to the internal laptop.",
       xp: 50,
     } satisfies FlagTask,
 
@@ -1015,7 +1028,7 @@ Based on your analysis:
       type: "log_analysis",
       id: "ep-sec-la1",
       heading: "CrowdStrike Alert: Suspicious PowerShell Execution",
-      context: "You are a Tier 1 SOC analyst. A CrowdStrike Falcon alert has just appeared in your queue. The alert was generated on an employee's laptop. Your task is to analyse the alert details and answer the investigation questions below.",
+      context: "You are a Tier 1 SOC analyst. A CrowdStrike Falcon alert has just appeared in your queue. The alert was generated on an employee's laptop. The Falcon console shows the alert with Confidence 95 (a property of the alert in the console and Alerts API; the detection event below does not carry it). Your task is to analyse the alert details and answer the investigation questions below.",
       event: {
         id: "ep-la1-001",
         ts: "2025-11-19T14:32:07.000Z",
@@ -1379,7 +1392,7 @@ MDI monitors your on-premises Active Directory domain controllers and Azure Entr
         },
         raw: {
           "Timestamp": "2025-11-22T03:17:44.000Z",
-          "DeviceId": "4c1e7a92-5b3d-4f08-9e6a-2d7f1b0c8e35",
+          "DeviceId": "4c1e7a925b3d4f089e6a2d7f1b0c8e35a7d10b64",
           "DeviceName": "srv-file01.corp.local",
           "ActionType": "ProcessCreated",
           "FileName": "cmd.exe",
@@ -1602,7 +1615,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
         raw: {
           "data.office365.Operation": "UserLoggedIn",
           "data.office365.UserId": "m.reyes@corp.com",
-          "data.office365.ActorIpAddress": "91.214.124.60",
+          "data.office365.CreationTime": "2026-02-11T04:47:03",
+          "data.office365.RecordType": "15",
+          "data.office365.ActorIpAddress": "198.51.100.143",
+          "data.office365.ClientIP": "198.51.100.143",
           "data.office365.ResultStatus": "Succeeded",
           "data.office365.Workload": "AzureActiveDirectory",
           "data.office365.AzureActiveDirectoryEventType": 1,
@@ -1620,9 +1636,9 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
             { Name: "IsCompliant", Value: "false" },
             { Name: "TrustType", Value: "Unknown" },
           ],
-          "rule.description": "Azure AD Identity Protection: High risk sign-in succeeded",
-          "rule.level": "12",
-          "rule.groups": ["identity", "azuread", "identity-protection"],
+          "rule.description": "Office 365: Secure Token Service (STS) logon events in Azure Active Directory.",
+          "rule.level": "3",
+          "rule.groups": ["office365", "AzureActiveDirectoryStsLogon"],
         },
       } satisfies TelemetryEvent,
       correct_verdict: "true_positive",

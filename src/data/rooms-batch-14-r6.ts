@@ -32,7 +32,7 @@ const bruteForceRawEvent: TelemetryEvent = {
   raw: {
     "event.code": "4625",
     "winlog.event_data.TargetUserName": "svc-backup",
-    "winlog.event_data.TargetDomainName": "CORP",
+    "winlog.event_data.TargetDomainName": "NEXACORP",
     "winlog.event_data.Status": "0xC000006D",
     "winlog.event_data.SubStatus": "0xC000006A",
     "winlog.event_data.LogonType": "3",
@@ -47,7 +47,7 @@ const bruteForceEnrichedEvent: TelemetryEvent = {
   id: "evt-soar-la2-001",
   ts: "2024-10-03T02:14:22.000Z",
   source: "soar",
-  vendor: "Palo Alto Cortex XSOAR",
+  vendor: "Cortex XSOAR",
   event_type: "auth_failure",
   severity: "critical",
   hostname: "DC01.nexacorp.com",
@@ -97,7 +97,7 @@ const overAutomationEvent: TelemetryEvent = {
   raw: {
     "event.code": "4625",
     "winlog.event_data.TargetUserName": "helpdesk-integration",
-    "winlog.event_data.TargetDomainName": "CORP",
+    "winlog.event_data.TargetDomainName": "NEXACORP",
     "winlog.event_data.Status": "0xC000006D",
     "winlog.event_data.SubStatus": "0xC000006A",
     "winlog.event_data.LogonType": "3",
@@ -398,7 +398,7 @@ const soarRoom = {
           ],
           answer: 1,
           explanation:
-            "The raw event gives you the mechanical facts: TargetUserName and TargetDomainName (svc-backup in CORP), the source IpAddress, LogonType 3 (network) and SubStatus 0xC000006A (wrong password), but nothing about WHO or WHAT the source IP actually is. Is it a known-malicious TOR node, a cloud scanner, or a legitimate partner's gateway? That needs an external reputation and history lookup: exactly the step a SOAR enrichment playbook automates, and the gap the enriched version of this alert fills in. Each distractor names something that IS in the raw block: SubStatus explains the failure, LogonType shows the logon kind, and TargetDomainName names the domain.",
+            "The raw event gives you the mechanical facts: TargetUserName and TargetDomainName (svc-backup in NEXACORP), the source IpAddress, LogonType 3 (network) and SubStatus 0xC000006A (wrong password), but nothing about WHO or WHAT the source IP actually is. Is it a known-malicious TOR node, a cloud scanner, or a legitimate partner's gateway? That needs an external reputation and history lookup: exactly the step a SOAR enrichment playbook automates, and the gap the enriched version of this alert fills in. Each distractor names something that IS in the raw block: SubStatus explains the failure, LogonType shows the logon kind, and TargetDomainName names the domain.",
           xp: 35,
         },
         {

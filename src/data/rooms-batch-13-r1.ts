@@ -2,7 +2,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 const dnsExfilEvent: TelemetryEvent = {
   id: "evt-dns-exfil-001",
-  ts: "2024-07-12T14:33:08.000Z",
+  ts: "2024-07-12T14:33:08.441Z",
   source: "sysmon",
   vendor: "Microsoft Sysmon",
   event_type: "dns_query",
@@ -13,16 +13,19 @@ const dnsExfilEvent: TelemetryEvent = {
   mitre_technique: "T1048.003",
   mitre_tactic: "Exfiltration",
   process: { name: "cmd.exe", pid: 7412, path: "C:\\Windows\\System32\\cmd.exe", parent_name: "explorer.exe", parent_pid: 3888, user: "NEXACORP\\m.cohen" },
-  dns: { query: "aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net", query_type: "A", response: "NXDOMAIN", rcode: "NXDOMAIN" },
+  dns: { query: "cGF5cm9sbC0yMDI0UTIueGxzeC1wYXJ0LTAxLW9mLTM4.cdn-statsync.net", query_type: "A", response: "NXDOMAIN", rcode: "NXDOMAIN" },
   raw: {
     "event.code": "22",
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
     "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
-    "winlog.event_data.QueryName": "aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net",
-    "winlog.event_data.QueryResults": "",
+    "winlog.event_data.QueryName": "cGF5cm9sbC0yMDI0UTIueGxzeC1wYXJ0LTAxLW9mLTM4.cdn-statsync.net",
+    "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+    "winlog.computer_name": "WS-FINANCE-011.nexacorp.com",
+    "winlog.event_data.QueryResults": "-",
     "winlog.event_data.QueryStatus": "9003",
     "winlog.event_data.User": "NEXACORP\\m.cohen",
     "winlog.event_data.ProcessId": "7412",
+    "winlog.event_data.ProcessGuid": "{7c2e4a91-3b10-6691-5c01-000000002e00}",
     "winlog.event_data.UtcTime": "2024-07-12 14:33:08.441"
   }
 };
@@ -817,7 +820,7 @@ const protocolsMasterclass = {
       questions: [
         {
           question:
-            "QueryName is 'aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net': one long base64-looking label under a single parent domain. Which explanation fits this query best?",
+            "QueryName is 'cGF5cm9sbC0yMDI0UTIueGxzeC1wYXJ0LTAxLW9mLTM4.cdn-statsync.net': one long base64-looking label under a single parent domain. Which explanation fits this query best?",
           options: [
             "DGA: malware generating random domain names until one reaches its C2",
             "DNS tunneling: data encoded into a label under an attacker's own domain",
@@ -826,7 +829,7 @@ const protocolsMasterclass = {
           ],
           answer: 1,
           explanation:
-            "The label decodes from base64 to 'hello-world-this-is-test-data-exfiltration': data riding inside the query name to evil-c2.net, whose authoritative nameserver the attacker controls, DNS tunneling. A DGA varies the registered domain itself, trying many different random names; here the parent stays fixed and only the long label carries content. CDN names can look random, but they resolve successfully under well-known parents, while this one returned NXDOMAIN. And NXDOMAIN (9003) does not mean nothing left: the query, with the data in it, already reached the attacker's nameserver, which can answer NXDOMAIN on purpose to avoid caching.",
+            "The label decodes from base64 to 'payroll-2024Q2.xlsx-part-01-of-38': the first of 38 chunks of a payroll file riding inside the query name to cdn-statsync.net, whose authoritative nameserver the attacker controls, DNS tunneling. The 'cdn' in the parent name is camouflage, not proof of a real CDN. A DGA varies the registered domain itself, trying many different random names; here the parent stays fixed and only the long label carries content. CDN names can look random, but they resolve successfully under well-known parents, while this one returned NXDOMAIN. And NXDOMAIN (9003) does not mean nothing left: the query, with the data in it, already reached the attacker's nameserver, which can answer NXDOMAIN on purpose to avoid caching.",
           xp: 25,
         },
         {
@@ -848,13 +851,13 @@ const protocolsMasterclass = {
             "What should be the analyst's NEXT step after identifying this alert as likely DNS tunneling?",
           options: [
             "Close the alert as a false positive. NXDOMAIN confirms the domain doesn't exist, so even though the query contained encoded data, no attacker infrastructure actually received it and no exfiltration occurred",
-            "Immediately isolate the workstation WS-FINANCE-011 via EDR containment, query the SIEM for all DNS queries from this host in the past 30 days, and check other hosts for similar queries to evil-c2.net",
+            "Immediately isolate the workstation WS-FINANCE-011 via EDR containment, query the SIEM for all DNS queries from this host in the past 30 days, and check other hosts for similar queries to cdn-statsync.net",
             "Send an email to m.cohen asking whether they were intentionally running a DNS diagnostic tool, and wait for their reply before taking any containment or investigative action on the workstation",
             "Mark the alert as medium priority and schedule the investigation for next week's routine review, since a single DNS tunneling alert on one workstation is unlikely to indicate an active, ongoing compromise",
           ],
           answer: 1,
           explanation:
-            "DNS tunneling is an active exfiltration event: the analyst should contain first, then investigate. Isolate WS-FINANCE-011 via EDR network containment to stop the exfiltration channel immediately. Pull all DNS query history from this host to estimate when this started and how much data was sent. Search across all hosts for queries to evil-c2.net to determine whether this is an isolated compromise or part of a wider campaign. NXDOMAIN absolutely does not mean no data was transferred: the query itself carries the data in the subdomain label, and NXDOMAIN is simply the attacker's chosen response to avoid DNS caching.",
+            "DNS tunneling is an active exfiltration event: the analyst should contain first, then investigate. Isolate WS-FINANCE-011 via EDR network containment to stop the exfiltration channel immediately. Pull all DNS query history from this host to estimate when this started and how much data was sent. Search across all hosts for queries to cdn-statsync.net to determine whether this is an isolated compromise or part of a wider campaign. NXDOMAIN absolutely does not mean no data was transferred: the query itself carries the data in the subdomain label, and NXDOMAIN is simply the attacker's chosen response to avoid DNS caching.",
           xp: 25,
         },
       ],

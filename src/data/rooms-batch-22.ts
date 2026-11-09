@@ -55,9 +55,14 @@ const loaderBeaconEvent: TelemetryEvent = {
   raw: {
     "winlog.event_id": 3,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
+    "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+    "winlog.computer_name": "WKS-ACCT07.meridian.local",
+    "winlog.event_data.RuleName": "-",
+    "winlog.event_data.UtcTime": "2026-05-11 09:47:52.000",
+    "winlog.event_data.ProcessGuid": "{2b7e91c4-3a0f-6681-7e04-000000005d00}",
+    "winlog.event_data.ProcessId": "6248",
     "winlog.event_data.Image": "C:\\Users\\t.osei\\Downloads\\quarterly_invoice.exe",
     "winlog.event_data.User": "MERIDIAN\\t.osei",
-    "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
     "winlog.event_data.Protocol": "tcp",
     "winlog.event_data.Initiated": "true",
     "winlog.event_data.SourceIp": "10.40.12.61",
@@ -65,6 +70,9 @@ const loaderBeaconEvent: TelemetryEvent = {
     "winlog.event_data.DestinationHostname": "cdn-assets-delivery.net",
     "winlog.event_data.DestinationIp": "203.0.113.47",
     "winlog.event_data.DestinationPort": 443,
+    "winlog.event_data.DestinationPortName": "https",
+    "winlog.event_data.SourceIsIpv6": "false",
+    "winlog.event_data.DestinationIsIpv6": "false",
   },
 };
 
@@ -121,13 +129,14 @@ const pupEvent: TelemetryEvent = {
     "Microsoft Defender flagged a browser toolbar component installed alongside PDFSuiteProEnterprise_Setup.exe, a package the Marketing team received this week as part of an approved software rollout.",
   raw: {
     ActionType: "AntivirusDetection",
-    ThreatName: "PUA:Win32/InstallCore",
     FileName: "SearchAssistantToolbar.exe",
     FolderPath: "C:\\Program Files (x86)\\PDFSuitePro\\Toolbar\\SearchAssistantToolbar.exe",
     InitiatingProcessFileName: "PDFSuiteProEnterprise_Setup.exe",
     InitiatingProcessFolderPath: "C:\\Windows\\ccmcache\\1c\\PDFSuiteProEnterprise_Setup.exe",
     AccountName: "system",
-    DetectionSource: "Cloud",
+    AdditionalFields: "{\"ThreatName\":\"PUA:Win32/InstallCore\",\"WasExecutingWhileDetected\":false,\"WasRemediated\":true}",
+    DeviceName: "wks-mkt22.meridian.local",
+    ReportId: 31094,
     Timestamp: "2026-05-18T11:02:44.000Z",
   },
 };

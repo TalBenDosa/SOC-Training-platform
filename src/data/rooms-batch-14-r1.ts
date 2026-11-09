@@ -446,8 +446,8 @@ const awsSecurityRoom = {
         "dstport protocol packets bytes start end action log-status\n" +
         "\n" +
         "Example -- REJECTED inbound connection to a database port:\n" +
-        "2 482915007733 eni-0a1b2c3d 45.142.212.10 10.20.4.30\n" +
-        "51422 5432 6 1 40 1749612000 1749612060 REJECT OK\n" +
+        "2 482915007733 eni-0a1b2c3d 198.51.100.73 10.20.4.30\n" +
+        "51422 5432 6 1 40 1781146800 1781146860 REJECT OK\n" +
         "  (unexpected external IP tried reaching Postgres 5432 --\n" +
         "   blocked by security group, but still worth reviewing)\n" +
         "=======================================================\n\n" +

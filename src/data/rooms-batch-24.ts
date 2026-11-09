@@ -33,7 +33,7 @@ const bruteForceEvent: TelemetryEvent = {
   event_type: "auth_failure",
   severity: "high",
   hostname: "DC01.vantree.local",
-  src_ip: "154.16.88.203",
+  src_ip: "198.51.100.203",
   authentication: { method: "NTLM", result: "Failure", logon_type: 3 },
   description:
     "DC01 recorded a failed network logon against account d.solano; this is one of a run of similarly-shaped failures against the same account in the preceding six minutes.",
@@ -44,7 +44,7 @@ const bruteForceEvent: TelemetryEvent = {
     "winlog.event_data.TargetUserName": "d.solano",
     "winlog.event_data.TargetDomainName": "VANTREE",
     "winlog.event_data.WorkstationName": "RDS-GATEWAY02",
-    "winlog.event_data.IpAddress": "154.16.88.203",
+    "winlog.event_data.IpAddress": "198.51.100.203",
     "winlog.event_data.IpPort": "0",
     "winlog.event_data.LogonType": "3",
     "winlog.event_data.Status": "0xC000006D",
@@ -874,7 +874,7 @@ const orbitlineCorrelationEvent: TelemetryEvent = {
   id: "evt-web-la2-001",
   ts: "2026-06-09T03:12:40.900Z",
   source: "siem",
-  vendor: "Microsoft Sentinel",
+  vendor: "AWS WAF",
   event_type: "http_request",
   severity: "high",
   hostname: "WEB-ORB03.orbitline.local",
@@ -883,37 +883,23 @@ const orbitlineCorrelationEvent: TelemetryEvent = {
   description:
     "SIEM correlation search joining the AWS WAF record and the IIS access-log record for the same request reviewed in Log Analysis 1 (same URI, same one-second window).",
   raw: {
-    waf: {
-      formatVersion: 1,
-      timestamp: 1780974760900,
-      webaclId: "arn:aws:wafv2:us-east-1:481923004471:regional/webacl/orbitline-prod/6e2a19f0-88b1-4d2e-9a7c-3f0512ee4c81",
-      terminatingRuleId: "NONE",
-      terminatingRuleType: "REGULAR",
-      action: "ALLOW",
-      httpSourceName: "ALB",
-      httpSourceId: "app/orbitline-prod-alb/8f2c471a9b3d5e02",
-      "httpRequest.clientIp": "91.203.44.187",
-      "httpRequest.country": "RO",
-      "httpRequest.httpMethod": "GET",
-      "httpRequest.uri": "/search.aspx",
-      "httpRequest.args": "q=widget%27%20UNION%20SELECT%20username%2Cpassword%20FROM%20users--",
-      "httpRequest.httpVersion": "HTTP/1.1",
-      "httpRequest.requestId": "1-67e1a2f3-4c8d716b0e29fa5817b3c964",
-    },
-    iis: {
-      TimeGenerated: "2026-06-09T03:12:41.900Z",
-      Computer: "WEB-ORB03.orbitline.local",
-      sSiteName: "ORBITLINEWEB",
-      sIP: "10.12.4.30",
-      csMethod: "GET",
-      csUriStem: "/search.aspx",
-      csUriQuery: "q=widget%27%20UNION%20SELECT%20username%2Cpassword%20FROM%20users--",
-      cIP: "10.12.4.9",
-      csHost: "www.orbitline.com",
-      scStatus: "200",
-      scBytes: "48231",
-      Type: "W3CIISLog",
-    },
+    formatVersion: 1,
+    timestamp: 1780974760900,
+    webaclId: "arn:aws:wafv2:us-east-1:481923004471:regional/webacl/orbitline-prod/6e2a19f0-88b1-4d2e-9a7c-3f0512ee4c81",
+    terminatingRuleId: "Default_Action",
+    terminatingRuleType: "REGULAR",
+    action: "ALLOW",
+    httpSourceName: "ALB",
+    httpSourceId: "481923004471-app/orbitline-prod-alb/8f2c471a9b3d5e02",
+    "httpRequest.clientIp": "198.51.100.187",
+    "httpRequest.country": "RO",
+    "httpRequest.httpMethod": "GET",
+    "httpRequest.uri": "/search.aspx",
+    "httpRequest.args": "q=widget%27%20UNION%20SELECT%20username%2Cpassword%20FROM%20users--",
+    "httpRequest.httpVersion": "HTTP/1.1",
+    "httpRequest.requestId": "1-67e1a2f3-4c8d716b0e29fa5817b3c964",
+    "httpRequest.headers[0].name": "Host",
+    "httpRequest.headers[0].value": "www.orbitline.com",
   },
 };
 
@@ -925,12 +911,12 @@ const orbitlineScanEvent: TelemetryEvent = {
   event_type: "waf_block",
   severity: "low",
   hostname: "WEB-ORB03.orbitline.local",
-  src_ip: "64.39.106.190",
+  src_ip: "203.0.113.190",
   it_verify_result: "confirmed",
   it_verify_message: "Change record CHG-70119 authorizes Orbitline's quarterly external PCI ASV scan from the Qualys cloud scanner range, window 09:00-12:00 UTC on 14 Jun.",
   network: { url: "https://www.orbitline.com/products/detail.aspx", domain: "www.orbitline.com", method: "GET", status: 403, user_agent: "Qualys-Scanner/9.5" },
   description:
-    "AWS WAF blocked a SQL injection payload from 64.39.106.190. Representative of a sustained burst from this single address across many parameters and endpoints, all carrying the same User-Agent.",
+    "AWS WAF blocked a SQL injection payload from 203.0.113.190. Representative of a sustained burst from this single address across many parameters and endpoints, all carrying the same User-Agent.",
   raw: {
     formatVersion: 1,
     timestamp: 1781431327000,
@@ -940,7 +926,7 @@ const orbitlineScanEvent: TelemetryEvent = {
     action: "BLOCK",
     httpSourceName: "ALB",
     httpSourceId: "app/orbitline-prod-alb/8f2c471a9b3d5e02",
-    "httpRequest.clientIp": "64.39.106.190",
+    "httpRequest.clientIp": "203.0.113.190",
     "httpRequest.country": "US",
     "httpRequest.httpMethod": "GET",
     "httpRequest.uri": "/products/detail.aspx",
@@ -1024,7 +1010,7 @@ const webAttacksRoom: Room = {
       id: "web-la1",
       heading: "One 200 Among a Wall of 500s",
       context:
-        "Orbitline's WAF allowed 40 requests to /search.aspx from 91.203.44.187 within a two-minute window, and the IIS log on the web server shows the outcome: 37 returned sc-status 500, and 3 returned sc-status 200. This endpoint's normal response for a real search term is roughly 2,000-3,000 bytes. Review the record below: the third and final 200 in that burst.",
+        "Orbitline's WAF allowed 40 requests to /search.aspx from 198.51.100.187 within a two-minute window, and the IIS log on the web server shows the outcome: 37 returned sc-status 500, and 3 returned sc-status 200. This endpoint's normal response for a real search term is roughly 2,000-3,000 bytes. Review the record below: the third and final 200 in that burst.",
       event: orbitlineInjectionEvent,
       questions: [
         {
@@ -1057,7 +1043,7 @@ const webAttacksRoom: Room = {
         {
           question: "What is the appropriate next step given this finding?",
           options: [
-            "Block 91.203.44.187 at the WAF and close the case, since once the source is cut off the attacker can no longer reach the application",
+            "Block 198.51.100.187 at the WAF and close the case, since once the source is cut off the attacker can no longer reach the application",
             "Treat it as a successful injection: pull the database audit log for this window to scope what was read, and contain the source",
             "Force a password reset for every account now, since a SELECT against the users table means every stored credential is exposed",
             "Fix /search.aspx with parameterized queries first, and decide whether to escalate once the patched page is deployed to production",
@@ -1118,11 +1104,11 @@ const webAttacksRoom: Room = {
       event: orbitlineCorrelationEvent,
       questions: [
         {
-          question: "waf.httpRequest.clientIp shows 91.203.44.187, but iis.cIP for the same request shows 10.12.4.9. Which one is the true originating client, and why do they differ?",
+          question: "The WAF record's httpRequest.clientIp shows 198.51.100.187, but the IIS record's cIP for the same request (Log Analysis 1) shows 10.12.4.9. Which one is the true originating client, and why do they differ?",
           options: [
-            "91.203.44.187: the WAF evaluates the request as it arrived from the internet, while 10.12.4.9 is the internal ALB that connected to IIS",
+            "198.51.100.187: the WAF evaluates the request as it arrived from the internet, while 10.12.4.9 is the internal ALB that connected to IIS",
             "10.12.4.9: IIS logs the TCP peer that actually connected to it, so its cIP is the address that sent the request to the application",
-            "Both: 10.12.4.9 is the attacker's private address behind their NAT, and 91.203.44.187 is the public address their traffic exits from",
+            "Both: 10.12.4.9 is the attacker's private address behind their NAT, and 198.51.100.187 is the public address their traffic exits from",
             "Neither: the WAF's clientIp is copied from the client-supplied X-Forwarded-For header, so the real source can't be established here",
           ],
           answer: 0,
@@ -1144,16 +1130,16 @@ const webAttacksRoom: Room = {
           xp: 25,
         },
         {
-          question: "Both records now confirm 91.203.44.187 as the true source of the successful injection from Log Analysis 1. What should the analyst do with this IP specifically?",
+          question: "Both records now confirm 198.51.100.187 as the true source of the successful injection from Log Analysis 1. What should the analyst do with this IP specifically?",
           options: [
             "Add it to IIS IP Address and Domain Restrictions on WEB-ORB03, since IIS is the server that processed the injected query",
             "Block it at the WAF, the layer that can match this address before IIS, and search WAF logs for the same clientIp across the incident window",
             "Block it at the WAF and close the case, since the confirmed request is the full extent of what this address sent to Orbitline",
-            "Search the IIS logs for cIP 91.203.44.187 to find its other requests, then decide at which layer the block should be applied",
+            "Search the IIS logs for cIP 198.51.100.187 to find its other requests, then decide at which layer the block should be applied",
           ],
           answer: 1,
           explanation:
-            "Since the web server never sees the real client address, blocking has to happen at the WAF: the layer in this chain that can match on 91.203.44.187 and stop the request before it reaches the application, and the same clientIp should be searched across the broader window to find this actor's other requests. An IIS IP restriction would never match: IIS only ever sees 10.12.4.9. Blocking and closing skips scoping: this address sent a 40-request burst, and possibly more outside it. And searching IIS logs for 91.203.44.187 returns nothing for the same reason, so the scoping search has to run on the WAF logs.",
+            "Since the web server never sees the real client address, blocking has to happen at the WAF: the layer in this chain that can match on 198.51.100.187 and stop the request before it reaches the application, and the same clientIp should be searched across the broader window to find this actor's other requests. An IIS IP restriction would never match: IIS only ever sees 10.12.4.9. Blocking and closing skips scoping: this address sent a 40-request burst, and possibly more outside it. And searching IIS logs for 198.51.100.187 returns nothing for the same reason, so the scoping search has to run on the WAF logs.",
           xp: 30,
         },
       ],
@@ -1161,10 +1147,10 @@ const webAttacksRoom: Room = {
     {
       type: "flag",
       id: "web-f1",
-      // Pin the correlated WAF+IIS record: the answer is derived from the WAF half
+      // Pin the WAF record: the answer is derived from its httpSourceId
       // (httpSourceId), not copied from any stem.
       event: orbitlineCorrelationEvent,
-      prompt: "IIS's cIP for the successful injection points at Orbitline's own load balancer, not the attacker. The WAF half of this correlated record identifies which load balancer handed it the request. Enter that load balancer's name as AWS records it: the name only, without the type prefix or the trailing ID.",
+      prompt: "IIS's cIP for the successful injection points at Orbitline's own load balancer, not the attacker. The WAF record identifies which load balancer handed it the request. Enter that load balancer's name as AWS records it: the name only, without the type prefix or the trailing ID.",
       answer: "orbitline-prod-alb",
       hint: "One WAF field says what kind of resource the request came through; another gives that resource's full identifier, in the form type/name/id.",
       xp: 25,
@@ -1193,7 +1179,7 @@ const webAttacksRoom: Room = {
       event: orbitlineScanEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "Every payload here matches the same managed SQLi signature set a real attack would trigger, which is exactly why the discriminators from Question 2 matter: 64.39.106.190 is a single, stable source inside the documented Qualys scanner range, the User-Agent self-identifies as the scanning tool rather than disguising itself, a confirmed change record covers this exact window, and, critically, nothing in this burst resembles Log Analysis 1's pattern (a 200 with an anomalous response size); every request here was BLOCKed at the WAF, meaning none of it ever reached the application or the database. That makes it a benign true positive: the managed SQLi rules fired correctly on real SQLi payloads from an authorised, change-recorded Qualys scan. Close it citing that change record; it is not a false positive, because the signatures did not misfire, and calling it one invites tuning out rules a real attacker would trip too.",
+        "Every payload here matches the same managed SQLi signature set a real attack would trigger, which is exactly why the discriminators from Question 2 matter: 203.0.113.190 is a single, stable source inside the documented Qualys scanner range, the User-Agent self-identifies as the scanning tool rather than disguising itself, a confirmed change record covers this exact window, and, critically, nothing in this burst resembles Log Analysis 1's pattern (a 200 with an anomalous response size); every request here was BLOCKed at the WAF, meaning none of it ever reached the application or the database. That makes it a benign true positive: the managed SQLi rules fired correctly on real SQLi payloads from an authorised, change-recorded Qualys scan. Close it citing that change record; it is not a false positive, because the signatures did not misfire, and calling it one invites tuning out rules a real attacker would trip too.",
       fp_trap:
         "It's tempting to escalate any SQLi-signature WAF block as a potential attack, since that's the exact rule category behind Log Analysis 1's real finding. But the discriminators are context, not payload shape: a source IP that never rotates, a User-Agent that announces itself as scanning tooling instead of disguising it, a change record confirming authorization, and, the most important check, no downstream success at all, since every request in this burst was blocked, unlike Log Analysis 1's lone 200 that got through. Escalating every blocked SQLi signature without checking source stability, the User-Agent, and whether anything actually reached the database is exactly the over-alerting trap that buries a real finding like Log Analysis 1's under routine scanning noise.",
       xp: 30,

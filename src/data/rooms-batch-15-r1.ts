@@ -9,12 +9,17 @@ const k8sPrivilegedPodEvent: TelemetryEvent = {
   event_type: "k8s_pod_create",
   severity: "critical",
   hostname: "kube-system",
-  user_email: "ci-deploy-token@nexacorp.com",
   description:
     "ci-deploy-token created a pod named svc-monitoring-backup in kube-system with hostPID, hostNetwork, and privileged:true, pulling its image from an external, unauthenticated registry",
   mitre_technique: "T1610",
   mitre_tactic: "Execution",
   raw: {
+    "kubernetes.audit.kind": "Event",
+    "kubernetes.audit.apiVersion": "audit.k8s.io/v1",
+    "kubernetes.audit.level": "RequestResponse",
+    "kubernetes.audit.auditID": "5f2c9a1e-7b3d-4e80-a6c2-1d9e4b7f3a05",
+    "kubernetes.audit.stage": "ResponseComplete",
+    "kubernetes.audit.requestURI": "/api/v1/namespaces/kube-system/pods",
     "kubernetes.audit.verb": "create",
     "kubernetes.audit.objectRef.resource": "pods",
     "kubernetes.audit.objectRef.namespace": "kube-system",
@@ -26,6 +31,8 @@ const k8sPrivilegedPodEvent: TelemetryEvent = {
     "kubernetes.audit.requestObject.spec.containers[0].image": "203.0.113.47:5000/monitor:latest",
     "kubernetes.audit.requestObject.spec.containers[0].securityContext.privileged": true,
     "kubernetes.audit.responseStatus.code": 201,
+    "kubernetes.audit.requestReceivedTimestamp": "2024-12-02T03:41:17.000000Z",
+    "kubernetes.audit.stageTimestamp": "2024-12-02T03:41:17.084512Z",
   },
 };
 
@@ -53,6 +60,7 @@ const k8sExecEvent: TelemetryEvent = {
     "kubernetes.audit.requestURI": "/api/v1/namespaces/prod/pods/prod-checkout-6f9c/exec?command=%2Fbin%2Fsh&command=-c&command=apt-get+install+-y+curl&container=checkout&stdin=true&stdout=true&tty=true",
     "kubernetes.audit.sourceIPs": ["10.20.14.55"],
     "kubernetes.audit.responseStatus.code": 101,
+    "kubernetes.audit.requestReceivedTimestamp": "2024-12-02T03:38:04.000000Z",
   },
 };
 

@@ -28,6 +28,8 @@ const synScanEvent: TelemetryEvent = {
   description:
     "Internal host WKS-ENG14 opened 1,024 short-lived TCP connection attempts to distinct destination ports on SRV-CORE02 within 38 seconds; the representative connection shown below is one of that set and never advanced past the initial packet",
   raw: {
+    ts: 1770781267.0,
+    uid: "CzX4kq3w1bP8sYt2Ve",
     "id.orig_h": "10.40.6.114",
     "id.orig_p": 51882,
     "id.resp_h": "10.40.2.30",
@@ -65,6 +67,8 @@ const ttlMismatchEvent: TelemetryEvent = {
   description:
     "Interactive SSH session from BASTION-01 (10.40.1.9) to the finance file server SRV-FIN03, lasting 41 minutes",
   raw: {
+    ts: 1771106871.0,
+    uid: "C7h2Lm9pQx4dRw1KfA",
     "id.orig_h": "10.40.1.9",
     "id.orig_p": 58211,
     "id.resp_h": "10.40.3.55",
@@ -768,6 +772,8 @@ const tcpipDeepDiveRoom = {
         description:
           "10.40.9.5 completes a full TLS-capable TCP handshake against port 443 on each of six DMZ web servers every ~15 seconds, exchanges a small fixed payload each time, and closes with a client-side RST rather than a FIN",
         raw: {
+          ts: 1770886800.0,
+          uid: "Cq8vN3fT6yH1aZ0mWe",
           "id.orig_h": "10.40.9.5",
           "id.orig_p": 41102,
           "id.resp_h": "10.40.5.21",
@@ -781,8 +787,6 @@ const tcpipDeepDiveRoom = {
           history: "ShADadR",
           orig_pkts: 6,
           resp_pkts: 5,
-          recurrence_interval_seconds_avg: 15.02,
-          distinct_dst_hosts_touched: 6,
         },
       },
       correct_verdict: "false_positive",

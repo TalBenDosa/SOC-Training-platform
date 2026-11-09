@@ -26,15 +26,26 @@ const midnightLogonEvent: TelemetryEvent = {
   src_ip: "10.10.20.55",
   description: "Successful interactive logon for r.patel at 03:12 AM on a finance workstation",
   raw: {
+    "@timestamp": "2024-08-14T03:12:03.000Z",
     "event.code": "4624",
+    "winlog.channel": "Security",
+    "winlog.computer_name": "WS-FIN-2041.nexacorp.com",
+    "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+    "winlog.event_data.SubjectUserSid": "S-1-5-18",
+    "winlog.event_data.SubjectUserName": "WS-FIN-2041$",
+    "winlog.event_data.SubjectDomainName": "NEXACORP",
+    "winlog.event_data.TargetUserSid": "S-1-5-21-1735912854-2268543810-3118423370-2617",
     "winlog.event_data.TargetUserName": "r.patel",
+    "winlog.event_data.TargetDomainName": "NEXACORP",
+    "winlog.event_data.TargetLogonId": "0x1c9e04f",
     "winlog.event_data.LogonType": "2",
+    "winlog.event_data.LogonProcessName": "User32 ",
     "winlog.event_data.AuthenticationPackageName": "Negotiate",
-    "winlog.event_data.IpAddress": "127.0.0.1",
     "winlog.event_data.WorkstationName": "WS-FIN-2041",
     "winlog.event_data.ProcessName": "C:\\Windows\\System32\\winlogon.exe",
-    "data.context":
-      "r.patel is a financial analyst. Badge system shows r.patel badged into the building at 03:05 AM using their own badge. Calendar shows a note: 'quarter close - late night'.",
+    "winlog.event_data.IpAddress": "127.0.0.1",
+    "winlog.event_data.IpPort": "0",
+    "winlog.event_data.ElevatedToken": "%%1843",
   },
 };
 
@@ -61,8 +72,6 @@ const powershellDownloadEvent: TelemetryEvent = {
     "crowdstrike.ParentProcessId": "6210",
     "crowdstrike.UserName": "CORP\\d.okafor",
     "crowdstrike.ComputerName": "WS-IT-0912",
-    "data.context":
-      "d.okafor is a Tier 2 IT support technician. The GitHub repo 'nexacorp-it/deploy-scripts' is the company's own internal automation repository, referenced in three change-tickets this month.",
   },
 };
 
@@ -89,13 +98,8 @@ const analystChoiceEvent: TelemetryEvent = {
       "powershell.exe -enc VwByAGkAdABlAC0ASABvAHMAdAAgACIAQgBhAGMAawB1AHAAIABjAG8AbQBwAGwAZQB0AGUAIgA=",
     "crowdstrike.ParentImageFileName": "C:\\Program Files\\Veeam\\Endpoint Backup\\Veeam.EndPoint.Service.exe",
     "crowdstrike.ParentProcessId": "1204",
-    "crowdstrike.UserName": "CORP\\SYSTEM",
+    "crowdstrike.UserName": "NT AUTHORITY\\SYSTEM",
     "crowdstrike.ComputerName": "WS-HR-1188",
-    "process.code_signature.exists": true,
-    "process.code_signature.trusted": true,
-    "data.decoded_command": "Write-Host \"Backup complete\"",
-    "data.context":
-      "IT change calendar entry: nightly backup job on HR workstations, scheduled daily at 22:45.",
   },
 };
 
@@ -261,7 +265,7 @@ const analystMindsetRoom = {
       id: "mind-la1",
       heading: "Practice the Framework: A 3 AM Logon on a Finance Workstation",
       context:
-        "You are a Tier 1 analyst and this alert just landed in your queue: a successful interactive logon on a finance workstation at 03:12 AM. Your first instinct might be alarm, but instead of reacting, walk through the six-question framework deliberately. Read the event, including the context note, and answer the questions below by reasoning through WHO, WHEN, WHY, and what is/is not verified.",
+        "You are a Tier 1 analyst and this alert just landed in your queue: a successful interactive logon on a finance workstation at 03:12 AM. Your first instinct might be alarm, but instead of reacting, walk through the six-question framework deliberately.\n\n**Context note (from other systems, attached by the SIEM's enrichment):** r.patel is a financial analyst. The badge system shows r.patel badged into the building at 03:05 AM using their own badge. Calendar shows a note: 'quarter close - late night'.\n\nRead the event and the context note, and answer the questions below by reasoning through WHO, WHEN, WHY, and what is/is not verified.",
       event: midnightLogonEvent,
       questions: [
         {
@@ -331,7 +335,7 @@ const analystMindsetRoom = {
       id: "mind-la2",
       heading: "Practice the Framework: PowerShell Downloading and Running a Script",
       context:
-        "An IT support technician's workstation launched PowerShell with a command that downloads a script from GitHub and immediately executes it. On the surface, 'download a script from the internet and run it' is a pattern security training tells you to fear. Walk through the framework before reacting.",
+        "An IT support technician's workstation launched PowerShell with a command that downloads a script from GitHub and immediately executes it. On the surface, 'download a script from the internet and run it' is a pattern security training tells you to fear.\n\n**Context note (from other systems):** d.okafor is a Tier 2 IT support technician. The GitHub repo 'nexacorp-it/deploy-scripts' is the company's own internal automation repository, referenced in three change tickets this month.\n\nWalk through the framework before reacting.",
       event: powershellDownloadEvent,
       questions: [
         {
@@ -385,11 +389,11 @@ const analystMindsetRoom = {
       id: "mind-ac1",
       heading: "Verdict: A Scary-Looking Alert",
       scenario:
-        "22:47 at night. An EDR alert fires as HIGH severity: powershell.exe launched with a Base64-encoded command (-enc) on an HR employee's workstation, outside business hours. Encoded PowerShell commands are a well-known technique attackers use to hide malicious commands from casual log review. Before you react to the severity label, walk through WHO launched it, WHAT the decoded command actually says, and WHETHER the timing fits any known schedule. What is your verdict?",
+        "22:47 at night. An EDR alert fires as HIGH severity: powershell.exe launched with a Base64-encoded command (-enc) on an HR employee's workstation, outside business hours. Encoded PowerShell commands are a well-known technique attackers use to hide malicious commands from casual log review. Two lookups you have already done: your CyberChef decode of the -enc value (Base64, UTF-16LE) reads Write-Host \"Backup complete\"; the parent binary's signature is valid, signed by Veeam Software Group GmbH. The IT change calendar has an entry: nightly backup job on HR workstations, scheduled daily at 22:45. Before you react to the severity label, walk through WHO launched it, WHAT the decoded command actually says, and WHETHER the timing fits any known schedule. What is your verdict?",
       event: analystChoiceEvent,
       correct_verdict: "benign_true_positive" as const,
       explanation:
-        "This is a benign true positive, and the trap is the surface pattern: 'PowerShell + Base64-encoded command + after hours' is a combination security training teaches you to fear, and the HIGH severity label reinforces that instinct. But walking through the framework changes the picture completely. WHO: the parent process is not a user shell at all. ParentImageFileName shows Veeam.EndPoint.Service.exe under Program Files, process.code_signature.trusted is true, and the account is SYSTEM (not an interactive human account). WHAT: the decoded command is simply Write-Host \"Backup complete\", a benign status message, not an attack payload. WHEN: the alert at 22:47 sits two minutes after the 22:45 nightly backup in the IT change calendar. Many legitimate enterprise tools Base64-encode PowerShell commands for reasons unrelated to evasion (safely passing special characters, multi-line scripts, or internal tooling conventions), encoding itself is not proof of malicious intent, only a reason to look closer at WHO ran it and WHAT it actually says. The detection itself worked: an encoded PowerShell command really ran, which is exactly what the rule watches for, and the scheduled 22:45 backup job in the IT change calendar is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a rule that correctly catches encoded PowerShell.",
+        "This is a benign true positive, and the trap is the surface pattern: 'PowerShell + Base64-encoded command + after hours' is a combination security training teaches you to fear, and the HIGH severity label reinforces that instinct. But walking through the framework changes the picture completely. WHO: the parent process is not a user shell at all. ParentImageFileName shows Veeam.EndPoint.Service.exe under Program Files, its signature checks out (Veeam Software Group GmbH), and the account is SYSTEM (not an interactive human account). WHAT: the decoded command is simply Write-Host \"Backup complete\", a benign status message, not an attack payload. WHEN: the alert at 22:47 sits two minutes after the 22:45 nightly backup in the IT change calendar. Many legitimate enterprise tools Base64-encode PowerShell commands for reasons unrelated to evasion (safely passing special characters, multi-line scripts, or internal tooling conventions), encoding itself is not proof of malicious intent, only a reason to look closer at WHO ran it and WHAT it actually says. The detection itself worked: an encoded PowerShell command really ran, which is exactly what the rule watches for, and the scheduled 22:45 backup job in the IT change calendar is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a rule that correctly catches encoded PowerShell.",
       fp_trap:
         "The HIGH severity label and the well-known 'Base64-encoded PowerShell' attacker technique both push you toward an immediate escalation instinct. This is exactly the anchoring and pattern-matching trap the room warns about: the correct response is not to trust the scary-looking surface pattern, but to actually decode the command, check the true parent process, and check whether the timing matches a documented schedule, all of which are quick, verifiable checks that flip the verdict from 'attack' to 'signed backup software doing exactly what it is scheduled to do.'",
       xp: 35,

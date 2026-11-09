@@ -363,7 +363,7 @@ const activeDirectory: Room = {
       id: "ad-la2",
       heading: "Unusual NTLM Network Logon on SRV-FILE02",
       context:
-        "Your SIEM has correlated two events on the internal network within an 8-second window: a burst of LLMNR broadcast traffic on UDP port 5355, followed by an NTLM network logon for l.harper on the file server SRV-FILE02. The SIEM has enriched the logon with asset-inventory and DHCP lookups. Review the authentication event below and answer the questions.",
+        "Your SIEM has correlated two events on the internal network within an 8-second window: a burst of LLMNR broadcast traffic on UDP port 5355, followed by an NTLM network logon for l.harper on the file server SRV-FILE02.\n\n**What the SIEM's enrichment tells you:** the asset inventory (CMDB) has no entry for 10.20.4.91, and the DHCP lease table shows WKS-L-HARPER on 10.20.4.47.\n\n**What the log itself tells you:** the Windows 4624 event below, exactly as SRV-FILE02 wrote it. Windows knows nothing about the CMDB or DHCP. Review it and answer the questions.",
       event: {
         id: "ad-ntlm-evt-001",
         ts: "2024-11-18T14:02:37.000Z",
@@ -373,7 +373,7 @@ const activeDirectory: Room = {
         severity: "high",
         hostname: "SRV-FILE02.corp.contoso.com",
         description:
-          "l.harper's account authenticated to SRV-FILE02 via NTLM, but the claimed WorkstationName does not match the source IP address of the connection",
+          "NTLM network logon (type 3) for l.harper on SRV-FILE02",
         mitre_technique: "T1557.001",
         mitre_tactic: "Credential Access",
         authentication: {
@@ -385,23 +385,30 @@ const activeDirectory: Room = {
           "event.code": "4624",
           "winlog.channel": "Security",
           "winlog.computer_name": "SRV-FILE02.corp.contoso.com",
+          "winlog.event_data.SubjectUserSid": "S-1-0-0",
+          "winlog.event_data.TargetUserSid": "S-1-5-21-1844237615-456351123-2908421376-2214",
           "winlog.event_data.TargetUserName": "l.harper",
           "winlog.event_data.TargetDomainName": "CORP",
+          "winlog.event_data.TargetLogonId": "0x3c8f21a",
           "winlog.event_data.LogonType": "3",
+          "winlog.event_data.LogonProcessName": "NtLmSsp ",
           "winlog.event_data.AuthenticationPackageName": "NTLM",
           "winlog.event_data.WorkstationName": "WKS-L-HARPER",
+          "winlog.event_data.LmPackageName": "NTLM V2",
+          "winlog.event_data.KeyLength": "128",
+          "winlog.event_data.ProcessId": "0x0",
+          "winlog.event_data.ProcessName": "-",
           "winlog.event_data.IpAddress": "10.20.4.91",
           "winlog.event_data.IpPort": "51122",
-          "asset.cmdb_lookup_10.20.4.91": "No matching entry in asset inventory or CMDB for this IP",
-          "asset.dhcp_lease_WKS-L-HARPER": "10.20.4.47 (per DHCP lease table)",
           "winlog.event_id": 4624,
           "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+          "@timestamp": "2024-11-18T14:02:37.000Z",
         },
       },
       questions: [
         {
           question:
-            "Compare WorkstationName and IpAddress with the two asset-enrichment fields. What is the most likely explanation for this logon?",
+            "Compare WorkstationName and IpAddress in the event with the SIEM's CMDB and DHCP lookups. What is the most likely explanation for this logon?",
           options: [
             "Lease churn: l.harper's PC took a new DHCP lease and the server logged the new IP before its name cache caught up",
             "NAT or VPN noise: WorkstationName is client-supplied, so a name/IP mismatch like this is common and not suspicious",
@@ -439,7 +446,7 @@ const activeDirectory: Room = {
       prompt:
         "In the 'Unusual NTLM Network Logon' event above, the victim's own computer also needs checking. It is the machine whose name-resolution request was answered by the poisoner. Enter the IP address of l.harper's real workstation.",
       answer: "10.20.4.47",
-      hint: "The address the logon arrived from is not her machine. One of the enrichment fields tells you where her workstation really is.",
+      hint: "The address the logon arrived from is not her machine. The SIEM's DHCP lookup in the task context tells you where her workstation really is.",
       xp: 35,
     } satisfies FlagTask,
 
@@ -686,7 +693,7 @@ const windowsEventLogs: Room = {
           "winlog.event_data.IpAddress": "203.0.113.45",
           "winlog.event_data.IpPort": "0",
           "winlog.event_data.AuthenticationPackageName": "NTLM",
-          "winlog.event_data.LogonProcessName": "NtLmSsp",
+          "winlog.event_data.LogonProcessName": "NtLmSsp ",
           "winlog.event_id": 4625,
           "winlog.keywords": "Audit Failure",
           "@timestamp": "2024-11-20T08:43:17.000Z",

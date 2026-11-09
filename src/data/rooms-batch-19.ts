@@ -32,30 +32,26 @@ const vulnScanEvent: TelemetryEvent = {
   description:
     "The nightly authenticated scan of portal-web03 (the public customer login portal) reported a reflected XSS finding. The platform's displayed severity is Critical, driven by the Vulnerability Priority Rating rather than the CVSS base score alone. Compare the two fields in the raw record below.",
   raw: {
-    "tenable.plugin_id": "212344",
-    "tenable.plugin_name": "Reflected XSS in Login Parameter Handling",
-    "tenable.plugin_family": "Web Applications",
-    "tenable.cve": "CVE-2025-31337",
-    "tenable.cwe": "CWE-79",
-    "tenable.cvss3_base_score": 6.1,
-    "tenable.cvss3_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
-    "tenable.vpr_score": 9.3,
-    "tenable.epss_score": 0.94,
-    "tenable.epss_percentile": 0.99,
-    "tenable.cisa_known_exploited": true,
-    "tenable.cisa_kev_due_date": "2026-06-16",
-    "tenable.exploit_available": true,
-    "tenable.exploit_code_maturity": "Functional",
-    "tenable.patch_publication_date": "2025-11-03",
-    "tenable.asset_hostname": "portal-web03.solvix.com",
-    "tenable.asset_ipv4": "203.0.113.44",
-    "tenable.asset_exposure": "internet-facing",
-    "tenable.asset_criticality": "production",
-    "tenable.scan_type": "authenticated",
-    "tenable.first_found": "2026-05-20T09:00:00.000Z",
-    "tenable.last_found": "2026-06-02T03:14:00.000Z",
-    "tenable.port": 443,
-    "tenable.protocol": "tcp",
+    "plugin.id": "212344",
+    "plugin.name": "Reflected XSS in Login Parameter Handling",
+    "plugin.family": "Web Applications",
+    "plugin.cve": "CVE-2025-31337",
+    "plugin.cwe": "CWE-79",
+    "plugin.cvss3_base_score": 6.1,
+    "plugin.cvss3_vector.raw": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "plugin.vpr.score": 9.3,
+    "plugin.epss_score": 0.94,
+    "plugin.epss_percentile": 0.99,
+    "plugin.xrefs": [{ type: "CISA-KNOWN-EXPLOITED", id: "2026/06/16" }],
+    "plugin.exploit_available": true,
+    "plugin.exploit_code_maturity": "Functional",
+    "plugin.patch_publication_date": "2025-11-03",
+    "asset.hostname": "portal-web03.solvix.com",
+    "asset.ipv4": "203.0.113.44",
+    "first_found": "2026-05-20T09:00:00.000Z",
+    "last_found": "2026-06-02T03:14:00.000Z",
+    "port.port": 443,
+    "port.protocol": "tcp",
   },
 };
 
@@ -73,27 +69,24 @@ const vulnFpEvent: TelemetryEvent = {
   description:
     "An unauthenticated web scan of api-gw02 flagged an eight-year-old Apache HTTP Server vulnerability based on the version string returned in the server banner.",
   raw: {
-    "tenable.plugin_id": "103259",
-    "tenable.plugin_name": "Apache 2.4.x < 2.4.30 <FilesMatch> Newline Bypass",
-    "tenable.plugin_family": "Web Servers",
-    "tenable.cve": "CVE-2017-15715",
-    "tenable.cwe": "CWE-20",
-    "tenable.cvss3_base_score": 8.1,
-    "tenable.cvss3_vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-    "tenable.vpr_score": 3.1,
-    "tenable.epss_score": 0.02,
-    "tenable.cisa_known_exploited": false,
-    "tenable.exploit_available": false,
-    "tenable.plugin_output": "Server: Apache/2.4.6 (Red Hat Enterprise Linux)",
-    "tenable.asset_hostname": "api-gw02.solvix.com",
-    "tenable.asset_ipv4": "10.20.4.17",
-    "tenable.asset_exposure": "internal",
-    "tenable.asset_os": "Red Hat Enterprise Linux 7.9",
-    "tenable.scan_type": "unauthenticated",
-    "tenable.first_found": "2026-06-02T03:41:00.000Z",
-    "tenable.last_found": "2026-06-02T03:41:00.000Z",
-    "tenable.port": 443,
-    "tenable.protocol": "tcp",
+    "plugin.id": "103259",
+    "plugin.name": "Apache 2.4.x < 2.4.30 <FilesMatch> Newline Bypass",
+    "plugin.family": "Web Servers",
+    "plugin.cve": "CVE-2017-15715",
+    "plugin.cwe": "CWE-20",
+    "plugin.cvss3_base_score": 8.1,
+    "plugin.cvss3_vector.raw": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "plugin.vpr.score": 3.1,
+    "plugin.epss_score": 0.02,
+    "plugin.exploit_available": false,
+    "output": "Server: Apache/2.4.6 (Red Hat Enterprise Linux)",
+    "asset.hostname": "api-gw02.solvix.com",
+    "asset.ipv4": "10.20.4.17",
+    "asset.operating_system": "Red Hat Enterprise Linux 7.9",
+    "first_found": "2026-06-02T03:41:00.000Z",
+    "last_found": "2026-06-02T03:41:00.000Z",
+    "port.port": 443,
+    "port.protocol": "tcp",
   },
 };
 
@@ -328,12 +321,12 @@ const vulnerabilityManagementRoom = {
       questions: [
         {
           question:
-            "The event's top-level severity is 'critical', but tenable.cvss3_base_score is only 6.1 (Medium). Which combination of fields explains that gap?",
+            "The event's top-level severity is 'critical', but plugin.cvss3_base_score is only 6.1 (Medium). Which combination of fields explains that gap?",
           options: [
             "It's a display bug: CVSS and severity should always match exactly, and any scanner showing a severity level that doesn't equal the CVSS band (Critical only for 9.0-10.0) has a misconfigured display setting that should be reported to the vendor",
-            "tenable.vpr_score is 9.3, and tenable.cisa_known_exploited is true with tenable.epss_score at 0.94. VPR folds in real exploitation evidence and likelihood that the static CVSS base score does not, which is why Tenable's VPR-driven severity reads far higher than CVSS alone would suggest",
+            "plugin.vpr.score is 9.3, plugin.xrefs carries a CISA-KNOWN-EXPLOITED entry, and plugin.epss_score is 0.94. VPR folds in real exploitation evidence and likelihood that the static CVSS base score does not, which is why Tenable's VPR-driven severity reads far higher than CVSS alone would suggest",
             "The severity field always defaults to critical for any internet-facing asset regardless of the actual finding, because Tenable treats internet exposure alone as sufficient grounds to override the calculated score to the highest band",
-            "tenable.exploit_code_maturity being 'Functional' automatically overrides CVSS to critical for every vendor, since any scanner that detects a functional exploit is required to hardcode the displayed severity to the maximum band regardless of other metrics",
+            "plugin.exploit_code_maturity being 'Functional' automatically overrides CVSS to critical for every vendor, since any scanner that detects a functional exploit is required to hardcode the displayed severity to the maximum band regardless of other metrics",
           ],
           answer: 1,
           explanation:
@@ -356,7 +349,7 @@ const vulnerabilityManagementRoom = {
         },
         {
           question:
-            "tenable.scan_type on this finding is 'authenticated'. If this same host had only ever been scanned unauthenticated, what is the most accurate statement about what you might have missed?",
+            "The scan that produced this finding was authenticated (it logged in to the host). If this same host had only ever been scanned unauthenticated, what is the most accurate statement about what you might have missed?",
           options: [
             "The XSS itself: web flaws on a login page show up only to a scanner logged in to the host",
             "Flaws seen only from inside, such as missing patches; the XSS itself could still show up",
@@ -377,7 +370,7 @@ const vulnerabilityManagementRoom = {
       id: "vm-f1",
       // Pin the portal-web03 finding this flag reads. Unpinned, the room falls back to
       // the nearest preceding log — vm-ac1's api-gw02 verdict event, whose
-      // tenable.epss_score is 0.02 — a decoy that doesn't match the answer (0.94).
+      // plugin.epss_score is 0.02: a decoy that doesn't match the answer (0.94).
       event: vulnScanEvent,
       prompt:
         "Look at the Log Analysis finding on portal-web03. Which value in the raw log is the probability that this CVE will be exploited in the wild in the next 30 days? Enter it exactly as shown (a decimal, not a percentage).",
@@ -444,7 +437,7 @@ const vulnerabilityManagementRoom = {
       event: vulnFpEvent,
       correct_verdict: "false_positive",
       explanation:
-        "tenable.plugin_output shows the banner reads 'Apache/2.4.6 (Red Hat Enterprise Linux)': the version string this plugin uses as its stand-in for the vulnerability. But it_verify_result is confirmed: the platform team checked the installed package's changelog directly (rpm -q --changelog) and found the CVE-2017-15715 fix already present in the installed build, because Red Hat backports security fixes into its own point releases without bumping the version string the banner reports. tenable.scan_type is 'unauthenticated', which is exactly the scan method most prone to this specific false-positive pattern, as covered in Reading 4 and Reading 5. tenable.epss_score (0.02) and tenable.cisa_known_exploited (false) also don't support urgency even before the false-positive check. So this is a false positive, not a benign true positive: the plugin exists to find a vulnerable Apache, the vulnerability is not there, and the finding itself is wrong. Close it with the changelog evidence and correct the finding (an authenticated rescan or a backport-aware check) rather than accepting a version-banner guess.",
+        "output shows the banner reads 'Apache/2.4.6 (Red Hat Enterprise Linux)': the version string this plugin uses as its stand-in for the vulnerability. But it_verify_result is confirmed: the platform team checked the installed package's changelog directly (rpm -q --changelog) and found the CVE-2017-15715 fix already present in the installed build, because Red Hat backports security fixes into its own point releases without bumping the version string the banner reports. the scan was unauthenticated, which is exactly the scan method most prone to this specific false-positive pattern, as covered in Reading 4 and Reading 5. plugin.epss_score (0.02) and the absence of any CISA-KNOWN-EXPLOITED xref also don't support urgency even before the false-positive check. So this is a false positive, not a benign true positive: the plugin exists to find a vulnerable Apache, the vulnerability is not there, and the finding itself is wrong. Close it with the changelog evidence and correct the finding (an authenticated rescan or a backport-aware check) rather than accepting a version-banner guess.",
       fp_trap:
         "CVSS 8.1 (High) on a well-known, named CVE is exactly the kind of finding that gets escalated on sight, and it's tempting to open a critical ticket immediately. But the plugin_output field is a version-banner guess, not direct inspection, and this exact pattern (RHEL/CentOS backporting fixes without changing the version string) is one of the single most common sources of false positives from unauthenticated web scans. The lesson from Reading 5 is to verify before escalating: check the package changelog directly, or request an authenticated rescan, rather than opening a ticket purely off a CVSS number and a banner string.",
       xp: 30,
@@ -526,23 +519,21 @@ const mftTimestompEvent: TelemetryEvent = {
   description:
     "The Windows.NTFS.MFT and Windows.Forensics.Usn artifacts were collected from HOST-ACCT-19 as part of a live forensic sweep, focused on a suspicious executable found in the user's Downloads folder, and joined into one row for its MFT entry. Two different sets of NTFS timestamps are recorded for the same entry: compare them carefully.",
   raw: {
-    "velociraptor.artifact": "Windows.NTFS.MFT, Windows.Forensics.Usn",
-    "mft.entry_number": 88214,
-    "mft.filename": "quarterly_report.exe",
-    "mft.full_path": "C:\\Users\\r.okafor\\Downloads\\quarterly_report.exe",
-    "mft.file_size": 412672,
-    "mft.si_created": "2019-03-11T08:00:00.000Z",
-    "mft.si_modified": "2019-03-11T08:00:00.000Z",
-    "mft.si_accessed": "2019-03-11T08:00:00.000Z",
-    "mft.si_mft_modified": "2026-04-19T02:06:38.000Z",
-    "mft.fn_created": "2026-04-19T02:04:51.000Z",
-    "mft.fn_modified": "2026-04-19T02:04:51.000Z",
-    "mft.fn_accessed": "2026-04-19T02:04:51.000Z",
-    "mft.fn_mft_modified": "2026-04-19T02:04:51.000Z",
-    "usn.first_reason": "FILE_CREATE|DATA_EXTEND",
-    "usn.first_timestamp": "2026-04-19T02:04:51.000Z",
-    "usn.last_reason": "BASIC_INFO_CHANGE",
-    "usn.last_timestamp": "2026-04-19T02:06:38.000Z",
+    EntryNumber: 88214,
+    InUse: true,
+    ParentEntryNumber: 41877,
+    FullPath: "C:\\Users\\r.okafor\\Downloads\\quarterly_report.exe",
+    FileName: "quarterly_report.exe",
+    FileSize: 412672,
+    IsDir: false,
+    Created0x10: "2019-03-11T08:00:00Z",
+    Created0x30: "2026-04-19T02:04:51Z",
+    LastModified0x10: "2019-03-11T08:00:00Z",
+    LastModified0x30: "2026-04-19T02:04:51Z",
+    LastRecordChange0x10: "2026-04-19T02:06:38Z",
+    LastRecordChange0x30: "2026-04-19T02:04:51Z",
+    LastAccess0x10: "2019-03-11T08:00:00Z",
+    LastAccess0x30: "2026-04-19T02:04:51Z",
   },
 };
 
@@ -798,12 +789,12 @@ const memoryDiskForensicsRoom = {
       id: "mdf-la1",
       heading: "One File, Two Timestamp Stories",
       context:
-        "During a live forensic sweep of HOST-ACCT-19, an executable was found in a user's Downloads folder that the user says they've 'never seen before.' Velociraptor pulled the raw $STANDARD_INFORMATION and $FILE_NAME timestamps for its MFT record, along with the first and the most recent $UsnJrnl entries for the same file. Review the finding and decide what actually happened.",
+        "During a live forensic sweep of HOST-ACCT-19, an executable was found in a user's Downloads folder that the user says they've 'never seen before.' Velociraptor's Windows.NTFS.MFT artifact returned the file's MFT record below: the columns ending 0x10 are the $STANDARD_INFORMATION timestamps, those ending 0x30 the $FILE_NAME timestamps.\n\n**The Windows.Forensics.Usn artifact returned two $UsnJrnl entries for the same file (MFT entry 88214):** 2026-04-19T02:04:51Z with reason FILE_CREATE|DATA_EXTEND, and 2026-04-19T02:06:38Z with reason BASIC_INFO_CHANGE.\n\nReview the finding and decide what actually happened.",
       event: mftTimestompEvent,
       questions: [
         {
           question:
-            "mft.si_created reads 2019-03-11, while mft.fn_created reads 2026-04-19: a difference of over seven years. Given what you learned about which attribute common timestomping tools actually modify, what does this gap most likely indicate?",
+            "Created0x10 ($STANDARD_INFORMATION) reads 2019-03-11, while Created0x30 ($FILE_NAME) reads 2026-04-19: a difference of over seven years. Given what you learned about which attribute common timestomping tools actually modify, what does this gap most likely indicate?",
           options: [
             "$FN was rewritten to 2026 to make an old file look new, while $SI keeps the true 2019 creation",
             "$SI was back-dated by a timestomping tool, while the untouched $FN keeps the real 2026 creation",
@@ -817,7 +808,7 @@ const memoryDiskForensicsRoom = {
         },
         {
           question:
-            "Now read the two $UsnJrnl fields in the record: a first entry FILE_CREATE|DATA_EXTEND and a last entry BASIC_INFO_CHANGE. What do they add to the $SI/$FN comparison?",
+            "Now read the two $UsnJrnl entries Velociraptor returned (in the context): a first entry FILE_CREATE|DATA_EXTEND and a last entry BASIC_INFO_CHANGE. What do they add to the $SI/$FN comparison?",
           options: [
             "Nothing new: the journal is written from the same MFT update as $FN, so it always mirrors $FN",
             "An independent log confirms 2026 creation, and the later BASIC_INFO_CHANGE records the timestomp",

