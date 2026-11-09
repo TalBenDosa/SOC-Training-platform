@@ -193,7 +193,7 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
         kind: "worksheet",
         title: "Are the Defences On?",
         prompt: "Kai pulled the response headers and form markup for three state-changing pages on Larkfield's account portal. A page is protected if its session cookie is SameSite=Lax or Strict, or its form carries an anti-CSRF token the server checks.",
-        caption: "portal.larkfield.com · response headers and forms",
+        caption: "portal.larkfield.example · response headers and forms",
         columns: ["page", "session cookie", "form token", "server checks token"],
         rows: [
           ["/account/address", "lk_session=...; Secure; HttpOnly; SameSite=Lax", "yes", "yes"],

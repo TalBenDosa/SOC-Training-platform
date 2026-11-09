@@ -76,9 +76,9 @@ export const SENTINEL_INCIDENT_LAB: Portal = {
         query: "OfficeActivity\n| where UserId == \"p.vasquez@ashgrove.example\"\n| where Operation == \"FileDownloaded\"\n| summarize Files = count() by ClientIP, Site_Url, bin(TimeGenerated, 5m)",
         columns: ["TimeGenerated", "ClientIP", "Site_Url", "Files"],
         rows: [
-          { id: "l1", cells: ["21:05", "10.40.8.22", "/sites/Rotas", "3"] },
+          { id: "l1", cells: ["21:05", "192.0.2.40", "/sites/Rotas", "3"] },
           { id: "l2", cells: ["22:15", "203.0.113.140", "/sites/Dispensing", "410"] },
-          { id: "l3", cells: ["22:20", "10.40.8.22", "/sites/Rotas", "1"] },
+          { id: "l3", cells: ["22:20", "192.0.2.40", "/sites/Rotas", "1"] },
         ],
       },
     },
