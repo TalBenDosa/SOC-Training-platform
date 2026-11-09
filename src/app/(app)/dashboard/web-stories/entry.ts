@@ -107,10 +107,10 @@ function credentialStuffing(): TelemetryEvent[] {
   const login = (id: string, min: number, ip: string, status: number, extra = {}) =>
     webAccess(w, { id, ts: T(min), srcIp: ip, method: "POST", path: "/account/login", status, bytes: status === 302 ? 0 : 391, ua, description: "Portal answered a sign-in", ...extra });
   return [
-    ticket({ id: "web_cs_001", ts: T(0), table: "incident", number: "INC0091344", state: "In Progress", severity: "informational",
-      shortDescription: "Mobile app 5.1.9 retries sign-in with an expired refresh token, fix in 5.2.0", description: "ServiceNow incident INC0091344 (In Progress): mobile app 5.1.9 sign-in retry defect" }),
+    ticket({ id: "web_cs_001", ts: T(0), table: "incident", number: "INC0091377", state: "In Progress", severity: "informational",
+      shortDescription: "Mobile app 5.1.9 retries sign-in with an expired refresh token, fix in 5.2.0", description: "ServiceNow incident INC0091377 (In Progress): mobile app 5.1.9 sign-in retry defect" }),
     wafRequest(w, { id: "web_cs_002", ts: T(5), srcIp: nat, method: "POST", path: "/account/login", action: "block", rule: "login_volumetric", ua: app, severity: "medium", isDetection: true, mitre: "T1110.004", tactic: CRED, verdict: "fp",
-      fpExplanation: "The known mobile app defect in INC0091344: one app version behind one carrier gateway, failing on an expired token, and no sign-in succeeds from it.", description: "Login traffic flagged for volume from one address" }),
+      fpExplanation: "The known mobile app defect in INC0091377: one app version behind one carrier gateway, failing on an expired token, and no sign-in succeeds from it.", description: "Login traffic flagged for volume from one address" }),
     webAccess(w, { id: "web_cs_003", ts: T(5.2), srcIp: nat, method: "POST", path: "/account/login", status: 401, bytes: 391, ua: app, isBaseline: true, description: "Portal answered a sign-in" }),
     login("web_cs_004", 32, "203.0.113.163", 401, { mitre: "T1110.004", tactic: CRED }),
     login("web_cs_005", 32.2, "203.0.113.121", 401, { mitre: "T1110.004", tactic: CRED }),

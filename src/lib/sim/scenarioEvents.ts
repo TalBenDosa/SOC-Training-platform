@@ -1024,10 +1024,10 @@ export function becScenarioEvents() {
       id: "evt_10_helpdesk_ticket", ts: T(31 * MIN),
       source: "soar", vendor: "ServiceNow ITSM", event_type: "policy_modification",
       user_email: "p.johnson@nexacorp.com", severity: "informational",
-      description: "p.johnson phoned the help desk about unexpected authentication prompts; incident INC0048217 was opened.",
+      description: "p.johnson phoned the help desk about unexpected authentication prompts; incident INC0048391 was opened.",
       raw: {
         "servicenow.table": "incident",
-        "servicenow.number": "INC0048217",
+        "servicenow.number": "INC0048391",
         "servicenow.state": "New",
         "servicenow.short_description": "Unexpected authentication prompts on my phone",
         "servicenow.caller_id": "p.johnson@nexacorp.com",

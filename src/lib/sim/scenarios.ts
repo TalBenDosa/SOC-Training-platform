@@ -382,7 +382,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         { value: "phish",   label: "Eight SMS code failures from 203.0.113.30: SIM-swap interception of the second factor" },
       ],
       answer: "fatigue", xp: 50,
-      explanation: "Count the 500121 rows for p.johnson between 08:25:20 and 08:29:50: eight, all from 203.0.113.30, the same address that sprayed the AD FS endpoint at 08:00 and guessed her password, while the address that signed in as l.harris was 203.0.113.146. Repeated MFA prompts after a valid password, hoping the user approves one, is MFA fatigue or prompt bombing (T1621). The CFO denied every prompt, which is why the second account did not fall, and her call at 08:31 (INC0048217) is how the SOC heard about it." },
+      explanation: "Count the 500121 rows for p.johnson between 08:25:20 and 08:29:50: eight, all from 203.0.113.30, the same address that sprayed the AD FS endpoint at 08:00 and guessed her password, while the address that signed in as l.harris was 203.0.113.146. Repeated MFA prompts after a valid password, hoping the user approves one, is MFA fatigue or prompt bombing (T1621). The CFO denied every prompt, which is why the second account did not fall, and her call at 08:31 (INC0048391) is how the SOC heard about it." },
     { id: "q4", prompt: "Revoking l.harris's session tokens alone does NOT fully stop the attacker. Why?", kind: "single",
       options: [
         { value: "forward", label: "The email forwarding rule to gmail.com continues delivering mail without an active session" },
