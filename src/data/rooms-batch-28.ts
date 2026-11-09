@@ -56,7 +56,7 @@ const lsassAccessEvent: TelemetryEvent = {
   raw: {
     "crowdstrike.event_simpleName": "EppDetectionSummaryEvent",
     "crowdstrike.AgentId": "9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e",
-    "crowdstrike.CompositeId": "c7e4a1d93b2f4e8a9d6c5b0f1e3a7d24:ind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:4320931770-10356-88213",
+    "crowdstrike.CompositeId": "ab74ed9b9c97cb488e5140b4d038a406:ind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:4320931770-10356-88213",
     "crowdstrike.AggregateId": "aggind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:2670376644",
     "crowdstrike.Type": "ldt",
     "crowdstrike.Name": "Attacker Methodology",
@@ -146,7 +146,7 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
   raw: {
     "crowdstrike.event_simpleName": "EppDetectionSummaryEvent",
     "crowdstrike.AgentId": "8006beb3bcd2593362266fe370c2b36f",
-    "crowdstrike.CompositeId": "c7e4a1d93b2f4e8a9d6c5b0f1e3a7d24:ind:8006beb3bcd2593362266fe370c2b36f:4295188120-10412-55102",
+    "crowdstrike.CompositeId": "ab74ed9b9c97cb488e5140b4d038a406:ind:8006beb3bcd2593362266fe370c2b36f:4295188120-10412-55102",
     "crowdstrike.AggregateId": "aggind:8006beb3bcd2593362266fe370c2b36f:2147925683",
     "crowdstrike.Type": "ldt",
     "crowdstrike.Name": "Suspicious Activity",
