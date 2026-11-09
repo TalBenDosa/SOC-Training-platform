@@ -18,6 +18,8 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { isRehomeablePerson } from "@/lib/sim/nonHuman";
 import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
+import { hostOsFromRows } from "@/lib/sim/hostOs";
+import { COMPANY_ASSETS, companyHostOs, type HostOs } from "@/lib/sim/companyProfilesMeta";
 
 /** Telemetry a company produces over and over: a second occurrence is another instance, not a copy. */
 export const RECURRING_TYPES = new Set([
@@ -57,6 +59,7 @@ export class NoiseDeck {
   private people: Person[] = [];
   private byEmail = new Map<string, Person>();
   private hostIp = new Map<string, string>();
+  private hostOsMemo = new Map<string, HostOs | undefined>();
   /** Pool row id -> the people it has already been shown for this shift. */
   private usedPeople = new Map<string, Set<string>>();
 
@@ -142,6 +145,16 @@ export class NoiseDeck {
     }
   }
 
+  /** The OS a machine runs: the company's registry when it keeps one, else what the pool's rows show. */
+  private osOf(h: string, domain: string): HostOs | undefined {
+    const key = `${domain}|${h}`;
+    if (this.hostOsMemo.has(key)) return this.hostOsMemo.get(key);
+    const co = Object.keys(COMPANY_ASSETS).find(c => COMPANY_ASSETS[c].domain === domain);
+    const os = co && COMPANY_ASSETS[co].hostOs ? companyHostOs(co, h) : hostOsFromRows(h, this.pool);
+    this.hostOsMemo.set(key, os);
+    return os;
+  }
+
   /** The same recurring activity by another person of the company, on their own machine. */
   private variant(e: TelemetryEvent): TelemetryEvent | null {
     const old = e.user_email;
@@ -154,8 +167,11 @@ export class NoiseDeck {
     // A public client address is where that person was (home, hotel, mobile): another person is never there.
     if ((e.src_ip && !PRIVATE.test(e.src_ip)) || (e.dst_ip && !PRIVATE.test(e.dst_ip) && e.source === "vpn")) return null;
     const needsName = !!(from?.name && text.includes(from.name));
+    const rowOs = onHome ? this.osOf(e.hostname!, old.split("@")[1]) : undefined;
     const cands = this.people.filter(p => p.email !== old && p.email.split("@")[1] === old.split("@")[1]
       && (!onHome || (p.home && this.hostIp.has(p.home) === this.hostIp.has(e.hostname!)))
+      // A MacBook's process row moves to another Mac, never onto a Windows desk.
+      && (!onHome || !rowOs || this.osOf(p.home!, p.email.split("@")[1]) === rowOs)
       && (!needsName || !!p.name));
     if (cands.length === 0) return null;
     // People this row has not shown yet come first, so a repeat is a new instance, not a copy.

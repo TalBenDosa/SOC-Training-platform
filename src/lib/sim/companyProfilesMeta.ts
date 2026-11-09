@@ -194,6 +194,41 @@ export interface CompanyAssets {
    * never draw from this list, so a phishing victim never lands on an ESXi host.
    */
   infra?:     string[];
+  /**
+   * The operating system of each host that is not Windows. A host left out is Windows unless its name
+   * says Linux (LINUX_HOST_NAME). A story whose machine runs one OS is only dealt where a host of that
+   * OS exists, and maps onto it (instantiateStory): a Windows story never lands on a MacBook.
+   */
+  hostOs?:    Record<string, HostOs>;
+  /**
+   * The people at a desk of an OS other than the company's usual one, for a story whose victim works on
+   * that OS (a Windows phishing story at a Mac shop runs on the one Windows engineering desk).
+   */
+  osSeats?:   Partial<Record<HostOs, Seat[]>>;
+}
+
+export type HostOs = "windows" | "mac" | "linux";
+/** A host name that says it runs Linux. */
+export const LINUX_HOST_NAME = /(^|[-_])(lnx|linux|nix|k8s|k8snode|kube|ubuntu|rhel|centos|debian)([-_\d]|$)/i;
+/** The OS a company's host runs: its registry entry, else Linux by name, else Windows. */
+export function companyHostOs(companyId: string | undefined, host: string): HostOs {
+  const os = companyId ? COMPANY_ASSETS[companyId]?.hostOs?.[host] : undefined;
+  return os ?? (LINUX_HOST_NAME.test(host) || /^ip-\d+-\d+-\d+-\d+\./.test(host) ? "linux" : "windows");
+}
+
+/**
+ * An endpoint row that says nothing about its OS (a network or logon row, a process row with only a
+ * command line) runs on what the company's host runs: it gets that host's ECS host.os.type, so the
+ * EDR renders a MacBook's rows as macOS instead of guessing from a process name. Rows that already
+ * name a platform or carry an image path keep what they say.
+ */
+export function withHostOs<E extends { source?: string; hostname?: string; raw?: unknown; process?: { path?: string }; file?: { path?: string } }>(ev: E, companyId: string | undefined): E {
+  const os = ev.source === "edr" && ev.hostname && companyId ? COMPANY_ASSETS[companyId]?.hostOs?.[ev.hostname] : undefined;
+  if (!os) return ev;
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  if (["crowdstrike.event_platform", "host.os.type", "host.os.family", "host.os.name", "host.os.platform"].some(k => r[k] !== undefined)) return ev;
+  if ([ev.process?.path, ev.file?.path].some(p => p && /^([a-z]:\\|\\Device\\|\\\\|\/)/i.test(p))) return ev;
+  return { ...ev, raw: { ...r, "host.os.type": os === "mac" ? "macos" : os } };
 }
 
 // The per-company asset fabric (R-01 + emitter layer). One source of truth for the
@@ -242,7 +277,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
   },
   rocketstack: {
     hosts: ["LAP-007", "LAP-012", "LAP-003", "SRV-PROD-001", "macbook-ops-03",
-            "LAP-DEV-12", "LAP-DEV-07", "WS-ENG-3301", "prod-srv-01"],
+            "LAP-DEV-12", "LAP-DEV-07", "WS-ENG-3301", "WS-ENG-3302", "WS-ENG-3303", "prod-srv-01"],
     subnet: "172.16.10", domain: "rocketstack.io", netbios: "ROCKETSTACK",
     roster: [
       { name: "t.levy", title: "Backend Engineer" }, { name: "s.amir", title: "Engineer" },
@@ -260,6 +295,16 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     office: { ip: "198.51.100.220", country: "Israel", city: "Tel Aviv" },
     // The production EKS worker node (VPC 10.0.0.0/16, eu-west-1): its private DNS name carries its address.
     infra: ["ip-10-0-14-73.eu-west-1.compute.internal"],
+    // A Mac and Linux shop: MacBooks for most staff, Ubuntu laptops for two developers, Linux in
+    // production. The Windows desks are the three engineering workstations that build and test the
+    // Windows desktop client.
+    hostOs: {
+      "LAP-007": "mac", "LAP-012": "mac", "LAP-003": "mac", "macbook-ops-03": "mac",
+      "LAP-DEV-12": "linux", "LAP-DEV-07": "linux",
+      "WS-ENG-3301": "windows", "WS-ENG-3302": "windows", "WS-ENG-3303": "windows",
+      "SRV-PROD-001": "linux", "prod-srv-01": "linux",
+    },
+    osSeats: { windows: [{ user: "t.levy", host: "WS-ENG-3301" }, { user: "m.ben-david", host: "WS-ENG-3302" }, { user: "s.amir", host: "WS-ENG-3303" }] },
   },
   medcore: {
     hosts: ["WS-MED-022", "WS-MED-045", "WS-MED-067", "WS-NURS-033", "WS-NURS-044",

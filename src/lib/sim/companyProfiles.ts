@@ -90,7 +90,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     dst_ip: "140.82.112.6", dst_port: 443,
     network: { domain: "api.github.com", bytes_out: 1240, bytes_in: 5800 },
     description: "Outbound HTTPS connection from LAP-007 to api.github.com - allowed",
-    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "destination.ip": "140.82.112.6", "destination.port": "443", "network.protocol": "tcp", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.event_platform": "Mac", "destination.ip": "140.82.112.6", "destination.port": "443", "network.protocol": "tcp", "action_result": "allowed" }
   },
   // ── AWS CloudTrail ────────────────────────────────────────────────────────
   {
@@ -250,8 +250,8 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "CrowdStrike Falcon", hostname: "SRV-PROD-001", user_email: "s.amir@rocketstack.io",
     src_ip: "172.16.10.50",
     description: "osqueryd started on SRV-PROD-001 (fleet monitoring)",
-    process: { name: "osqueryd", pid: 3300, parent_name: "launchd", parent_pid: 1, user: "root", cmdline: "/usr/local/bin/osqueryd --flagfile=/etc/osquery/osquery.flags" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
+    process: { name: "osqueryd", pid: 3300, parent_name: "systemd", parent_pid: 1, user: "root", cmdline: "/usr/bin/osqueryd --flagfile=/etc/osquery/osquery.flags" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Lin", "action_result": "allowed" }
   },
   {
     id: "rs_cs_006", ts: "2026-05-10T11:15:00.000Z",
@@ -269,7 +269,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.12",
     description: "r.cohen cloned internal git repo on LAP-012",
     process: { name: "git", pid: 5580, parent_name: "zsh", parent_pid: 5001, user: "r.cohen", cmdline: "git clone git@github.com:rocketstack/platform-core.git" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Mac", "action_result": "allowed" }
   },
   // ── AWS CloudTrail - additional API events ────────────────────────────────
   {
@@ -352,7 +352,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "Engineer ran a Python security script with unusual subprocess args to simulate API load. The command pattern (subprocess with shell=True and os.system calls) matches attacker tooling heuristics, but the script is in the RocketStack internal GitHub repo and was peer-reviewed. No outbound network connections were made.",
     description: "t.levy ran python3 security-load-test.py on LAP-007",
     process: { name: "python3", pid: 5900, parent_name: "zsh", parent_pid: 5001, user: "t.levy", cmdline: "python3 security-load-test.py --target https://api.rocketstack.io --requests 500 --concurrency 20" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Mac", "action_result": "allowed" }
   },
   {
     id: "rs_fp_002", ts: "2026-05-10T11:45:00.000Z",
@@ -728,7 +728,151 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "r.cohen ran docker-compose up for local dev stack on LAP-012",
     process: { name: "docker-compose", pid: 6210, parent_name: "zsh", parent_pid: 5001,
                user: "r.cohen", cmdline: "docker-compose -f docker-compose.dev.yml up -d" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Mac", "action_result": "allowed" }
+  },
+  // The Windows engineering desk that builds and tests the desktop client (WS-ENG-3301, Windows 11).
+  {
+    id: "rs_cs_win_01", ts: "2026-05-10T08:20:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3301", user_email: "t.levy@rocketstack.io",
+    user_title: "Backend Engineer",
+    src_ip: "172.16.10.209",
+    description: "t.levy opened the Windows desktop client solution in Visual Studio on WS-ENG-3301",
+    process: { name: "devenv.exe", pid: 6312, path: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\Common7\\IDE\\devenv.exe", parent_name: "explorer.exe", parent_pid: 4288, user: "t.levy", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\Common7\\IDE\\devenv.exe\" \"C:\\src\\rocketstack-desktop\\RocketStack.Desktop.sln\"", hash: { sha256: "2f322a474a28ef8142aaef50bdd272675b82081b969f8e1a068318cef2d5dd0c" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_02", ts: "2026-05-10T08:34:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3301", user_email: "t.levy@rocketstack.io",
+    user_title: "Backend Engineer",
+    src_ip: "172.16.10.209",
+    description: "Visual Studio built the desktop client with MSBuild on WS-ENG-3301",
+    process: { name: "MSBuild.exe", pid: 7740, path: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe", parent_name: "devenv.exe", parent_pid: 6312, user: "t.levy", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe\" C:\\src\\rocketstack-desktop\\RocketStack.Desktop.sln /t:Build /p:Configuration=Debug /m", hash: { sha256: "fc07c7df46cdcc24f18bc4d5a27796e3b1d9a2d72eb164c275bdde2d263c8668" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_03", ts: "2026-05-10T09:02:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3301", user_email: "t.levy@rocketstack.io",
+    user_title: "Backend Engineer",
+    src_ip: "172.16.10.209",
+    description: "t.levy opened PowerShell 7 in Windows Terminal on WS-ENG-3301",
+    process: { name: "pwsh.exe", pid: 8104, path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe", parent_name: "WindowsTerminal.exe", parent_pid: 7980, user: "t.levy", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\" -NoLogo", hash: { sha256: "5ecdef7edc16c5aa863a2ba07b9112f4cd9572f3b56394caaf197e91aaf81fd9" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_04", ts: "2026-05-10T09:04:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3301", user_email: "t.levy@rocketstack.io",
+    user_title: "Backend Engineer",
+    src_ip: "172.16.10.209",
+    description: "t.levy pulled the desktop client repository on WS-ENG-3301",
+    process: { name: "git.exe", pid: 8236, path: "C:\\Program Files\\Git\\cmd\\git.exe", parent_name: "pwsh.exe", parent_pid: 8104, user: "t.levy", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Git\\cmd\\git.exe\" pull origin main", hash: { sha256: "feb2c3a7c0241e2d6d6066d542b45e2255bd5639d78cb149d1ed4bec05346698" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_05", ts: "2026-05-10T09:11:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3301", user_email: "t.levy@rocketstack.io",
+    user_title: "Backend Engineer",
+    src_ip: "172.16.10.209",
+    description: "t.levy ran the desktop client unit tests with dotnet on WS-ENG-3301",
+    process: { name: "dotnet.exe", pid: 8460, path: "C:\\Program Files\\dotnet\\dotnet.exe", parent_name: "pwsh.exe", parent_pid: 8104, user: "t.levy", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\dotnet\\dotnet.exe\" test C:\\src\\rocketstack-desktop\\tests\\RocketStack.Desktop.Tests.csproj --no-build", hash: { sha256: "88d342999d1ae691202e9f2a2431fd87e545689c108856b48cf712fc9b3692dd" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_06", ts: "2026-05-10T10:30:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3301", user_email: "t.levy@rocketstack.io",
+    user_title: "Backend Engineer",
+    src_ip: "172.16.10.209",
+    description: "t.levy opened the staging admin console in Edge on WS-ENG-3301",
+    process: { name: "msedge.exe", pid: 9012, path: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", parent_name: "explorer.exe", parent_pid: 4288, user: "t.levy", integrity: "medium",
+               cmdline: "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --single-argument https://staging-admin.rocketstack.io/", hash: { sha256: "6c5be26436b685bd11d12f7b3520e37b94fd7c8e732f04b53aeb5cb2a2e1c7d9" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_07", ts: "2026-05-10T08:16:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3301", user_email: "t.levy@rocketstack.io",
+    user_title: "Backend Engineer",
+    src_ip: "172.16.10.209",
+    description: "Docker Desktop started for t.levy at sign-in on WS-ENG-3301",
+    process: { name: "Docker Desktop.exe", pid: 5876, path: "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe", parent_name: "explorer.exe", parent_pid: 4288, user: "t.levy", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\" -Autostart", hash: { sha256: "81ce0474658eaa2615b2a14d1237607fde5d76c59ed26ee58a741fdf601edade" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_08", ts: "2026-05-10T08:44:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3302", user_email: "m.ben-david@rocketstack.io",
+    user_title: "Engineer",
+    src_ip: "172.16.10.210",
+    description: "m.ben-david opened the desktop client installer project in Visual Studio on WS-ENG-3302",
+    process: { name: "devenv.exe", pid: 5904, path: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\Common7\\IDE\\devenv.exe", parent_name: "explorer.exe", parent_pid: 4176, user: "m.ben-david", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\Common7\\IDE\\devenv.exe\" \"C:\\src\\rocketstack-desktop\\installer\\RocketStack.Installer.wixproj\"", hash: { sha256: "29eecdd858a3698a4f0923cf7390c8b18951475f76bfc813ba11ba26be66ba96" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_09", ts: "2026-05-10T09:20:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3302", user_email: "m.ben-david@rocketstack.io",
+    user_title: "Engineer",
+    src_ip: "172.16.10.210",
+    description: "m.ben-david signed a test build of the desktop client with signtool on WS-ENG-3302",
+    process: { name: "signtool.exe", pid: 7368, path: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.22621.0\\x64\\signtool.exe", parent_name: "pwsh.exe", parent_pid: 7212, user: "m.ben-david", integrity: "medium",
+               cmdline: "\"C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.22621.0\\x64\\signtool.exe\" sign /a /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 C:\\src\\rocketstack-desktop\\out\\RocketStack.Desktop.exe", hash: { sha256: "5c70a21cbffb12046df4038dfdcbe8c477165437b43c34cca60729b5debecc05" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_10", ts: "2026-05-10T09:18:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3302", user_email: "m.ben-david@rocketstack.io",
+    user_title: "Engineer",
+    src_ip: "172.16.10.210",
+    description: "m.ben-david opened PowerShell 7 in Windows Terminal on WS-ENG-3302",
+    process: { name: "pwsh.exe", pid: 7212, path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe", parent_name: "WindowsTerminal.exe", parent_pid: 7100, user: "m.ben-david", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\" -NoLogo", hash: { sha256: "f21da168d8b725d10cc413bafcdeecc937143ea72778729840338845c54548ec" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_11", ts: "2026-05-10T08:58:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3303", user_email: "s.amir@rocketstack.io",
+    user_title: "Engineer",
+    src_ip: "172.16.10.211",
+    description: "s.amir opened the release checklist in Edge on WS-ENG-3303",
+    process: { name: "msedge.exe", pid: 6420, path: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", parent_name: "explorer.exe", parent_pid: 4400, user: "s.amir", integrity: "medium",
+               cmdline: "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --single-argument https://github.com/rocketstack/rocketstack-desktop/releases", hash: { sha256: "6c05f5d88b82b9d822a0d0b13bad6ab8651a56983a203c214ee4599e42805d5d" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_12", ts: "2026-05-10T09:35:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3303", user_email: "s.amir@rocketstack.io",
+    user_title: "Engineer",
+    src_ip: "172.16.10.211",
+    description: "s.amir checked out the release branch of the desktop client on WS-ENG-3303",
+    process: { name: "git.exe", pid: 8016, path: "C:\\Program Files\\Git\\cmd\\git.exe", parent_name: "pwsh.exe", parent_pid: 7884, user: "s.amir", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Git\\cmd\\git.exe\" checkout release/4.12", hash: { sha256: "82c371e307ded4de3fb7817ba71369af1fe570fdf718dba3a452798c6792e1db" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "rs_cs_win_13", ts: "2026-05-10T09:33:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WS-ENG-3303", user_email: "s.amir@rocketstack.io",
+    user_title: "Engineer",
+    src_ip: "172.16.10.211",
+    description: "s.amir opened PowerShell 7 in Windows Terminal on WS-ENG-3303",
+    process: { name: "pwsh.exe", pid: 7884, path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe", parent_name: "WindowsTerminal.exe", parent_pid: 7790, user: "s.amir", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\" -NoLogo", hash: { sha256: "bcc31b24fcd31b6d4a4b3bf3c3401d59560f4e4838fb06be99d66c11a2c8d521" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
 
   // ── Google Workspace - email & calendar (normal) ──────────────────────────
@@ -2512,6 +2656,161 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     description: "The automated test-runner account queried shared resources on SRV-QB-CORE01 from WKS-QB-033",
     process: { name: "net.exe", pid: 7700, parent_name: "python.exe", parent_pid: 7600, user: "svc-test-runner", cmdline: "net view \\\\SRV-QB-CORE01 /all" },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "threat.technique.id": "T1016", "action_result": "allowed" }
+  },
+  // Ordinary Windows desk activity: what most of QuantumBank's Falcon process telemetry is.
+  {
+    id: "qb_cs_win_01", ts: "2026-05-10T07:52:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-055", user_email: "f.zimmermann@quantumbank.ch",
+    user_title: "Equity Trader",
+    src_ip: "10.100.1.55",
+    description: "f.zimmermann opened the end-of-day positions workbook in Excel on WKS-QB-055",
+    process: { name: "EXCEL.EXE", pid: 6120, path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE", parent_name: "explorer.exe", parent_pid: 3100, user: "f.zimmermann", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE\" \"C:\\Users\\f.zimmermann\\Documents\\Positions_EOD.xlsx\"", hash: { sha256: "3550693c3c8e4b30ab245a3d5325c819ade8baf363d3453ba1dea45601ab6197" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_02", ts: "2026-05-10T08:01:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-055", user_email: "f.zimmermann@quantumbank.ch",
+    user_title: "Equity Trader",
+    src_ip: "10.100.1.55",
+    description: "Microsoft Teams started for f.zimmermann at sign-in on WKS-QB-055",
+    process: { name: "ms-teams.exe", pid: 6480, path: "C:\\Program Files\\WindowsApps\\MSTeams_24102.2223.3185.1385_x64__8wekyb3d8bbwe\\ms-teams.exe", parent_name: "explorer.exe", parent_pid: 3100, user: "f.zimmermann", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\WindowsApps\\MSTeams_24102.2223.3185.1385_x64__8wekyb3d8bbwe\\ms-teams.exe\" msteams:system-initiated", hash: { sha256: "146a2958d257de853714f37228dedfca2c46eb8f7d6a57c3a153f55c38edaea8" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_03", ts: "2026-05-10T08:12:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-033", user_email: "e.steiner@quantumbank.ch",
+    user_title: "Risk Analyst",
+    src_ip: "10.100.1.33",
+    description: "e.steiner started Outlook on WKS-QB-033",
+    process: { name: "OUTLOOK.EXE", pid: 2900, path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE", parent_name: "explorer.exe", parent_pid: 2716, user: "e.steiner", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE\"", hash: { sha256: "b141ffe129386c0f5ade339113f4680b5190ef0171cce908e3f6692c58205a74" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_04", ts: "2026-05-10T10:20:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-033", user_email: "e.steiner@quantumbank.ch",
+    user_title: "Risk Analyst",
+    src_ip: "10.100.1.33",
+    description: "e.steiner opened the weekly risk committee deck in PowerPoint on WKS-QB-033",
+    process: { name: "POWERPNT.EXE", pid: 7312, path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE", parent_name: "explorer.exe", parent_pid: 2716, user: "e.steiner", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE\" \"C:\\Users\\e.steiner\\Documents\\Risk_Committee_W19.pptx\"", hash: { sha256: "87209264fa344cf72405ad6252ba2f84b3de4f8a3180563ca8eca39cdbf2458d" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_05", ts: "2026-05-10T08:40:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-020", user_email: "l.brunner@quantumbank.ch",
+    user_title: "IT Security",
+    src_ip: "10.100.1.20",
+    description: "l.brunner opened a saved capture in Wireshark on WKS-QB-020",
+    process: { name: "Wireshark.exe", pid: 8024, path: "C:\\Program Files\\Wireshark\\Wireshark.exe", parent_name: "explorer.exe", parent_pid: 4120, user: "l.brunner", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Wireshark\\Wireshark.exe\" \"C:\\Users\\l.brunner\\Documents\\captures\\proxy-latency-0509.pcapng\"", hash: { sha256: "8059236f7800c4e795191215f72483a355719e9e9be7a04944d3c1c7a0e3b8c5" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_06", ts: "2026-05-10T09:25:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-020", user_email: "l.brunner@quantumbank.ch",
+    user_title: "IT Security",
+    src_ip: "10.100.1.20",
+    description: "l.brunner opened Active Directory Users and Computers from the admin tools on WKS-QB-020",
+    process: { name: "mmc.exe", pid: 8412, path: "C:\\Windows\\System32\\mmc.exe", parent_name: "explorer.exe", parent_pid: 4120, user: "l.brunner", integrity: "medium",
+               cmdline: "\"C:\\Windows\\system32\\mmc.exe\" \"C:\\Windows\\system32\\dsa.msc\"", hash: { sha256: "16673e370ad3232914763e933e609859eee473183b55e55c1edab45e50a1dd2d" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_07", ts: "2026-05-10T08:06:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-012", user_email: "p.meier@quantumbank.ch",
+    user_title: "Operations Manager",
+    src_ip: "10.100.1.12",
+    description: "p.meier opened the operations intranet in Edge on WKS-QB-012",
+    process: { name: "msedge.exe", pid: 5236, path: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", parent_name: "explorer.exe", parent_pid: 3388, user: "p.meier", integrity: "medium",
+               cmdline: "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --single-argument https://intranet.quantumbank.ch/ops/daily", hash: { sha256: "2ec260587edf580d8ff7f4583d54a533b7948663181bdc71bf9361a16f1581da" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_08", ts: "2026-05-10T11:05:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-012", user_email: "p.meier@quantumbank.ch",
+    user_title: "Operations Manager",
+    src_ip: "10.100.1.12",
+    description: "p.meier opened the settlement breaks report in Excel on WKS-QB-012",
+    process: { name: "EXCEL.EXE", pid: 9104, path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE", parent_name: "explorer.exe", parent_pid: 3388, user: "p.meier", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE\" \"C:\\Users\\p.meier\\Documents\\Settlement_Breaks_2026-05-10.xlsx\"", hash: { sha256: "01aa38e0a9041752b9674902d368f77a1d370973736346640ada784aef701688" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_09", ts: "2026-05-10T09:48:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "LAP-QB-4471", user_email: "m.huber@quantumbank.ch",
+    user_title: "Compliance Officer",
+    src_ip: "10.100.1.230",
+    description: "m.huber opened a signed policy PDF in Acrobat on LAP-QB-4471",
+    process: { name: "Acrobat.exe", pid: 6644, path: "C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe", parent_name: "explorer.exe", parent_pid: 4012, user: "m.huber", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe\" \"C:\\Users\\m.huber\\Documents\\Policies\\Market_Abuse_Policy_v7.pdf\"", hash: { sha256: "be9a2e8d338bc130ebf5f4ebbc548bf0c2371a1db0bbfdc4a1664a4cb2635185" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_10", ts: "2026-05-10T13:15:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "LAP-QB-4471", user_email: "m.huber@quantumbank.ch",
+    user_title: "Compliance Officer",
+    src_ip: "10.100.1.230",
+    description: "m.huber started Outlook on LAP-QB-4471",
+    process: { name: "OUTLOOK.EXE", pid: 7028, path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE", parent_name: "explorer.exe", parent_pid: 4012, user: "m.huber", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE\"", hash: { sha256: "e1953675ef03db69c9b0e1014a7bac2d5e46e0490f5e530b0ad7b388237b314a" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_11", ts: "2026-05-10T08:30:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "LAP-QB-2290", user_email: "a.keller@quantumbank.ch",
+    user_title: "Quantitative Analyst",
+    src_ip: "10.100.1.123",
+    description: "a.keller started Visual Studio Code on LAP-QB-2290",
+    process: { name: "Code.exe", pid: 5520, path: "C:\\Users\\a.keller\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe", parent_name: "explorer.exe", parent_pid: 3944, user: "a.keller", integrity: "medium",
+               cmdline: "\"C:\\Users\\a.keller\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe\"", hash: { sha256: "28137cc902785aa6632e9dbf32ae34569f4636a5f0b0e3dcf0b7ce7529fe40f0" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_12", ts: "2026-05-10T10:02:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "LAP-QB-2290", user_email: "a.keller@quantumbank.ch",
+    user_title: "Quantitative Analyst",
+    src_ip: "10.100.1.123",
+    description: "a.keller ran a strategy backtest from VS Code on LAP-QB-2290",
+    process: { name: "python.exe", pid: 8836, path: "C:\\Program Files\\Python311\\python.exe", parent_name: "Code.exe", parent_pid: 5520, user: "a.keller", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Python311\\python.exe\" C:\\Users\\a.keller\\repos\\quant-models\\backtest.py --strategy momentum_eu --start 2025-01-01", hash: { sha256: "ef8fc0a1522d6b12ee44e097fd9c9e198c587eac8a024c48fb7b36393472368e" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_13", ts: "2026-05-10T10:40:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "LAP-QB-2290", user_email: "a.keller@quantumbank.ch",
+    user_title: "Quantitative Analyst",
+    src_ip: "10.100.1.123",
+    description: "a.keller fetched the quant-models repository on LAP-QB-2290",
+    process: { name: "git.exe", pid: 9120, path: "C:\\Program Files\\Git\\cmd\\git.exe", parent_name: "Code.exe", parent_pid: 5520, user: "a.keller", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Git\\cmd\\git.exe\" fetch origin --prune", hash: { sha256: "ce709bbc99c01cd7f3df8d798623dd280c3b27ace8cabcbd76792ef2697844ae" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
+  },
+  {
+    id: "qb_cs_win_14", ts: "2026-05-10T14:10:00.000Z",
+    source: "edr", event_type: "process_create", severity: "informational",
+    vendor: "CrowdStrike Falcon", hostname: "WKS-QB-033", user_email: "e.steiner@quantumbank.ch",
+    user_title: "Risk Analyst",
+    src_ip: "10.100.1.33",
+    description: "e.steiner opened the VaR model workbook in Excel on WKS-QB-033",
+    process: { name: "EXCEL.EXE", pid: 9532, path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE", parent_name: "explorer.exe", parent_pid: 2716, user: "e.steiner", integrity: "medium",
+               cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE\" \"C:\\Users\\e.steiner\\Documents\\VaR_Model_Q2.xlsx\"", hash: { sha256: "ee78bf7cf8511b7d1791d00ca6d3615a993676709edfd65f8052e545c188316d" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
   {
     id: "qb_fp_002", ts: "2026-05-10T11:30:00.000Z",
