@@ -137,9 +137,9 @@ const silentSession = (first: number, base: number, port: number): Packet[] => {
 
 const CAPTURE: Packet[] = [
   // Session 1: TLS 1.2 to a shared address.
-  tcp(1, "0.000000", LT, SHARED, 66, "50114 > 443 [SYN] Seq=0 Win=64240 Len=0 MSS=1460", 50114, 443),
-  tcp(2, "0.018204", SHARED, LT, 66, "443 > 50114 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0 MSS=1460", 443, 50114),
-  tcp(3, "0.018391", LT, SHARED, 54, "50114 > 443 [ACK] Seq=1 Ack=1 Win=64240 Len=0", 50114, 443),
+  tcp(1, "0.000000", LT, SHARED, 66, "50114 → 443 [SYN] Seq=0 Win=64240 Len=0 MSS=1460", 50114, 443),
+  tcp(2, "0.018204", SHARED, LT, 66, "443 → 50114 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0 MSS=1460", 443, 50114),
+  tcp(3, "0.018391", LT, SHARED, 54, "50114 → 443 [ACK] Seq=1 Ack=1 Win=64240 Len=0", 50114, 443),
   tls(4, "0.018702", LT, SHARED, "TLSv1.2", 571, "Client Hello (SNI=portal.clearhouse-net.example)", 50114, 443, browserHello("TLSv1.2", "portal.clearhouse-net.example", "4b1e9c0a7d3f52e6881c6a07f3d2b914")),
   tls(5, "0.037120", SHARED, LT, "TLSv1.2", 139, "Server Hello", 443, 50114, hello12("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (0xc02f)", "2c91f06ad7e8b3415f0a7ce1d6438b90", "t1204h2_c02f_91ae02c7d5b3")),
   tls(6, "0.037644", SHARED, LT, "TLSv1.2", 1418, SKE, 443, 50114, certFlight([
