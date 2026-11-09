@@ -179,6 +179,24 @@ describe("game labs", () => {
     expect(bad).toEqual([]);
   });
 
+  it("a tune row or a portal record id never states its own verdict (R9)", () => {
+    const VERDICT = /\b(stolen|attacker|thief|thieves|compromised|rogue|fake|replayed|leaked|red team|past case|malicious|intruder)\b/i;
+    // Exempt: rows that are closed cases with their known outcome, or lines of a report being edited.
+    const LABELLED = /closed case|^line (from|for)/i;
+    const bad: string[] = [];
+    for (const r of rooms) for (const l of r.labs) {
+      if (l.kind === "tune" && !LABELLED.test(l.eventColumn)) {
+        for (const e of l.events) if (VERDICT.test(e.label)) bad.push(`${r.id} / ${l.title} / ${e.id}: "${e.label}"`);
+        if (VERDICT.test(l.eventColumn)) bad.push(`${r.id} / ${l.title}: column "${l.eventColumn}"`);
+      }
+      if (l.kind === "portal") {
+        const ids = [...Object.keys(l.records), ...Object.values(l.pages).flatMap(p => p.table?.rows.map(row => row.id) ?? [])];
+        for (const id of ids) if (VERDICT.test(id.replace(/-/g, " "))) bad.push(`${r.id} / ${l.title}: id "${id}"`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
   it("the console stays in the rooms that teach the command line", () => {
     const over: string[] = [];
     for (const r of rooms) {
