@@ -323,9 +323,12 @@ export function eventHeuristic(
     if (isPUP) res = { v: "suspicious", r: "pup" };
     else if (!cleanRep && (family || name || vendorDet || quarantine === "quarantined" || quarantine === "deleted" ||
         result === "quarantined" || result === "process_killed" || /quarantine|kill process|prevention|block/i.test(dispo) ||
-        (av && av !== "clean") || unsignedFlagged || fileVerdict === "malicious")) {
+        (av && av !== "clean") || fileVerdict === "malicious")) {
       res = { v: "malicious", r: "payload" };
     }
+    // Unsigned and on an alert, but no family, no vendor verdict, no block: a reputation
+    // service has nothing to convict it on. It reads suspicious, not malicious.
+    else if (!cleanRep && unsignedFlagged) res = { v: "suspicious", r: "payload" };
   }
   // The surface's own ground truth (live feed): a true-positive event's IOCs are bad —
   // for a hash only the event's OWN payload (authored on it, not a trusted system
@@ -496,8 +499,10 @@ export function assessIoc(
     return { verdict: h.v, role: h.r, refDate: evDay || DEFAULT_REF, ageDays: Number.isNaN(age) ? undefined : age, source: "event" };
   }
   if (type === "hash" && opts.process) {
-    // Same rule as the event heuristic: an unsigned binary the case flagged is bad.
-    if (opts.process.flagged && opts.process.signed === false) return { verdict: "malicious", role: "payload", refDate: DEFAULT_REF, source: "event" };
+    // Same rule as the event heuristic: an unsigned binary the console flagged, with no
+    // TI record behind it, is suspicious. Only TI data (a known family, the hash database,
+    // the case's truth table) makes a hash malicious.
+    if (opts.process.flagged && opts.process.signed === false) return { verdict: "suspicious", role: "payload", refDate: DEFAULT_REF, source: "event" };
   }
   return { verdict: "clean", refDate: evDay || DEFAULT_REF, source: "none" };
 }
@@ -614,6 +619,7 @@ export function hashIntel(
     : a.role === "pup" ? ["pup", "unwanted"]
     : a.role === "exfil" ? ["exfiltration", "trojan"]
     : a.role === "c2" ? ["c2", "beacon"]
+    : a.verdict === "suspicious" ? []          // no family and no TI record: nothing to tag it with
     : ["trojan", "malware"];
 
   const firstSeen = db?.malicious ? `${db.first_seen}`.slice(0, 10)
@@ -667,7 +673,7 @@ export function ipIntel(value: string, opts: { event?: TelemetryEvent; truth?: I
   const ip = normalizeIoc("ip", value);
   const a = assessIoc("ip", ip, opts);
   if (a.verdict === "internal") {
-    return { ip, verdict: "internal", abusive: false, confidence: 0, country: "—", isp: "Internal network (RFC 1918)",
+    return { ip, verdict: "internal", abusive: false, confidence: 0, country: "-", isp: "Internal network (RFC 1918)",
       usageType: "Private address space: corporate LAN", totalReports: 0, categories: [], source: a.source };
   }
   const ev = opts.event;
@@ -763,6 +769,9 @@ export function hashVerdictLabel(h: HashIntel): string {
     const falcon = h.engines.find(e => e.name === "CrowdStrike Falcon" && e.detected)?.result;
     return `Malicious: ${h.detected} / ${h.total} engines${h.malwareFamily ? ` · ${h.malwareFamily}` : ""}${falcon ? ` · Falcon: ${falcon}` : ""}`;
   }
-  if (h.verdict === "suspicious") return `Suspicious: ${h.detected} / ${h.total} engines (grayware / dual-use)`;
+  if (h.verdict === "suspicious") {
+    const why = h.tags.some(t => t === "pup" || t === "dual-use") ? "grayware / dual-use" : "no known family";
+    return `Suspicious: ${h.detected} / ${h.total} engines (${why})`;
+  }
   return `Clean: 0 / ${h.total} engines`;
 }
