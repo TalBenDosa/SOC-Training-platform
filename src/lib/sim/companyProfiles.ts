@@ -2438,7 +2438,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     user_title: "IT Security",
     hostname: "SRV-QB-ADMIN01",
     description: "l.brunner checked out svc-db-admin from CyberArk vault",
-    raw: { "ca.event_type": "Retrieve Password", "ca.safe": "DatabaseAdmins", "ca.account": "svc-db-admin@sqlprod01", "ca.session_recorded": "true", "action_result": "allowed" }
+    raw: { "act": "Retrieve Password", "cs2": "DatabaseAdmins", "duser": "svc-db-admin@sqlprod01", "action_result": "allowed" }
   },
   // ── CrowdStrike Falcon Elite ──────────────────────────────────────────────
   {
@@ -2569,7 +2569,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "okta.eventType": "user.account.privilege.grant", "okta.target.alternateId": "h.weber@quantumbank.ch",
       "okta.privilege.name": "CyberArk Privileged Vault Admin",
       "okta.actor.alternateId": "security-admin@quantumbank.ch",
-      "cyberark.safe_name": "QB-PROD-SECRETS", "okta.debugContext.debugData.riskLevel": "HIGH",
+      "okta.debugContext.debugData.riskLevel": "HIGH",
       "action_result": "success"
     }
   },
@@ -3813,7 +3813,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "CyberArk PAM", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     description: "l.brunner checked out svc-db-admin from CyberArk vault (no change ticket)",
     mitre_technique: "T1078.002",
-    raw: { "ca.event_type": "Retrieve Password", "ca.safe": "DatabaseAdmins", "ca.account": "svc-db-admin@sqlprod01", "ca.ticket_required": "true", "ca.ticket_provided": "false", "ca.session_recorded": "true", "action_result": "allowed" }
+    raw: { "act": "Retrieve Password", "cs2": "DatabaseAdmins", "duser": "svc-db-admin@sqlprod01", "action_result": "allowed" }
   },
   {
     id: "qb_b2", ts: "2026-05-10T11:08:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
