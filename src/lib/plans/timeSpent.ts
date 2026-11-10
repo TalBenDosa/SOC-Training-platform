@@ -1,0 +1,80 @@
+import "server-only";
+/**
+ * Time a learner actually spent on plan items, to set beside the manager's target
+ * (PlanItem.target_minutes; demo feedback 2026-11).
+ *
+ * What the platform records today, with no new table:
+ *  - rooms: room_progress.telemetry, one entry per finished task with decisionLatencyMs (from the
+ *    task being shown to it being completed, capped per task so an idle tab does not count);
+ *  - scenarios: scenario_history.time_taken, seconds per completed run (summed over runs).
+ * Lessons and quizzes record no time yet: they come back as `null` ("not measured"), never 0.
+ */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { chunk, fetchAll } from "./server";
+import { itemKey, type PlanItem } from "./types";
+
+/** user id -> item key -> seconds. */
+export type TimeIndex = Map<string, Map<string, number>>;
+
+const MAX_TASK_MS = 30 * 60_000;
+
+export function timeMeasured(kind: PlanItem["kind"]): boolean {
+  return kind === "room" || kind === "scenario";
+}
+
+export async function loadTimeSpent(
+  admin: SupabaseClient,
+  scope: { orgId: string | null; userIds: readonly string[]; items: readonly Pick<PlanItem, "kind" | "id">[] },
+): Promise<TimeIndex> {
+  const idx: TimeIndex = new Map();
+  const users = [...new Set(scope.userIds)];
+  if (users.length === 0) return idx;
+  const add = (user: string, key: string, sec: number) => {
+    if (!(sec > 0)) return;
+    let m = idx.get(user);
+    if (!m) { m = new Map(); idx.set(user, m); }
+    m.set(key, (m.get(key) ?? 0) + sec);
+  };
+  const userSet = new Set(users);
+  const sqlUsers = users.length <= 100 ? users : null;
+  const roomIds = [...new Set(scope.items.filter(i => i.kind === "room").map(i => i.id))];
+  const slugs = [...new Set(scope.items.filter(i => i.kind === "scenario").map(i => i.id))];
+
+  for (const ids of chunk(roomIds, 60)) {
+    const rows = await fetchAll<{ user_id: string; room_id: string; telemetry: unknown }>((from, to) => {
+      let q = admin.from("room_progress").select("user_id, room_id, telemetry").in("room_id", ids);
+      if (scope.orgId) q = q.eq("org_id", scope.orgId);
+      if (sqlUsers) q = q.in("user_id", sqlUsers);
+      return q.order("user_id", { ascending: true }).order("room_id", { ascending: true }).range(from, to) as never;
+    }, "room_progress");
+    for (const r of rows) {
+      if (!userSet.has(r.user_id) || !Array.isArray(r.telemetry)) continue;
+      let ms = 0;
+      for (const t of r.telemetry as { decisionLatencyMs?: unknown }[]) {
+        const v = Number(t?.decisionLatencyMs);
+        if (Number.isFinite(v) && v > 0) ms += Math.min(v, MAX_TASK_MS);
+      }
+      add(r.user_id, itemKey({ kind: "room", id: r.room_id }), Math.round(ms / 1000));
+    }
+  }
+
+  for (const ids of chunk(slugs, 60)) {
+    const rows = await fetchAll<{ user_id: string; slug: string; time_taken: number | null }>((from, to) => {
+      let q = admin.from("scenario_history").select("user_id, slug, time_taken").in("slug", ids);
+      if (scope.orgId) q = q.eq("org_id", scope.orgId);
+      if (sqlUsers) q = q.in("user_id", sqlUsers);
+      return q.order("id", { ascending: true }).range(from, to) as never;
+    }, "scenario_history");
+    for (const r of rows) {
+      if (!userSet.has(r.user_id)) continue;
+      add(r.user_id, itemKey({ kind: "scenario", id: r.slug }), Math.max(0, Math.round(Number(r.time_taken) || 0)));
+    }
+  }
+  return idx;
+}
+
+/** Minutes spent per item for one learner, aligned with `items`: null where time is not measured. */
+export function minutesFor(idx: TimeIndex, userId: string, items: readonly Pick<PlanItem, "kind" | "id">[]): (number | null)[] {
+  const m = idx.get(userId);
+  return items.map(it => (timeMeasured(it.kind) ? Math.round(((m?.get(itemKey(it)) ?? 0) / 60) * 10) / 10 : null));
+}

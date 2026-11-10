@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Users, Activity, DoorOpen, Copy, AlertTriangle, Loader2, KeyRound,
-  Power, PowerOff, Trash2, Download, TrendingDown, Building2, ChevronRight, Route, Search, Gauge, XCircle,
+  Power, PowerOff, Trash2, Download, TrendingDown, Building2, ChevronRight, Route, Search, Gauge, XCircle, FileDown,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 import type { StudentRow } from "@/app/api/org/analytics/route";
@@ -25,6 +25,8 @@ import { ContentAuthoringPanel } from "@/components/manage/ContentAuthoringPanel
 import { SkillsPanel } from "@/components/manage/SkillsPanel";
 import { InvitePanel } from "@/components/manage/InvitePanel";
 import { RoomAccessPanel } from "@/components/manage/RoomAccessPanel";
+import { useBrand } from "@/lib/brand/BrandContext";
+import { downloadClassReport, loadReportInput, type ReportInput } from "@/lib/org/studentReportPdf";
 
 type ManageTab = "students" | "overview" | "skills" | "mistakes" | "plans" | "content";
 type SortKey = "xp" | "name" | "first_try" | "path" | "active";
@@ -71,6 +73,8 @@ function toCsv(rows: string[][]): string {
 export default function ManagePage() {
   usePageTitle("Manage class");
   const [org, setOrg] = useState<OrgLite | null>(null);
+  const brand = useBrand();
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [usage, setUsage] = useState<OrgUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +158,26 @@ export default function ManagePage() {
     setNotice("New class code generated — valid for 24 hours.");
   }
   useEffect(() => { load(); }, []);
+
+  /** One PDF with a full report per student (each on its own pages), built in the browser. */
+  async function exportPdf() {
+    if (pdfBusy) return;
+    setPdfBusy("0");
+    setError(null);
+    try {
+      const list = [...students].sort((a, b) => (a.display_name ?? a.handle ?? "").localeCompare(b.display_name ?? b.handle ?? ""));
+      const inputs: ReportInput[] = [];
+      for (let i = 0; i < list.length; i++) {
+        setPdfBusy(`${i + 1}/${list.length}`);
+        inputs.push(await loadReportInput(list[i].user_id, brand.productName, org?.name));
+      }
+      await downloadClassReport(inputs, brand.productName);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not build the PDF reports.");
+    } finally {
+      setPdfBusy(null);
+    }
+  }
 
   /** Grade sheet for the college's own records / their LMS. */
   function exportCsv() {
@@ -426,7 +450,12 @@ export default function ManagePage() {
                     </select>
                   </label>
                   {students.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={exportCsv}><Download className="mr-1.5 h-4 w-4" /> Export CSV</Button>
+                    <>
+                      <Button variant="outline" size="sm" onClick={exportCsv}><Download className="mr-1.5 h-4 w-4" /> Export CSV</Button>
+                      <Button variant="outline" size="sm" onClick={exportPdf} disabled={pdfBusy !== null} title="One PDF with a full progress report for every student">
+                        <FileDown className="mr-1.5 h-4 w-4" /> {pdfBusy ? `Preparing ${pdfBusy}...` : "PDF reports"}
+                      </Button>
+                    </>
                   )}
                 </div>
                 {analyticsError && <p role="status" className="px-4 pb-2 text-xs text-neon-amber">{analyticsError}</p>}

@@ -19,12 +19,20 @@ export interface PlanItem {
   id: string;
   priority?: Priority;
   note?: string;
+  /**
+   * How long the manager wants the learner to spend on this item, in minutes (demo feedback
+   * 2026-11). Shown to the learner as a target and to staff beside the time actually spent
+   * (rooms and scenarios record time; see src/lib/plans/timeSpent.ts).
+   */
+  target_minutes?: number;
 }
 
 /** Caps enforced by the API (the DB also bounds the array at 100). */
 export const PLAN_LIMITS = {
   items: 100,
   note: 300,
+  /** Upper bound of a per-item target time: one working week. */
+  targetMinutes: 2400,
   title: 160,
   instructions: 2000,
   groupName: 80,
@@ -81,6 +89,8 @@ export interface ResolvedPlanItem extends PlanItem {
   /** Org-authored content (the "Custom" branch of the tree). */
   custom?: boolean;
   status?: ItemStatus;
+  /** Staff views of one learner: minutes spent, where the item has a target (null = time not measured for this kind). */
+  minutes_spent?: number | null;
 }
 
 export type Audience = "org" | "targeted";
@@ -113,7 +123,11 @@ export interface StaffPlan {
   updated_at: string;
   items: ResolvedPlanItem[];
   /** users × items matrix: one row per recipient, `statuses` is STATUS_CODE chars in item order. */
-  progress: { user_id: string; name: string; statuses: string }[];
+  progress: {
+    user_id: string; name: string; statuses: string;
+    /** Minutes spent per item, in item order; null where the platform does not measure time (lessons, quizzes). */
+    minutes?: (number | null)[];
+  }[];
   /** Recipients who have finished every tracked item. */
   completed: number;
 }

@@ -7,6 +7,9 @@ import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 export type TimeFilter = "15m" | "1h" | "4h" | "all";
 import { cn } from "@/lib/utils";
+import { FloatingTip } from "@/components/ui/FloatingTip";
+import { useDecoder } from "@/components/dashboard/Decoder";
+import { looksEncoded } from "@/lib/decode/ops";
 import type { LiveEvent } from "./useLiveEvents";
 import { LOG_SOURCE_GUIDE } from "./logSourceGuide";
 import { eventMatchesSearch } from "./eventSearch";
@@ -100,6 +103,7 @@ function cloudLabel(vendor?: string): string {
 
 function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) {
   const [visible, setVisible] = useState(false);
+  const anchor = useRef<HTMLButtonElement>(null);
   const key = source === "cloudtrail" ? "cloud" : source;
   const guide = LOG_SOURCE_GUIDE[key];
   const sourceLabel = source === "cloudtrail" ? cloudLabel(vendor) : (SOURCE_LABEL[source] ?? source.toUpperCase());
@@ -118,6 +122,7 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
       {/* A real <button> so keyboard users can reveal the card (focus/Enter),
           not just mouse hover. onClick is the touch/keyboard toggle. */}
       <button
+        ref={anchor}
         type="button"
         aria-expanded={visible}
         className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60", sourceColor)}
@@ -129,12 +134,8 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
       >
         {sourceLabel}
       </button>
-      {visible && (
-        <div
-          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-lg border border-border/80 bg-bg-elevated p-3 shadow-2xl"
-          onMouseEnter={() => setVisible(true)}
-          onMouseLeave={() => setVisible(false)}
-        >
+      <FloatingTip anchor={anchor} open={visible} width={288} onMouseEnter={() => setVisible(true)} onMouseLeave={() => setVisible(false)}>
+        <div className="p-3">
           <p className="text-[10px] font-bold text-white mb-2">{guide.label}</p>
           <p className="text-[9px] text-slate-400 mb-2">{guide.vendors}</p>
           <div className="mb-2">
@@ -158,7 +159,7 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
             <p className="text-[9px] text-slate-300">{guide.redFlag}</p>
           </div>
         </div>
-      )}
+      </FloatingTip>
     </div>
   );
 }
@@ -167,11 +168,13 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
 
 function HeaderTip({ label, tip }: { label: string; tip: string }) {
   const [visible, setVisible] = useState(false);
+  const anchor = useRef<HTMLButtonElement>(null);
   return (
     <div className="relative inline-block">
       {/* A real <button> so keyboard users can reveal the tip (focus/Enter),
           not just mouse hover. */}
       <button
+        ref={anchor}
         type="button"
         aria-expanded={visible}
         className="cursor-help border-b border-dashed border-slate-600/60 hover:border-slate-400/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60"
@@ -183,11 +186,9 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
       >
         {label}
       </button>
-      {visible && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 w-64 rounded-lg border border-border/80 bg-bg-elevated px-3 py-2 shadow-2xl">
-          <p className="text-[10px] leading-relaxed text-slate-300">{tip}</p>
-        </div>
-      )}
+      <FloatingTip anchor={anchor} open={visible} width={256}>
+        <p className="px-3 py-2 text-[10px] normal-case leading-relaxed tracking-normal text-slate-300">{tip}</p>
+      </FloatingTip>
     </div>
   );
 }
@@ -547,6 +548,18 @@ export function matchesFieldFilter(event: LiveEvent, f: FieldFilter, rows: () =>
 }
 
 /** The ＋ / − pair next to a field value (only inside a feed that filters). */
+/** One click from an encoded field value to the Decoder (only inside a DecoderProvider). */
+function DecodeButton({ value }: { value: string }) {
+  const dec = useDecoder();
+  if (!dec || !looksEncoded(value)) return null;
+  return (
+    <button type="button" onClick={e => { e.stopPropagation(); dec.open(value); }} title="Open this value in the Decoder"
+      className="shrink-0 rounded border border-neon-purple/40 bg-neon-purple/10 px-1.5 py-0.5 text-[10px] font-semibold text-neon-purple hover:bg-neon-purple/20">
+      Decode
+    </button>
+  );
+}
+
 function FilterButtons({ field, value, label }: { field: string; value: string; label: string }) {
   const add = useContext(FieldFilterContext);
   if (!add || !value || value === "-") return null;
@@ -896,6 +909,7 @@ export function DetailPanelBody({
                             "min-w-0 flex-1 font-mono text-[10px] [overflow-wrap:anywhere]",
                             showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
                           )}>{v}</span>
+                          <DecodeButton value={v} />
                           <FilterButtons field={k} value={v} label={k} />
                         </span>
 
@@ -959,7 +973,7 @@ export function DetailPanelBody({
 
 /** Table-cell wrapper - the feed renders the expanded row as a <tr><td colSpan>. */
 export function DetailPanel(props: DetailPanelProps) {
-  return <td colSpan={7} className="bg-bg-elevated p-0"><DetailPanelBody {...props} /></td>;
+  return <td colSpan={9} className="bg-bg-elevated p-0"><DetailPanelBody {...props} /></td>;
 }
 
 
@@ -1076,16 +1090,24 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
   );
 }
 
-function MitreBadge({ technique }: { technique: string }) {
+/** "T1110.003 Password Spraying": analysts do not remember IDs (demo feedback 2026-11). */
+export function mitreLabel(technique: string): string {
+  const t = techniqueById(technique) ?? techniqueById(technique.split(".")[0]);
+  return t ? `${technique} ${t.name}` : technique;
+}
+
+function MitreBadge({ technique, compact }: { technique: string; compact?: boolean }) {
   const [open, setOpen] = useState(false);
+  const name = techniqueById(technique)?.name ?? techniqueById(technique.split(".")[0])?.name;
   return (
     <>
       <button
         onClick={e => { e.stopPropagation(); setOpen(true); }}
-        className="inline-flex items-center gap-0.5 rounded border border-neon-purple/40 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-neon-purple hover:bg-neon-purple/20 transition"
-        title={`MITRE: ${technique}`}
+        className={cn("inline-flex min-w-0 max-w-full items-center gap-1 rounded border border-neon-purple/40 bg-neon-purple/10 px-1.5 py-0.5 text-[9px] text-neon-purple hover:bg-neon-purple/20 transition", compact && "w-full")}
+        title={`MITRE ATT&CK ${mitreLabel(technique)}: open the technique`}
       >
-        {technique}
+        <span className="shrink-0 font-mono font-bold">{technique}</span>
+        {name && <span className="min-w-0 truncate font-sans font-semibold">{name}</span>}
       </button>
       <AnimatePresence>
         {open && <MitreSlideout techniqueId={technique} onClose={() => setOpen(false)} />}
@@ -1148,8 +1170,10 @@ function SocMethodologyBanner() {
 // ─── Event row ────────────────────────────────────────────────────────────────
 
 const EventRow = memo(function EventRow({
-  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, openNonce,
+  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, openNonce, wide,
 }: {
+  /** The table has room for the Source IP and MITRE columns (not in the narrow team column). */
+  wide?: boolean;
   /** Team Tier-1 "Take next alert": a new value opens this row and scrolls it into view. */
   openNonce?: number;
   event: LiveEvent;
@@ -1231,6 +1255,7 @@ const EventRow = memo(function EventRow({
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 truncate">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "-"}</td>
+        {wide && <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-300 truncate" title={event.src_ip ?? undefined}>{event.src_ip ?? "-"}</td>}
         <td className="py-2.5 pr-3 overflow-hidden">
           <LogSourceCard source={event.feed_source ?? event.source} vendor={event.vendor} />
         </td>
@@ -1278,14 +1303,14 @@ const EventRow = memo(function EventRow({
                       )}
                     </div>
                     {/* Row 2: dry action text */}
-                    <span className="line-clamp-1 text-[11px] leading-snug text-slate-400">{cleanDesc}</span>
+                    <span className="line-clamp-1 text-[11px] leading-snug text-slate-400" title={cleanDesc}>{cleanDesc}</span>
                   </>
                 );
               })()}
 
               {/* No user_email: fall back to single-line description */}
               {!event.user_email && (
-                <span className="line-clamp-2 leading-relaxed">{event.displayDescription}</span>
+                <span className="line-clamp-2 leading-relaxed" title={event.displayDescription}>{event.displayDescription}</span>
               )}
 
               {/* Triage state (team feed only) - neutral, reflects the player's OWN
@@ -1321,16 +1346,23 @@ const EventRow = memo(function EventRow({
         <td className="py-2.5 pr-3">
           <RuleLevelBadge level={event.ruleLevel} />
         </td>
+        {wide && (
+          <td className="py-2.5 pr-3 overflow-hidden">
+            {/* Only where a real product tags the log (a detection: mitreVisible); a raw log has no technique. */}
+            {event.mitre_technique && mitreVisible(event)
+              ? <MitreBadge technique={event.mitre_technique} compact />
+              : <span className="text-[10px] text-slate-500">-</span>}
+          </td>
+        )}
         <td className="py-2.5 pr-3">
           {/* No verdict/grading UI here by design - classifying a row would
               instantly reveal ground truth (a hint). The analyst reads the log,
               forms their own conclusion, and the Incident Report is the single
               place they state and are graded on their findings. */}
           <div className="flex items-center gap-1.5">
-            {/* Rule ID only - the MITRE badge deliberately does NOT live here.
-                Showing it in the always-visible row would flag which rows are the
-                attack without expanding. The technique is revealed inside the
-                expanded DetailPanel instead. */}
+            {/* Rule ID. The MITRE column beside it shows the technique, by name, only where
+                a real product tags the log (detections, mitreVisible), never on raw logs, so
+                it marks detections, not attacks: benign detections carry one too. */}
             <span className="min-w-0 truncate font-mono text-[10px] text-slate-400" title={event.ruleId ? String(event.ruleId) : undefined}>{event.ruleId}</span>
           </div>
         </td>
@@ -1440,6 +1472,18 @@ export function EventFeed({
   onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, emptyMessage, sortable = true, openEvent,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  // Extra columns (Source IP, MITRE) only when the table has the width for them.
+  // A callback ref: the table mounts after the feed's first render, so observe when it appears.
+  const [tableEl, tableBox] = useState<HTMLDivElement | null>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    if (!tableEl) return;
+    setWide(tableEl.getBoundingClientRect().width >= 1000);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= 1000));
+    ro.observe(tableEl);
+    return () => ro.disconnect();
+  }, [tableEl]);
   // Log order (Tal, 2026-10-18: newest logs on top, or switch to oldest first).
   const [order, setOrder] = useState<FeedOrder>("newest");
   useEffect(() => { try { const v = localStorage.getItem(ORDER_KEY); if (v === "newest" || v === "oldest") setOrder(v); } catch { /* storage blocked */ } }, []);
@@ -1534,7 +1578,7 @@ export function EventFeed({
 
       <SocMethodologyBanner />
 
-      <div id="ef-event-table" className="max-h-[530px] overflow-y-auto overflow-x-auto">
+      <div id="ef-event-table" ref={tableBox} className="max-h-[530px] overflow-y-auto overflow-x-auto">
         {/* Fixed column widths so the table FITS its container (the team exercise puts it
             in a ~650px column): Description takes whatever is left and the narrow cells
             truncate, instead of the table forcing a sideways scroll. min-w only kicks in
@@ -1544,9 +1588,11 @@ export function EventFeed({
             <col className="w-6" />
             <col className="w-[76px]" />
             <col className="w-[118px]" />
+            {wide && <col className="w-[112px]" />}
             <col className="w-[116px]" />
             <col />
             <col className="w-[56px]" />
+            {wide && <col className="w-[190px]" />}
             <col className="w-[84px]" />
           </colgroup>
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
@@ -1554,10 +1600,12 @@ export function EventFeed({
               <th className="w-6 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
+              {wide && <th id="ef-th-srcip" className="py-2 pr-3"><HeaderTip label="Source IP" tip="The address the activity came from, when the log has one. Click a row to pivot on it." /></th>}
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity - EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
               <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical - act now. High levels still need verifying: false positives fire high rules too." /></th>
-              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Expand the row to see its MITRE ATT&CK mapping." /></th>
+              {wide && <th id="ef-th-mitre" className="py-2 pr-3"><HeaderTip label="MITRE" tip="The ATT&CK technique the detection maps to, with its name. Only detections (EDR, IDS, WAF, DLP, SIEM rules) carry one; a raw log does not, and benign detections carry one too. Click it for the technique." /></th>}
+              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. A detection rule maps to a MITRE ATT&CK technique, shown in the MITRE column (and in the expanded row on narrow screens)." /></th>
             </tr>
           </thead>
           <FieldFilterContext.Provider value={addFieldFilter}>
@@ -1566,6 +1614,7 @@ export function EventFeed({
               {shown.map(ev => (
                 <EventRow
                   key={ev.id}
+                  wide={wide}
                   event={ev}
                   isNew={newIds.has(ev.id)}
                   onThreatQuery={setThreatQuery}
@@ -1583,7 +1632,7 @@ export function EventFeed({
             </AnimatePresence>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                <td colSpan={wide ? 9 : 7} className="py-8 text-center text-xs text-slate-400">
                   {events.length === 0
                     ? (emptyMessage ?? "Press Start to begin your shift.")
                     : "No events match the current filter."}

@@ -18,11 +18,13 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import {
   ArrowLeft, Loader2, AlertTriangle, DoorOpen, Target, Activity, Timer, Clock, KeyRound, CalendarDays, Gauge,
-  XCircle, CheckCircle2, Crosshair, ListChecks, ClipboardList, ExternalLink, Info,
+  XCircle, CheckCircle2, Crosshair, ListChecks, ClipboardList, ExternalLink, Info, FileDown,
 } from "lucide-react";
 import type { StudentDetail } from "@/app/api/org/students/[id]/route";
 import { PersonalPrioritiesCard } from "@/components/manage/PersonalPrioritiesCard";
 import { cn } from "@/lib/utils";
+import { useBrand } from "@/lib/brand/BrandContext";
+import { downloadStudentReport, loadReportInput } from "@/lib/org/studentReportPdf";
 
 type Tab = "summary" | "mistakes" | "activity" | "plan";
 const MIN_ITEMS = 5; // fewer gradable questions than this in a topic is not enough to judge it
@@ -60,6 +62,15 @@ export default function StudentDetailPage() {
   const initialTab = useSearchParams()?.get("tab");
   const [tab, setTab] = useState<Tab>(initialTab === "mistakes" || initialTab === "activity" || initialTab === "plan" ? initialTab : "summary");
   const [onlyUnsolved, setOnlyUnsolved] = useState(false);
+  const brand = useBrand();
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  async function downloadPdf() {
+    setPdfBusy(true); setPdfError(null);
+    try { await downloadStudentReport(await loadReportInput(id, brand.productName)); }
+    catch (e) { setPdfError(e instanceof Error ? e.message : "Could not build the PDF."); }
+    finally { setPdfBusy(false); }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +120,12 @@ export default function StudentDetailPage() {
                   </div>
                 </div>
                 <div className="text-right">
+                  <button type="button" onClick={downloadPdf} disabled={pdfBusy}
+                    className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-cyber-500/40 bg-cyber-500/10 px-2.5 py-1 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/20 disabled:opacity-60">
+                    {pdfBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <FileDown className="h-3.5 w-3.5" aria-hidden />}
+                    {pdfBusy ? "Preparing..." : "Download PDF report"}
+                  </button>
+                  {pdfError && <p role="alert" className="mb-1 text-[11px] text-severity-high">{pdfError}</p>}
                   <p className="font-mono text-2xl font-bold text-cyber-300">{data.xp.toLocaleString()}<span className="ml-1 text-sm text-slate-400">XP</span></p>
                   <p className="text-[11px] text-slate-400">Level {data.level}</p>
                 </div>

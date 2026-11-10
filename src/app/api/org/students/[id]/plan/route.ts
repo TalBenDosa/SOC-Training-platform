@@ -7,6 +7,7 @@ import { cleanLine, cleanText, droppedPlanItemCount, isUuid, parseDueDate, parse
 import {
   ASSIGNMENT_COLUMNS, PlanDataError, loadLearnerPlans, loadProgress, resolveItems, toPlanDataError, type AssignmentDbRow,
 } from "@/lib/plans/server";
+import { loadTimeSpent, minutesFor } from "@/lib/plans/timeSpent";
 import { PLAN_LIMITS, type LearnerPlan, type Priority, type ResolvedPlanItem } from "@/lib/plans/types";
 import { deliverNotifications, emailOrigin, itemSetChanged, noticeText, planEmailsEnabled, settleEmailJob, type EmailReport } from "@/lib/plans/notify";
 
@@ -101,6 +102,17 @@ export async function GET(_req: Request, { params }: Ctx) {
       orgId, userIds: [studentId], items: sanitizePlanItems(r?.items, catalog.isKnown),
     });
 
+    // Time spent beside every target the manager set (personal and assigned plans).
+    const personalItems = r ? resolveItems(r.items, catalog, { idx, userId: studentId }) : [];
+    const assigned = all.filter(p => !p.personal);
+    const targeted = [...personalItems, ...assigned.flatMap(p => p.items)].filter(i => i.target_minutes);
+    if (targeted.length) {
+      const time = await loadTimeSpent(admin, { orgId, userIds: [studentId], items: targeted });
+      for (const it of [...personalItems, ...assigned.flatMap(p => p.items)]) {
+        if (it.target_minutes) it.minutes_spent = minutesFor(time, studentId, [it])[0];
+      }
+    }
+
     const body: PersonalPlanResponse = {
       personal: r ? {
         id: r.id,
@@ -108,10 +120,10 @@ export async function GET(_req: Request, { params }: Ctx) {
         instructions: r.instructions,
         due_at: r.due_at,
         priority: parsePriority(r.priority) as Priority,
-        items: resolveItems(r.items, catalog, { idx, userId: studentId }),
+        items: personalItems,
         updated_at: r.updated_at,
       } : null,
-      assigned: all.filter(p => !p.personal),
+      assigned,
       email_enabled: planEmailsEnabled(),
     };
     return NextResponse.json(body);

@@ -30,6 +30,7 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
           <li key={`${it.kind}:${it.id}`} className="flex min-w-0 gap-1.5">
             <span className="w-5 shrink-0 text-right font-mono text-slate-500">{i + 1}</span>
             <span className="truncate" title={it.title}>{it.title}</span>
+            {it.target_minutes ? <span className="shrink-0 text-cyber-300" title="Target time set by the manager">target {it.target_minutes} min</span> : null}
           </li>
         ))}
       </ol>
@@ -59,14 +60,25 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
                       </span>
                     )}
                   </td>
-                  {st.map((s, i) => (
-                    <td key={i} className="px-1 py-1.5 text-center">
-                      <span title={`${plan.items[i]?.title ?? ""} — ${CELL[s].label}`}
-                        className={`inline-flex h-5 w-5 items-center justify-center rounded font-mono text-[11px] ${CELL[s].cls}`}>
-                        <span aria-hidden="true">{CELL[s].glyph}</span><span className="sr-only">{`${plan.items[i]?.title ?? `Item ${i + 1}`}: ${CELL[s].label}`}</span>
-                      </span>
-                    </td>
-                  ))}
+                  {st.map((s, i) => {
+                    const target = plan.items[i]?.target_minutes;
+                    const spent = row.minutes?.[i];
+                    return (
+                      <td key={i} className="px-1 py-1.5 text-center">
+                        <span title={`${plan.items[i]?.title ?? ""}: ${CELL[s].label}`}
+                          className={`inline-flex h-5 w-5 items-center justify-center rounded font-mono text-[11px] ${CELL[s].cls}`}>
+                          <span aria-hidden="true">{CELL[s].glyph}</span><span className="sr-only">{`${plan.items[i]?.title ?? `Item ${i + 1}`}: ${CELL[s].label}`}</span>
+                        </span>
+                        {/* Time against the manager's target, where one is set. */}
+                        {target ? (
+                          <span className={`block font-mono text-[9px] ${spent === null || spent === undefined ? "text-slate-600" : spent >= target ? "text-neon-green" : "text-neon-amber"}`}
+                            title={spent === null || spent === undefined ? `Target ${target} min. Time is not measured for this kind of item yet.` : `${spent} of ${target} min`}>
+                            {spent === null || spent === undefined ? `-/${target}m` : `${Math.round(spent)}/${target}m`}
+                          </span>
+                        ) : null}
+                      </td>
+                    );
+                  })}
                   <td className={`px-3 py-1.5 text-right font-mono text-[11px] ${tracked > 0 && done === tracked ? "font-bold text-neon-green" : "text-slate-400"}`}>
                     {done}/{tracked}
                   </td>
@@ -77,6 +89,9 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
         </table>
       </div>
       <p className="text-[10px] text-slate-500">✓ done · ◐ in progress · · not started · - not tracked (custom library lessons record no completion)</p>
+      {plan.items.some(i => i.target_minutes) && (
+        <p className="text-[10px] text-slate-500">Under a cell: minutes spent / target. Green when the target is reached. Time is measured in rooms (time on each task) and scenarios; lessons and quizzes show -.</p>
+      )}
     </div>
   );
 }

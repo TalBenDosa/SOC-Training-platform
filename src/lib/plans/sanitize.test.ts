@@ -12,6 +12,16 @@ const U1 = "22222222-0000-4000-8000-000000000001";
 const U2 = "22222222-0000-4000-8000-000000000002";
 
 describe("sanitizePlanItems", () => {
+  it("keeps a per-item target time in whole minutes, capped, and drops junk", () => {
+    const out = sanitizePlanItems([
+      { kind: "room", id: "intro", target_minutes: 45.4 },
+      { kind: "room", id: "siem-101", target_minutes: 99999 },
+      { kind: "scenario", id: "phish", target_minutes: "abc" },
+      { kind: "quiz", id: "mitre-attack", target_minutes: 0 },
+    ], isKnown);
+    expect(out.map(i => i.target_minutes)).toEqual([45, 2400, undefined, undefined]);
+  });
+
   it("keeps v1 rows ({kind,id}) byte-for-byte", () => {
     const v1 = [{ kind: "room", id: "intro" }, { kind: "scenario", id: "phish" }];
     expect(sanitizePlanItems(v1, isKnown)).toEqual(v1);

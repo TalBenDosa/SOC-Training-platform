@@ -34,6 +34,7 @@ function ItemRow({ it }: { it: ResolvedPlanItem }) {
       <span className="min-w-0 flex-1">
         <span className={`block truncate text-[12px] ${done ? "text-slate-400 line-through decoration-slate-600" : "text-slate-100 group-hover:text-white"}`}>{it.title}</span>
         {it.note && <span className="mt-0.5 block text-[11px] italic text-slate-400">{it.note}</span>}
+        {it.target_minutes ? <span className="mt-0.5 block text-[11px] text-cyber-300">Plan to spend about {it.target_minutes} min on this</span> : null}
       </span>
       {it.priority === 1 && !done && <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-neon-amber">High</span>}
       <span className="shrink-0 text-[9px] uppercase tracking-wider text-slate-500">{KIND_LABEL[it.kind]}</span>

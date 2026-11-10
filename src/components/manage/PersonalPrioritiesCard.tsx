@@ -168,6 +168,7 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
                         {p.items.map(it => (
                           <Link key={itemKey(it)} href={it.href} className="inline-flex items-center gap-1 rounded border border-border bg-bg px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-cyber-500/40">
                             <StatusIcon status={it.status} /> {it.title}
+                            {it.target_minutes ? <TimeVsTarget spent={it.minutes_spent} target={it.target_minutes} /> : null}
                           </Link>
                         ))}
                       </div>
@@ -180,5 +181,16 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
         </>
       )}
     </Card>
+  );
+}
+
+/** "12/30 min": time spent against the manager's target (green once reached; "-" where time is not measured). */
+function TimeVsTarget({ spent, target }: { spent?: number | null; target: number }) {
+  const measured = spent !== null && spent !== undefined;
+  return (
+    <span title={measured ? `${spent} of ${target} minutes` : `Target ${target} min. Time is not measured for lessons and quizzes yet.`}
+      className={`ml-1 font-mono ${!measured ? "text-slate-500" : (spent ?? 0) >= target ? "text-neon-green" : "text-neon-amber"}`}>
+      {measured ? Math.round(spent ?? 0) : "-"}/{target}m
+    </span>
   );
 }

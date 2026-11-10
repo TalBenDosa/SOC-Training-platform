@@ -9,7 +9,7 @@
  * re-validates every id, priority and note on save.
  */
 import { useState } from "react";
-import { ArrowDown, ArrowUp, GripVertical, MessageSquare, X, CheckCircle2, CircleDot, Circle } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, MessageSquare, X, CheckCircle2, CircleDot, Circle, Timer } from "lucide-react";
 import {
   DEFAULT_PRIORITY, PLAN_LIMITS, PRIORITY_LABEL, itemKey,
   type CatalogNode, type ItemStatus, type PlanItem, type Priority,
@@ -50,6 +50,7 @@ export function PlanItemsEditor({
       const n: PlanItem = { ...it, ...patch };
       if (!n.priority || n.priority === DEFAULT_PRIORITY) delete n.priority;
       if (!n.note) delete n.note;
+      if (!n.target_minutes || n.target_minutes < 1) delete n.target_minutes;
       return n;
     }));
   }
@@ -106,6 +107,17 @@ export function PlanItemsEditor({
               >
                 {([1, 2, 3] as Priority[]).map(p => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
               </select>
+              <label className="flex shrink-0 items-center gap-1 text-[10px] text-slate-500" title="How long the learner should spend on this item (minutes). Leave empty for no target.">
+                <Timer className="h-3 w-3" aria-hidden="true" />
+                <input
+                  type="number" inputMode="numeric" min={1} max={PLAN_LIMITS.targetMinutes} step={5}
+                  value={it.target_minutes ?? ""}
+                  onChange={e => update(i, { target_minutes: e.target.value === "" ? undefined : Math.min(PLAN_LIMITS.targetMinutes, Math.max(1, Math.round(Number(e.target.value)))) })}
+                  placeholder="min"
+                  aria-label="Target time in minutes"
+                  className="w-12 rounded border border-border bg-bg px-1 py-0.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none"
+                />
+              </label>
               <button type="button" onClick={() => setNoteOpen(s => new Set(s).add(key))} title="Add a note" aria-label="Add a note"
                 className={`rounded p-0.5 transition hover:bg-white/5 ${it.note ? "text-cyber-300" : "text-slate-500 hover:text-slate-200"}`}>
                 <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />

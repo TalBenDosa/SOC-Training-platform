@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
 import { getPlanCatalog, needsOrgCatalog } from "@/lib/plans/catalog";
 import { planMatrix } from "@/lib/plans/completion";
+import { loadTimeSpent, minutesFor, type TimeIndex } from "@/lib/plans/timeSpent";
 import {
   cleanLine, cleanText, droppedPlanItemCount, isUuid, parseAudience, parseDueDate, parsePriority, sanitizePlanItems, sanitizeTargets,
 } from "@/lib/plans/sanitize";
@@ -278,9 +279,13 @@ export async function GET(req: Request) {
     // reach — org-pinned (a manager sees progress earned inside their org).
     const allUsers = [...new Set(resolved.flatMap(x => x.recipients))];
     const allItems = resolved.flatMap(x => x.items);
-    const idx = allUsers.length && allItems.length
-      ? await loadProgress(admin, { orgId, userIds: allUsers, items: allItems })
-      : new Map();
+    const [idx, time] = allUsers.length && allItems.length
+      ? await Promise.all([
+          loadProgress(admin, { orgId, userIds: allUsers, items: allItems }),
+          // Time spent only matters where the manager set a target.
+          allItems.some(i => i.target_minutes) ? loadTimeSpent(admin, { orgId, userIds: allUsers, items: allItems.filter(i => i.target_minutes) }) : Promise.resolve(new Map() as TimeIndex),
+        ])
+      : [new Map(), new Map() as TimeIndex];
 
     const plans: StaffPlan[] = resolved.map(({ r, audience, targets, recipients, items }) => {
       const matrix = planMatrix(items, recipients, idx);
@@ -299,7 +304,11 @@ export async function GET(req: Request) {
         created_at: r.created_at,
         updated_at: r.updated_at,
         items,
-        progress: matrix.rows.map(row => ({ ...row, name: nameOf.get(row.user_id) ?? row.user_id.slice(0, 8) })),
+        progress: matrix.rows.map(row => ({
+          ...row,
+          name: nameOf.get(row.user_id) ?? row.user_id.slice(0, 8),
+          ...(items.some(i => i.target_minutes) ? { minutes: minutesFor(time, row.user_id, items) } : {}),
+        })),
         completed: matrix.completed,
       };
     });

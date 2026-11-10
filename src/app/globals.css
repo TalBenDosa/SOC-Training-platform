@@ -164,6 +164,17 @@ select.border-border {
   border-color: #64748b;
 }
 
+/* Native dropdown lists (demo feedback 2026-11: "the SOC filters open white, unreadable").
+ * Many filter selects are bg-transparent with light text; some browsers and OS themes draw the
+ * open list with the system's white background, so the options vanished. Paint the list itself. */
+select { color-scheme: dark; }
+select option,
+select optgroup {
+  background-color: rgb(var(--bg-panel));
+  color: #e2e8f0;
+}
+select option:checked { background-color: rgb(var(--cyber-700)); color: #fff; }
+
 /* White-label video end card (src/components/lessons/LessonVideo.tsx): the logo settles in,
    the replay button follows. Still for anyone who prefers reduced motion. */
 @keyframes wl-endcard-in {

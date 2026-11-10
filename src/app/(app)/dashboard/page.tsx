@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { loadSimData, type SimData, type Difficulty } from "./simData";
 import { useLiveEvents } from "./useLiveEvents";
-import { EventFeed } from "./EventFeed";
+import { EventFeed, mitreLabel } from "./EventFeed";
+import { DecoderButton } from "@/components/dashboard/Decoder";
 import { getClearedCompanies, addClearedCompany, setLastSession, getRoomProgress } from "@/lib/storage/progress";
 import Link from "next/link";
 import { WorkflowGuide } from "./WorkflowGuide";
@@ -1633,12 +1634,14 @@ export default function DashboardPage() {
               ))}
             </select>
 
+            <DecoderButton className="ml-auto h-6 py-0 text-[10px]" />
+
             <button
               type="button"
               aria-expanded={showAdvancedFilters}
               onClick={() => setShowAdvancedFilters(v => !v)}
               className={cn(
-                "ml-auto rounded border px-2 py-0.5 text-[10px] font-semibold transition",
+                "rounded border px-2 py-0.5 text-[10px] font-semibold transition",
                 advancedFilterCount > 0
                   ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300"
                   : "border-border text-slate-400 hover:text-slate-300 hover:border-border-strong"
@@ -1751,7 +1754,7 @@ export default function DashboardPage() {
               >
                 <option value="all">All</option>
                 {filterOptions.mitres.sort().map(t => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>{mitreLabel(t)}</option>
                 ))}
               </select>
             </div>

@@ -117,6 +117,8 @@ export function sanitizePlanItems(
     if (priority !== DEFAULT_PRIORITY) item.priority = priority;
     const note = cleanText(o.note, PLAN_LIMITS.note);
     if (note) item.note = note;
+    const target = Math.round(Number(o.target_minutes));
+    if (Number.isFinite(target) && target >= 1) item.target_minutes = Math.min(target, PLAN_LIMITS.targetMinutes);
     out.push(item);
   }
   return out;

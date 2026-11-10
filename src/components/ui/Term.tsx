@@ -14,11 +14,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { GLOSSARY } from "@/lib/glossary";
+import { FloatingTip } from "./FloatingTip";
 
 export function Term({ k, children }: { k: string; children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const tipId = useId();
   const wrapRef = useRef<HTMLSpanElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const entry = GLOSSARY[k];
 
   // A tap/click outside closes it (iOS Safari doesn't focus buttons on tap, so
@@ -42,6 +44,7 @@ export function Term({ k, children }: { k: string; children: React.ReactNode }) 
       onMouseLeave={() => setVisible(false)}
     >
       <button
+        ref={btnRef}
         type="button"
         aria-expanded={visible}
         aria-describedby={visible ? tipId : undefined}
@@ -56,8 +59,9 @@ export function Term({ k, children }: { k: string; children: React.ReactNode }) 
       >
         {children}
       </button>
-      {visible && (
-        <span id={tipId} role="tooltip" className="absolute left-0 top-full mt-1.5 z-[60] block w-72 rounded-lg border border-border/80 bg-bg-elevated px-3 py-2.5 shadow-2xl">
+      {/* In a portal, clamped to the screen: inside a table or a scrolling panel it was cut off. */}
+      <FloatingTip anchor={btnRef} open={visible} width={288} id={tipId}>
+        <span className="block px-3 py-2.5">
           <span className="flex items-center gap-1.5 mb-1">
             <BookOpen className="h-3 w-3 text-cyber-400" aria-hidden="true" />
             <span className="text-[10px] font-bold uppercase tracking-wider text-cyber-300">{entry.term}</span>
@@ -69,7 +73,7 @@ export function Term({ k, children }: { k: string; children: React.ReactNode }) 
             </span>
           )}
         </span>
-      )}
+      </FloatingTip>
     </span>
   );
 }
