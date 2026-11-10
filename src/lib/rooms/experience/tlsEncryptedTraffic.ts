@@ -198,6 +198,14 @@ export const TLS_ENCRYPTED_TRAFFIC: RoomExperience = {
   look: { primary: "#e07a5f", secondary: "#a8dadc", warn: "#ffd166" },
   scene: "facilitysealedroom",
   layout: "facility",
+  story: {
+    intro: { title: "The Sealed Room", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-intro-b4f529e6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-intro-da9a396c.jpg" },
+    afterStation: {
+      fingerprint: { title: "One Laptop, One Question", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-ch2-3ce0218c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-ch2-951f34f6.jpg" },
+      proxy: { title: "The Answer Is Still Sealed", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-ch3-7ef1be77.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-ch3-4b07adf2.jpg" },
+      sealedroom: { title: "Friday, Six O'Clock", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-finale-345ec9c5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tls-encrypted-traffic/sealedroom-finale-87076076.jpg" },
+    },
+  },
   stations: [
     {
       id: "handshake",
