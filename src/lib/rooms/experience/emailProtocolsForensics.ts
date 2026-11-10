@@ -80,6 +80,14 @@ export const EMAIL_PROTOCOLS_FORENSICS: RoomExperience = {
   look: { primary: "#ee9b3e", secondary: "#9fb8ff", warn: "#f0516e" },
   scene: "facilityreturnpath",
   layout: "facility",
+  story: {
+    intro: { title: "Three Days to Friday", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-intro-40dbb316.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-intro-bf4f31fb.jpg" },
+    afterStation: {
+      chain: { title: "Who Wrote This?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-ch2-07c4463d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-ch2-056c5fae.jpg" },
+      sidebyside: { title: "A Quiet Thursday", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-ch3-46c74268.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-ch3-9b3e5e7c.jpg" },
+      returnpath: { title: "Return Path", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-finale-e5107b8b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-protocols-forensics/returnpath-finale-83c6b175.jpg" },
+    },
+  },
   stations: [
     {
       id: "envelope",
