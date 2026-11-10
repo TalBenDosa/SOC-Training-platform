@@ -43,6 +43,14 @@ export const USE_CASE_DEVELOPMENT: RoomExperience = {
   look: { primary: "#86e3ce", secondary: "#ffb4a2", warn: "#e63946" },
   scene: "facilityfirstrule",
   layout: "facility",
+  story: {
+    intro: { title: "Two Years of Rules", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-intro-24aa67df.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-intro-6c87bdaf.jpg" },
+    afterStation: {
+      idea: { title: "The Notice", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-ch2-fc858456.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-ch2-f374d993.jpg" },
+      build: { title: "Did It Fire?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-ch3-a6efb955.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-ch3-c1f95e81.jpg" },
+      "first-alert": { title: "The First That Counts", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-finale-09719e8a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/use-case-development/firstrule-finale-e44a2253.jpg" },
+    },
+  },
   stations: [
     {
       id: "idea",
