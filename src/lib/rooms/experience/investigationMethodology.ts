@@ -38,11 +38,11 @@ export const INVESTIGATION_METHODOLOGY: RoomExperience = {
   scene: "facilityloosethread",
   layout: "facility",
   story: {
-    intro: { title: "The Exact Sum", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-intro-c9032a16.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-intro-fc32a32b.jpg" },
+    intro: { title: "The Exact Sum", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-intro-e4e2b65a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-intro-fc32a32b.jpg" },
     afterStation: {
-      question: { title: "What Would Prove It?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch2-8cd0dc1f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch2-f8003158.jpg" },
-      pivot: { title: "Three Clocks, One Morning", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch3-a5c94f7c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch3-851636e1.jpg" },
-      logon: { title: "Tied Off", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-finale-acf1b0e0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-finale-2de47619.jpg" },
+      question: { title: "What Would Prove It?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch2-539f7124.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch2-f8003158.jpg" },
+      pivot: { title: "Three Clocks, One Morning", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch3-274afe88.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-ch3-851636e1.jpg" },
+      logon: { title: "Tied Off", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-finale-b67df7c1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/investigation-methodology/loosethread-finale-2de47619.jpg" },
     },
   },
   stations: [

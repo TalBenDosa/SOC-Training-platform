@@ -40,6 +40,14 @@ export const SIGMA_YARA_RULE_AUTHORING: RoomExperience = {
   look: { primary: "#9ad4d6", secondary: "#ffd08a", warn: "#ff5a6e" },
   scene: "facilityruleandsign",
   layout: "facility",
+  story: {
+    intro: { title: "412 Files", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-intro-a64e1bce.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-intro-ac7fc695.jpg" },
+    afterStation: {
+      sample: { title: "A Blank Page", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-ch2-e96c048a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-ch2-e1eab27b.jpg" },
+      sigma: { title: "The Bench", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-ch3-cefdefe7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-ch3-e3697d90.jpg" },
+      signoff: { title: "Rule and Sign", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-finale-e7c34d0c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sigma-yara-rule-authoring/ruleandsign-finale-a8f124b4.jpg" },
+    },
+  },
   stations: [
     {
       id: "sample",
