@@ -54,10 +54,20 @@ const edrFor = (company: string, stack: Stack) => (stack.edr && PRODUCT_LABEL[st
 const label = (company: string, stack: Stack, tenant?: Tenant, story?: string) => `${tenant ? `org:${tenant.domain}` : company}${Object.keys(stack).length ? " " + JSON.stringify(stack) : ""}${story ? ` pinned:${story}` : ""}`;
 
 interface StoryRun { company: string; stack: Stack; story: AttackStory; events: TelemetryEvent[] }
+/** Builds the gate's sample with a fixed random draw. Victims, hosts and times are random in the
+ *  product, so an unseeded build sometimes drew two identical rows and check 7 flapped between runs. */
+function seededBuild<T>(seed: number, build: () => T): T {
+  let s = seed;
+  const rnd = vi.spyOn(Math, "random").mockImplementation(() => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648));
+  try { return build(); } finally { rnd.mockRestore(); }
+}
 let storyRuns: StoryRun[] | null = null;
 function stories(): StoryRun[] {
   if (storyRuns) return storyRuns;
-  storyRuns = [];
+  return (storyRuns = seededBuild(0x51a7e, buildStories));
+}
+function buildStories(): StoryRun[] {
+  const storyRuns: StoryRun[] = [];
   for (const [company, pool] of COMPANIES) for (const stack of STACKS) {
     const chosen = Object.keys(stack).length > 0;
     const seen = new Set<string>();
@@ -75,7 +85,10 @@ interface TeamRun { company: string; stack: Stack; feed: TelemetryEvent[]; answe
 let teamRuns: TeamRun[] | null = null;
 function teams(): TeamRun[] {
   if (teamRuns) return teamRuns;
-  teamRuns = [];
+  return (teamRuns = seededBuild(0x7ea35, buildTeams));
+}
+function buildTeams(): TeamRun[] {
+  const teamRuns: TeamRun[] = [];
   const roster = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, { role: "mgr" }];
   for (const [company] of COMPANIES) for (const stack of STACKS.slice(0, 2)) for (const diff of ["medium", "hard"] as const) {
     const tl = buildTeamTimeline(company, diff, `gate-${company}-${diff}`, null, teamLoad(diff, roster), stack);
