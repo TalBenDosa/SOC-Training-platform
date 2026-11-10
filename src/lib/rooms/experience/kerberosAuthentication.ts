@@ -62,6 +62,14 @@ export const KERBEROS_AUTHENTICATION: RoomExperience = {
   look: { primary: "#ff7b72", secondary: "#7ee8fa", warn: "#ffd23f" },
   scene: "facilitythreeheads",
   layout: "facility",
+  story: {
+    intro: { title: "For Sale", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-intro-8bdf151a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-intro-82c31408.jpg" },
+    afterStation: {
+      cipher: { title: "The Night Shift", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-ch2-62b81f74.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-ch2-83b26e41.jpg" },
+      forged: { title: "The Odd One", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-ch3-cbe50c52.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-ch3-3564bada.jpg" },
+      last: { title: "The Last Ticket", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-finale-16c4bc02.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/kerberos-authentication/threeheads-finale-16f8c42c.jpg" },
+    },
+  },
   stations: [
     {
       id: "office",
