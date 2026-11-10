@@ -25,8 +25,8 @@ export const RISK_FUNDAMENTALS: RoomExperience = {
   mission: "Work the triage board: separate threat, vulnerability and impact, read what a CVSS vector measures and what KEV adds, map Corvane's external attack surface with a scanner, review what's plugged into the CRM, and rank a week's findings the way a risk lead does.",
   estimate: "~40 min",
   look: { primary: "#fb923c", secondary: "#38bdf8", warn: "#f43f5e" },
-  scene: "riskcore",
-  layout: "stage",
+  scene: "facilityriskfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "4,312 Criticals", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-intro-fac4b870.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-intro-27ecf7a2.jpg" },
     afterStation: {

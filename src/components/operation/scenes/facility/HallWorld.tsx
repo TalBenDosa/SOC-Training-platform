@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, coreName, mountWorld, type WorldProps } from "../common";
-import { canvas, facilityPipeline, icon, ICONS, STATUS } from "./kit";
+import { canvas, facilityPipeline, fitFont, icon, ICONS, STATUS } from "./kit";
 
 /**
  * The hall layout of the room theme: an arc of tall glass cards around a holographic
@@ -105,7 +105,7 @@ function drawFront(d: ReturnType<typeof canvas>, c: HallConfig["cards"][number],
   g.globalAlpha = 1; g.fillStyle = bg; g.fillRect(0, 0, w, h);
   g.globalAlpha = 0.16; g.fillStyle = c.color; g.fillRect(0, 0, w, h); g.globalAlpha = 1;
   icon(g, c.icon, w / 2, 190, 190, c.color, 1.5);
-  g.fillStyle = "#ffffff"; g.textAlign = "center"; g.textBaseline = "alphabetic"; g.font = `700 74px "Segoe UI", system-ui, sans-serif`;
+  g.fillStyle = "#ffffff"; g.textAlign = "center"; g.textBaseline = "alphabetic"; fitFont(g, c.name, 74, w - 70);
   c.name.forEach((l, i) => g.fillText(l, w / 2, 380 + i * 84));
   g.fillStyle = "rgba(3,8,16,0.8)"; g.fillRect(44, 590, w - 88, 420);
   g.strokeStyle = c.color; g.globalAlpha = 0.6; g.lineWidth = 3; g.strokeRect(44, 590, w - 88, 420); g.globalAlpha = 1;
@@ -128,7 +128,7 @@ function drawBack(d: ReturnType<typeof canvas>, c: HallConfig["cards"][number], 
   icon(g, "check", w / 2, 300, 170, STATUS.cleared, 2.6);
   g.textAlign = "center"; g.textBaseline = "alphabetic";
   g.fillStyle = STATUS.cleared; g.font = `700 54px "Segoe UI", system-ui, sans-serif`; g.fillText("CLEARED", w / 2, 540);
-  g.fillStyle = "#ffffff"; g.font = `700 70px "Segoe UI", system-ui, sans-serif`;
+  g.fillStyle = "#ffffff"; fitFont(g, c.name, 70, w - 70);
   c.name.forEach((l, i) => g.fillText(l, w / 2, 650 + i * 80));
   for (let i = 0; i < 3; i++) {
     const cx = w / 2 + (i - 1) * 124, cy = 930, on = i < stars;

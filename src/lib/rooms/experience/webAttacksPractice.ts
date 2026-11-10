@@ -25,8 +25,8 @@ export const WEB_ATTACKS_PRACTICE: RoomExperience = {
   mission: "Crack the log's status codes, hold the box office against live requests, join WAF and server records to find what slipped through, then work the graded injection case to the end.",
   estimate: "~45 min",
   look: { primary: "#fb923c", secondary: "#a3e635", warn: "#f43f5e" },
-  scene: "opensesame",
-  layout: "stage",
+  scene: "facilitywebattackspractice",
+  layout: "facility",
   story: {
     intro: { title: "Tour Day", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-intro-1fc9e8d2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-attacks-practice/opensesame-intro-066c8079.jpg" },
     afterStation: {

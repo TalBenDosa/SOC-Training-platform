@@ -23,8 +23,8 @@ export const LINUX_FUNDAMENTALS: RoomExperience = {
   mission: "Investigate a compromised Linux web server from its own shell: find the rogue process, audit accounts and permissions, sweep cron and SSH for persistence, then read the privilege alert.",
   estimate: "~50 min",
   look: { primary: "#22c55e", secondary: "#38bdf8", warn: "#f43f5e" },
-  scene: "fstree",
-  layout: "stage",
+  scene: "facilitylinuxfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "Running Hot Since 02:31", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-intro-db655195.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-intro-f8666015.jpg" },
     afterStation: {

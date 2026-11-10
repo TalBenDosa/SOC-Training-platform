@@ -26,8 +26,8 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
   mission: "Run files through Falcon's prevention and detection policy, name what each console screen shows, find patient zero and contain a spreading beacon, then work a credential-dumping detection and a verdict.",
   estimate: "~45 min",
   look: { primary: "#ef4444", secondary: "#f8fafc", warn: "#f59e0b" },
-  scene: "talon",
-  layout: "stage",
+  scene: "facilitycrowdstrikefalcon",
+  layout: "facility",
   story: {
     intro: { title: "A Laptop in Lisbon", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-intro-cf3bb22b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/crowdstrike-falcon/talon-intro-4d66fbdf.jpg" },
     afterStation: {

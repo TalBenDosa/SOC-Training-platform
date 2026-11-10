@@ -24,8 +24,8 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
   mission: "Investigate a live Windows workstation from its own consoles: audit accounts and UAC, hunt persistence in the registry and services, triage processes, decode an obfuscated command, and work the Word and PowerShell alert.",
   estimate: "~50 min",
   look: { primary: "#3b9eff", secondary: "#a78bfa", warn: "#f43f5e" },
-  scene: "hostcore",
-  layout: "stage",
+  scene: "facilitywindowsfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "Something Does Not Belong", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-2727c796.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-eb660c88.jpg" },
     afterStation: {

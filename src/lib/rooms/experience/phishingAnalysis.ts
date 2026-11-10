@@ -11,6 +11,8 @@ const FILMS = "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public
 export const PHISHING_ANALYSIS: RoomExperience = {
   roomId: "phishing-analysis",
   codename: "Operation Dead Letter",
+  scene: "facilityphishinganalysis",
+  layout: "facility",
   theme: "mailroom",
   handler: { name: "Dana Reyes", role: "SOC Lead, Night Shift" },
   briefing: [

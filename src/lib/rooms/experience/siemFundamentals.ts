@@ -25,8 +25,8 @@ export const SIEM_FUNDAMENTALS: RoomExperience = {
   mission: "Match the SIEM's jobs to real examples, work out when a rule actually fires, sort alerts into true, benign and false positives, read a Wazuh alert field by field, and write your own KQL to answer questions no rule was built for.",
   estimate: "~45 min",
   look: { primary: "#22d3ee", secondary: "#fbbf24", warn: "#f43f5e" },
-  scene: "radar",
-  layout: "stage",
+  scene: "facilitysiemfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "1.2 Billion Events", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-bbb8d7ec.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-e6d7e1d7.jpg" },
     afterStation: {

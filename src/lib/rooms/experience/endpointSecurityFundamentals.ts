@@ -24,8 +24,8 @@ export const ENDPOINT_SECURITY_FUNDAMENTALS: RoomExperience = {
   mission: "Tell AV, NGAV, EDR and XDR apart by what they catch, contain a spreading infection host by host, choose between isolation and lighter containment, read process trees, and take apart a Defender alert field by field.",
   estimate: "~45 min",
   look: { primary: "#34d399", secondary: "#60a5fa", warn: "#f43f5e" },
-  scene: "blackbox",
-  layout: "stage",
+  scene: "facilityendpointsecurityfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "Every Endpoint Is a Flight Recorder", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-intro-ab2c9298.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-intro-67f1dd57.jpg" },
     afterStation: {

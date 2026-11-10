@@ -25,8 +25,8 @@ export const SENTINEL_ONE: RoomExperience = {
   mission: "Read a Threat Center status bar field by field, compare a brewery server with its gold image to find what keeps a miner alive, then work a ransomware detection and a rollout decision.",
   estimate: "~40 min",
   look: { primary: "#8b5cf6", secondary: "#22d3ee", warn: "#e5484d" },
-  scene: "storyline",
-  layout: "stage",
+  scene: "facilitysentinelone",
+  layout: "facility",
   story: {
     intro: { title: "Purple Monday", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-intro-2cacc9d9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinelone/rollback-intro-04c95e21.jpg" },
     afterStation: {

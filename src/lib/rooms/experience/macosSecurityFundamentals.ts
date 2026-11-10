@@ -27,8 +27,8 @@ export const MACOS_SECURITY_FUNDAMENTALS: RoomExperience = {
   mission: "Map Windows ideas onto macOS, work out which DMG or PKG dropped a helper, read quarantine, Gatekeeper and code signatures, judge osascript command lines, test your Keychain instincts, read the TCC database, and inspect a launchd plist.",
   estimate: "~65 min",
   look: { primary: "#e2e8f0", secondary: "#60a5fa", warn: "#f43f5e" },
-  scene: "orchard",
-  layout: "stage",
+  scene: "facilitymacossecurityfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "Unix With Its Own Gates", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-intro-7fad77b8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-intro-f4352769.jpg" },
     afterStation: {

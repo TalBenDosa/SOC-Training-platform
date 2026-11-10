@@ -26,8 +26,8 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
   mission: "Take a request apart with curl, tamper with a hidden field to prove nothing from the client can be trusted, read a SQL injection's outcome from status codes and byte counts, decide what a WAF can and can't catch, and check whether CSRF defences are actually on.",
   estimate: "~50 min",
   look: { primary: "#f472b6", secondary: "#22d3ee", warn: "#f43f5e" },
-  scene: "webpath",
-  layout: "stage",
+  scene: "facilitywebapplicationsecurity",
+  layout: "facility",
   story: {
     intro: { title: "Every Attack Is a Request", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-intro-2a067fff.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-intro-040d7b49.jpg" },
     afterStation: {

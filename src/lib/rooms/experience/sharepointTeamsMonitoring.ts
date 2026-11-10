@@ -26,8 +26,8 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
   mission: "Tune a download alert, find what changed in the sharing settings, test a stranger in chat, work out what's posting in the channel, follow one DLP alert across the logs, then close the graded case.",
   estimate: "~40 min",
   look: { primary: "#a78bfa", secondary: "#22d3ee", warn: "#fb923c" },
-  scene: "sharedlink",
-  layout: "stage",
+  scene: "facilitysharepointteamsmonitoring",
+  layout: "facility",
   story: {
     intro: { title: "Page Eleven", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-intro-728e5ec1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-intro-66526a03.jpg" },
     afterStation: {

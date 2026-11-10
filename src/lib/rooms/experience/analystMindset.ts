@@ -26,8 +26,8 @@ export const ANALYST_MINDSET: RoomExperience = {
   mission: "Practise the analyst's habits: test theories with evidence that could disprove them, chain 'so what?' into checkable predictions, run the six questions, measure normal with SIEM searches, catch biases in real case notes, and separate fact from assumption before you close.",
   estimate: "~55 min",
   look: { primary: "#c084fc", secondary: "#2dd4bf", warn: "#f43f5e" },
-  scene: "mindlab",
-  layout: "stage",
+  scene: "facilityanalystmindset",
+  layout: "facility",
   story: {
     intro: { title: "Take a Second Look", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-60c2ca40.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-d98b2eaa.jpg" },
     afterStation: {

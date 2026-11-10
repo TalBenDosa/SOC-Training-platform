@@ -25,8 +25,8 @@ export const HTML_SMUGGLING_AND_LOLBINS: RoomExperience = {
   mission: "Win the duel against your own controls, find the payload hiding in a web page, crack the binaries' vocabulary, judge live command lines, then build a rule that survives its first week and work the graded cases.",
   estimate: "~95 min",
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#ef4444" },
-  scene: "specialdelivery",
-  layout: "stage",
+  scene: "facilityhtmlsmugglingandlolbins",
+  layout: "facility",
   story: {
     intro: { title: "40,000 Attachments", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-intro-577bae52.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-intro-2ed3884d.jpg" },
     afterStation: {

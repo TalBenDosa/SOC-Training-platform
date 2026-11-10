@@ -188,8 +188,8 @@ export const ESXI_VIRTUALIZATION_SECURITY: RoomExperience = {
   mission: "Walk the stack, find what your EDR can't see, work out who could really have done it, walk one alarm back through the vSphere Client, catch the loop in a shell log, tune a rule that fires before the damage, then rebuild a graded hypervisor intrusion.",
   estimate: "~65 min",
   look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#f97316" },
-  scene: "baremetal",
-  layout: "stage",
+  scene: "facilityesxivirtualizationsecurity",
+  layout: "facility",
   story: {
     intro: { title: "The Cold Room", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-intro-e2ca237c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-intro-0b947b59.jpg" },
     afterStation: {

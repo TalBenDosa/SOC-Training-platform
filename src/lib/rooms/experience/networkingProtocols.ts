@@ -23,8 +23,8 @@ export const NETWORKING_PROTOCOLS: RoomExperience = {
   mission: "Read real traffic: open packet captures, query DNS yourself, see which protocols expose passwords, judge connections in context, and catch malware hiding in DNS lookups.",
   estimate: "~45 min",
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#f43f5e" },
-  scene: "portwall",
-  layout: "stage",
+  scene: "facilitynetworkingprotocols",
+  layout: "facility",
   story: {
     intro: { title: "Every Protocol Leaves Fingerprints", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-intro-377d0f11.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-intro-20a93191.jpg" },
     afterStation: {

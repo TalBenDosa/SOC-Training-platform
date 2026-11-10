@@ -23,8 +23,8 @@ export const PROTOCOLS_MASTERCLASS: RoomExperience = {
   mission: "Do subnet maths and place logs on the stack, read a TCP conversation and a UDP query in a capture, crack what DNS, HTTP and TLS give away about a portal, catch an ARP spoof and a rogue DHCP server, and take apart an HTTP beacon.",
   estimate: "~60 min",
   look: { primary: "#2dd4bf", secondary: "#a78bfa", warn: "#f43f5e" },
-  scene: "protostack",
-  layout: "stage",
+  scene: "facilityprotocolsmasterclass",
+  layout: "facility",
   story: {
     intro: { title: "Always Allowed", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-intro-b4476f92.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-intro-e93754eb.jpg" },
     afterStation: {

@@ -28,8 +28,8 @@ export const IDENTITY_BASICS: RoomExperience = {
   mission: "Work the identity gate: tell authentication from authorization, sort the three kinds of proof, decode a stolen token, review what an attacker left behind after containment, read a push-fatigue attack in Okta's log, and hunt a guessed password through Windows logon events.",
   estimate: "~60 min",
   look: { primary: "#a78bfa", secondary: "#fbbf24", warn: "#f43f5e" },
-  scene: "idgate",
-  layout: "stage",
+  scene: "facilityidentitybasics",
+  layout: "facility",
   story: {
     intro: { title: "The Token in the Dump", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-3068e998.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-e2aa4f8d.jpg" },
     afterStation: {

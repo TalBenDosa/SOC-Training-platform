@@ -25,8 +25,8 @@ export const DIGITAL_FORENSICS_BASICS: RoomExperience = {
   mission: "Find what's wrong on an evidence bag and its custody form, interrogate a memory image with Volatility 3, rebuild the night of the rigged auction from disk artefacts, then work the graded memory finding.",
   estimate: "~45 min",
   look: { primary: "#14b8a6", secondary: "#fbbf24", warn: "#f87171" },
-  scene: "coldcase",
-  layout: "stage",
+  scene: "facilitydigitalforensicsbasics",
+  layout: "facility",
   story: {
     intro: { title: "Lot 117", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-intro-b2b0b7b8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/digital-forensics-basics/coldcase-intro-5ff094c8.jpg" },
     afterStation: {

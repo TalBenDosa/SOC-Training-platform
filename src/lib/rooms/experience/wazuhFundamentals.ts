@@ -24,8 +24,8 @@ export const WAZUH_FUNDAMENTALS: RoomExperience = {
   mission: "Check agent health on the manager, push a log line through wazuh-logtest and read what each phase extracts, chase a file-integrity alert to the setting and the user that changed it, then work a new-account alert.",
   estimate: "~35 min",
   look: { primary: "#3b82f6", secondary: "#2dd4bf", warn: "#f97316" },
-  scene: "wazuhflow",
-  layout: "stage",
+  scene: "facilitywazuhfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "Six Weeks to Launch", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-intro-ad6fc2a5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-intro-8d143106.jpg" },
     afterStation: {

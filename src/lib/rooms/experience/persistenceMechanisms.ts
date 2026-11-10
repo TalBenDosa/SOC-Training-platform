@@ -25,8 +25,8 @@ export const PERSISTENCE_MECHANISMS: RoomExperience = {
   mission: "Hunt Run keys and the Startup folder, find a cron job planted without root, sweep services, BITS and WMI beyond the usual places, read a task-creation event field by field, and work out what survives a password reset in the cloud.",
   estimate: "~50 min",
   look: { primary: "#34d399", secondary: "#a78bfa", warn: "#f97316" },
-  scene: "sparekey",
-  layout: "stage",
+  scene: "facilitypersistencemechanisms",
+  layout: "facility",
   story: {
     intro: { title: "Nine Days Later", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-intro-51363139.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-intro-eada6a23.jpg" },
     afterStation: {

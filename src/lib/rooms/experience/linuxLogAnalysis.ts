@@ -25,8 +25,8 @@ export const LINUX_LOG_ANALYSIS: RoomExperience = {
   mission: "Know which file or journal holds each kind of event, query systemd's journal by unit, boot and priority, separate failed from successful SSH with lastb and last, find a planted SSH key, and hunt cron persistence and web attacks in the logs.",
   estimate: "~45 min",
   look: { primary: "#fb923c", secondary: "#a3e635", warn: "#f43f5e" },
-  scene: "varlog",
-  layout: "stage",
+  scene: "facilitylinuxloganalysis",
+  layout: "facility",
   story: {
     intro: { title: "No Single Diary", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-b12a04f5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-27ba4a5d.jpg" },
     afterStation: {

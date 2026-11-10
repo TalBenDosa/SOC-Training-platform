@@ -24,8 +24,8 @@ export const LOG_SOURCES_INTEGRATION: RoomExperience = {
   mission: "Match sources to the transports that carry them, debug a silent rsyslog-over-TLS source, map vendor fields onto a common schema and read a grok pattern, then take apart a LEEF event before the graded CEF one.",
   estimate: "~40 min",
   look: { primary: "#c084fc", secondary: "#34d399", warn: "#f43f5e" },
-  scene: "intake",
-  layout: "stage",
+  scene: "facilitylogsourcesintegration",
+  layout: "facility",
   story: {
     intro: { title: "Only What Reaches It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-intro-02c0e162.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-intro-d8ea85ec.jpg" },
     afterStation: {

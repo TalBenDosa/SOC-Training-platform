@@ -8,7 +8,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mountWorld, type WorldProps } from "../common";
 import { netNode } from "../cyberProps";
-import { canvas, icon, type FacilityIcon } from "./kit";
+import { canvas, icon, type FacilityIcon, fitFont } from "./kit";
 
 /**
  * The campus layout of the room theme: a dusk island seen from a hill, a security
@@ -89,7 +89,7 @@ function building(cfg: CampusConfig["buildings"][number], rnd: () => number) {
   const sg = canvas(512, 300);
   sg.g.fillStyle = "rgba(4,10,20,0.78)"; sg.g.beginPath(); sg.g.roundRect(0, 0, 512, 300, 16); sg.g.fill();
   icon(sg.g, cfg.icon, 256, 84, 112, cfg.color, 1.5);
-  sg.g.fillStyle = "#ffffff"; sg.g.textAlign = "center"; sg.g.font = `700 54px "Segoe UI", system-ui, sans-serif`;
+  sg.g.fillStyle = "#ffffff"; sg.g.textAlign = "center"; fitFont(sg.g, cfg.sign, 54, 470);
   cfg.sign.forEach((l, i) => sg.g.fillText(l, 256, 196 + i * 60));
   sg.tex.needsUpdate = true;
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 1.93), new THREE.MeshBasicMaterial({ map: sg.tex, transparent: true, toneMapped: false }));

@@ -26,8 +26,8 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
   mission: "Put on the Cyber Lens and switch on its five layers: what we defend, the three things that keep it safe, who attacks and how, what an alert looks like, and where your career starts.",
   estimate: "~40 min",
   look: { primary: "#2dd4bf", secondary: "#60a5fa", warn: "#f43f5e" },
-  scene: "city",
-  layout: "lens",
+  scene: "facilityintrocybersecurity",
+  layout: "facility",
   story: {
     intro: { title: "Put on the Lens", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-intro-4ffbaed7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-intro-70161c66.jpg" },
     afterStation: {

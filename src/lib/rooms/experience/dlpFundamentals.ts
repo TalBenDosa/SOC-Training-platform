@@ -25,8 +25,8 @@ export const DLP_FUNDAMENTALS: RoomExperience = {
   mission: "Place every exfiltration path on the right DLP channel, test text against Purview's classifiers and read their confidence, choose the right enforcement action for each policy, and trace a match through activity, history and HR context to a verdict.",
   estimate: "~50 min",
   look: { primary: "#fbbf24", secondary: "#818cf8", warn: "#f43f5e" },
-  scene: "sealedbrief",
-  layout: "stage",
+  scene: "facilitydlpfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "The Brief Left the Building", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-intro-5a123be2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-intro-4024e5df.jpg" },
     afterStation: {

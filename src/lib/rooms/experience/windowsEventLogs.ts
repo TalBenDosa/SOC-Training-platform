@@ -26,8 +26,8 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
   mission: "Check how far back a Security log really reaches, read logon types beyond the basics (including the one pass-the-hash leaves), trace account-management events to the account that made them, take apart a 4688 from a web shell, and trace a password spray from the burst to the next machine it reached.",
   estimate: "~45 min",
   look: { primary: "#38bdf8", secondary: "#facc15", warn: "#f43f5e" },
-  scene: "evtxtape",
-  layout: "stage",
+  scene: "facilitywindowseventlogs",
+  layout: "facility",
   story: {
     intro: { title: "Ten Hours of Memory", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-intro-a1cf5bfe.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-intro-6b4a782f.jpg" },
     afterStation: {

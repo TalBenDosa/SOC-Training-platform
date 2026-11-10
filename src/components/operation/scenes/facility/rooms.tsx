@@ -839,6 +839,576 @@ const BAIT: HallConfig = {
   ],
 };
 
+const PHISHING_ANALYSIS_FAC: HallConfig = {
+  title: "Dead Letter Office",
+  sub: "Phishing analysis desk",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["The", "Archive"], color: "#22d3ee", art: "axes" },
+    { icon: "filter", name: ["Sorting", "Plant"], color: "#38bdf8", art: "tree" },
+    { icon: "filter", name: ["Triage", "Office"], color: "#a78bfa", art: "pulse" },
+    { icon: "wire", name: ["Evidence", "Lab"], color: "#fbbf24", art: "loot" },
+    { icon: "users", name: ["Control", "Room"], color: "#2dd4bf", art: "lock" },
+    { icon: "target", name: ["Close the", "Ticket"], color: "#f472b6", art: "ghost" },
+  ],
+};
+
+const INTRO_CYBERSECURITY_FAC: CampusConfig = {
+  seed: 1137,
+  hub: { title: "Harbour City", sub: "FIRST LOOK" },
+  buildings: [
+    { icon: "wire", sign: ["Connections"], color: "#2dd4bf", x: -19, z: 2, rot: 0.42 },
+    { icon: "shield", sign: ["The Three", "Locks"], color: "#a78bfa", x: -15, z: -9, rot: 0.34 },
+    { icon: "target", sign: ["Attackers and", "Their Tricks"], color: "#fbbf24", x: -8.5, z: 8.5, rot: 0.14 },
+    { icon: "siren", sign: ["The", "Alert"], color: "#f472b6", x: 12.5, z: 6.5, rot: -0.2 },
+    { icon: "users", sign: ["Badge", "Day"], color: "#fb7185", x: 18, z: -8, rot: -0.36 },
+  ],
+};
+
+const NETWORKING_PROTOCOLS_FAC: HallConfig = {
+  title: "Port Hall",
+  sub: "Kestrel Media network desk",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Web Names", "Addresses"], color: "#fbbf24", art: "pulse" },
+    { icon: "shield", name: ["The Remote", "Doors"], color: "#2dd4bf", art: "loot" },
+    { icon: "wire", name: ["Protocols", "Under Abuse"], color: "#f472b6", art: "lock" },
+    { icon: "wire", name: ["The 03:22", "Lookups"], color: "#fb7185", art: "ghost" },
+  ],
+};
+
+const WINDOWS_FUNDAMENTALS_FAC: CampusConfig = {
+  seed: 1411,
+  hub: { title: "Corvane Logistics", sub: "WINDOWS HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The", "Machine"], color: "#3b9eff", x: -18, z: -10, rot: 0.36 },
+    { icon: "target", sign: ["Persistence", "Hunt"], color: "#2dd4bf", x: -12, z: 6.5, rot: 0.26 },
+    { icon: "filter", sign: ["Process", "Patrol"], color: "#f472b6", x: 8.5, z: 9, rot: -0.14 },
+    { icon: "siren", sign: ["PowerShell", "for Defenders"], color: "#fb7185", x: 19.5, z: 3, rot: -0.42 },
+    { icon: "siren", sign: ["The PowerShell", "Alert"], color: "#a3e635", x: 15.5, z: -9, rot: -0.34 },
+  ],
+};
+
+const LINUX_FUNDAMENTALS_FAC: HallConfig = {
+  title: "Root Hall",
+  sub: "Brightwave Media Linux fleet",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["First", "Look"], color: "#22c55e", art: "lock" },
+    { icon: "eye", name: ["Who Can", "Do What"], color: "#f472b6", art: "ghost" },
+    { icon: "filter", name: ["Persistence", "Sweep"], color: "#fb7185", art: "axes" },
+    { icon: "pulse", name: ["The Privilege", "Alarm"], color: "#a3e635", art: "tree" },
+  ],
+};
+
+const LOG_MANAGEMENT_FAC: CampusConfig = {
+  seed: 1685,
+  hub: { title: "Halden Retail", sub: "LOG CUSTODY HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["Every Log", "Tells a Story"], color: "#14b8a6", x: -13, z: -10, rot: 0.3 },
+    { icon: "filter", sign: ["Collect and", "Normalise"], color: "#fb7185", x: -14, z: 3.5, rot: 0.34 },
+    { icon: "filter", sign: ["Store and", "Retain"], color: "#a3e635", x: -5, z: 9.5, rot: 0.08 },
+    { icon: "wire", sign: ["Tamper", "Watch"], color: "#f97316", x: 10, z: 8, rot: -0.16 },
+    { icon: "monitor", sign: ["The", "Cleared Log"], color: "#c084fc", x: 18, z: -6, rot: -0.36 },
+  ],
+};
+
+const ENCODING_ENCRYPTION_HASHING_FAC: HallConfig = {
+  title: "Cipher Hall",
+  sub: "Arclight Insurance crypto desk",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Three", "Jobs"], color: "#a78bfa", art: "axes" },
+    { icon: "shield", name: ["The Decoder", "Bench"], color: "#a3e635", art: "tree" },
+    { icon: "shield", name: ["The Hash", "Press"], color: "#f97316", art: "pulse" },
+    { icon: "lock", name: ["Hashes", "on Shift"], color: "#c084fc", art: "loot" },
+    { icon: "shield", name: ["Inside", "the Tunnel"], color: "#22d3ee", art: "lock" },
+  ],
+};
+
+const TIMESTAMPS_AND_TIMELINES_FAC: CampusConfig = {
+  seed: 1959,
+  hub: { title: "Varden Shipping", sub: "TIMELINE HUB" },
+  buildings: [
+    { icon: "shield", sign: ["Read the", "Clock"], color: "#fbbf24", x: -19, z: 2, rot: 0.42 },
+    { icon: "shield", sign: ["One Instant", "Three Zones"], color: "#f97316", x: -15, z: -9, rot: 0.34 },
+    { icon: "filter", sign: ["Fix the", "Order"], color: "#c084fc", x: -8.5, z: 8.5, rot: 0.14 },
+    { icon: "wire", sign: ["Same Instant", "Two Times"], color: "#22d3ee", x: 12.5, z: 6.5, rot: -0.2 },
+    { icon: "users", sign: ["Zero", "Hour"], color: "#34d399", x: 18, z: -8, rot: -0.36 },
+  ],
+};
+
+const LOG_ENTRY_ANATOMY_FAC: HallConfig = {
+  title: "Dissection Hall",
+  sub: "Halvard Energy log lab",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["The Five", "Questions"], color: "#38bdf8", art: "pulse" },
+    { icon: "lock", name: ["Syslog and", "Key=Value"], color: "#c084fc", art: "loot" },
+    { icon: "filter", name: ["Nested", "JSON"], color: "#22d3ee", art: "lock" },
+    { icon: "wire", name: ["Columns", "and Headers"], color: "#34d399", art: "ghost" },
+    { icon: "users", name: ["Names and", "Opinions"], color: "#f87171", art: "axes" },
+    { icon: "target", name: ["What Isn't", "There"], color: "#a78bfa", art: "tree" },
+  ],
+};
+
+const IDENTITY_BASICS_FAC: HallConfig = {
+  title: "Gate Hall",
+  sub: "Caldera Health identity desk",
+  core: "chain",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Prove It Then", "Permit It"], color: "#a78bfa", art: "loot" },
+    { icon: "shield", name: ["Three Kinds", "of Proof"], color: "#22d3ee", art: "lock" },
+    { icon: "filter", name: ["Credentials", "and Tokens"], color: "#34d399", art: "ghost" },
+    { icon: "wire", name: ["Shut", "the Door"], color: "#f87171", art: "axes" },
+    { icon: "target", name: ["The Prompt", "Storm"], color: "#38bdf8", art: "tree" },
+    { icon: "eye", name: ["Accounts and", "Their Logons"], color: "#fbbf24", art: "pulse" },
+  ],
+};
+
+const RISK_FUNDAMENTALS_FAC: CampusConfig = {
+  seed: 2370,
+  hub: { title: "Corvane Retail", sub: "RISK HUB" },
+  buildings: [
+    { icon: "target", sign: ["Threat", "Weakness Stakes"], color: "#fb923c", x: -19, z: 2, rot: 0.42 },
+    { icon: "shield", sign: ["Score vs", "Stakes"], color: "#34d399", x: -15, z: -9, rot: 0.34 },
+    { icon: "filter", sign: ["Map the", "Surface"], color: "#f87171", x: -8.5, z: 8.5, rot: 0.14 },
+    { icon: "wire", sign: ["Surface", "or Vector"], color: "#38bdf8", x: 12.5, z: 6.5, rot: -0.2 },
+    { icon: "users", sign: ["This Week's", "Queue"], color: "#a78bfa", x: 18, z: -8, rot: -0.36 },
+  ],
+};
+
+const VULNERABILITY_MANAGEMENT_FAC: HallConfig = {
+  title: "Patch Hall",
+  sub: "Halden Freight vulnerability desk",
+  core: "knot",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Name Kind", "Score"], color: "#818cf8", art: "ghost" },
+    { icon: "shield", name: ["Read the", "Vector"], color: "#f87171", art: "axes" },
+    { icon: "filter", name: ["Likely or Already", "Happening?"], color: "#38bdf8", art: "tree" },
+    { icon: "wire", name: ["Inside and", "Outside"], color: "#a78bfa", art: "pulse" },
+    { icon: "users", name: ["Close", "the Loop"], color: "#fbbf24", art: "loot" },
+  ],
+};
+
+const ENDPOINT_SECURITY_FUNDAMENTALS_FAC: CampusConfig = {
+  seed: 2644,
+  hub: { title: "Kestrel Credit Union", sub: "ENDPOINT HUB" },
+  buildings: [
+    { icon: "mail", sign: ["Four", "Generations"], color: "#34d399", x: -17.5, z: -8.5, rot: 0.34 },
+    { icon: "monitor", sign: ["The Flight", "Recorder"], color: "#38bdf8", x: -10.5, z: 7.5, rot: 0.2 },
+    { icon: "monitor", sign: ["Read", "the Tree"], color: "#a78bfa", x: 8.5, z: 8.5, rot: -0.14 },
+    { icon: "siren", sign: ["The", "Alert"], color: "#fbbf24", x: 18, z: -5.5, rot: -0.38 },
+  ],
+};
+
+const ANALYST_MINDSET_FAC: HallConfig = {
+  title: "Second Look Hall",
+  sub: "Halcyon Insurance analyst desk",
+  core: "chain",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "users", name: ["Two", "Stories"], color: "#c084fc", art: "tree" },
+    { icon: "shield", name: ["Six", "Questions"], color: "#a78bfa", art: "pulse" },
+    { icon: "filter", name: ["Know", "Normal"], color: "#fbbf24", art: "loot" },
+    { icon: "eye", name: ["Your Own", "Brain"], color: "#2dd4bf", art: "lock" },
+    { icon: "users", name: ["Fact or", "Assumption"], color: "#f472b6", art: "ghost" },
+  ],
+};
+
+const SECURITY_PRODUCTS_BEHAVIOUR_FAC: HallConfig = {
+  title: "Sightline Hall",
+  sub: "Calloway Group security stack",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Where", "It Sits"], color: "#fbbf24", art: "pulse" },
+    { icon: "layers", name: ["On the", "Host"], color: "#2dd4bf", art: "loot" },
+    { icon: "wire", name: ["On the", "Wire"], color: "#f472b6", art: "lock" },
+    { icon: "wire", name: ["In Front", "of the App"], color: "#fb7185", art: "ghost" },
+    { icon: "users", name: ["What Users", "Touch"], color: "#a3e635", art: "axes" },
+    { icon: "target", name: ["Signals", "and Sinks"], color: "#f97316", art: "tree" },
+  ],
+};
+
+const WEB_APPLICATION_SECURITY_FAC: CampusConfig = {
+  seed: 3055,
+  hub: { title: "Fernhill Outdoor", sub: "WEB APP HUB" },
+  buildings: [
+    { icon: "mail", sign: ["Anatomy of", "a Request"], color: "#f472b6", x: -18, z: -10, rot: 0.36 },
+    { icon: "shield", sign: ["Trust", "Nothing"], color: "#2dd4bf", x: -12, z: 6.5, rot: 0.26 },
+    { icon: "target", sign: ["Where", "Attacks Land"], color: "#fb7185", x: 8.5, z: 9, rot: -0.14 },
+    { icon: "wire", sign: ["The WAF's", "View"], color: "#a3e635", x: 19.5, z: 3, rot: -0.42 },
+    { icon: "users", sign: ["Forged", "Requests"], color: "#f97316", x: 15.5, z: -9, rot: -0.34 },
+  ],
+};
+
+const MACOS_SECURITY_FUNDAMENTALS_FAC: HallConfig = {
+  title: "Orchard Hall",
+  sub: "Corva Studios Mac fleet",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Unix", "Underneath"], color: "#e2e8f0", art: "lock" },
+    { icon: "shield", name: ["Two", "Doors In"], color: "#f472b6", art: "ghost" },
+    { icon: "users", name: ["Who Vouches", "for It"], color: "#fb7185", art: "axes" },
+    { icon: "wire", name: ["Scripts", "and Secrets"], color: "#a3e635", art: "tree" },
+    { icon: "users", name: ["The Privacy", "Gate"], color: "#f97316", art: "pulse" },
+    { icon: "target", name: ["Staying", "Power"], color: "#c084fc", art: "loot" },
+  ],
+};
+
+const WINDOWS_EVENT_LOGS_FAC: CampusConfig = {
+  seed: 3329,
+  hub: { title: "Morrow Bank", sub: "EVENT LOG HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The", "Black Box"], color: "#38bdf8", x: -18, z: -5, rot: 0.38 },
+    { icon: "users", sign: ["Who Logged", "On and How"], color: "#fb7185", x: -8, z: 8, rot: 0.14 },
+    { icon: "filter", sign: ["What", "Ran"], color: "#a3e635", x: 15, z: 6, rot: -0.3 },
+    { icon: "wire", sign: ["Patterns"], color: "#f97316", x: 16, z: -9.5, rot: -0.32 },
+  ],
+};
+
+const LINUX_LOG_ANALYSIS_FAC: HallConfig = {
+  title: "Var Log Hall",
+  sub: "Pinewood Hosting server logs",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Where Linux", "Writes"], color: "#fb923c", art: "axes" },
+    { icon: "layers", name: ["Ask the", "Journal"], color: "#a3e635", art: "tree" },
+    { icon: "filter", name: ["Knocks at", "the Door"], color: "#f97316", art: "pulse" },
+    { icon: "wire", name: ["What Stays", "Behind"], color: "#c084fc", art: "loot" },
+  ],
+};
+
+const SIEM_FUNDAMENTALS_FAC: CampusConfig = {
+  seed: 3603,
+  hub: { title: "Northcross Airports", sub: "SIEM CONTROL HUB" },
+  buildings: [
+    { icon: "mail", sign: ["Air Traffic", "Control"], color: "#22d3ee", x: -19, z: 2, rot: 0.42 },
+    { icon: "shield", sign: ["When Does", "It Fire?"], color: "#f97316", x: -15, z: -9, rot: 0.34 },
+    { icon: "filter", sign: ["True Benign", "or False"], color: "#c084fc", x: -8.5, z: 8.5, rot: 0.14 },
+    { icon: "siren", sign: ["The Spray", "Alert"], color: "#34d399", x: 12.5, z: 6.5, rot: -0.2 },
+    { icon: "users", sign: ["Ask Your", "Own Question"], color: "#f87171", x: 18, z: -8, rot: -0.36 },
+  ],
+};
+
+const LOG_SOURCES_INTEGRATION_FAC: HallConfig = {
+  title: "Intake Hall",
+  sub: "Vantage Telecom log pipeline",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "monitor", name: ["Where Logs", "Come From"], color: "#c084fc", art: "pulse" },
+    { icon: "shield", name: ["The Silent", "Source"], color: "#22d3ee", art: "loot" },
+    { icon: "filter", name: ["Parse and", "Normalise"], color: "#34d399", art: "lock" },
+    { icon: "wire", name: ["Read the", "Wire Format"], color: "#f87171", art: "ghost" },
+  ],
+};
+
+const EMAIL_SECURITY_FAC: CampusConfig = {
+  seed: 3877,
+  hub: { title: "Rivermead Construction", sub: "MAIL HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The", "Travel Log"], color: "#f59e0b", x: -17.5, z: -8.5, rot: 0.34 },
+    { icon: "mail", sign: ["Three", "Seals"], color: "#22d3ee", x: -10.5, z: 7.5, rot: 0.2 },
+    { icon: "filter", sign: ["The", "Con"], color: "#34d399", x: 8.5, z: 8.5, rot: -0.14 },
+    { icon: "wire", sign: ["The Wire", "Request"], color: "#f87171", x: 18, z: -5.5, rot: -0.38 },
+  ],
+};
+
+const PROTOCOLS_MASTERCLASS_FAC: HallConfig = {
+  title: "Deep Water Hall",
+  sub: "Quayside Shipping network lab",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Layers and", "Addresses"], color: "#2dd4bf", art: "lock" },
+    { icon: "wire", name: ["TCP", "and UDP"], color: "#34d399", art: "ghost" },
+    { icon: "shield", name: ["Names Pages", "and Locks"], color: "#f87171", art: "axes" },
+    { icon: "wire", name: ["The", "Plumbing"], color: "#38bdf8", art: "tree" },
+    { icon: "users", name: ["Hiding in", "Plain Sight"], color: "#a78bfa", art: "pulse" },
+  ],
+};
+
+const DLP_FUNDAMENTALS_FAC: CampusConfig = {
+  seed: 4151,
+  hub: { title: "Ashby & Rowe", sub: "DATA PROTECTION HUB" },
+  buildings: [
+    { icon: "mail", sign: ["Where DLP", "Watches"], color: "#fbbf24", x: -13, z: -10, rot: 0.3 },
+    { icon: "shield", sign: ["How Sure", "Is It?"], color: "#f87171", x: -14, z: 3.5, rot: 0.34 },
+    { icon: "shield", sign: ["Audit", "Warn Block"], color: "#38bdf8", x: -5, z: 9.5, rot: 0.08 },
+    { icon: "siren", sign: ["Reading", "the Alert"], color: "#a78bfa", x: 10, z: 8, rot: -0.16 },
+    { icon: "siren", sign: ["Slip or", "Theft?"], color: "#2dd4bf", x: 18, z: -6, rot: -0.36 },
+  ],
+};
+
+const PERSISTENCE_MECHANISMS_FAC: HallConfig = {
+  title: "Spare Key Hall",
+  sub: "Wexley Biotech hunt desk",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "shield", name: ["Run", "Keys"], color: "#34d399", art: "axes" },
+    { icon: "shield", name: ["Tasks", "and Cron"], color: "#38bdf8", art: "tree" },
+    { icon: "filter", name: ["Hidden", "Hooks"], color: "#a78bfa", art: "pulse" },
+    { icon: "wire", name: ["The SYSTEM", "Task"], color: "#fbbf24", art: "loot" },
+    { icon: "users", name: ["Close", "Every Door"], color: "#2dd4bf", art: "lock" },
+  ],
+};
+
+const POWERSHELL_FOR_SOC_ANALYST_FAC: CampusConfig = {
+  seed: 4425,
+  hub: { title: "Corrin Foods", sub: "POWERSHELL HUB" },
+  buildings: [
+    { icon: "mail", sign: ["Same", "Binary"], color: "#38bdf8", x: -19, z: 2, rot: 0.42 },
+    { icon: "shield", sign: ["The", "Pipeline"], color: "#a78bfa", x: -15, z: -9, rot: 0.34 },
+    { icon: "filter", sign: ["Seven", "Cmdlets"], color: "#fbbf24", x: -8.5, z: 8.5, rot: 0.14 },
+    { icon: "wire", sign: ["Follow", "the PID"], color: "#2dd4bf", x: 12.5, z: 6.5, rot: -0.2 },
+    { icon: "users", sign: ["The Task", "Nobody Knows"], color: "#f472b6", x: 18, z: -8, rot: -0.36 },
+  ],
+};
+
+const WINDOWS_PRIVILEGE_ESCALATION_FAC: HallConfig = {
+  title: "Climb Hall",
+  sub: "Ardent Rail endpoint desk",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["Integrity", "Levels"], color: "#f472b6", art: "pulse" },
+    { icon: "shield", name: ["Reaching", "LSASS"], color: "#fbbf24", art: "loot" },
+    { icon: "filter", name: ["UAC", "Bypass"], color: "#2dd4bf", art: "lock" },
+    { icon: "wire", name: ["Road to", "SYSTEM"], color: "#fb7185", art: "ghost" },
+    { icon: "users", name: ["Read", "the Jump"], color: "#a3e635", art: "axes" },
+  ],
+};
+
+const WAZUH_FUNDAMENTALS_FAC: CampusConfig = {
+  seed: 4699,
+  hub: { title: "Hexley Games", sub: "WAZUH HUB" },
+  buildings: [
+    { icon: "mail", sign: ["Agents and", "Manager"], color: "#3b82f6", x: -18, z: -10, rot: 0.36 },
+    { icon: "filter", sign: ["Decoders", "and Rules"], color: "#2dd4bf", x: -12, z: 6.5, rot: 0.26 },
+    { icon: "filter", sign: ["FIM", "and SCA"], color: "#f472b6", x: 8.5, z: 9, rot: -0.14 },
+    { icon: "users", sign: ["The New", "User"], color: "#fb7185", x: 19.5, z: 3, rot: -0.42 },
+    { icon: "users", sign: ["Close", "the Loop"], color: "#a3e635", x: 15.5, z: -9, rot: -0.34 },
+  ],
+};
+
+const SENTINEL_FUNDAMENTALS_FAC: HallConfig = {
+  title: "Clear Sky Hall",
+  sub: "Ashgrove Pharmacy SIEM desk",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "monitor", name: ["Workspace", "and Tables"], color: "#0ea5e9", art: "lock" },
+    { icon: "shield", name: ["Speak", "KQL"], color: "#f472b6", art: "ghost" },
+    { icon: "filter", name: ["Rules to", "Incidents"], color: "#fb7185", art: "axes" },
+    { icon: "layers", name: ["Inside", "the Event"], color: "#a3e635", art: "tree" },
+    { icon: "users", name: ["Write It", "Call It"], color: "#f97316", art: "pulse" },
+  ],
+};
+
+const DETECTION_RULES_TUNING_FAC: CampusConfig = {
+  seed: 4973,
+  hub: { title: "Glasshouse Media", sub: "DETECTION HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["Logic", "Types"], color: "#a78bfa", x: -13, z: -10, rot: 0.3 },
+    { icon: "filter", sign: ["Read the", "Sigma"], color: "#fb7185", x: -14, z: 3.5, rot: 0.34 },
+    { icon: "filter", sign: ["Tune the", "Noise"], color: "#a3e635", x: -5, z: 9.5, rot: 0.08 },
+    { icon: "wire", sign: ["Real or", "Benign?"], color: "#f97316", x: 10, z: 8, rot: -0.16 },
+    { icon: "users", sign: ["Earn Its", "Place"], color: "#c084fc", x: 18, z: -6, rot: -0.36 },
+  ],
+};
+
+const CROWDSTRIKE_FALCON_FAC: HallConfig = {
+  title: "Talon Hall",
+  sub: "Brightmoor Hotels EDR desk",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "monitor", name: ["The Falcon", "Console"], color: "#ef4444", art: "axes" },
+    { icon: "shield", name: ["Real Time", "Response"], color: "#a3e635", art: "tree" },
+    { icon: "siren", name: ["Memory", "Theft"], color: "#f97316", art: "pulse" },
+    { icon: "lock", name: ["Hands on", "Keyboard"], color: "#c084fc", art: "loot" },
+  ],
+};
+
+const SENTINEL_ONE_FAC: CampusConfig = {
+  seed: 5247,
+  hub: { title: "Saltmarsh Brewing Co.", sub: "EDR HUB" },
+  buildings: [
+    { icon: "target", sign: ["The Threat", "Center"], color: "#8b5cf6", x: -19, z: 2, rot: 0.42 },
+    { icon: "siren", sign: ["Remote", "Shell"], color: "#f97316", x: -15, z: -9, rot: 0.34 },
+    { icon: "siren", sign: ["Ransomware"], color: "#c084fc", x: -8.5, z: 8.5, rot: 0.14 },
+    { icon: "wire", sign: ["Monday", "09:14"], color: "#22d3ee", x: 12.5, z: 6.5, rot: -0.2 },
+    { icon: "users", sign: ["The", "Rollout"], color: "#34d399", x: 18, z: -8, rot: -0.36 },
+  ],
+};
+
+const MALWARE_ANALYSIS_FUNDAMENTALS_FAC: HallConfig = {
+  title: "Detonation Hall",
+  sub: "Larchmont Dental malware lab",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["The", "Sandbox"], color: "#84cc16", art: "pulse" },
+    { icon: "shield", name: ["The Static", "Bench"], color: "#c084fc", art: "loot" },
+    { icon: "filter", name: ["Write", "the Rule"], color: "#22d3ee", art: "lock" },
+    { icon: "pulse", name: ["The Defender", "Alert"], color: "#34d399", art: "ghost" },
+    { icon: "users", name: ["Read the", "Behaviour"], color: "#f87171", art: "axes" },
+  ],
+};
+
+const DIGITAL_FORENSICS_BASICS_FAC: CampusConfig = {
+  seed: 5521,
+  hub: { title: "Ashcombe Auction House", sub: "FORENSICS HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The", "Evidence Bag"], color: "#14b8a6", x: -18, z: -10, rot: 0.36 },
+    { icon: "shield", sign: ["Memory"], color: "#22d3ee", x: -12, z: 6.5, rot: 0.26 },
+    { icon: "monitor", sign: ["Disk and", "Timeline"], color: "#34d399", x: 8.5, z: 9, rot: -0.14 },
+    { icon: "wire", sign: ["The", "Finding"], color: "#f87171", x: 19.5, z: 3, rot: -0.42 },
+    { icon: "users", sign: ["Holds Up", "in Court"], color: "#38bdf8", x: 15.5, z: -9, rot: -0.34 },
+  ],
+};
+
+const FIREWALL_LOG_ANALYSIS_FAC: HallConfig = {
+  title: "Deny All Hall",
+  sub: "Calder Steelworks firewall desk",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "monitor", name: ["The", "Logbook"], color: "#f97316", art: "lock" },
+    { icon: "compass", name: ["Scans and", "Beacons"], color: "#34d399", art: "ghost" },
+    { icon: "filter", name: ["The", "Rulebase"], color: "#f87171", art: "axes" },
+    { icon: "lock", name: ["Blocked", "Outbound"], color: "#38bdf8", art: "tree" },
+    { icon: "target", name: ["Beacon", "or Update"], color: "#a78bfa", art: "pulse" },
+  ],
+};
+
+const DNS_INVESTIGATION_FAC: CampusConfig = {
+  seed: 5795,
+  hub: { title: "Pemberton Libraries", sub: "DNS HUB" },
+  buildings: [
+    { icon: "wire", sign: ["The", "Resolver"], color: "#a78bfa", x: -13, z: -10, rot: 0.3 },
+    { icon: "target", sign: ["Four", "Tricks"], color: "#f87171", x: -14, z: 3.5, rot: 0.34 },
+    { icon: "filter", sign: ["The", "Workflow"], color: "#38bdf8", x: -5, z: 9.5, rot: 0.08 },
+    { icon: "target", sign: ["The", "Storm"], color: "#fbbf24", x: 10, z: 8, rot: -0.16 },
+    { icon: "shield", sign: ["Tunnel", "or CDN"], color: "#2dd4bf", x: 18, z: -6, rot: -0.36 },
+  ],
+};
+
+const FIREWALL_MASTERCLASS_FAC: HallConfig = {
+  title: "Generations Hall",
+  sub: "Greyfield University firewall lab",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["The First", "Wall"], color: "#f97316", art: "axes" },
+    { icon: "layers", name: ["The State", "Table"], color: "#38bdf8", art: "tree" },
+    { icon: "wire", name: ["Inside", "the Packet"], color: "#a78bfa", art: "pulse" },
+    { icon: "lock", name: ["Zones", "and Keys"], color: "#fbbf24", art: "loot" },
+    { icon: "target", name: ["The", "Beacon"], color: "#2dd4bf", art: "lock" },
+  ],
+};
+
+const AV_VS_EDR_MASTERCLASS_FAC: CampusConfig = {
+  seed: 6069,
+  hub: { title: "Wrenfield Veterinary Group", sub: "ENDPOINT HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The Old", "Guard"], color: "#2dd4bf", x: -19, z: 2, rot: 0.42 },
+    { icon: "monitor", sign: ["Green", "Console"], color: "#a78bfa", x: -15, z: -9, rot: 0.34 },
+    { icon: "filter", sign: ["Under", "the Hood"], color: "#fbbf24", x: -8.5, z: 8.5, rot: 0.14 },
+    { icon: "monitor", sign: ["Three", "Consoles"], color: "#f472b6", x: 12.5, z: 6.5, rot: -0.2 },
+    { icon: "users", sign: ["The Second", "Opinion"], color: "#fb7185", x: 18, z: -8, rot: -0.36 },
+  ],
+};
+
+const AI_ATTACKS_SOC_DETECTION_FAC: HallConfig = {
+  title: "Prompt Hall",
+  sub: "Harlow Mutual AI desk",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["The", "Helpful Bot"], color: "#818cf8", art: "pulse" },
+    { icon: "shield", name: ["The", "Gateway"], color: "#fbbf24", art: "loot" },
+    { icon: "filter", name: ["Says", "Too Much"], color: "#2dd4bf", art: "lock" },
+    { icon: "pulse", name: ["Poison", "and Theft"], color: "#f472b6", art: "ghost" },
+    { icon: "users", name: ["The Flagged", "Prompt"], color: "#fb7185", art: "axes" },
+  ],
+};
+
+const TCPIP_DEEP_DIVE_FAC: CampusConfig = {
+  seed: 6343,
+  hub: { title: "Kelvin Point Hosting", sub: "PACKET HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The Three-Way", "Handshake"], color: "#fbbf24", x: -18, z: -10, rot: 0.36 },
+    { icon: "target", sign: ["Scan", "Signatures"], color: "#2dd4bf", x: -12, z: 6.5, rot: 0.26 },
+    { icon: "filter", sign: ["Fingerprints"], color: "#f472b6", x: 8.5, z: 9, rot: -0.14 },
+    { icon: "wire", sign: ["Flow or", "Packet"], color: "#fb7185", x: 19.5, z: 3, rot: -0.42 },
+    { icon: "users", sign: ["RST", "Bursts"], color: "#a3e635", x: 15.5, z: -9, rot: -0.34 },
+  ],
+};
+
+const WEB_ATTACKS_PRACTICE_FAC: HallConfig = {
+  title: "Open Sesame Hall",
+  sub: "Sundial Tickets web desk",
+  core: "globe",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "monitor", name: ["The", "Access Log"], color: "#fb923c", art: "lock" },
+    { icon: "shield", name: ["One", "200"], color: "#f472b6", art: "ghost" },
+    { icon: "monitor", name: ["Two", "Records"], color: "#fb7185", art: "axes" },
+    { icon: "compass", name: ["Scan or", "Attack"], color: "#a3e635", art: "tree" },
+    { icon: "siren", name: ["The Web", "Shell"], color: "#f97316", art: "pulse" },
+  ],
+};
+
+const ESXI_VIRTUALIZATION_SECURITY_FAC: CampusConfig = {
+  seed: 6617,
+  hub: { title: "Skerry Line", sub: "VIRTUALISATION HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The", "Hypervisor"], color: "#22d3ee", x: -13, z: -10, rot: 0.3 },
+    { icon: "shield", sign: ["The", "Grant"], color: "#fb7185", x: -14, z: 3.5, rot: 0.34 },
+    { icon: "monitor", sign: ["The Host's", "Own Log"], color: "#a3e635", x: -5, z: 9.5, rot: 0.08 },
+    { icon: "wire", sign: ["The Power-Off", "Loop"], color: "#f97316", x: 10, z: 8, rot: -0.16 },
+    { icon: "siren", sign: ["Before", "the Damage"], color: "#c084fc", x: 18, z: -6, rot: -0.36 },
+  ],
+};
+
+const HTML_SMUGGLING_AND_LOLBINS_FAC: HallConfig = {
+  title: "Delivery Hall",
+  sub: "Marrow & Hale LLP endpoint desk",
+  core: "matrix",
+  books: ["Incident Response", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "mail", name: ["The", "Attachment"], color: "#fbbf24", art: "axes" },
+    { icon: "bag", name: ["Signed", "and Sealed"], color: "#a3e635", art: "tree" },
+    { icon: "filter", name: ["Two More", "Doors"], color: "#f97316", art: "pulse" },
+    { icon: "wire", name: ["What the", "Telemetry Shows"], color: "#c084fc", art: "loot" },
+    { icon: "users", name: ["The", "Right Ten"], color: "#22d3ee", art: "lock" },
+  ],
+};
+
+const SHAREPOINT_TEAMS_MONITORING_FAC: CampusConfig = {
+  seed: 6891,
+  hub: { title: "Wrenhall Architects", sub: "COLLABORATION HUB" },
+  buildings: [
+    { icon: "users", sign: ["The", "Site"], color: "#a78bfa", x: -17, z: -8, rot: 0.34 },
+    { icon: "users", sign: ["The", "Channel"], color: "#f97316", x: -11, z: 7, rot: 0.24 },
+    { icon: "filter", sign: ["The", "Override"], color: "#c084fc", x: 16, z: -8, rot: -0.32 },
+    { icon: "siren", sign: ["Last", "Day"], color: "#22d3ee", x: 12, z: 7.5, rot: -0.22 },
+  ],
+};
+
 export function FacilityMail(props: WorldProps) { return <HallWorld cfg={MAIL} props={props} />; }
 export function FacilityTriage(props: WorldProps) { return <HallWorld cfg={TRIAGE} props={props} />; }
 export function FacilityTunnel(props: WorldProps) { return <HallWorld cfg={TUNNEL} props={props} />; }
@@ -905,3 +1475,47 @@ export function FacilityRuleAndSign(props: WorldProps) { return <HallWorld cfg={
 export function FacilityStolenSession(props: WorldProps) { return <CampusWorld cfg={STOLENSESSION} props={props} />; }
 export function FacilityPlaintext(props: WorldProps) { return <HallWorld cfg={PLAINTEXT} props={props} />; }
 export function FacilityLastCloud(props: WorldProps) { return <CampusWorld cfg={LASTCLOUD} props={props} />; }
+export function FacilityPhishingAnalysis(props: WorldProps) { return <HallWorld cfg={PHISHING_ANALYSIS_FAC} props={props} />; }
+export function FacilityIntroCybersecurity(props: WorldProps) { return <CampusWorld cfg={INTRO_CYBERSECURITY_FAC} props={props} />; }
+export function FacilityNetworkingProtocols(props: WorldProps) { return <HallWorld cfg={NETWORKING_PROTOCOLS_FAC} props={props} />; }
+export function FacilityWindowsFundamentals(props: WorldProps) { return <CampusWorld cfg={WINDOWS_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityLinuxFundamentals(props: WorldProps) { return <HallWorld cfg={LINUX_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityLogManagement(props: WorldProps) { return <CampusWorld cfg={LOG_MANAGEMENT_FAC} props={props} />; }
+export function FacilityEncodingEncryptionHashing(props: WorldProps) { return <HallWorld cfg={ENCODING_ENCRYPTION_HASHING_FAC} props={props} />; }
+export function FacilityTimestampsAndTimelines(props: WorldProps) { return <CampusWorld cfg={TIMESTAMPS_AND_TIMELINES_FAC} props={props} />; }
+export function FacilityLogEntryAnatomy(props: WorldProps) { return <HallWorld cfg={LOG_ENTRY_ANATOMY_FAC} props={props} />; }
+export function FacilityIdentityBasics(props: WorldProps) { return <HallWorld cfg={IDENTITY_BASICS_FAC} props={props} />; }
+export function FacilityRiskFundamentals(props: WorldProps) { return <CampusWorld cfg={RISK_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityVulnerabilityManagement(props: WorldProps) { return <HallWorld cfg={VULNERABILITY_MANAGEMENT_FAC} props={props} />; }
+export function FacilityEndpointSecurityFundamentals(props: WorldProps) { return <CampusWorld cfg={ENDPOINT_SECURITY_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityAnalystMindset(props: WorldProps) { return <HallWorld cfg={ANALYST_MINDSET_FAC} props={props} />; }
+export function FacilitySecurityProductsBehaviour(props: WorldProps) { return <HallWorld cfg={SECURITY_PRODUCTS_BEHAVIOUR_FAC} props={props} />; }
+export function FacilityWebApplicationSecurity(props: WorldProps) { return <CampusWorld cfg={WEB_APPLICATION_SECURITY_FAC} props={props} />; }
+export function FacilityMacosSecurityFundamentals(props: WorldProps) { return <HallWorld cfg={MACOS_SECURITY_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityWindowsEventLogs(props: WorldProps) { return <CampusWorld cfg={WINDOWS_EVENT_LOGS_FAC} props={props} />; }
+export function FacilityLinuxLogAnalysis(props: WorldProps) { return <HallWorld cfg={LINUX_LOG_ANALYSIS_FAC} props={props} />; }
+export function FacilitySiemFundamentals(props: WorldProps) { return <CampusWorld cfg={SIEM_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityLogSourcesIntegration(props: WorldProps) { return <HallWorld cfg={LOG_SOURCES_INTEGRATION_FAC} props={props} />; }
+export function FacilityEmailSecurity(props: WorldProps) { return <CampusWorld cfg={EMAIL_SECURITY_FAC} props={props} />; }
+export function FacilityProtocolsMasterclass(props: WorldProps) { return <HallWorld cfg={PROTOCOLS_MASTERCLASS_FAC} props={props} />; }
+export function FacilityDlpFundamentals(props: WorldProps) { return <CampusWorld cfg={DLP_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityPersistenceMechanisms(props: WorldProps) { return <HallWorld cfg={PERSISTENCE_MECHANISMS_FAC} props={props} />; }
+export function FacilityPowershellForSocAnalyst(props: WorldProps) { return <CampusWorld cfg={POWERSHELL_FOR_SOC_ANALYST_FAC} props={props} />; }
+export function FacilityWindowsPrivilegeEscalation(props: WorldProps) { return <HallWorld cfg={WINDOWS_PRIVILEGE_ESCALATION_FAC} props={props} />; }
+export function FacilityWazuhFundamentals(props: WorldProps) { return <CampusWorld cfg={WAZUH_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilitySentinelFundamentals(props: WorldProps) { return <HallWorld cfg={SENTINEL_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityDetectionRulesTuning(props: WorldProps) { return <CampusWorld cfg={DETECTION_RULES_TUNING_FAC} props={props} />; }
+export function FacilityCrowdstrikeFalcon(props: WorldProps) { return <HallWorld cfg={CROWDSTRIKE_FALCON_FAC} props={props} />; }
+export function FacilitySentinelOne(props: WorldProps) { return <CampusWorld cfg={SENTINEL_ONE_FAC} props={props} />; }
+export function FacilityMalwareAnalysisFundamentals(props: WorldProps) { return <HallWorld cfg={MALWARE_ANALYSIS_FUNDAMENTALS_FAC} props={props} />; }
+export function FacilityDigitalForensicsBasics(props: WorldProps) { return <CampusWorld cfg={DIGITAL_FORENSICS_BASICS_FAC} props={props} />; }
+export function FacilityFirewallLogAnalysis(props: WorldProps) { return <HallWorld cfg={FIREWALL_LOG_ANALYSIS_FAC} props={props} />; }
+export function FacilityDnsInvestigation(props: WorldProps) { return <CampusWorld cfg={DNS_INVESTIGATION_FAC} props={props} />; }
+export function FacilityFirewallMasterclass(props: WorldProps) { return <HallWorld cfg={FIREWALL_MASTERCLASS_FAC} props={props} />; }
+export function FacilityAvVsEdrMasterclass(props: WorldProps) { return <CampusWorld cfg={AV_VS_EDR_MASTERCLASS_FAC} props={props} />; }
+export function FacilityAiAttacksSocDetection(props: WorldProps) { return <HallWorld cfg={AI_ATTACKS_SOC_DETECTION_FAC} props={props} />; }
+export function FacilityTcpipDeepDive(props: WorldProps) { return <CampusWorld cfg={TCPIP_DEEP_DIVE_FAC} props={props} />; }
+export function FacilityWebAttacksPractice(props: WorldProps) { return <HallWorld cfg={WEB_ATTACKS_PRACTICE_FAC} props={props} />; }
+export function FacilityEsxiVirtualizationSecurity(props: WorldProps) { return <CampusWorld cfg={ESXI_VIRTUALIZATION_SECURITY_FAC} props={props} />; }
+export function FacilityHtmlSmugglingAndLolbins(props: WorldProps) { return <HallWorld cfg={HTML_SMUGGLING_AND_LOLBINS_FAC} props={props} />; }
+export function FacilitySharepointTeamsMonitoring(props: WorldProps) { return <CampusWorld cfg={SHAREPOINT_TEAMS_MONITORING_FAC} props={props} />; }

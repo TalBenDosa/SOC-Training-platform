@@ -27,8 +27,8 @@ export const TCPIP_DEEP_DIVE: RoomExperience = {
   mission: "Walk a server socket through the TCP state machine, unmask a scanner, defuse a fingerprint panel, call flow or packet at speed, read a capture, then work a live sweep and a verdict.",
   estimate: "~65 min",
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#ef4444" },
-  scene: "wirelevel",
-  layout: "stage",
+  scene: "facilitytcpipdeepdive",
+  layout: "facility",
   story: {
     intro: { title: "Eleven Minutes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-intro-f6e8e3f9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/tcpip-deep-dive/wirelevel-intro-62cc4234.jpg" },
     afterStation: {

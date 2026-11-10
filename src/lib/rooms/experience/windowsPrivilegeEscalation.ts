@@ -26,8 +26,8 @@ export const WINDOWS_PRIVILEGE_ESCALATION: RoomExperience = {
   mission: "Read a process list by integrity level, sort LSASS access by who asked and for what, find a hijacked auto-elevate handler, check what an app-pool identity can impersonate, find an unquoted service path and a writable folder, and judge three Medium-to-High jumps.",
   estimate: "~55 min",
   look: { primary: "#f472b6", secondary: "#60a5fa", warn: "#f59e0b" },
-  scene: "integrityladder",
-  layout: "stage",
+  scene: "facilitywindowsprivilegeescalation",
+  layout: "facility",
   story: {
     intro: { title: "The Quiet Climb", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-intro-2a4ff1cf.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-privilege-escalation/quietclimb-intro-5beecd85.jpg" },
     afterStation: {

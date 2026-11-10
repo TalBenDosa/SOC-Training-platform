@@ -24,8 +24,8 @@ export const TIMESTAMPS_AND_TIMELINES: RoomExperience = {
   mission: "Convert every timestamp format, move between UTC and local zones, correct clock skew, rebuild the true order of an attack, and handle the traps that break timelines.",
   estimate: "~50 min",
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#f43f5e" },
-  scene: "chrono",
-  layout: "stage",
+  scene: "facilitytimestampsandtimelines",
+  layout: "facility",
   story: {
     intro: { title: "Forty Clocks", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-intro-f50c26b2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-intro-bdd863f3.jpg" },
     afterStation: {

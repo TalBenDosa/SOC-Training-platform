@@ -25,8 +25,8 @@ export const DETECTION_RULES_TUNING: RoomExperience = {
   mission: "Sort detections by their logic, read a Sigma rule section by section, tune an out-of-hours rule using its dispositions and precision, then judge a download alert and a spray.",
   estimate: "~35 min",
   look: { primary: "#a78bfa", secondary: "#34d399", warn: "#f87171" },
-  scene: "noisefilter",
-  layout: "stage",
+  scene: "facilitydetectionrulestuning",
+  layout: "facility",
   story: {
     intro: { title: "41,000 Alerts, Two Real", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-intro-9f16f2d7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-intro-b2f1cbfe.jpg" },
     afterStation: {

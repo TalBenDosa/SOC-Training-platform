@@ -26,8 +26,8 @@ export const FIREWALL_MASTERCLASS: RoomExperience = {
   mission: "Put forty years of firewalls in order, read the stateful pair's connection table, route threats to the wall that catches them, place campus systems in zones, read a decryption log, then work the graded C2 beacon.",
   estimate: "~55 min",
   look: { primary: "#f97316", secondary: "#22d3ee", warn: "#e11d48" },
-  scene: "generations",
-  layout: "stage",
+  scene: "facilityfirewallmasterclass",
+  layout: "facility",
   story: {
     intro: { title: "Retire the Old Walls", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-intro-ea532cea.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-intro-d058e180.jpg" },
     afterStation: {

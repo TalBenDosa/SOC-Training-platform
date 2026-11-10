@@ -25,8 +25,8 @@ export const EMAIL_SECURITY: RoomExperience = {
   mission: "Trace a message hop by hop through its Received headers, judge SPF, DKIM and DMARC results at the mail gateway, spot the tells in a hijacked supplier thread, and read a Defender email event field by field.",
   estimate: "~40 min",
   look: { primary: "#f59e0b", secondary: "#38bdf8", warn: "#f43f5e" },
-  scene: "postmark",
-  layout: "stage",
+  scene: "facilityemailsecurity",
+  layout: "facility",
   story: {
     intro: { title: "Every Email Has a Travel Log", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-intro-4ce51bc6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-intro-4900c978.jpg" },
     afterStation: {

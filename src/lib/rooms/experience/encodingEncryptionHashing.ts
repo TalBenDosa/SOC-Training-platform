@@ -24,8 +24,8 @@ export const ENCODING_ENCRYPTION_HASHING: RoomExperience = {
   mission: "Use the analyst's bench: decode Base64, hex, URL and PowerShell blobs, hash data and verify downloads, expose shared passwords, judge hash lookups, and read an encrypted beacon without decrypting it.",
   estimate: "~55 min",
   look: { primary: "#a78bfa", secondary: "#38bdf8", warn: "#f43f5e" },
-  scene: "cipherlab",
-  layout: "stage",
+  scene: "facilityencodingencryptionhashing",
+  layout: "facility",
   story: {
     intro: { title: "Three Words", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-intro-667a3aac.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-intro-5c2991f7.jpg" },
     afterStation: {

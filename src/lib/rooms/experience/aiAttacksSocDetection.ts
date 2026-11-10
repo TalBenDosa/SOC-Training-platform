@@ -25,8 +25,8 @@ export const AI_ATTACKS_SOC_DETECTION: RoomExperience = {
   mission: "Talk Penny into leaking her own rules, sort gateway alerts, trace how a question becomes an answer, find the poison in a training set, then triage a flagged prompt.",
   estimate: "~50 min",
   look: { primary: "#818cf8", secondary: "#34d399", warn: "#fb7185" },
-  scene: "ignoreall",
-  layout: "stage",
+  scene: "facilityaiattackssocdetection",
+  layout: "facility",
   story: {
     intro: { title: "Her Attack Surface Is English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-intro-f0d15c35.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-intro-d4d77174.jpg" },
     afterStation: {

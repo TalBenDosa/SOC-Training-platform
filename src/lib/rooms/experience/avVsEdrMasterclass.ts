@@ -25,8 +25,8 @@ export const AV_VS_EDR_MASTERCLASS: RoomExperience = {
   mission: "Beat a signature with one byte, open the four doors of antivirus, sort what AV sees from what only EDR sees, wire each sensor to its source, hunt in Advanced Hunting, then work the graded Falcon detection.",
   estimate: "~55 min",
   look: { primary: "#2dd4bf", secondary: "#f472b6", warn: "#facc15" },
-  scene: "secondopinion",
-  layout: "stage",
+  scene: "facilityavvsedrmasterclass",
+  layout: "facility",
   story: {
     intro: { title: "Six Years of Green", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-intro-306a0fe9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/av-vs-edr-masterclass/secondopinion-intro-0b8e5980.jpg" },
     afterStation: {

@@ -25,8 +25,8 @@ export const FIREWALL_LOG_ANALYSIS: RoomExperience = {
   mission: "Tell three vendors' logs apart by their fields, measure a beacon's rhythm from raw timestamps, run flows through a first-match rulebase to see which rule wins, then work the graded blocked-C2 log and a verdict.",
   estimate: "~40 min",
   look: { primary: "#f97316", secondary: "#38bdf8", warn: "#ef4444" },
-  scene: "denyall",
-  layout: "stage",
+  scene: "facilityfirewallloganalysis",
+  layout: "facility",
   story: {
     intro: { title: "Nine Days on the Line", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-intro-0eac2f31.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-intro-df4fea09.jpg" },
     afterStation: {

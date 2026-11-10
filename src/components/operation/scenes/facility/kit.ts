@@ -40,6 +40,15 @@ export function icon(g: CanvasRenderingContext2D, name: keyof typeof ICONS, cx: 
   g.restore();
 }
 
+/** Sets the largest bold font, up to `max` px, at which every line fits `width`. */
+export function fitFont(g: CanvasRenderingContext2D, lines: string[], max: number, width: number) {
+  let px = max;
+  const set = () => { g.font = `700 ${px}px "Segoe UI", system-ui, sans-serif`; };
+  set();
+  while (px > 24 && lines.some(l => g.measureText(l).width > width)) { px -= 2; set(); }
+  return px;
+}
+
 export function canvas(w: number, h: number) {
   const c = document.createElement("canvas");
   c.width = w; c.height = h;

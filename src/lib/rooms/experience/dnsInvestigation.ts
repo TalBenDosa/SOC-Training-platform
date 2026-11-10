@@ -24,8 +24,8 @@ export const DNS_INVESTIGATION: RoomExperience = {
   mission: "Interrogate the library resolver for a lookalike domain, stamp four DNS tricks with their names, sort DNS metrics into normal and alarming, then work the graded storm and a tunnelling call.",
   estimate: "~40 min",
   look: { primary: "#a78bfa", secondary: "#84cc16", warn: "#f43f5e" },
-  scene: "lookup",
-  layout: "stage",
+  scene: "facilitydnsinvestigation",
+  layout: "facility",
   story: {
     intro: { title: "Two L's", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-intro-cbecea84.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-intro-9167c082.jpg" },
     afterStation: {

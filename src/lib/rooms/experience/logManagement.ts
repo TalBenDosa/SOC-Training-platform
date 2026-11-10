@@ -24,8 +24,8 @@ export const LOG_MANAGEMENT: RoomExperience = {
   mission: "Follow logs end to end: read raw formats, collect and normalise them, size and retain them, catch tampering by comparing copies, then work the alert an attacker hoped nobody would see.",
   estimate: "~45 min",
   look: { primary: "#14b8a6", secondary: "#60a5fa", warn: "#f43f5e" },
-  scene: "logriver",
-  layout: "stage",
+  scene: "facilitylogmanagement",
+  layout: "facility",
   story: {
     intro: { title: "Two Million Lines an Hour", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-intro-6e8851d4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-intro-19cdda72.jpg" },
     afterStation: {

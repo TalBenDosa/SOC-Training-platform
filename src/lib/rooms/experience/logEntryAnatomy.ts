@@ -23,8 +23,8 @@ export const LOG_ENTRY_ANATOMY: RoomExperience = {
   mission: "Dissect logs in every format: find the five answers in any entry, slice syslog by position and key=value by label, follow nested JSON paths, read columns by their header, see past vendor names and vendor severity, and tell 'didn't happen' from 'wasn't logged'.",
   estimate: "~55 min",
   look: { primary: "#38bdf8", secondary: "#fbbf24", warn: "#f43f5e" },
-  scene: "dissect",
-  layout: "stage",
+  scene: "facilitylogentryanatomy",
+  layout: "facility",
   story: {
     intro: { title: "Two Hundred Formats", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-intro-a5b2656d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-intro-21749cfd.jpg" },
     afterStation: {

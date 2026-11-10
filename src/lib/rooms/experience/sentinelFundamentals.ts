@@ -25,8 +25,8 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
   mission: "Put each kind of event in its Sentinel table, write KQL step by step against Ashgrove's sign-ins, walk an incident from alerts to entities to playbook, and read a sign-in row field by field.",
   estimate: "~45 min",
   look: { primary: "#0ea5e9", secondary: "#c084fc", warn: "#f43f5e" },
-  scene: "skyquery",
-  layout: "stage",
+  scene: "facilitysentinelfundamentals",
+  layout: "facility",
   story: {
     intro: { title: "The Logs Are Flowing", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-intro-e05c83eb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-intro-17f65a10.jpg" },
     afterStation: {

@@ -26,8 +26,8 @@ export const SECURITY_PRODUCTS_BEHAVIOUR: RoomExperience = {
   mission: "Map every product to its position: tell what can block from what can only report, find which devices have no agent, read a hypervisor's own audit trail, see what a firewall knows about encrypted traffic, tune WAF false positives, read mail authentication results, and triage identity, DLP and NDR signals.",
   estimate: "~65 min",
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#f43f5e" },
-  scene: "sightlines",
-  layout: "stage",
+  scene: "facilitysecurityproductsbehaviour",
+  layout: "facility",
   story: {
     intro: { title: "Was Anything Positioned to See It?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-intro-af48fdb5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-intro-30294e73.jpg" },
     afterStation: {

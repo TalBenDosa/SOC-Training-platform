@@ -26,8 +26,8 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
   mission: "Separate analyst PowerShell from attacker PowerShell by context, build an investigative pipeline step by step, run the core cmdlets on a live host, pivot an EDR PID into a path, a command line and a hash, and read a scheduled-task sweep for the one that doesn't belong.",
   estimate: "~40 min",
   look: { primary: "#38bdf8", secondary: "#facc15", warn: "#f43f5e" },
-  scene: "objectpipe",
-  layout: "stage",
+  scene: "facilitypowershellforsocanalyst",
+  layout: "facility",
   story: {
     intro: { title: "Same Shell", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-1d1d445e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-5edda611.jpg" },
     afterStation: {
