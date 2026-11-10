@@ -44,6 +44,14 @@ export const DATA_STAGING_EXFILTRATION_CHANNELS: RoomExperience = {
   look: { primary: "#5fe3a1", secondary: "#ffb4a2", warn: "#ff5d73" },
   scene: "facilityexitroute",
   layout: "facility",
+  story: {
+    intro: { title: "The Quote", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-intro-0d4c610e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-intro-361ab22c.jpg" },
+    afterStation: {
+      archive: { title: "Nothing Is Missing", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-ch2-14777478.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-ch2-160022a7.jpg" },
+      bytes: { title: "The Night Shift", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-ch3-a96cb7d3.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-ch3-cd994ae8.jpg" },
+      verdict: { title: "Exit Route", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-finale-b3b7599f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/data-staging-exfiltration-channels/exitroute-finale-ff39844a.jpg" },
+    },
+  },
   stations: [
     {
       id: "share",
