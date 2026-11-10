@@ -61,6 +61,14 @@ export const DNS_DEEP_DIVE: RoomExperience = {
   look: { primary: "#8ecae6", secondary: "#ffb703", warn: "#e63946" },
   scene: "facilitydeepquery",
   layout: "facility",
+  story: {
+    intro: { title: "One Door Open", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-intro-3f156f05.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-intro-f163d5b6.jpg" },
+    afterStation: {
+      tunnel: { title: "Nineteen Minutes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-ch2-77b577b6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-ch2-eac8d702.jpg" },
+      flux: { title: "Someone Knocked", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-ch3-59905f11.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-ch3-61b9b826.jpg" },
+      port443: { title: "First Light", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-finale-5690c97d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-deep-dive/deepquery-finale-7b41b79f.jpg" },
+    },
+  },
   stations: [
     {
       id: "path",
