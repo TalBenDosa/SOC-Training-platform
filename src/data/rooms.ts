@@ -29,6 +29,7 @@
  * this module and fails the content gate if it finds one.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import type { MissionTask } from "@/lib/missions/types";
 import { roomsBatch18 } from "./rooms-batch-18";
 import { roomsBatch19 } from "./rooms-batch-19";
 import { roomsBatch20 } from "./rooms-batch-20";
@@ -273,7 +274,10 @@ export interface WrittenReportTask {
   xp: number;
 }
 
-export type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | AnalystChoiceTask | MatchingTask | OrderingTask | QueryFillTask | WrittenReportTask;
+/** A practical mission: the learner does the work, the server checks the result. See src/lib/missions/types.ts. */
+export type { MissionTask } from "@/lib/missions/types";
+
+export type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | AnalystChoiceTask | MatchingTask | OrderingTask | QueryFillTask | WrittenReportTask | MissionTask;
 
 // ---------------------------------------------------------------------------
 // Room type

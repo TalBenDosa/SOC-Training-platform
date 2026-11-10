@@ -24,8 +24,9 @@ export interface GradedAttempt {
 /** Pass credit of one task from the server's graded attempts (0..taskMaxXp). */
 export function taskPassCredit(task: RoomTask, attempts: GradedAttempt[]): number {
   const mine = attempts.filter(a => a.task_id === task.id);
-  if (task.type === "log_analysis") {
-    return task.questions.reduce((sum, q, i) => {
+  if (task.type === "log_analysis" || task.type === "mission") {
+    const parts: { xp: number }[] = task.type === "log_analysis" ? task.questions : task.steps;
+    return parts.reduce((sum, q, i) => {
       const forQ = mine.filter(a => a.question_index === i);
       if (forQ.some(a => a.correct)) return sum + q.xp;
       return sum + Math.min(q.xp, Math.max(0, ...forQ.map(a => a.xp_awarded ?? 0)));

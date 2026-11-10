@@ -51,7 +51,10 @@ export async function POST(
   const b = (body && typeof body === "object" && !Array.isArray(body) ? body : {}) as Record<string, unknown>;
   const admin = getSupabaseAdminClient();
   const record = !!(user && admin);   // signed-in → this attempt is recorded and is the source of the task's XP
-  const qIndex = task.type === "log_analysis" && typeof b.questionIndex === "number" ? Math.floor(b.questionIndex) : null;
+  // Per-part attempts: a log_analysis sub-question, or a mission step, counts on its own.
+  const qIndex = task.type === "log_analysis" && typeof b.questionIndex === "number" ? Math.floor(b.questionIndex)
+    : task.type === "mission" && typeof b.stepIndex === "number" ? Math.floor(b.stepIndex)
+    : null;
 
   // Attempt number from the SERVER's own history, never the client's claim
   // (the client could otherwise always say "first try" for full credit). For
@@ -82,7 +85,8 @@ export async function POST(
   // (reading + events) for legitimately-citable indicators, not just the task's
   // hand-authored referenceIocs — otherwise a correct citation of room-visible
   // evidence is wrongly branded "fabricated".
-  const result = gradeTask(task, { ...b, attemptNumber: attemptNo >= 2 ? 2 : 1 }, room);
+  // Missions apply their own help ladder from the real attempt number (src/lib/missions/grade.ts).
+  const result = gradeTask(task, { ...b, attemptNumber: attemptNo >= 2 ? 2 : 1, serverAttempt: attemptNo }, room);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

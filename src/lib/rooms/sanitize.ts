@@ -32,6 +32,7 @@ import "server-only";
  * the permutation only has to be unknowable, never recoverable.
  */
 import type { Room, RoomTask } from "@/data/rooms";
+import { sanitizeMission, type SanitizedMissionTask } from "@/lib/missions/sanitize";
 
 /** Fisher-Yates on a copy. See the file doc for why this must not be seeded. */
 function shuffled<T>(items: readonly T[]): T[] {
@@ -66,7 +67,9 @@ export type SanitizedRoomTask =
   | (Omit<Extract<RoomTask, { type: "ordering" }>, "correct_order" | "explanation">)
   // Written report: referenceIocs (the scoring answer key) and explanation
   // (the post-submit standards note) stay server-only until graded.
-  | (Omit<Extract<RoomTask, { type: "written_report" }>, "referenceIocs" | "explanation">);
+  | (Omit<Extract<RoomTask, { type: "written_report" }>, "referenceIocs" | "explanation">)
+  // Mission: data and hints ship; answers, shadow data, hidden corpora and worked answers do not.
+  | SanitizedMissionTask;
 
 export interface SanitizedRoom extends Omit<Room, "tasks"> {
   tasks: SanitizedRoomTask[];
@@ -84,6 +87,7 @@ export type SanitizedQueryFillTask = Extract<SanitizedRoomTask, { type: "query_f
 export type SanitizedMatchingTask = Extract<SanitizedRoomTask, { type: "matching" }>;
 export type SanitizedOrderingTask = Extract<SanitizedRoomTask, { type: "ordering" }>;
 export type SanitizedWrittenReportTask = Extract<SanitizedRoomTask, { type: "written_report" }>;
+export type { SanitizedMissionTask } from "@/lib/missions/sanitize";
 
 function sanitizeTask(task: RoomTask): SanitizedRoomTask {
   switch (task.type) {
@@ -136,6 +140,8 @@ function sanitizeTask(task: RoomTask): SanitizedRoomTask {
       const { referenceIocs: _iocs, explanation: _explanation, ...rest } = task;
       return rest;
     }
+    case "mission":
+      return sanitizeMission(task);
   }
 }
 

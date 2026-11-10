@@ -214,7 +214,7 @@ const ROOM_TASKS = new Map<string, Map<string, { type: string; mitre?: string }>
   ROOMS_META.map(r => [r.id, new Map(r.tasks.map(t => [t.id, { type: t.type, mitre: t.mitreTechnique }]))]));
 const TASK_LABEL: Record<string, string> = {
   question: "Multiple choice", log_analysis: "Log analysis", flag: "Find the flag", analyst_choice: "Analyst verdict",
-  matching: "Matching", ordering: "Ordering", query_fill: "Query", written_report: "Written report",
+  matching: "Matching", ordering: "Ordering", query_fill: "Query", written_report: "Written report", mission: "Mission",
 };
 export function lessonTitle(key: string): string {
   const sep = key.indexOf("--");

@@ -9,7 +9,7 @@
 
 export interface RoomTaskMeta {
   id: string;
-  type: "reading" | "question" | "log_analysis" | "flag" | "analyst_choice" | "matching" | "ordering" | "query_fill" | "written_report";
+  type: "reading" | "question" | "log_analysis" | "flag" | "analyst_choice" | "matching" | "ordering" | "query_fill" | "written_report" | "mission";
   /** Max XP this task can award. 0 for reading tasks (non-gradeable). */
   xp: number;
   /** Present only for log_analysis / analyst_choice tasks whose embedded event
@@ -981,8 +981,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Learn Microsoft Sentinel, the cloud-native SIEM and SOAR built into Azure. Understand data connectors, Log Analytics tables, KQL queries, analytics rules, and incident management.",
     "difficulty": "intermediate",
     "category": "SIEM",
-    "estimatedMinutes": 55,
-    "xp": 230,
+    "estimatedMinutes": 70,
+    "xp": 320,
     "icon": "☁️",
     "prerequisites": [
       "siem-fundamentals",
@@ -995,14 +995,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "sentinel-m1",
+        "type": "mission",
+        "xp": 60
+      },
+      {
         "id": "sentinel-r2",
         "type": "reading",
         "xp": 0
       },
       {
-        "id": "sentinel-q1",
-        "type": "question",
-        "xp": 25
+        "id": "sentinel-m2",
+        "type": "mission",
+        "xp": 60
       },
       {
         "id": "sentinel-r3",
@@ -1010,36 +1015,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "sentinel-la1",
-        "type": "log_analysis",
-        "xp": 75,
-        "mitreTechnique": "T1110.001"
-      },
-      {
-        "id": "sentinel-flag1",
-        "type": "flag",
-        "xp": 20
-      },
-      {
         "id": "sentinel-q2",
         "type": "question",
         "xp": 25
       },
       {
-        "id": "sentinel-q3",
-        "type": "question",
-        "xp": 25
+        "id": "sentinel-m3",
+        "type": "mission",
+        "xp": 60
       },
       {
-        "id": "sentinel-queryfill-1",
-        "type": "query_fill",
-        "xp": 30
+        "id": "sentinel-m4",
+        "type": "mission",
+        "xp": 35
       },
       {
-        "id": "sentinel-ac1",
-        "type": "analyst_choice",
-        "xp": 30,
-        "mitreTechnique": "T1110.003"
+        "id": "sentinel-m5",
+        "type": "mission",
+        "xp": 80
       }
     ]
   },
@@ -2088,8 +2081,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Learn how SOC analysts think and work through an investigation, from the first alert all the way to a documented conclusion. Master timeline analysis, evidence pivoting, and SIEM workflows.",
     "difficulty": "intermediate",
     "category": "Incident Response",
-    "estimatedMinutes": 55,
-    "xp": 280,
+    "estimatedMinutes": 75,
+    "xp": 385,
     "icon": "🔬",
     "prerequisites": [
       "alert-triage",
@@ -2108,14 +2101,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
+        "id": "inv-method-m1",
+        "type": "mission",
+        "xp": 40
+      },
+      {
         "id": "inv-method-r2",
         "type": "reading",
         "xp": 0
-      },
-      {
-        "id": "inv-method-q2",
-        "type": "question",
-        "xp": 30
       },
       {
         "id": "inv-method-q3",
@@ -2123,30 +2116,29 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
+        "id": "inv-method-m2a",
+        "type": "mission",
+        "xp": 90
+      },
+      {
         "id": "inv-method-r3",
         "type": "reading",
         "xp": 0
       },
       {
-        "id": "inv-method-q5",
-        "type": "question",
-        "xp": 30
+        "id": "inv-method-m2b",
+        "type": "mission",
+        "xp": 95
       },
       {
-        "id": "inv-method-la1",
-        "type": "log_analysis",
-        "xp": 80,
-        "mitreTechnique": "T1078.002 - Valid Accounts: Domain Accounts"
+        "id": "inv-method-m3",
+        "type": "mission",
+        "xp": 40
       },
       {
-        "id": "inv-method-flag1",
-        "type": "flag",
-        "xp": 50
-      },
-      {
-        "id": "inv-method-q4",
-        "type": "question",
-        "xp": 30
+        "id": "inv-method-m4",
+        "type": "mission",
+        "xp": 60
       }
     ]
   },
@@ -7188,7 +7180,7 @@ export const ROOMS_META: RoomMeta[] = [
     "difficulty": "advanced",
     "category": "SIEM",
     "estimatedMinutes": 70,
-    "xp": 400,
+    "xp": 440,
     "icon": "🛠️",
     "prerequisites": [
       "detection-engineering",
@@ -7206,19 +7198,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "sigyara-q1",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "sigyara-r3",
         "type": "reading",
         "xp": 0
       },
       {
-        "id": "sigyara-qf1",
-        "type": "query_fill",
-        "xp": 30
+        "id": "sigyara-mx1",
+        "type": "mission",
+        "xp": 100
       },
       {
         "id": "sigyara-r4",
@@ -7226,15 +7213,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "sigyara-qf2",
-        "type": "query_fill",
-        "xp": 30
-      },
-      {
-        "id": "sigyara-ac1",
-        "type": "analyst_choice",
-        "xp": 35,
-        "mitreTechnique": "T1059.001"
+        "id": "sigyara-mx2",
+        "type": "mission",
+        "xp": 120
       },
       {
         "id": "sigyara-r5",
@@ -7247,35 +7228,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "sigyara-qf3",
-        "type": "query_fill",
-        "xp": 30
+        "id": "sigyara-mx3",
+        "type": "mission",
+        "xp": 140
       },
       {
-        "id": "sigyara-q2",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "sigyara-m1",
-        "type": "matching",
-        "xp": 35
-      },
-      {
-        "id": "sigyara-o1",
-        "type": "ordering",
-        "xp": 30
-      },
-      {
-        "id": "sigyara-la1",
-        "type": "log_analysis",
-        "xp": 140,
-        "mitreTechnique": "T1003.001"
-      },
-      {
-        "id": "sigyara-f1",
-        "type": "flag",
-        "xp": 20
+        "id": "sigyara-mx4",
+        "type": "mission",
+        "xp": 80
       }
     ]
   },

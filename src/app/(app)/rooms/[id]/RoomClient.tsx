@@ -87,6 +87,7 @@ function taskMaxXp(task: RoomTask): number {
   switch (task.type) {
     case "reading":      return 0;
     case "log_analysis": return task.questions.reduce((s, q) => s + q.xp, 0);
+    case "mission":      return task.steps.reduce((s, q) => s + q.xp, 0);
     default:              return task.xp;
   }
 }
@@ -105,6 +106,7 @@ function TaskIcon({ type, className }: { type: RoomTask["type"]; className?: str
     case "flag":         return <Flag className={cls} />;
     case "query_fill":   return <Terminal className={cls} />;
     case "written_report": return <FileText className={cls} />;
+    case "mission":      return <Terminal className={cls} />;
     default:             return <FileText className={cls} />;
   }
 }
@@ -774,7 +776,7 @@ export function RoomClient({ room }: RoomClientProps) {
                           ? task.heading
                           : task.type === "ordering"
                             ? task.heading
-                            : task.type === "query_fill"
+                            : task.type === "query_fill" || task.type === "mission"
                               ? task.heading
                               : task.type === "question"
                                 ? task.question.slice(0, 40) + (task.question.length > 40 ? "…" : "")

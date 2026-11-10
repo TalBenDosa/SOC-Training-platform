@@ -15,7 +15,7 @@ import type { StoryEntry } from "./MissionBoard";
 
 const DEFAULT_LOOK = { primary: "#2dd4bf", secondary: "#60a5fa", warn: "#f43f5e" };
 const pad2 = (n: number) => String(n).padStart(2, "0");
-const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4 };
+const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4, mission: 12 };
 const SHIFT_START = 2 * 60 + 40, DAWN = 6 * 60 + 12;
 const clock = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(Math.round(m % 60))}`;
 

@@ -18,7 +18,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const shortLabel = (label: string) => label.replace(/^The /, "");
 // Only ": " separates a prefix ("Hop 3: ..."), so a time like "03:47" is kept.
 const coreName = (label: string) => shortLabel(label.includes(": ") ? label.slice(label.indexOf(": ") + 2).trim() : label);
-const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4 };
+const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4, mission: 12 };
 
 export const coreLabel = coreName;
 
@@ -51,6 +51,7 @@ export function StageBoard({ experience, room, stations, selected, onSelect, onE
   const kinds = new Set(tasks.map(t => t.type));
   const kindLabel = kinds.has("reading") ? "Hands-on briefing"
     : kinds.has("log_analysis") || kinds.has("query_fill") ? "Evidence work"
+      : kinds.has("mission") ? "Hands-on mission"
       : kinds.has("written_report") ? "Case write-up"
         : kinds.has("analyst_choice") ? "Live decision" : "Challenge";
 

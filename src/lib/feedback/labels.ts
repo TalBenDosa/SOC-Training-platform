@@ -13,6 +13,7 @@ export const TASK_TYPE_LABEL: Record<string, string> = {
   ordering: "Ordering",
   query_fill: "Query",
   written_report: "Written report",
+  mission: "Mission",
 };
 
 export const KIND_LABEL: Record<string, string> = {

@@ -118,6 +118,11 @@ export function describe(task: RoomTask | undefined, item: ItemResult<StoredAtte
     }
     case "written_report":
       return { prompt: cut(task.prompt), chosen: "The report scored below the pass mark", correct: null, explanation: cut(task.explanation) };
+    case "mission": {
+      const i = typeof sub.stepIndex === "number" ? sub.stepIndex : -1;
+      const step = task.steps[i];
+      return { prompt: cut(`${task.heading}${step ? `, step ${i + 1}: ${step.prompt}` : ""}`), chosen: "The step's check did not pass", correct: null, explanation: step ? cut(step.debrief) : null };
+    }
     default:
       return { prompt: null, chosen: null, correct: null, explanation: null };
   }

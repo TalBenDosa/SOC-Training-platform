@@ -10,7 +10,7 @@ import { ROLL_MS } from "./useClearRoll";
 // The theme's main screen. Left: the site's own logo and the learner's journey.
 // Bottom: what the selected station holds. What stands in the world is clickable too.
 
-const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4 };
+const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4, mission: 12 };
 const DONE = "#34d399";
 
 function Ring({ pct, color }: { pct: number; color: string }) {

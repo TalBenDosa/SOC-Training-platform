@@ -209,7 +209,10 @@ describe("game labs", () => {
   it("every room has at least two games, and no two rooms share the same mix", () => {
     const seen = new Map<string, string>();
     const bad: string[] = [];
+    // Practical-mission rooms (SPEC-practical-missions.md, decision 2) replaced their arcade labs with graded missions.
+    const missionRooms = new Set(ROOMS.filter(r => r.tasks.some(t => t.type === "mission")).map(r => r.id));
     for (const r of rooms) {
+      if (missionRooms.has(r.id)) continue;
       const mix = [...new Set(r.labs.map(l => l.kind as string).filter(k => (ARCADE as readonly string[]).includes(k)))].sort().join("+");
       if (mix.split("+").filter(Boolean).length < 2) bad.push(`${r.id}: mix "${mix}"`);
       else if (seen.has(mix)) bad.push(`${r.id} and ${seen.get(mix)} both use ${mix}`);

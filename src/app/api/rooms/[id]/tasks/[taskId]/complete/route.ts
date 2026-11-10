@@ -69,7 +69,7 @@ export async function POST(
     taskXp = readingXp(task);
   } else {
     const attempts = (roomAttempts ?? []).filter(a => a.task_id === task.id);
-    if (task.type === "log_analysis") {
+    if (task.type === "log_analysis" || task.type === "mission") {
       const best = new Map<number, number>();
       for (const a of attempts ?? []) {
         const qi = typeof a.question_index === "number" ? a.question_index : -1;

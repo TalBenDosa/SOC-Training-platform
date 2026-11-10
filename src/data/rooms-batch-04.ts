@@ -8,6 +8,8 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import type { MissionTask } from "@/lib/missions/types";
+import { CLEAR_SKY_M1, CLEAR_SKY_M2, CLEAR_SKY_M3, CLEAR_SKY_M4, CLEAR_SKY_M5 } from "@/lib/missions/rooms/clearSky";
 
 // ---------------------------------------------------------------------------
 // Task type re-exports (mirrors rooms.ts to keep rooms-batch-04 self-contained)
@@ -85,7 +87,7 @@ interface AnalystChoiceTask {
   xp: number;
 }
 
-type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | QueryFillTask | AnalystChoiceTask;
+type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | QueryFillTask | AnalystChoiceTask | MissionTask;
 
 interface Room {
   id: string;
@@ -1282,8 +1284,8 @@ const sentinelFundamentals: Room = {
     "Learn Microsoft Sentinel, the cloud-native SIEM and SOAR built into Azure. Understand data connectors, Log Analytics tables, KQL queries, analytics rules, and incident management.",
   difficulty: "intermediate",
   category: "SIEM",
-  estimatedMinutes: 55,
-  xp: 230,
+  estimatedMinutes: 70,
+  xp: 320,
   icon: "☁️",
   prerequisites: ["siem-fundamentals", "security-products-behaviour"],
   tasks: [
@@ -1362,6 +1364,9 @@ Knowing which table to query is the first step in any Sentinel investigation. A 
           "Entra ID (Azure AD) sign-ins, including failed and MFA-challenged ones, are in SigninLogs. SecurityEvent holds Windows Security log events from servers and workstations, not cloud sign-ins. OfficeActivity records what users do inside Exchange, SharePoint and Teams after they are signed in. AuditLogs records directory changes such as new users or role assignments.",
       },
     } satisfies ReadingTask,
+
+    // ----- Mission: three tickets, three tables -----
+    CLEAR_SKY_M1,
 
     // ----- Reading 2: KQL basics -------------------------------------------
     {
@@ -1467,23 +1472,8 @@ This query finds all source IPs that generated more than 20 failed Windows login
       },
     } satisfies ReadingTask,
 
-    // ----- Question 1 -------------------------------------------------------
-    {
-      type: "question",
-      id: "sentinel-q1",
-      question:
-        "A SOC analyst wants to find all failed Windows logins (Event ID 4625) in Sentinel from the past 6 hours. Which KQL query correctly achieves this?",
-      options: [
-        "SecurityEvent | where EventID == 4625 | where TimeGenerated < ago(6h)",
-        "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(6h)",
-        "SigninLogs | where EventID == 4625 | where TimeGenerated > ago(6h)",
-        "SecurityEvent | where TimeGenerated > ago(6h) | summarize count() by EventID",
-      ],
-      answer: 1,
-      explanation:
-        "Start with the SecurityEvent table, filter with where EventID == 4625, and keep rows newer than six hours ago with TimeGenerated > ago(6h). Using < ago(6h) inverts the window and returns everything OLDER than six hours. SigninLogs holds Entra ID sign-ins and has no EventID column; Windows failed logons live in SecurityEvent. Summarizing by EventID counts every event type from the last six hours instead of returning the failed logons, because nothing filters on 4625.",
-      xp: 25,
-    } satisfies QuestionTask,
+    // ----- Mission: the travel rule -----
+    CLEAR_SKY_M2,
 
     // ----- Reading 3: Analytics rules and incident management ---------------
     {
@@ -1582,106 +1572,6 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       },
     } satisfies ReadingTask,
 
-    // ----- Log Analysis: Sentinel SecurityEvent 4625 -----------------------
-    {
-      type: "log_analysis",
-      id: "sentinel-la1",
-      heading: "Sentinel: Windows Failed Authentication Event",
-      context:
-        "You are investigating a Sentinel incident flagged as a potential brute force attack. You have drilled down from the incident into the underlying log events and are looking at one individual SecurityEvent entry. The event came through the Windows Security Events data connector. Review the raw fields and answer the questions.",
-      event: {
-        id: "sentinel-evt-001",
-        ts: "2025-06-24T14:32:11.604Z",
-        source: "windows_security",
-        event_type: "auth_failure",
-        severity: "medium",
-        hostname: "CORP-WS-042",
-        user_email: "j.smith@corp.com",
-        src_ip: "203.0.113.45",
-        description:
-          "Windows Security Event 4625: failed network logon for account j.smith",
-        mitre_technique: "T1110.001",
-        vendor: "Microsoft Sentinel",
-        // One SecurityEvent row as Log Analytics stores it (columns of the SecurityEvent table).
-        raw: {
-          TimeGenerated: "2025-06-24T14:32:11.604Z",
-          Type: "SecurityEvent",
-          EventSourceName: "Microsoft-Windows-Security-Auditing",
-          Channel: "Security",
-          Computer: "CORP-WS-042.corp.com",
-          EventID: 4625,
-          Activity: "4625 - An account failed to log on.",
-          Account: "CORP\\j.smith",
-          AccountType: "User",
-          TargetAccount: "CORP\\j.smith",
-          TargetUserName: "j.smith",
-          TargetDomainName: "CORP",
-          TargetUserSid: "S-1-0-0",
-          SubjectUserSid: "S-1-0-0",
-          LogonType: 3,
-          LogonTypeName: "3 - Network",
-          Status: "0xc000006d",
-          SubStatus: "0xc000006a",
-          FailureReason: "%%2313",
-          AuthenticationPackageName: "NTLM",
-          LogonProcessName: "NtLmSsp ",
-          WorkstationName: "DESKTOP-7GQK21",
-          IpAddress: "203.0.113.45",
-          IpPort: "50112",
-        },
-      } satisfies TelemetryEvent,
-      questions: [
-        {
-          question:
-            "You want every other failed Windows logon from 203.0.113.45 across all servers and workstations, not just this one. Which table do you query?",
-          options: ["SigninLogs", "AuditLogs", "SecurityEvent", "OfficeActivity"],
-          answer: 2,
-          explanation:
-            "Windows Security events from every connected Windows machine, including 4625 failed logons, land in one table, SecurityEvent, so a single query filtered on IpAddress finds them all. SigninLogs is the right pivot for this IP's cloud sign-ins, but not for Windows logons. AuditLogs holds Entra ID directory changes, and OfficeActivity holds Microsoft 365 user activity.",
-          xp: 20,
-        },
-        {
-          question:
-            "SubStatus is 0xc000006a (Sentinel stores the hex in lower case). What does that tell you about the attacker's position against j.smith?",
-          options: [
-            "They are guessing usernames, and j.smith does not exist in the domain",
-            "They cannot succeed, because the j.smith account is disabled",
-            "They have a valid username and are guessing its password",
-            "They were locked out, so further attempts are being refused",
-          ],
-          answer: 2,
-          explanation:
-            "0xc000006a (0xC000006A in the Windows documentation) means the account exists but the password was wrong: the attacker has a real username and only needs the password, which makes a later success more dangerous. A non-existent username would be 0xC0000064, and a disabled account 0xC0000072. A lockout has its own failure code (0xC0000234), which this event does not show.",
-          xp: 30,
-        },
-        {
-          question:
-            "LogonType is 3 and IpAddress is an internet address. What does that combination tell you about how the attempt reached CORP-WS-042?",
-          options: [
-            "Someone at CORP-WS-042's own keyboard typed j.smith's password",
-            "A Windows service on CORP-WS-042 started with stored credentials",
-            "It arrived over the network, so this workstation is reachable from outside",
-            "It used cached credentials while the workstation was offline",
-          ],
-          answer: 2,
-          explanation:
-            "LogonType 3 is a network logon, such as SMB access to a share. Coming from 203.0.113.45, it means an external host could reach a network service on this workstation: an exposure worth raising in its own right. A person at the keyboard logs LogonType 2, a service starting logs LogonType 5, and cached offline logons use LogonType 11. (A full RDP session is LogonType 10; only RDP's Network Level Authentication pre-check appears as type 3.)",
-          xp: 25,
-        },
-      ],
-    } satisfies LogAnalysisTask,
-
-    // ----- Flag: table name -------------------------------------------------
-    {
-      type: "flag",
-      id: "sentinel-flag1",
-      prompt:
-        "In the 4625 event above, which column holds the address you would pivot on to find every other attempt by the same attacker? Enter the exact column name.",
-      answer: "IpAddress",
-      hint: "Not the machine that was targeted, and not the name the attacker's machine reported about itself.",
-      xp: 20,
-    } satisfies FlagTask,
-
     // ----- Question 2 -------------------------------------------------------
     {
       type: "question",
@@ -1700,96 +1590,14 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       xp: 25,
     } satisfies QuestionTask,
 
-    // ----- Question 3 -------------------------------------------------------
-    {
-      type: "question",
-      id: "sentinel-q3",
-      question:
-        "A SOC analyst wants to see the top 5 user accounts with the most failed Windows logons in the past 24 hours in Sentinel. Which KQL query is correct?",
-      options: [
-        "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Account | top 5 by FailCount",
-        "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize count() by Account | top 5 by Account",
-        "SigninLogs | where ResultType != 0 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Account | top 5 by FailCount",
-        "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Computer | top 5 by FailCount",
-      ],
-      answer: 0,
-      explanation:
-        "The correct query filters SecurityEvent to 4625, scopes to 24 hours, counts failures per Account, then takes the top 5 by that count. 'top 5 by Account' sorts by the account name, not by how many failures it has. Grouping by Computer answers a different question, which hosts saw the most failures. The SigninLogs query reads Entra ID sign-ins, not Windows failed logons (4625 lives in SecurityEvent).",
-      xp: 25,
-    } satisfies QuestionTask,
+    // ----- Mission: incident 4412 pivot -----
+    CLEAR_SKY_M3,
 
-    // ----- Query Fill: write the KQL yourself -------------------------------
-    {
-      type: "query_fill",
-      id: "sentinel-queryfill-1",
-      heading: "Write It Yourself: Failed Logins in the Last Hour",
-      language: "kql",
-      context:
-        "You've read plenty of finished KQL queries this room: now write one. A colleague asks: \"Which accounts had a failed Windows logon in the last hour?\" Fill in the blanks to build that query from the SecurityEvent table.",
-      template:
-        "SecurityEvent\n| where EventID == {{eventid}}\n| where TimeGenerated > ago({{window}})\n| project TimeGenerated, {{account}}, Computer, IpAddress",
-      blanks: [
-        { id: "eventid", answers: ["4625"], placeholder: "event ID" },
-        { id: "window",  answers: ["1h", "60m"], placeholder: "time window" },
-        { id: "account", answers: ["Account", "TargetAccount", "TargetUserName"], placeholder: "account column" },
-      ],
-      explanation:
-        "4625 is the Windows Security Event ID for a failed logon. ago(1h) scopes TimeGenerated to the last hour: KQL's relative-time shorthand (1h, 30m, 7d). SecurityEvent's account column is named Account; TargetAccount and TargetUserName also hold the target account and are accepted. ago(60m) is the same window as ago(1h). project narrows the output to just what a triage analyst needs to see per row.",
-      xp: 30,
-    } satisfies QueryFillTask,
+    // ----- Mission: read the raw row -----
+    CLEAR_SKY_M4,
 
-    // ----- Analyst Choice: password-spray-shaped alert from a vuln scanner --
-    {
-      type: "analyst_choice",
-      id: "sentinel-ac1",
-      heading: "Verdict: Mass Failed Logons Across Many Accounts From One Source",
-      scenario:
-        "At 03:00 AM, a Sentinel scheduled analytics rule fires: 260 failed Windows logons (Event ID 4625) across 14 distinct user accounts, all from a single source IP (10.30.8.14), within a 10-minute window. Before you decide, check who owns 10.30.8.14 and whether anything explains activity from it at this hour: the IT verification note under the alert is your asset and change-record lookup. What is your verdict?",
-      event: {
-        id: "sentinel-ac1-evt-001",
-        ts: "2025-08-03T03:00:00Z",
-        source: "siem",
-        vendor: "Microsoft Sentinel",
-        event_type: "auth_failure",
-        severity: "high",
-        description:
-          "Scheduled analytics rule 'Multiple failed logons across many accounts from a single source' fired: 260 Event ID 4625 failures across 14 distinct accounts from one source IP within a 10-minute window",
-        mitre_technique: "T1110.003",
-        mitre_tactic: "Credential Access",
-        it_verify_result: "confirmed",
-        it_verify_message:
-          "CHG0052210: 10.30.8.14 (scanner-qualys01) is the internal Qualys vulnerability scanner performing its scheduled monthly credential-validation scan against 10.30.8.0/24. The change record attaches the account list the scan tries (14 accounts in total, most of them live service accounts and a few retired names that no longer exist).",
-        raw: {
-          // Sentinel SecurityAlert row: the scheduled rule's aggregate output sits in its custom
-          // details under ExtendedProperties.* (rule-author-defined keys), the description uses
-          // the rule's dynamic alert details.
-          TimeGenerated: "2025-08-03T03:00:00Z",
-          AlertName: "Multiple failed logons across many accounts from a single source",
-          AlertSeverity: "High",
-          Description: "260 failed logons (Event ID 4625) across 14 distinct accounts from source 10.30.8.14 within a 10-minute window",
-          ProviderName: "ASI Scheduled Alerts",
-          ProductName: "Azure Sentinel",
-          Status: "New",
-          StartTime: "2025-08-03T02:50:00Z",
-          EndTime: "2025-08-03T03:00:00Z",
-          Tactics: "CredentialAccess",
-          Techniques: "[\"T1110\"]",
-          Entities: "[{\"$id\":\"2\",\"Address\":\"10.30.8.14\",\"Type\":\"ip\"}]",
-          "ExtendedProperties.FailureCount": "260",
-          "ExtendedProperties.DistinctAccountCount": "14",
-          "ExtendedProperties.TimeWindowMinutes": "10",
-          "ExtendedProperties.SubStatusDistribution": "0xC000006A:242, 0xC0000064:18",
-          "ExtendedProperties.LogonTypeDistribution": "3:260",
-          "ExtendedProperties.AffectedComputerCount": "14",
-        },
-      } satisfies TelemetryEvent,
-      correct_verdict: "benign_true_positive",
-      explanation:
-        "The raw numbers here (260 failures, 14 distinct accounts, one source IP, all network logons (LogonType 3)) are exactly the statistical shape this room's KQL reading taught you to build a password-spray detection around (summarize FailureCount, DistinctAccounts by IpAddress), and the rule did its job: these 260 failures really happened, from one source, across many accounts. But 10.30.8.14 is an internal, allocated address belonging to the organisation's own vulnerability scanner, not an unrecognised external host, and IT verification directly confirms a scheduled, approved credential-validation scan covering this exact time window. Unlike an ordinary authenticated scan, which logs on with one provisioned account, this scan tries the accounts on a supplied list to test password-policy compliance, so it produces a near-identical statistical fingerprint to a real password spray; here the change record names the list, which explains the few failures for names that no longer exist (0xC0000064). Without a change record naming the list, the same shape would be a spray. With source ownership and change-ticket confirmation both checked, this is a benign true positive: the detection fired correctly on real activity, and the approved scan window is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a spray rule that works; at most, add a narrow, owned exclusion for the scanner during its approved window.",
-      fp_trap:
-        "This alert is a textbook benign true positive: the detection rule correctly matched its pattern on real activity, but the rule only measures shape (many accounts, one source, many failures) and cannot see intent or authorization. Declaring 'true positive' the moment the numbers match the taught query, without checking whether the source IP belongs to a known internal scanner and whether a change record explains it, is exactly the alert-fatigue trap that erodes trust in a detection program. If 10.30.8.14 had instead been an external or unrecognised IP with no matching change ticket, the correct verdict would be true_positive or escalate.",
-      xp: 30,
-    } satisfies AnalystChoiceTask,
+    // ----- Mission: call the spray (boss) -----
+    CLEAR_SKY_M5,
   ],
 };
 

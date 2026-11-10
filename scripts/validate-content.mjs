@@ -357,7 +357,7 @@ for (const r of ROOMS) {
   if (kinds.size < 3) {
     add("WARN", at, `only ${kinds.size} task type(s) — a room of reading+question is a slideshow`);
   }
-  const hasPractice = tasks.some(t => t.type === "log_analysis" || t.type === "analyst_choice");
+  const hasPractice = tasks.some(t => t.type === "log_analysis" || t.type === "analyst_choice" || t.type === "mission");
   if (!hasPractice) {
     add("WARN", at, "no log_analysis or analyst_choice task — reading a log is the job");
   }
@@ -388,6 +388,7 @@ for (const r of ROOMS) {
   const sum = tasks.reduce((s, t) => {
     if (typeof t.xp === "number") return s + t.xp;
     if (t.type === "log_analysis") return s + (t.questions ?? []).reduce((a, x) => a + (x.xp ?? 0), 0);
+    if (t.type === "mission") return s + (t.steps ?? []).reduce((a, x) => a + (x.xp ?? 0), 0);
     return s;
   }, 0);
   // The app awards xp per task and has no completion bonus (verified against

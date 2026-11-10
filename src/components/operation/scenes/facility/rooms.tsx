@@ -159,7 +159,7 @@ const LOOSETHREAD: HallConfig = {
     { icon: "compass", name: ["The First", "Question"], color: "#fb7185", art: "axes" },
     { icon: "wire", name: ["Pivot and", "Timeline"], color: "#7dd3fc", art: "tree" },
     { icon: "filter", name: ["SIEM and", "Case File"], color: "#fde047", art: "loot" },
-    { icon: "target", name: ["Read the", "Logon"], color: "#f472b6", art: "pulse" },
+    { icon: "target", name: ["Tie It", "Off"], color: "#f472b6", art: "pulse" },
   ],
 };
 
@@ -1213,7 +1213,7 @@ const SENTINEL_FUNDAMENTALS_FAC: HallConfig = {
     { icon: "shield", name: ["Speak", "KQL"], color: "#f472b6", art: "ghost" },
     { icon: "filter", name: ["Rules to", "Incidents"], color: "#fb7185", art: "axes" },
     { icon: "layers", name: ["Inside", "the Event"], color: "#a3e635", art: "tree" },
-    { icon: "users", name: ["Write It", "Call It"], color: "#f97316", art: "pulse" },
+    { icon: "users", name: ["Call the", "Spray"], color: "#f97316", art: "pulse" },
   ],
 };
 

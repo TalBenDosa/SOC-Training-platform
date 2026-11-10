@@ -23,6 +23,7 @@ export function taskMaxXp(task: RoomTask): number {
   switch (task.type) {
     case "reading":      return 0;
     case "log_analysis": return task.questions.reduce((s, q) => s + q.xp, 0);
+    case "mission":      return task.steps.reduce((s, q) => s + q.xp, 0);
     default:             return task.xp;
   }
 }

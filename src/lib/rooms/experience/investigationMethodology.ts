@@ -1,28 +1,25 @@
 import type { RoomExperience } from "./types";
 
 // "Operation Loose Thread" for the "investigation-methodology" room.
-// Script: docs/campaign/61-investigation-methodology.md.
+// Script: docs/campaign/61-investigation-methodology.md. Practical-missions pilot:
+// research/rooms-practical-tasks/G7-ir-process.md, section 61.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
-// TASK ORDER CHANGED: r1, q1 | r2, q2, q3 | r3, q5 | la1, flag1, q4. The room stored all
-// three readings first, which cannot make stations. q4 must stay after la1 (it says "the
-// logon above"), so the boss holds la1, flag1, q4 and q5 moves up beside its reading.
+// TASK ORDER: r1, q1, m1 | r2, q3, m2a | r3, m2b, m3 | m4 (boss). The case notebook runs
+// as five missions (src/lib/missions/rooms/looseThread.ts, dataset "loose-thread"): the
+// lure's indicators, the hypothesis board in two halves (seven hops, each question picks
+// its source and its fact picks the next), one UTC timeline from four clocks, then scope
+// and a slotted finding. q2, q5, la1, flag1 and q4 retired (the missions do that work);
+// q1 (collect before rollover) and q3 (which source is UTC by format) stay as key checks.
 //
-// St Aldric's Hospice Group (fictional charity), not the graded tasks' corp.local records.
-// Signature: the Hypothesis Board. The learner forms a hypothesis (deduce), walks evidence
-// sources where each hop must follow from the last finding and a wrong pivot says what it
-// could never have proved (pathway), then rebuilds one UTC timeline from clocks in three
-// zones (sequence).
-// Game mix: deduce + hunt + pathway. The hunt is SPL, in its own tables.
-// Lab data differs from the graded tasks: the rollover drill is a VPN buffer and laptop
-// memory, never one server's Security log (q1); the IP-to-hosts pivot starts from an EDR
-// process record, never a firewall beacon (q2); zones are UTC-3, UTC+1 and UTC+8, never
-// UTC+2, and no lab merges an EVTX, an IIS log and Sentinel results (q3); the anatomy is a
-// clean Kerberos logon by svc-crmsync that matches its inventory line, never svc-backup,
-// SRV-FINANCE-02, WS-DEV-09, 10.0.1.45 or NTLM (la1, flag1); the hunt follows a named admin
-// to a file server (la1); the sort never asks Event ID 7045, which appears only as data in
-// the hunt and as a passing fact (q4); the ticket drill marks up one draft, never a choice
-// of drafts (q5).
+// Arcade labs left with the redesign (deduce, the two sorts, match, pathway). Tool labs stay
+// as practice on the readings; the hotspot (was q5) and the anatomy (was la1) moved onto r3.
+// Practice data differs from the graded case: the labs use St Aldric's older ALD- hosts,
+// l.tran, ALD-PER-LT31, 203.0.113.58, 10.40.x/10.42.x/10.44.x and October dates; the graded
+// case is SAH- hosts, m.oduya, SAH-BRS-LT14, 203.0.113.164, 10.10.x and 14 April 2026. The
+// UTC sequence lab's export is 860 records and 610 MB, never the graded 2,140 records and
+// 1.4 GB. The rollover drill is a VPN buffer and laptop memory, never one server's Security
+// log (q1); no lab merges an EVTX, an IIS log and Sentinel results, and no lab uses UTC+2 (q3).
 
 export const INVESTIGATION_METHODOLOGY: RoomExperience = {
   roomId: "investigation-methodology",
@@ -35,8 +32,8 @@ export const INVESTIGATION_METHODOLOGY: RoomExperience = {
     "Rafe Nakagawa has one loose thread and one rule: no log gets opened until there is a question to ask it.",
     "Form a hypothesis, find the evidence that could kill it, follow each finding to the next, and write it up so anyone can check it.",
   ],
-  mission: "Test hypotheses against evidence, sort a case into its phases, race a log's rollover, pivot from source to source, rebuild one timeline in UTC, climb an SPL search to the odd logons, mark up a draft ticket, then read the logon that ties the case off.",
-  estimate: "~50 min",
+  mission: "Pull the attacker's indicators out of the lure, then follow them hop by hop: pick the source for each question, write the query, pin the row. Rebuild the morning on one UTC clock, state the scope and write a finding anyone can check.",
+  estimate: "~75 min",
   look: { primary: "#fb7185", secondary: "#7dd3fc", warn: "#fde047" },
   scene: "facilityloosethread",
   layout: "facility",
@@ -52,100 +49,48 @@ export const INVESTIGATION_METHODOLOGY: RoomExperience = {
     {
       id: "question",
       label: "The First Question",
-      topic: "Detective mindset · reactive and proactive work · the six phases · collect before it is gone",
+      topic: "Detective mindset · the six phases · collect before it is gone · indicators from the lure",
       tagline: "What would have to be true?",
       building: "reception",
-      taskIds: ["inv-method-r1", "inv-method-q1"],
+      taskIds: ["inv-method-r1", "inv-method-q1", "inv-method-m1"],
     },
     {
       id: "pivot",
       label: "Pivot and Timeline",
-      topic: "Evidence pivoting · the four pivots · time zones · building a timeline in UTC",
+      topic: "Evidence pivoting · where to look for each question · mail to click to process",
       tagline: "Each finding picks the next source",
       building: "lab",
-      taskIds: ["inv-method-r2", "inv-method-q2", "inv-method-q3"],
+      taskIds: ["inv-method-r2", "inv-method-q3", "inv-method-m2a"],
     },
     {
       id: "casefile",
       label: "SIEM and Case File",
-      topic: "The SIEM workflow · entity context · lateral movement and exfiltration indicators · a good case ticket",
+      topic: "IP to hosts · the application's own audit · bytes out · one timeline in UTC",
       tagline: "Can someone else check your work?",
       building: "office",
-      taskIds: ["inv-method-r3", "inv-method-q5"],
+      taskIds: ["inv-method-r3", "inv-method-m2b", "inv-method-m3"],
     },
     {
       id: "logon",
-      label: "Read the Logon",
-      topic: "One logon record against its inventory · the next pivot · what the next result means",
-      tagline: "One record, one call",
+      label: "Tie It Off",
+      topic: "Scope with edges · a five-part finding · gaps stated, not hidden",
+      tagline: "Someone reads this in a year",
       building: "ticket",
-      taskIds: ["inv-method-la1", "inv-method-flag1", "inv-method-q4"],
+      taskIds: ["inv-method-m4"],
       boss: true,
     },
   ],
   personas: {
     "inv-method-q1": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "The case is scoped. Tell me your next move." },
-    "inv-method-q2": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "One host so far. I want your next search." },
+    "inv-method-m1": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "The attacker's side of the mail goes in the notebook. Only that side." },
     "inv-method-q3": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "Three sources, one timeline. Which one worries you?" },
-    "inv-method-q5": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "Someone else picks this up tomorrow, without you." },
-    "inv-method-la1": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "Read the record against the inventory note." },
-    "inv-method-flag1": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "Give me the value you would search for." },
-    "inv-method-q4": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "The results are back. Tell me what each one means." },
+    "inv-method-m2a": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "One question, one source, one pinned row. Then the next." },
+    "inv-method-m2b": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "One laptop or ten? The address will tell us." },
+    "inv-method-m3": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "As printed, the data leaves before the mail arrives. Fix the clocks." },
+    "inv-method-m4": { name: "Rafe Nakagawa", role: "Senior Investigator", line: "Every claim with the source that proves it." },
   },
   briefings: {
-    // ── Reading 1: mindset and lifecycle ──
-    "inv-method-r1": [
-      {
-        kind: "deduce",
-        title: "Kill the Hypotheses",
-        prompt: "This afternoon, the fundraising office. A stranger has quoted a donor the exact sum promised in the donor's will, and that sum lives in the Legacy Register, inside the CRM (customer relationship management system, here the donor database). Rafe puts six explanations on the board, each with what it predicts. Strike one out only when a clue contradicts its prediction, then name the one left standing.",
-        nameColumn: "Hypothesis",
-        columns: ["Holds the sums?", "Reads through the CRM?", "Login in the audit log", "Officer at the desk?"],
-        suspects: [
-          { id: "mailing", name: "The mailing house", cells: ["No, names and addresses", "No", "None", "Not needed"] },
-          { id: "solicitor", name: "One solicitor's office", cells: ["Yes, for its own client", "No", "None", "Not needed"] },
-          { id: "vendor", name: "The CRM vendor's support desk", cells: ["Yes, every donor", "Yes", "Support login, open ticket", "Not needed"] },
-          { id: "stolen", name: "An outsider with a staff login", cells: ["Yes, every donor", "Yes", "A legacy officer's login", "No, could be anywhere"] },
-          { id: "share", name: "An old export on an open share", cells: ["Yes, every donor", "No, it reads a file", "None", "Not needed"] },
-          { id: "insider", name: "A legacy officer selling it", cells: ["Yes, every donor", "Yes", "A legacy officer's login", "Yes, at the keyboard"] },
-        ],
-        clues: [
-          "Three donors have now rung. They use three different solicitors, and each caller quoted the exact sum.",
-          "The CRM audit log, the application's own record of who read what, shows all three records were read through the application.",
-          "Those reads ran under a staff login. The vendor's support login has not been used since August, and no ticket is open.",
-          "The rota puts that officer at a family's home, with the laptop left in the office, for the whole of those reads.",
-        ],
-        culprit: "stolen",
-        why: "Only an outsider with a staff login predicts all four clues. The insider is the near miss: same login, same reads, and it fell only to a fact from outside the logs. That is the method: a hypothesis earns its place by saying what evidence would kill it. Think like the attacker too: someone who wants the sums takes the quietest way to them. And it is still a hypothesis, not a verdict, so the next evidence must be able to kill it as well. This case is reactive, because a report started it. A proactive hunt starts from a hypothesis before anything has fired.",
-      },
-      {
-        kind: "sort",
-        title: "Six Phases of One Case",
-        prompt: "Rafe's notes from this case and two older ones, out of order. Every reactive investigation runs through six phases, and skipping one loses evidence or the conclusion. Put each note in its phase.",
-        buckets: [
-          { id: "trigger", label: "1. Trigger" },
-          { id: "scope", label: "2. Scope" },
-          { id: "collect", label: "3. Collect" },
-          { id: "analyze", label: "4. Analyze" },
-          { id: "conclude", label: "5. Conclude" },
-          { id: "document", label: "6. Document" },
-        ],
-        items: [
-          { id: "a1", text: "A donor rings the fundraising office about a stranger's call", bucket: "trigger", why: "A report from a person is a trigger, and an external one makes this a reactive case. Write down exactly what came in and when." },
-          { id: "a2", text: "A threat feed hands over an address your firewall has seen", bucket: "trigger", why: "Another system feeding you an IOC (Indicator of Compromise) is a trigger too. So is an alert firing." },
-          { id: "a3", text: "One officer's login, or every login that can reach the register?", bucket: "scope", why: "Scope is an early estimate of how big this might be, made before the data is pulled. It sets how much to collect." },
-          { id: "a4", text: "All three hospices use this CRM, so tell the duty manager now", bucket: "scope", why: "Scope also sets how urgently you escalate. One host and the whole estate are different afternoons." },
-          { id: "a5", text: "Pull the audit log and the officer's sign-in history into the case", bucket: "collect", why: "Collect the alert plus its context: process logs, authentication history, network traffic, endpoint telemetry." },
-          { id: "a6", text: "Copy the laptop's memory before its patch restart", bucket: "collect", why: "Collection runs ahead of analysis because logs rotate and memory is lost when a machine restarts." },
-          { id: "a7", text: "Line the sign-ins up in time and note what should be there but isn't", bucket: "analyze", why: "Analysis builds the timeline and hunts for anomalies, including absences: events that should exist and don't." },
-          { id: "a8", text: "If I wanted the sums, why would I open this record first?", bucket: "analyze", why: "Attackers have goals and their steps follow a logic. Understanding the goal predicts what evidence to look for next." },
-          { id: "a9", text: "True positive: the register was read from one laptop, 2,140 records", bucket: "conclude", why: "Conclude gives the verdict and, for a true positive, what the attacker did, which systems are affected and what data may have been accessed." },
-          { id: "a10", text: "Inconclusive: the proxy log had rolled before anyone looked", bucket: "conclude", why: "There are three verdicts: true positive, false positive and inconclusive. An honest inconclusive is a conclusion too." },
-          { id: "a11", text: "Add each piece of evidence and the reasoning to the case record", bucket: "document", why: "Document holds the trigger, the timeline, the evidence, the logic and the conclusion." },
-          { id: "a12", text: "Write it so an outside response team could rely on it later", bucket: "document", why: "If a case reaches an incident response team or law enforcement, your write-up becomes the record of what happened." },
-        ],
-      },
-    ],
+    // ── Reading 1 has no lab: the missions open the case right after its question. ──
     "inv-method-q1": [
       {
         kind: "worksheet",
@@ -167,54 +112,8 @@ export const INVESTIGATION_METHODOLOGY: RoomExperience = {
         ],
       },
     ],
-    // ── Reading 2: pivoting and timelines ──
+    // ── Reading 2: time zones and timelines (practice for q3 and the timeline mission) ──
     "inv-method-r2": [
-      {
-        kind: "match",
-        title: "Four Pivots",
-        prompt: "A pivot starts from one piece of evidence and uses it to find more. Rafe pins four questions from past cases on the board. Match each one to the pivot that answers it.",
-        pairs: [
-          { id: "p1", left: "A rogue DLL's SHA-256 turned up on one laptop. Is it anywhere else?", right: "File hash to hosts", why: "Query your EDR (Endpoint Detection and Response) platform for every machine holding that hash. One infected machine can mean fifty." },
-          { id: "p2", left: "You no longer trust a fundraiser's login. Where has it been?", right: "User account to systems", why: "Ask the authentication logs, going back about 30 days. Machines that login has no reason to touch are how lateral movement shows itself." },
-          { id: "p3", left: "An odd powershell.exe sits on a kiosk PC. Who is it talking to?", right: "Process to network connections", why: "EDR network telemetry ties connections to the process that opened them, which is how you find an attacker's C2 (command-and-control) server or exfiltration target." },
-          { id: "p4", left: "A phishing kit's landing page lives at one address. Which of our machines went there?", right: "IP address to hosts", why: "Ask the proxy, firewall or DNS logs which of your machines reached it. A reputation site only says what the world thinks of the address." },
-        ],
-      },
-      {
-        kind: "pathway",
-        title: "The Hypothesis Board",
-        prompt: "On the board: 'An outsider is using a real staff login to read the Legacy Register.' Each stop is an evidence source, and the only valid next stop is the one your last finding points to. Before each hop ask what that source could prove or kill.",
-        goal: "Prove or kill the hypothesis, one pivot at a time",
-        nodes: [
-          { id: "board", label: "The hypothesis", sub: "Outsider, real login", x: 10, y: 50 },
-          { id: "crm", label: "CRM audit log", sub: "Who read the records?", x: 30, y: 50 },
-          { id: "adgrp", label: "AD group list", sub: "What a login may reach", x: 30, y: 16 },
-          { id: "av", label: "Antivirus console", sub: "Scan results", x: 30, y: 84 },
-          { id: "signin", label: "Sign-in logs", sub: "Account to systems", x: 50, y: 30 },
-          { id: "doors", label: "Door badge log", sub: "Who was in the building", x: 50, y: 70 },
-          { id: "edr", label: "EDR process tree", sub: "Process to connections", x: 70, y: 18 },
-          { id: "ti", label: "Reputation lookup", sub: "What others have seen", x: 90, y: 34 },
-          { id: "proxy", label: "Web proxy log", sub: "IP to hosts", x: 88, y: 62 },
-          { id: "fw", label: "Firewall flows", sub: "Bytes out", x: 68, y: 84 },
-        ],
-        edges: [["board", "crm"], ["board", "adgrp"], ["board", "av"], ["crm", "signin"], ["crm", "doors"], ["crm", "av"], ["signin", "edr"], ["signin", "adgrp"], ["signin", "doors"], ["edr", "ti"], ["edr", "proxy"], ["proxy", "ti"], ["proxy", "fw"]],
-        route: ["board", "crm", "signin", "edr", "proxy", "fw"],
-        notes: {
-          board: "Kill test first. If someone read the register, the application must hold a record of those reads. If it holds none, this hypothesis is dead. Which source would show that?",
-          crm: "Finding: l.tran's login exported 2,140 legacy records at 02:48 UTC. You now hold a user, so the pivot is user account to systems: where else has this login been?",
-          signin: "Finding: one device only, ALD-PER-LT31, the officer's own laptop, used while the officer was out. The hypothesis bends: no remote sign-in, so something on that laptop did this. What ran there?",
-          edr: "Finding: rundll32.exe on the laptop connected to 203.0.113.58. Process to network connections has handed you an external address. Scope is the next question: who else called it?",
-          proxy: "Finding: ALD-HFX-WS07 in Halifax called the same address. One laptop just became two hosts, and that came from IP to hosts. The question left is whether anything got out.",
-          fw: "Finding: 1.4 GB out to 203.0.113.58. The hypothesis has now survived every test that could have killed it, and that survival is what a true positive rests on.",
-        },
-        traps: {
-          adgrp: "Group membership in AD (Active Directory) shows what a login may reach, not what it did. It could never prove anyone used it, so it neither proves nor kills this hypothesis.",
-          av: "A clean scan kills nothing here. A stolen login leaves no file to find, so an antivirus result could never show who read the register.",
-          doors: "A badge places a person in a building. It could never show what an account did on a server, and a remote intruder never touches a door.",
-          ti: "Reputation tells you what other people have seen at an address. It could never show which St Aldric's machines called it, or how many bytes left.",
-        },
-        lesson: "A source can only answer what it records, so ask what it could prove or kill before you open it. Let each finding pick the next search: a user points to systems, a process to connections, an address to hosts, a file hash to hosts. And let the hypothesis bend when a finding bends it.",
-      },
       {
         kind: "inspect",
         title: "Whose Clock Is This?",
@@ -234,18 +133,18 @@ export const INVESTIGATION_METHODOLOGY: RoomExperience = {
         title: "One Timeline in UTC",
         prompt: "The same morning from six sources, each printed the way its own system prints it. Convert each one to UTC, then tap them from earliest to latest. Halifax runs three hours behind UTC this week, Bristol one ahead, Perth eight ahead.",
         items: [
-          { id: "fw", text: "Firewall, Halifax (UTC-3): Mon 12 Oct 23:58:31. 1.4 GB out to 203.0.113.58", note: "02:58:31 UTC, Tuesday. Add 3 hours and the date rolls over." },
-          { id: "crm", text: "CRM application log, Bristol (UTC+1): Tue 13 Oct 03:48:12. l.tran exports 2,140 records", note: "02:48:12 UTC. Subtract 1 hour." },
+          { id: "fw", text: "Firewall, Halifax (UTC-3): Mon 12 Oct 23:58:31. 610 MB out to 203.0.113.58", note: "02:58:31 UTC, Tuesday. Add 3 hours and the date rolls over." },
+          { id: "crm", text: "CRM application log, Bristol (UTC+1): Tue 13 Oct 03:48:12. l.tran exports 860 records", note: "02:48:12 UTC. Subtract 1 hour." },
           { id: "siem", text: "SIEM alert (UTC): Tue 13 Oct 03:20:00. Low: rare outbound destination", note: "03:20:00 UTC. The SIEM (Security Information and Event Management platform) is already in UTC." },
           { id: "proxy", text: "Web proxy, Perth (UTC+8): Tue 13 Oct 10:21:40. ALD-PER-LT31 opens giftaid-form.example", note: "02:21:40 UTC. Subtract 8 hours." },
           { id: "mail", text: "Mail gateway, Halifax (UTC-3): Mon 12 Oct 23:14:08. 'Gift Aid form' delivered to l.tran", note: "02:14:08 UTC, Tuesday. Add 3 hours and the date rolls over." },
           { id: "edr", text: "EDR (UTC): Tue 13 Oct 02:23:05. rundll32.exe starts on ALD-PER-LT31", note: "02:23:05 UTC. Already in UTC." },
         ],
         order: ["mail", "proxy", "edr", "crm", "fw", "siem"],
-        doneNote: "Sorted by the printed clocks, the data leaves before the malware runs and the click comes last: a story that never happened. In UTC it reads straight: mail, click 7 minutes later, code running, export, and 1.4 GB gone 21 minutes before the alert fired. That is what a timeline answers: when the first foothold was, how long until the next move, whether the data left before the alert, and whether they came back. So work in UTC, search 24 to 48 hours either side of the trigger across the same user, host and IP, and tag every line with its source. Sentinel's Investigation Graph and the MDE (Microsoft Defender for Endpoint) Timeline tab help, and a shared spreadsheet is enough for a small case.",
+        doneNote: "Sorted by the printed clocks, the data leaves before the malware runs and the click comes last: a story that never happened. In UTC it reads straight: mail, click 7 minutes later, code running, export, and 610 MB gone 21 minutes before the alert fired. That is what a timeline answers: when the first foothold was, how long until the next move, whether the data left before the alert, and whether they came back. So work in UTC, search 24 to 48 hours either side of the trigger across the same user, host and IP, and tag every line with its source. Sentinel's Investigation Graph and the MDE (Microsoft Defender for Endpoint) Timeline tab help, and a shared spreadsheet is enough for a small case.",
       },
     ],
-    // ── Reading 3: SIEM workflow and case management ──
+    // ── Reading 3: SIEM workflow and case management (practice for the scope and the finding) ──
     "inv-method-r3": [
       {
         kind: "queue",
@@ -379,31 +278,6 @@ export const INVESTIGATION_METHODOLOGY: RoomExperience = {
         lesson: "Both rows used NTLM, and they mean different things. The Server 2012 print server, reached by IP address, is an ordinary cause. A Halifax reception PC logging on as an admin to a Perth file server is not. Even so, NTLM alone proves nothing: it is a signal to corroborate. The next search stays on that target: EventCode=7045 for a service installed there, then admin shares and PSEXESVC.exe or wmiprvse.exe starting processes. In SPL, search ignores case and where doesn't, and stats keeps only what it counts and groups by.",
       },
       {
-        kind: "sort",
-        title: "Moving or Leaving?",
-        prompt: "Step 5 of the SIEM workflow looks for lateral movement, an intruder moving between machines. Step 6 looks for exfiltration, data leaving. Mixing them up sends the response the wrong way. Sort this week's search results, and remember that some are neither.",
-        buckets: [
-          { id: "moving", label: "Moving: lateral movement" },
-          { id: "leaving", label: "Leaving: exfiltration" },
-          { id: "neither", label: "Neither, on this evidence" },
-        ],
-        items: [
-          { id: "s1", text: "wmiprvse.exe starts cmd.exe on ALD-PER-FS01", bucket: "moving", why: "WMI (Windows Management Instrumentation) running a command remotely leaves wmiprvse.exe as the parent on the target." },
-          { id: "s2", text: "PSEXESVC.exe runs under services.exe on a Perth server", bucket: "moving", why: "PsExec copies this binary to the target and installs it as a service, so the System log gains a 7045 entry too." },
-          { id: "s3", text: "A reception PC opens \\\\ALD-BRS-FS01\\ADMIN$", bucket: "moving", why: "Admin shares such as ADMIN$ and C$ are how tools get pushed to another machine, and reception has no use for them." },
-          { id: "s4", text: "One admin account, Type 3 logons on four servers in ten minutes", bucket: "moving", why: "Network logons from a compromised account across several hosts are the plainest sign of lateral movement." },
-          { id: "s5", text: "rar.exe a -hp legacy.rar on the Legacy share", bucket: "leaving", why: "Compressing a sensitive directory, with a password here, is how data gets packed to go. Nothing has moved between machines." },
-          { id: "s6", text: "ALD-CRM-01 opens a connection to a Mega upload address", bucket: "leaving", why: "A file-sharing service reached from a sensitive host is an exfiltration indicator. Mega and Dropbox are the usual names." },
-          { id: "s7", text: "New-InboxRule forwards a bereavement mailbox to a free webmail address", bucket: "leaving", why: "A forwarding rule, seen in the O365 audit log, sends the data out quietly for as long as it stays." },
-          { id: "s8", text: "A file server that sends 40 MB a day sends 2.1 GB overnight", bucket: "leaving", why: "An unusual outbound byte count in the firewall log is the classic sign. Compare it with that host's normal day." },
-          { id: "s9", text: "Kerberos Type 3 logon by a fundraiser to the Fundraising share", bucket: "neither", why: "The right user, the right share and the default protocol. A network logon alone is not movement." },
-          { id: "s10", text: "The nightly backup copies 30 GB to the backup server", bucket: "neither", why: "Large, but internal, scheduled and to a known destination. Volume means something only against its baseline." },
-          { id: "s11", text: "NTLM logon to an old print server addressed by IP", bucket: "neither", why: "Reaching a server by IP address, or an older system, produces NTLM. Note it, and look for something that corroborates it." },
-        ],
-      },
-    ],
-    "inv-method-q5": [
-      {
         kind: "hotspot",
         title: "Mark Up the Draft Ticket",
         prompt: "A night analyst left this draft. Rafe wants it fit for a reader who wasn't there. Flag every line that would fail that reader. Tapping a sound line tells you why it stays.",
@@ -422,9 +296,6 @@ export const INVESTIGATION_METHODOLOGY: RoomExperience = {
         ],
         finish: "This ticket can now be checked by someone who wasn't there.",
       },
-    ],
-    // ── The graded record ──
-    "inv-method-la1": [
       {
         kind: "anatomy",
         title: "Anatomy of an Expected Logon",

@@ -50,7 +50,8 @@ export type ReviewRecord =
   | { type: "matching"; connections: Record<string, string>; perPair: { id: string; correct: boolean }[]; solution: { id: string; left: string; right: string }[]; explanation: string; correct: boolean }
   | { type: "ordering"; placed: (string | null)[]; perSlot: { slot: number; correct: boolean }[]; correctOrder: string[]; explanation: string; correct: boolean }
   | { type: "written_report"; text: string; score: number; words: number; iocsCited: number; iocsTotal: number; fabricatedCount: number; explanation: string; correct: boolean }
-  | { type: "reading"; checkpoint: QuestionReview };
+  | { type: "reading"; checkpoint: QuestionReview }
+  | { type: "mission"; steps: { id: string; kind: string; status: "open" | "passed" | "worked"; xp: number; worked?: string; debrief?: string }[] };
 
 type Store = Record<string /* roomId */, Record<string /* taskId */, ReviewRecord>>;
 

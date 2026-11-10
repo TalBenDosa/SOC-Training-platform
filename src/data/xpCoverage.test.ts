@@ -14,7 +14,7 @@ import { LESSON_PATHS } from "@/lib/lessons/paths";
 
 const posInt = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n > 0;
 /** Task types the room grader awards XP for (src/lib/rooms/grading.ts). */
-const GRADED = new Set(["question", "flag", "analyst_choice", "query_fill", "matching", "ordering", "written_report"]);
+const GRADED = new Set(["question", "flag", "analyst_choice", "query_fill", "matching", "ordering", "written_report", "mission"]);
 /** A room's stored xp_earned is capped at 1000 by the DB (migration 0025). */
 const ROOM_CAP = 1000;
 
@@ -26,7 +26,11 @@ describe("XP coverage — rooms", () => {
     const missing: string[] = [];
     for (const r of rooms) for (const t of r.tasks) {
       if (t.type === "reading") continue;                       // reading = xp ?? 5 (client + room_progress)
-      if (t.type === "log_analysis") {
+      if (t.type === "mission") {
+        const steps = (t as unknown as { steps?: { xp?: number }[] }).steps ?? [];
+        if (!steps.length) missing.push(`${r.id}:${t.id} (no steps)`);
+        steps.forEach((s, i) => { if (!posInt(s.xp)) missing.push(`${r.id}:${t.id}#step${i + 1}`); });
+      } else if (t.type === "log_analysis") {
         if (!t.questions?.length) missing.push(`${r.id}:${t.id} (no questions)`);
         t.questions?.forEach((q, i) => { if (!posInt(q.xp)) missing.push(`${r.id}:${t.id}#q${i + 1}`); });
       } else if (GRADED.has(t.type)) {
@@ -36,7 +40,7 @@ describe("XP coverage — rooms", () => {
     expect(missing).toEqual([]);
   });
   it("no room is worth more than the per-room DB cap, and none is worth 0", () => {
-    const off = rooms.map(r => ({ id: r.id, total: r.tasks.reduce((s, t) => s + (t.type === "reading" ? (t.xp ?? 5) : t.type === "log_analysis" ? (t.questions ?? []).reduce((a, q) => a + (q.xp ?? 0), 0) : (t.xp ?? 0)), 0) }))
+    const off = rooms.map(r => ({ id: r.id, total: r.tasks.reduce((s, t) => s + (t.type === "reading" ? (t.xp ?? 5) : t.type === "log_analysis" ? (t.questions ?? []).reduce((a, q) => a + (q.xp ?? 0), 0) : t.type === "mission" ? ((t as unknown as { steps?: { xp?: number }[] }).steps ?? []).reduce((a, q) => a + (q.xp ?? 0), 0) : (t.xp ?? 0)), 0) }))
       .filter(r => r.total <= 0 || r.total > ROOM_CAP);
     expect(off).toEqual([]);
   });

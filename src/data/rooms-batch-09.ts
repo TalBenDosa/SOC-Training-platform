@@ -7,6 +7,7 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { LOOSE_THREAD_M1, LOOSE_THREAD_M2A, LOOSE_THREAD_M2B, LOOSE_THREAD_M3, LOOSE_THREAD_M4 } from "@/lib/missions/rooms/looseThread";
 
 // Re-use the same task-type interfaces from rooms.ts (duck-typed — no import needed).
 
@@ -21,8 +22,8 @@ const investigationMethodology = {
     "Learn how SOC analysts think and work through an investigation, from the first alert all the way to a documented conclusion. Master timeline analysis, evidence pivoting, and SIEM workflows.",
   difficulty: "intermediate" as const,
   category: "Incident Response",
-  estimatedMinutes: 55,
-  xp: 280,
+  estimatedMinutes: 75,
+  xp: 385,
   icon: "🔬",
   prerequisites: ["alert-triage", "windows-event-logs", "timestamps-and-timelines"],
   tasks: [
@@ -91,6 +92,9 @@ When you analyze evidence, constantly ask yourself: *if I were the attacker, why
       xp: 30,
     },
 
+    // ── Practical mission: open the case ──
+    LOOSE_THREAD_M1,
+
     // ── Reading 2: Timeline Analysis & Pivot Points ───────────────────────
     {
       type: "reading" as const,
@@ -150,23 +154,6 @@ Tools that help: Microsoft Sentinel's Investigation Graph (automatically draws e
       },
     },
 
-    // ── Question 2 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "inv-method-q2",
-      question: "One host's firewall log shows beacons to an external IP you suspect is C2. Which pivot best reveals other infected machines?",
-      options: [
-        "Every system the host's logged-on user accessed in the last 30 days",
-        "Every internal host that connected to that IP in the time window",
-        "Every connection the suspicious process on that host has made",
-        "The IP's reputation and history in VirusTotal and AbuseIPDB",
-      ],
-      answer: 1,
-      explanation:
-        "The IP → hosts pivot searches all internal traffic to that IP, so any other machine checking in with the same C2 server shows up. “Every system the host's logged-on user accessed” is a user → systems pivot: it finds lateral movement by that one account, not other machines infected through other users. “Every connection the suspicious process has made” is a process → network pivot on the same single host. “The IP's reputation” is enrichment: it tells you about the IP, not which of your machines talked to it.",
-      xp: 30,
-    },
-
     // ── Question 3 ───────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -183,6 +170,9 @@ Tools that help: Microsoft Sentinel's Investigation Graph (automatically draws e
         "Older IIS-format logs are written in the server's local time without an offset, so these UTC+2 entries must be shifted by two hours before they are ordered. “The EVTX events” is a common trap: EVTX stores TimeCreated in UTC, and only the Event Viewer display converts it to local time. “The Sentinel results” is wrong because Sentinel, like most SIEMs, normalises event times to UTC (still worth confirming, but not the source that needs conversion). “All three equally” ignores that two of the three are already UTC.",
       xp: 30,
     },
+
+    // ── Practical mission: the hypothesis board, hops 1-3 ──
+    LOOSE_THREAD_M2A,
 
     // ── Reading 3: SIEM Workflow & Case Management ────────────────────────
     {
@@ -243,119 +233,10 @@ A good case ticket contains:
 **Documentation is not bureaucracy: it is a force multiplier.** When a senior analyst can read your ticket and immediately understand the full picture, investigations run faster, escalations go smoother, and lessons are learned. Document as you go, not at the end. Memory fades; logs do not.`,
     },
 
-    // ── Question 5 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "inv-method-q5",
-      question: "A senior analyst must re-check your true-positive case tomorrow without you. Which draft ticket lets them reproduce your evidence?",
-      options: [
-        "Summary, timeline, a screenshot of each result, affected assets, conclusion",
-        "Summary, timeline, a saved query link per result, affected assets, conclusion",
-        "Summary, timeline, names of the log sources searched, affected assets, conclusion",
-        "Summary, timeline, the alert ID and rule name, affected assets, conclusion",
-      ],
-      answer: 1,
-      explanation:
-        "The reading asks for evidence links: direct links or saved query strings that another analyst can click and re-run, not screenshots. Only the draft with “a saved query link per result” makes the evidence reproducible. “A screenshot of each result” shows what you saw but cannot be re-run or extended. “Names of the log sources searched” says where you looked but not what you ran. “The alert ID and rule name” points back to the trigger only, not to the evidence you gathered after it. A complete ticket also needs the chain of events, actions taken and recommendations.",
-      xp: 30,
-    },
-    // ── Log Analysis ─────────────────────────────────────────────────────
-    {
-      type: "log_analysis" as const,
-      id: "inv-method-la1",
-      heading: "Investigating Lateral Movement: Suspicious Service Account Logon",
-      context: `You are a Tier 2 SOC analyst and the SIEM has escalated an alert about a service account authentication. Service accounts are a high-value target for attackers because they often have elevated privileges. Business context from your asset inventory: svc-backup is a scheduled backup service account that should only ever authenticate from the backup server SRV-BACKUP-01. Your job is to examine the Windows Security Event below and determine whether this logon is legitimate or suspicious.`,
-      event: {
-        id: "inv-la1-evt-001",
-        ts: "2025-06-24T03:17:42.000Z",
-        source: "windows_security",
-        event_type: "auth_success",
-        severity: "high",
-        hostname: "SRV-FINANCE-02",
-        user_email: "svc-backup@corp.local",
-        src_ip: "10.0.1.45",
-        description: "Windows Security 4624 logon for svc-backup on SRV-FINANCE-02",
-        mitre_technique: "T1078.002 - Valid Accounts: Domain Accounts",
-        vendor: "Windows Security",
-        raw: {
-          "@timestamp": "2025-06-24T03:17:42.000Z",
-          "event.code": "4624",
-          "host.ip": ["10.0.20.12"],
-          "winlog.channel": "Security",
-          "winlog.computer_name": "SRV-FINANCE-02.corp.local",
-          "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-          "winlog.event_data.SubjectUserSid": "S-1-0-0",
-          "winlog.event_data.TargetUserSid": "S-1-5-21-2847193650-1938274650-3029481756-1604",
-          "winlog.event_data.TargetUserName": "svc-backup",
-          "winlog.event_data.TargetDomainName": "CORP",
-          "winlog.event_data.TargetLogonId": "0x2b81f4c",
-          "winlog.event_data.LogonType": "3",
-          "winlog.event_data.LogonProcessName": "NtLmSsp ",
-          "winlog.event_data.AuthenticationPackageName": "NTLM",
-          "winlog.event_data.LmPackageName": "NTLM V2",
-          "winlog.event_data.WorkstationName": "WS-DEV-09",
-          "winlog.event_data.IpAddress": "10.0.1.45",
-          "winlog.event_data.IpPort": "50418",
-          "winlog.event_data.ImpersonationLevel": "%%1833",
-          "winlog.event_data.ElevatedToken": "%%1842",
-        },
-      } satisfies TelemetryEvent,
-      questions: [
-        {
-          question: "Checked against the asset-inventory note, which field shows this logon breaks svc-backup's expected pattern?",
-          options: [
-            "winlog.event_data.LogonType = 3 (network)",
-            "winlog.event_data.WorkstationName = WS-DEV-09",
-            "winlog.event_data.ElevatedToken = %%1842 (yes)",
-            "event.code = 4624 (successful logon)",
-          ],
-          answer: 1,
-          explanation:
-            "WorkstationName shows where the authentication came from: WS-DEV-09, a developer workstation, while the inventory says svc-backup authenticates only from SRV-BACKUP-01. Either WS-DEV-09 is compromised or the credentials are being used from another machine. “LogonType = 3” is a network logon, which is exactly how a backup account normally reaches a server, so it is not the deviation. “ElevatedToken = %%1842” means the session got an elevated token, which is expected for a backup account with high privileges. “event.code = 4624” only says a logon succeeded.",
-          xp: 40,
-        },
-        {
-          question: "The logon used NTLM. How should you weigh that in this investigation?",
-          options: [
-            "Low value: NTLM is the normal default for domain network logons",
-            "A real signal: NTLM where Kerberos is expected fits Pass-the-Hash",
-            "Conclusive: NTLM from a service account proves Pass-the-Hash",
-            "An artefact: event 4624 reports NTLM for every Type 3 logon",
-          ],
-          answer: 1,
-          explanation:
-            "In an Active Directory domain Kerberos is the default, and Pass-the-Hash (logging on with a stolen hash instead of the password) produces NTLM authentications. Combined with the unexpected workstation, NTLM strengthens the lateral-movement hypothesis, but it still needs corroboration (what WS-DEV-09 ran, other logons by svc-backup). “NTLM is the normal default” is wrong: that is Kerberos. “Proves Pass-the-Hash” overreaches, because NTLM also has ordinary causes such as a server addressed by IP. “4624 reports NTLM for every Type 3 logon” confuses logon type with authentication package: network logons can use Kerberos or NTLM.",
-          xp: 40,
-        },
-      ],
-    },
-
-    // ── Flag Task ─────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "inv-method-flag1",
-      prompt: `Your next step is the IP address → hosts pivot from the timeline reading: find everything else the machine that used svc-backup's credentials has been doing. Which value do you search the SIEM for? Enter it exactly as it appears in the log.`,
-      answer: "10.0.1.45",
-      hint: "You want the address of the machine the logon came from, not the server that received it.",
-      xp: 50,
-    },
-
-    // ── Question 4 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "inv-method-q4",
-      question: "In SIEM workflow Step 5 you search svc-backup's activity after the logon above. Which result is a lateral-movement indicator rather than something else?",
-      options: [
-        "7-Zip compressing a finance share on SRV-FINANCE-02 an hour later",
-        "Event 7045: a new service installed on SRV-HR-01 minutes later",
-        "A new O365 inbox forwarding rule created on a finance mailbox",
-        "Large outbound byte counts from SRV-FINANCE-02 to a file-sharing site",
-      ],
-      answer: 1,
-      explanation:
-        "A new service installed on another host (Event ID 7045) right after the suspicious logon is a Step 5 lateral-movement indicator: the account is being used to run code on a second machine. “7-Zip compressing a finance share” is compression on a sensitive directory, a Step 6 exfiltration indicator. “A new O365 inbox forwarding rule” is also listed under exfiltration. “Large outbound byte counts to a file-sharing site” is the classic exfiltration sign. All three matter for the case, but none shows movement to another host.",
-      xp: 30,
-    },
+    // ── Practical missions: the case from the address to the finding (src/lib/missions/rooms/looseThread.ts) ──
+    LOOSE_THREAD_M2B,
+    LOOSE_THREAD_M3,
+    LOOSE_THREAD_M4,
 
   ],
 };

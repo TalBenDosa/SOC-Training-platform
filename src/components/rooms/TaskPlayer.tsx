@@ -16,6 +16,7 @@ import type {
   SanitizedOrderingTask as OrderingTask,
   SanitizedWrittenReportTask as WrittenReportTask,
 } from "@/lib/rooms/sanitize";
+import { MissionPlayer } from "./mission/MissionPlayer";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { useTaskTelemetry, MAX_DECISION_LATENCY_MS, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -2092,6 +2093,7 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
       case "ordering":        return <OrderingPlayer      {...common} task={task} />;
       case "query_fill":      return <QueryFillPlayer     {...common} task={task} />;
       case "written_report":  return <WrittenReportPlayer {...common} task={task} />;
+      case "mission":         return <MissionPlayer       {...common} task={task} submit={submitTask} />;
       default:                return null;
     }
   })();

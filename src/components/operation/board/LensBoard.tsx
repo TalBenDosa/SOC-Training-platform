@@ -14,7 +14,7 @@ import type { StoryEntry } from "./MissionBoard";
 // with the topic it teaches. Bottom left: the selected layer's card with Enter.
 
 const DEFAULT_LOOK = { primary: "#2dd4bf", secondary: "#60a5fa", warn: "#f43f5e" };
-const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4 };
+const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4, mission: 12 };
 
 export interface LensBoardProps {
   experience: RoomExperience;

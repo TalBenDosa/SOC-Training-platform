@@ -23,6 +23,7 @@ import "server-only";
  *    the server compares against `correct_order`, which it alone holds.
  */
 import { ROOMS, type Room, type RoomTask } from "@/data/rooms";
+import { gradeMissionStep } from "@/lib/missions/grade";
 
 export function findRoom(roomId: string): Room | undefined {
   return ROOMS.find(r => r.id === roomId);
@@ -271,6 +272,15 @@ export function gradeTask(task: RoomTask, submission: any, room?: Room): GradeRe
           explanation: task.explanation,
         },
       };
+    }
+
+    case "mission": {
+      // One step per submission, like a log_analysis question: per-step attempts and XP.
+      const stepIndex = submission?.stepIndex;
+      if (typeof stepIndex !== "number") return fail("stepIndex (number) is required.");
+      const attemptNo = Math.max(1, Math.floor(Number(submission?.serverAttempt ?? submission?.attemptNumber)) || 1);
+      const hintsUsed = Math.max(0, Math.min(2, Math.floor(Number(submission?.hintsUsed)) || 0));
+      return gradeMissionStep(task, stepIndex, submission?.answer, attemptNo, hintsUsed);
     }
 
     case "ordering": {

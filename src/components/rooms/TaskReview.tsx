@@ -390,6 +390,37 @@ export function TaskReview({ task, record, earnedXp, maxXp, prevLogEvent }: Task
       );
     }
 
+    case "mission": {
+      const rev = record?.type === "mission" ? record : undefined;
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <FileText className="h-5 w-5 text-cyber-300" />
+            <h2 className="text-xl font-bold text-white">{task.heading}</h2>
+            {header}
+          </div>
+          <p className="text-sm text-slate-400 leading-relaxed">{task.story}</p>
+          <p className="text-sm text-white font-medium">{task.objective}</p>
+          {rev ? (
+            <ol className="space-y-3">
+              {task.steps.map((s, i) => {
+                const r = rev.steps.find(x => x.id === s.id);
+                return (
+                  <li key={s.id} className="rounded-lg border border-border bg-bg-elevated p-3 space-y-1">
+                    <p className="text-sm text-white">Step {i + 1}: {s.prompt}</p>
+                    <p className={cn("text-xs font-semibold", r?.status === "passed" ? "text-neon-green" : "text-neon-amber")}>
+                      {r?.status === "passed" ? `Done, +${r.xp} XP` : r?.status === "worked" ? "Moved on with the worked answer" : "Not finished"}
+                    </p>
+                    {r?.worked && <Explanation text={r.worked} />}
+                  </li>
+                );
+              })}
+            </ol>
+          ) : <NoDetails />}
+        </div>
+      );
+    }
+
     default:
       return null;
   }

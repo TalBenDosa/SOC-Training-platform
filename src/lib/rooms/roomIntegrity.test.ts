@@ -13,6 +13,7 @@ const { gradeTask } = await import("./grading");
 const { taskMaxXp, ROOM_PASS_THRESHOLD } = await import("./xp");
 const { roomPassScore } = await import("./mastery");
 const { sanitizeRoom } = await import("./sanitize");
+const { solutionFor } = await import("@/lib/missions/solution");
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s"'`.,;:()[\]{}|]+/g, " ").trim();
 
@@ -51,6 +52,16 @@ describe("every room can be passed", () => {
       const attempts: { task_id: string; question_index: number | null; correct: boolean; xp_awarded: number }[] = [];
       for (const t of room.tasks) {
         if (taskMaxXp(t) <= 0 || t.type === "written_report") continue;   // reports: rubric-graded, counted as never correct
+        if (t.type === "mission") {
+          t.steps.forEach((_s, si) => {
+            const answer = solutionFor(t, si);
+            if (!answer) { issues.push(`${room.id}/${t.id} step ${si + 1}: no solution to test`); return; }
+            const g = gradeTask(t, { stepIndex: si, answer, serverAttempt: 1 }, room);
+            if (!g.ok || !g.correct) issues.push(`${room.id}/${t.id} step ${si + 1}: solution not accepted`);
+            attempts.push({ task_id: t.id, question_index: si, correct: true, xp_awarded: 0 });
+          });
+          continue;
+        }
         if (t.type === "log_analysis") {
           t.questions.forEach((q, qi) => {
             const g = gradeTask(t, { questionIndex: qi, selectedIndex: q.answer }, room);
