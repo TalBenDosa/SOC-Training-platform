@@ -35,6 +35,14 @@ export const OT_ICS_SECURITY: RoomExperience = {
   look: { primary: "#ff8c42", secondary: "#8fd3e8", warn: "#ff4d6d" },
   scene: "facilitylonggame",
   layout: "facility",
+  story: {
+    intro: { title: "03:12", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-intro-051d6457.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-intro-fd443317.jpg" },
+    afterStation: {
+      cases: { title: "Nobody at the Panel", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-ch2-e0b86885.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-ch2-304fae0b.jpg" },
+      containment: { title: "Isolate Everything", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-ch3-cc062d62.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-ch3-801a446e.jpg" },
+      longgame: { title: "The Long Game", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-finale-c7c47280.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ot-ics-security/longgame-finale-3d80d9a6.jpg" },
+    },
+  },
   stations: [
     {
       id: "floor",
