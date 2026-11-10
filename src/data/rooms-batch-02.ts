@@ -1307,7 +1307,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
           dst_ip: "203.0.113.10",
           description:
             "IDS scan signature on a perimeter address",
-          mitre_technique: "T1595.001 - Active Scanning: Scanning IP Blocks",
+          mitre_technique: "T1595 - Active Scanning",
           raw: {
             timestamp: "2025-11-18T22:03:44.612+0000",
             flow_id: 1204855316092741,

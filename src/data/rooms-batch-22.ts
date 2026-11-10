@@ -38,7 +38,7 @@ const loaderBeaconEvent: TelemetryEvent = {
   hostname: "WKS-ACCT07.meridian.local",
   process: {
     name: "quarterly_invoice.exe",
-    pid: 5588,
+    pid: 6248,
     path: "C:\\Users\\t.osei\\Downloads\\quarterly_invoice.exe",
     parent_name: "explorer.exe",
     parent_pid: 2244,
@@ -47,11 +47,11 @@ const loaderBeaconEvent: TelemetryEvent = {
     integrity: "medium",
   },
   network: {
-    domain: "cdn-assets-delivery.net",
+    domain: "cdn-assets-delivery.example",
     bytes_out: 612,
   },
   description:
-    "quarterly_invoice.exe, opened by t.osei nine minutes after it arrived as an email attachment, established an outbound TCP connection to cdn-assets-delivery.net roughly four seconds after the process started, before any invoice content had been displayed on screen.",
+    "quarterly_invoice.exe, opened by t.osei nine minutes after it arrived as an email attachment, established an outbound TCP connection to cdn-assets-delivery.example roughly four seconds after the process started, before any invoice content had been displayed on screen.",
   raw: {
     "winlog.event_id": 3,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -67,7 +67,7 @@ const loaderBeaconEvent: TelemetryEvent = {
     "winlog.event_data.Initiated": "true",
     "winlog.event_data.SourceIp": "10.40.12.61",
     "winlog.event_data.SourcePort": 51422,
-    "winlog.event_data.DestinationHostname": "cdn-assets-delivery.net",
+    "winlog.event_data.DestinationHostname": "cdn-assets-delivery.example",
     "winlog.event_data.DestinationIp": "203.0.113.47",
     "winlog.event_data.DestinationPort": 443,
     "winlog.event_data.DestinationPortName": "https",

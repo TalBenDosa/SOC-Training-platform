@@ -797,14 +797,14 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
       {
         kind: "anatomy",
         title: "The Record Behind the Hunt",
-        prompt: "The next hunt starts from the process you worked in the log analysis task. The handle-operation record carries no hash, so here is UpdateHelper.exe's own process-start record. Copy SHA256HashData before you move on: the challenge screen doesn't show it, and you can't come back to this drill.",
+        prompt: "The next hunt starts from the process you worked in the log analysis task. The handle-operation record carries no hash, so here is UpdateHelper.exe's own process-start record, the one that carries the file's hash.",
         source: "EDR console · Process start (ProcessRollup2) · WKS-FIN-0231",
         fields: [
           { key: "ComputerName", value: "WKS-FIN-0231", label: "Where", note: "The finance workstation from the log analysis task." },
           { key: "ImageFileName", value: "\\Device\\HarddiskVolume3\\Users\\r.callahan\\AppData\\Local\\Temp\\UpdateHelper.exe", label: "Which binary", note: "The binary the team wants to follow across the fleet: the same ImageFileName as the acting process in the log analysis record." },
           { key: "SHA256HashData", value: "b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a" },
         ],
-        summary: "Select the SHA256HashData value and copy all 64 characters. A hunt needs the exact string.",
+        summary: "SHA256HashData is the file's fingerprint: all 64 characters, matched exactly. The final hunt gives you this value; your job there is to pick the table and the column to look for it in.",
       },
     ],
   },

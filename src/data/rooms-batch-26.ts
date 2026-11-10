@@ -402,13 +402,13 @@ const playbookExecutionRoom: Room = {
         "A colleague reviewing your ticket says: 'You had enough at Step 2 to reset the password. Collecting mailbox rules and app consents first just gave the intruder ten more minutes.' What is the strongest reply?",
       options: [
         "They are right: once a sign-in is confirmed malicious, collection becomes optional, and the sooner the reset lands the sooner the intruder loses access",
-        "Collection is what makes the response correct, not just fast: a reset ends your visibility, tips off the intruder, and leaves any planted mailbox rule or app consent in place",
+        "Collection is what makes the response correct, not just fast: a reset tips off the intruder, does not by itself end sessions already issued, and leaves any planted mailbox rule or app consent in place",
         "They are right for Northvale, because collecting identity evidence before remediation only matters where a regulation or audit requirement demands it",
         "Collection matters, but the SIEM already holds the sign-in logs, so Step 2 evidence is enough and mailbox and consent checks add nothing for a password-only compromise",
       ],
       answer: 1,
       explanation:
-        "The substantive point is that containment is not a free action. A password reset ends your window into what the intruder is doing, tells them they have been detected, and, critically, does not remove persistence they may have already established: a forwarding rule or a consented OAuth application survives a password reset untouched and keeps working. Ten minutes of collection is what tells you whether any of that exists. The reply that speed should simply win ignores this. Framing the answer around compliance requirements or regulatory reporting gets the reasoning backwards: evidence collection is an operational necessity for handling the incident correctly, and it would be the right call even if no regulator existed.",
+        "The substantive point is that containment is not a free action. A password reset tells the intruder they have been detected, does not by itself end the sessions and refresh tokens issued before it (that takes an explicit revocation, as rooms on identity and mailbox compromise show), and, critically, does not remove persistence they may have already established: a forwarding rule or a consented OAuth application survives a password reset untouched and keeps working. Ten minutes of collection is what tells you whether any of that exists. The reply that speed should simply win ignores this. Framing the answer around compliance requirements or regulatory reporting gets the reasoning backwards: evidence collection is an operational necessity for handling the incident correctly, and it would be the right call even if no regulator existed.",
       xp: 25,
     },
     // -----------------------------------------------------------------------

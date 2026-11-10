@@ -91,7 +91,7 @@ export const ALERT_TRIAGE: RoomExperience = {
         kind: "queue",
         title: "The Night Queue",
         prompt: "Four alerts from tonight's Incident Review. For each, read the fields and the context, then make the decision an analyst would record.",
-        console: "Splunk ES · Incident Review · Urgency: all · Status: New",
+        console: "SIEM · Alert queue · Urgency: all · Status: New",
         actions: [
           { id: "fp", label: "Close: false positive", tone: "close" },
           { id: "btp", label: "Close: benign true positive", tone: "close" },

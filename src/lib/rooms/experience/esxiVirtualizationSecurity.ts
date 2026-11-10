@@ -4,10 +4,10 @@ import type { BriefingLab, RoomExperience } from "./types";
 // Script: docs/campaign/53-esxi-virtualization-security.md.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
-// Skerry Line (fictional), not the graded tasks' MedCore Health records.
+// Skerry Line (fictional), the same company as the graded tasks, with different records.
 // Signature mechanic: portal in a new vSphere-style skin, walking one alarm back to its grant.
 // Game mix: deduce + pathway + portal + rush + spotdiff + tune.
-// Lab data differs from the graded tasks: no svc-backup, esx-prod-07, vcsa-04, 10.60.9.14,
+// Lab data differs from the graded tasks: no svc-backup, sk-esx-05, sk-esx-01, 10.60.9.14,
 // j.marchetti or CHG-77410; the grant here is on a cluster, not the root folder; no moref
 // (f1); no change-ticket verdict (ac1); no VPN or guest-agent-offline ranking (q4).
 

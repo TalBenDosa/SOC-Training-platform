@@ -432,9 +432,9 @@ const kerberosRoom: Room = {
       heading: "Write It Yourself: Surface Kerberoasting Candidates in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 1 (RC4 encryption, high volume, broad distinct-SPN spread, from one requesting account, in a short window), write the KQL a detection engineer would ship to flag this behavior across the whole domain.",
+        "Using the pattern confirmed in Log Analysis 1 (RC4 encryption, high volume, broad distinct-SPN spread, from one requesting account, in a short window), write the KQL a detection engineer would ship to flag this behavior across the whole domain. One detail of the table: in Sentinel's SecurityEvent, the ticket fields of a 4769 (the requesting account TargetUserName, ServiceName and TicketEncryptionType) are read from the EventData XML, so the template's `parse` line pulls them out into Requester, Svc and EncType before the filter.",
       template:
-        "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enc}}\"\n| summarize RequestCount = count(), DistinctSPNs = dcount(ServiceName) by Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
+        "SecurityEvent\n| where EventID == {{eventid}}\n| parse EventData with * 'TargetUserName\">' Requester '<' * 'ServiceName\">' Svc '<' * 'TicketEncryptionType\">' EncType '<' *\n| where EncType == \"{{enc}}\"\n| summarize RequestCount = count(), DistinctSPNs = dcount(Svc) by Requester, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
       blanks: [
         { id: "eventid", answers: ["4769"], placeholder: "TGS-REQ event ID" },
         { id: "enc", answers: ["0x17"], placeholder: "encryption type Kerberoasting tools request" },
@@ -442,7 +442,7 @@ const kerberosRoom: Room = {
         { id: "threshold", answers: ["10", "15", "20", "5", "8", "25", "30", "40", "50"], placeholder: "minimum distinct-SPN count to consider suspicious (5–50)" },
       ],
       explanation:
-        "This mirrors the exact case from Log Analysis 1: filter to 4769 (TGS-REQ, not 4768) events with RC4 encryption, group by the requesting account over a short window, and alert when the count of distinct SPNs requested is itself abnormally high, because one legitimate service request looks nothing like a sweep across dozens of unrelated SPNs from the same account in minutes.",
+        "This mirrors the exact case from Log Analysis 1: filter to 4769 (TGS-REQ, not 4768) events, parse the ticket fields out of EventData (SecurityEvent has no TicketEncryptionType column, so a `where TicketEncryptionType == ...` line fails to resolve), keep the ones with RC4 encryption, group by the requesting account over a short window, and alert when the count of distinct SPNs requested is itself abnormally high, because one legitimate service request looks nothing like a sweep across dozens of unrelated SPNs from the same account in minutes.",
       xp: 35,
     },
     {

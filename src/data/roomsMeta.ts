@@ -436,7 +436,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "fw-la1",
         "type": "log_analysis",
         "xp": 40,
-        "mitreTechnique": "T1595.001 - Active Scanning: Scanning IP Blocks"
+        "mitreTechnique": "T1595 - Active Scanning"
       },
       {
         "id": "fw-f1",
@@ -2994,7 +2994,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "rep-ac1",
         "type": "analyst_choice",
         "xp": 30,
-        "mitreTechnique": "T1566.001"
+        "mitreTechnique": "T1566.002"
       }
     ]
   },
@@ -3541,7 +3541,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aws-la2",
         "type": "log_analysis",
         "xp": 80,
-        "mitreTechnique": "T1078.004"
+        "mitreTechnique": "T1098.003"
       },
       {
         "id": "aws-la-stoplogging",
@@ -3930,7 +3930,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "gcp-la1",
         "type": "log_analysis",
         "xp": 80,
-        "mitreTechnique": "T1078.004"
+        "mitreTechnique": "T1098.003"
       },
       {
         "id": "gcp-la2",
@@ -6105,7 +6105,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "web-application-security",
     "title": "How Web Applications Work, and How They Break",
-    "description": "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2021, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field, including two things it does not record by default: the request body, and, behind a load balancer, the true client IP.",
+    "description": "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2025, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field, including two things it does not record by default: the request body, and, behind a load balancer, the true client IP.",
     "difficulty": "beginner",
     "category": "Application Security",
     "estimatedMinutes": 60,

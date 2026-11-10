@@ -56,7 +56,7 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
     {
       id: "attacks",
       label: "Where Attacks Land",
-      topic: "SQLi, XSS, traversal, command injection, session attacks, IDOR · OWASP Top 10 2021",
+      topic: "SQLi, XSS, traversal, command injection, session attacks, IDOR · OWASP Top 10 2025",
       tagline: "Read an injection's outcome in the status codes",
       building: "lab",
       taskIds: ["webapp-r3", "webapp-m1", "webapp-la1"],

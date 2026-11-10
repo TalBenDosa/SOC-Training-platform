@@ -20,7 +20,7 @@ const synScanEvent: TelemetryEvent = {
   vendor: "Corelight (Zeek)",
   event_type: "net_connection",
   severity: "high",
-  hostname: "WKS-ENG14.solvix.local",
+  hostname: "WKS-ENG14.kelvinpoint.local",
   src_ip: "10.40.6.114",
   dst_ip: "10.40.2.30",
   dst_port: 8080,
@@ -59,7 +59,7 @@ const ttlMismatchEvent: TelemetryEvent = {
   vendor: "p0f",
   event_type: "net_connection",
   severity: "medium",
-  hostname: "SRV-FIN03.solvix.local",
+  hostname: "SRV-FIN03.kelvinpoint.local",
   src_ip: "10.40.1.9",
   dst_ip: "10.40.3.55",
   dst_port: 22,
@@ -729,16 +729,16 @@ const tcpipDeepDiveRoom = {
       heading: "Write It Yourself: Detect a Port Sweep in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, most attempts never answered, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule. List the conn_state value for an attempt that got no reply (you may add the other values that show a handshake never completed), pick a short time window (30 seconds to 10 minutes), and set a distinct-port threshold between 20 and 500, rounded to a multiple of 5.",
+        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, most attempts never answered, within a short window), write the KQL that would surface this pattern across the whole Zeek conn.log, the way a detection engineer would before shipping it as a scheduled analytics rule. Kelvin Point's conn.log lands in the custom table ZeekConn_CL, with the dots in Zeek's field names turned into underscores (id.orig_h becomes id_orig_h, id.resp_p becomes id_resp_p). List the conn_state value for an attempt that got no reply (you may add the other values that show a handshake never completed). Then set the window and the threshold from the team's 30-day baseline, measured with that same filter per source and target in 5-minute bins: the busiest legitimate pair, the monitoring poller 10.40.0.9 checking customer service ports, peaks at 18 distinct unanswered ports in one bin (closed and filtered ports on retired VMs), and last quarter's red-team slow sweep touched 22 ports in 5 minutes and must fire. Bin by the baseline's window, and pick a whole-number threshold that stays silent on the poller's peak but still fires on the red-team sweep.",
       template:
-        "NetworkFlowEvents\n| where ConnectionState in ({{states}})\n| summarize DistinctPorts = dcount(DestinationPort) by SourceIp, DestinationIp, bin(TimeGenerated, {{window}})\n| where DistinctPorts > {{threshold}}",
+        "ZeekConn_CL\n| where conn_state in ({{states}})\n| summarize DistinctPorts = dcount(id_resp_p) by id_orig_h, id_resp_h, bin(TimeGenerated, {{window}})\n| where DistinctPorts > {{threshold}}",
       blanks: [
         { id: "states", answers: ["\"S0\"","'S0'","\"S0\", \"REJ\"","\"S0\",\"REJ\"","'S0', 'REJ'","'S0','REJ'","\"REJ\", \"S0\"","\"REJ\",\"S0\"","'REJ', 'S0'","'REJ','S0'","\"S0\", \"RSTOS0\"","\"S0\",\"RSTOS0\"","'S0', 'RSTOS0'","'S0','RSTOS0'","\"RSTOS0\", \"S0\"","\"RSTOS0\",\"S0\"","'RSTOS0', 'S0'","'RSTOS0','S0'","\"S0\", \"REJ\", \"RSTOS0\"","\"S0\",\"REJ\",\"RSTOS0\"","'S0', 'REJ', 'RSTOS0'","'S0','REJ','RSTOS0'","\"S0\", \"RSTOS0\", \"REJ\"","\"S0\",\"RSTOS0\",\"REJ\"","'S0', 'RSTOS0', 'REJ'","'S0','RSTOS0','REJ'","\"REJ\", \"S0\", \"RSTOS0\"","\"REJ\",\"S0\",\"RSTOS0\"","'REJ', 'S0', 'RSTOS0'","'REJ','S0','RSTOS0'","\"REJ\", \"RSTOS0\", \"S0\"","\"REJ\",\"RSTOS0\",\"S0\"","'REJ', 'RSTOS0', 'S0'","'REJ','RSTOS0','S0'","\"RSTOS0\", \"S0\", \"REJ\"","\"RSTOS0\",\"S0\",\"REJ\"","'RSTOS0', 'S0', 'REJ'","'RSTOS0','S0','REJ'","\"RSTOS0\", \"REJ\", \"S0\"","\"RSTOS0\",\"REJ\",\"S0\"","'RSTOS0', 'REJ', 'S0'","'RSTOS0','REJ','S0'"], placeholder: "conn_state values indicating no completed handshake" },
-        { id: "window", answers: ["30s", "45s", "60s", "90s", "120s", "180s", "300s", "600s", "1m", "2m", "3m", "5m", "10m", "1min", "2min", "3min", "5min", "10min"], placeholder: "aggregation time window" },
-        { id: "threshold", answers: ["20","25","30","35","40","45","50","55","60","65","70","75","80","85","90","95","100","105","110","115","120","125","130","135","140","145","150","155","160","165","170","175","180","185","190","195","200","205","210","215","220","225","230","235","240","245","250","255","260","265","270","275","280","285","290","295","300","305","310","315","320","325","330","335","340","345","350","355","360","365","370","375","380","385","390","395","400","405","410","415","420","425","430","435","440","445","450","455","460","465","470","475","480","485","490","495","500"], placeholder: "distinct-port count threshold" },
+        { id: "window", answers: ["5m", "5min", "5minutes", "300s"], placeholder: "aggregation time window" },
+        { id: "threshold", answers: ["18", "19", "20", "21"], placeholder: "distinct-port count threshold" },
       ],
       explanation:
-        "The core detection logic mirrors what you read directly off the flow record in Log Analysis 1: filter to connection states that mean 'no completed handshake' (S0 at minimum; REJ, closed ports answering RST, and RSTOS0 are also scan evidence), group by the source-to-destination pair within a short window (one minute is tight enough to catch a fast sweep like the 38-second one you investigated; a few minutes also works but catches slower sweeps at the cost of more noise), count the DISTINCT destination ports touched, and alert when that count crosses a threshold no legitimate application would reach in that time frame. Lower thresholds catch slower or narrower sweeps but fire more often; higher ones are quieter but miss small scans. A real deployment would also exclude known, approved scanners (vulnerability management tools) by source IP, because authorized scanning would otherwise produce a constant stream of benign true positives: real scans the rule correctly catches, which the approved schedule makes legitimate.",
+        "The core detection logic mirrors what you read directly off the flow record in Log Analysis 1: filter to connection states that mean 'no completed handshake' (S0 at minimum; REJ, closed ports answering RST, and RSTOS0 are also scan evidence), group by the source-to-destination pair within a short window, count the DISTINCT destination ports touched (id_resp_p), and alert when that count crosses what legitimate traffic reaches. The window has to match the baseline's 5-minute bins, because a count measured per 5 minutes says nothing about a 1-minute or a 10-minute bin. The threshold then comes from the two baseline numbers and the strict greater-than: DistinctPorts > 18 already stays silent on the poller's peak of 18, and DistinctPorts > 21 is the highest that still fires on 22, so 18 to 21 are the defensible values. 17 or lower pages on the poller every day; 22 or higher misses the slow sweep you were told to catch. The 38-second, 1,024-port sweep from Log Analysis 1 clears any of them easily. A real deployment would also exclude known, approved scanners (vulnerability management tools) by source IP, because authorized scanning would otherwise produce a constant stream of benign true positives: real scans the rule correctly catches, which the approved schedule makes legitimate.",
       xp: 35,
     },
 

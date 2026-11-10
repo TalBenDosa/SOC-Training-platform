@@ -594,13 +594,12 @@ const edrDetectionInvestigationRoom = {
       heading: "Write It Yourself: Hunt What the Dumper Launched, Fleet-Wide",
       language: "kql" as const,
       context:
-        "Reading 7's hunt already asks whether the file from WKS-FIN-0231 ran anywhere else. The team now wants the next question: on any host, which processes did that binary itself START (its children, such as a second-stage tool or an exfiltration helper)? Using Microsoft Defender's Advanced Hunting schema, fill in the table, the column that holds the hash of the process that launched each row's process, and the exact hash from this room's log analysis finding.",
+        "Reading 7's hunt already asks whether the file from WKS-FIN-0231 ran anywhere else. The team now wants the next question: on any host, which processes did that binary itself START (its children, such as a second-stage tool or an exfiltration helper)? The dumper is UpdateHelper.exe from this room's log analysis finding, SHA256 b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a (already in the query below). Using Microsoft Defender's Advanced Hunting schema, fill in the table and the column that holds the hash of the process that launched each row's process.",
       template:
-        "{{table}}\n| where {{field}} == \"{{hash}}\"\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine",
+        "{{table}}\n| where {{field}} == \"b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a\"\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine",
       blanks: [
         { id: "table", answers: ["DeviceProcessEvents"], placeholder: "Advanced Hunting table for process execution telemetry" },
         { id: "field", answers: ["InitiatingProcessSHA256"], placeholder: "column holding the launching (parent) process's hash" },
-        { id: "hash", answers: ["b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a"], placeholder: "exact hash from the log analysis finding" },
       ],
       explanation:
         "DeviceProcessEvents is the Advanced Hunting table for process execution. In each row, SHA256 is the hash of the process that started, while InitiatingProcessSHA256 is the hash of the process that launched it, so filtering InitiatingProcessSHA256 on the dumper's hash returns every child it spawned, on any host. Filtering SHA256 instead would repeat Reading 7's question (where did the dumper itself run). Together the two hunts scope both the file and what it did next, which is the scoping step Reading 7 described. Inside the CrowdStrike console the same idea uses Falcon's own query language and parent-process fields.",

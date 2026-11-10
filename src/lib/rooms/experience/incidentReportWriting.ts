@@ -688,7 +688,7 @@ export const INCIDENT_REPORT_WRITING: RoomExperience = {
           title: "How this write-up is marked",
           points: [
             "Two parts. An **Executive Summary** of 3 to 6 sentences, stating what happened, the scope, the current status and the impact in plain business language, with no ATT&CK IDs and no field names. Then a **Root Cause** that names the control gap.",
-            "**Length counts.** At least 60 words, and around 90 earns full marks for depth.",
+            "**Length counts, up to a point.** At least 60 words earns full marks for depth. Writing more than that earns nothing extra, so say each thing once.",
             "**Evidence counts for more.** Every real identifier from the case that you copy exactly earns marks: the host, the account, the task name, the hash. Two is the least that can pass. All four scores best. The Root Cause is the natural place for them.",
             "**Never invent a value.** An IP, hash or email address that appears nowhere in the case counts as made up, and it wipes out nearly all the evidence marks. Values from this room's practice labs are Bellwether's, so they count as made up too.",
             "**Where to find the case's facts.** Open Field notes on Reading 1 for the current status and impact, and on Reading 5 for the control gap. The hash is in the record from the task From Raw Log to Report.",
@@ -713,7 +713,7 @@ export const INCIDENT_REPORT_WRITING: RoomExperience = {
           { id: "top", q: "Which write-up scores highest?", hint: "Look for a good length, as many exact identifiers as possible, and nothing invented.", answer: ["D", "write-up d"], why: "Full marks for length, three exact identifiers, nothing made up." },
           { id: "inv", q: "Write-up B cites all four identifiers. Does it pass? (yes/no)", hint: "Check the last column.", answer: ["no"], why: "One invented value wipes out nearly all the evidence marks, however much else is real. Leaving a value out always costs less than making one up." },
           { id: "one", q: "Write-up A is long and invents nothing. Does it pass? (yes/no)", hint: "Check the identifiers column against the least that can pass.", answer: ["no"], why: "One identifier isn't enough, however good the prose. The writing has to be tied to the case's own evidence." },
-          { id: "low", q: "Which is the weakest write-up that still passes?", hint: "Two identifiers, enough words, nothing invented.", answer: ["C", "write-up c"], why: "It clears the word minimum and cites two exact identifiers. More of either would earn more." },
+          { id: "low", q: "Which is the weakest write-up that still passes?", hint: "Two identifiers, enough words, nothing invented.", answer: ["C", "write-up c"], why: "It clears the word minimum and cites two exact identifiers. More exact identifiers would earn more; more words would not." },
         ],
       },
       {

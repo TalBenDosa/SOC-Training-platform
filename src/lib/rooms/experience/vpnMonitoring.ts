@@ -4,7 +4,7 @@ import type { RoomExperience } from "./types";
 // Script: docs/campaign/45-vpn-monitoring.md.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
-// Northsea Wind (fictional), not the graded tasks' contoso.com. Signature
+// Northsea Wind (fictional); the graded tasks use its domain northseawind.example with their own users and IPs. Signature
 // mechanic: a line-up of VPN attack patterns, each round a piece of gateway
 // evidence. Lab data differs from the graded tasks: the anatomy never says
 // where a split-tunnel download would show up (q3, r1 checkpoint); the

@@ -291,8 +291,8 @@ After compromising one machine, attackers move to others. A common tool is **PsE
 2. Analyst opens detection → reviews process tree
 3. Identifies the initial access (phishing email attachment)
 4. Traces lateral movement through the network
-5. Opens RTR to affected hosts → kills malicious processes
-6. Collects forensic files for deeper analysis
+5. Network contains the affected hosts, then opens RTR to collect forensic files (and a memory dump if code may live only in RAM)
+6. Kills the malicious processes and removes what would start them again
 7. Documents findings, updates tickets, requests remediation`,
     },
 
@@ -1026,7 +1026,7 @@ A sandbox execution report is a complete record of everything the malware did du
 
 - **C2 Communication Patterns:**
   - Regular HTTP/HTTPS requests to an external domain at fixed intervals (beaconing)
-  - DNS queries for algorithmically generated domain names (Domain Generation Algorithm: DGA). Instead of connecting to a fixed domain, the malware generates a new pseudo-random domain every day (e.g., \`xk7pmq9r.net\` today, \`bz3lnvw4.net\` tomorrow). Hard to block because defenders don't know which domain is next.
+  - DNS queries for algorithmically generated domain names (Domain Generation Algorithm: DGA). Instead of connecting to a fixed domain, the malware generates a new pseudo-random domain every day (e.g., \`xk7pmq9r.example\` today, \`bz3lnvw4.example\` tomorrow). Hard to block because defenders don't know which domain is next.
 
 - **Process Injection:** Malware injecting its code into a trusted process (svchost.exe, explorer.exe) to hide itself. Key API calls: \`VirtualAllocEx, WriteProcessMemory, CreateRemoteThread\`.
 
@@ -1084,7 +1084,7 @@ A VirusTotal score counts only the engines that flagged the file. A result such 
 Binary programs (.exe files) are mostly machine code that humans can't read. But embedded within that machine code are **strings**: sequences of human-readable text that the program uses. Extracting strings from a malware sample can be incredibly revealing:
 
 - **URLs:** \`http://198.51.100.45/update/check.php\`: the attacker's command-and-control server
-- **Domain names:** \`c2server.evildomain.ru\`: another C2 indicator
+- **Domain names:** \`c2server.evildomain.example\`: another C2 indicator
 - **Registry paths:** \`HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\`: the malware is establishing persistence
 - **Function names:** \`CreateRemoteThread, VirtualAllocEx\`: signs of process injection
 - **Error messages:** Attackers often leave debugging text in their code, revealing what the malware was designed to do
@@ -1235,7 +1235,7 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
         event_type: "av_detection",
         severity: "high",
         hostname: "DESKTOP-FINANCE01",
-        user_email: "j.smith@corp.com",
+        user_email: "j.smith@corp.example",
         mitre_technique: "T1566.001",
         mitre_tactic: "Initial Access",
         description:
@@ -1331,7 +1331,7 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       type: "question",
       id: "malware-q3",
       question:
-        "DNS logs show one workstation querying about 200 random-looking domains a day (for example 'xk7pmq9r.net', 'bz3lnvw4.net'). Almost none of them resolve; then one does, and the host connects to it. What best explains this?",
+        "DNS logs show one workstation querying about 200 random-looking domains a day (for example 'xk7pmq9r.example', 'bz3lnvw4.example'). Almost none of them resolve; then one does, and the host connects to it. What best explains this?",
       options: [
         "Malware stepping through a hardcoded backup list of C2 domains in order",
         "A DGA: malware tries generated domains until it finds the one registered",

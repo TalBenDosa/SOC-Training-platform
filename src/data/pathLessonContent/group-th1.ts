@@ -281,7 +281,7 @@ export const lessons_th1: Record<string, AuthoredPathLesson> = {
           "A hit returned by the query is a lead, not a confirmed incident - it still requires the standard analyst questions.",
           "A clean negative result across the full time window, with the data source confirmed, is the falsifiable answer promised."
         ],
-        "codeExample": "SecurityEvent\n| where EventID == 4769\n| where TicketEncryptionType == \"0x17\"\n| where ServiceName !endswith \"$\" and ServiceName != \"krbtgt\"\n| summarize RequestCount = count(), DistinctServices = dcount(ServiceName)\n    by Account, bin(TimeGenerated, 10m)\n| where RequestCount >= 4 or DistinctServices >= 3\n| order by RequestCount desc"
+        "codeExample": "// SecurityEvent has no TicketEncryptionType column: the 4769 fields live in EventData\nSecurityEvent\n| where EventID == 4769\n| parse EventData with * 'TargetUserName\">' Requester '<' * 'ServiceName\">' Svc '<' * 'TicketEncryptionType\">' EncType '<' *\n| where EncType == \"0x17\"\n| where Svc !endswith \"$\" and Svc != \"krbtgt\"\n| summarize RequestCount = count(), DistinctServices = dcount(Svc)\n    by Requester, bin(TimeGenerated, 10m)\n| where RequestCount >= 4 or DistinctServices >= 3\n| order by RequestCount desc"
       },
       {
         "pageNumber": 7,

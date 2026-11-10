@@ -631,9 +631,9 @@ const winProtoRoom = {
       heading: "Write It Yourself: Detect a Kerberoasting Sweep in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 2 (one account requesting RC4-encrypted service tickets for many distinct SPNs in a short window), write the KQL a detection engineer would deploy to catch this pattern across the whole domain. Team guidance for this rule: aggregate over a window of 2 to 15 minutes, and alert above a threshold somewhere between 5 and 30 distinct service accounts.",
+        "Using the pattern confirmed in Log Analysis 2 (one account requesting RC4-encrypted service tickets for many distinct SPNs in a short window), write the KQL a detection engineer would deploy to catch this pattern across the whole domain. Team guidance for this rule: aggregate over a window of 2 to 15 minutes, and alert above a threshold somewhere between 5 and 30 distinct service accounts. One detail of the table: in Sentinel's SecurityEvent, the ticket fields of a 4769 (the requesting account TargetUserName, ServiceName and TicketEncryptionType) are read from the EventData XML, so the template's `parse` line pulls them out into Requester, Svc and EncType before the filter.",
       template:
-        "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enctype}}\"\n| summarize DistinctSPNs = dcount(ServiceName) by TargetAccount = Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
+        "SecurityEvent\n| where EventID == {{eventid}}\n| parse EventData with * 'TargetUserName\">' Requester '<' * 'ServiceName\">' Svc '<' * 'TicketEncryptionType\">' EncType '<' *\n| where EncType == \"{{enctype}}\"\n| summarize DistinctSPNs = dcount(Svc) by Requester, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
       blanks: [
         { id: "eventid", answers: ["4769"], placeholder: "Kerberos service ticket request Event ID" },
         { id: "enctype", answers: ["0x17"], placeholder: "RC4-HMAC encryption type value" },
@@ -641,7 +641,7 @@ const winProtoRoom = {
         { id: "threshold", answers: ["5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"], placeholder: "distinct-SPN count threshold" },
       ],
       explanation:
-        "This mirrors the exact aggregate pattern you evaluated in Log Analysis 2: filter to 4769 (TGS-REQ/service ticket requests) that specifically obtained RC4-HMAC (0x17) (the encryption type Kerberoasting tooling favors) group by the requesting account within a short window, count distinct SPNs targeted, and alert when that count is far higher than any single legitimate application access pattern would ever produce. A production version of this rule would typically also exclude known, approved vulnerability-scanning or security-assessment service accounts to reduce noise from authorized testing.",
+        "This mirrors the exact aggregate pattern you evaluated in Log Analysis 2: filter to 4769 (TGS-REQ/service ticket requests), parse the ticket fields out of EventData (SecurityEvent has no TicketEncryptionType column, so a `where TicketEncryptionType == ...` line fails to resolve), keep the tickets that specifically obtained RC4-HMAC (0x17) (the encryption type Kerberoasting tooling favors), group by the requesting account within a short window, count distinct SPNs targeted, and alert when that count is far higher than any single legitimate application access pattern would ever produce. A production version of this rule would typically also exclude known, approved vulnerability-scanning or security-assessment service accounts to reduce noise from authorized testing.",
       xp: 35,
     },
 

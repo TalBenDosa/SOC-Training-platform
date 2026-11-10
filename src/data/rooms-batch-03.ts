@@ -45,7 +45,7 @@ const activeDirectory: Room = {
       type: "reading",
       id: "ad-r1",
       heading: "What Is Active Directory, and Why Does Every Company Use It?",
-      content: `Imagine a large company with 2,000 employees. Each employee needs to log in to their computer, access shared folders on the file server, print to the office printer, and open the HR application. Without any central system, an IT administrator would have to create a separate account on every single computer, every server, and every application for every employee: 2,000 accounts multiplied by dozens of systems. Changing one person's password or revoking access when they leave the company would be a nightmare.\n\n**Active Directory (AD)** solves this problem. Think of it as the company's central HR department combined with a master security badge system. Every employee gets one account in Active Directory. That single account controls what they can log in to, what files they can open, what printers they can use, and what applications they can access: everywhere in the company. When an employee leaves, IT disables their one AD account and access is revoked everywhere instantly.\n\nMicrosoft introduced Active Directory in Windows 2000, and it now runs in the vast majority of enterprises worldwide. As a SOC analyst, almost every investigation you do in a Windows environment will touch Active Directory in some way. Understanding it is not optional: it is foundational.\n\n**Domain vs. Workgroup**\n\nWindows computers can operate in one of two modes:\n\n- **Workgroup**: Each computer manages its own accounts locally. Fine for home use or a tiny office of 3–5 people. There is no central control. If you change your password on your laptop, it has no effect on your desktop PC.\n- **Domain**: All computers are joined to a central directory (Active Directory). One account works everywhere. IT can enforce policies on all machines from a single location. This is how every company with more than a handful of staff operates.\n\n**The Domain Controller (DC): The Brain of AD**\n\nA **Domain Controller** is a Windows Server that runs Active Directory Domain Services (AD DS). It is the most critical server in the entire company. Here is what it does:\n\n- Stores the directory database: every user account, computer account, and group\n- Authenticates users when they log in (are you who you say you are?)\n- Authorises access (are you allowed to open that file?)\n- Runs the **Kerberos Key Distribution Center (KDC)**: the authentication engine\n- Hosts the **SYSVOL** share, where Group Policy settings are stored and replicated\n\nIf the Domain Controller goes down, users cannot log in to new sessions, printers stop working, and shared drives become inaccessible. This is why companies always have at least two Domain Controllers for redundancy, and why attackers target them so aggressively. Compromising a DC typically means owning the entire company.\n\n**Forest, Domain, Organizational Units (OUs)**\n\nActive Directory has a hierarchical structure, like a set of nested containers:\n\n- **Forest**: The outermost boundary. A forest can contain one or more domains. The first domain created is the **forest root domain**. All domains in a forest share a common schema (the list of attribute types that objects can have) and a Global Catalog.\n- **Domain**: The main administrative unit. Has a DNS name like **corp.contoso.com**. Users, computers, and groups live inside domains.\n- **Domain Tree**: Multiple domains sharing a contiguous DNS namespace (e.g., contoso.com with child domains us.contoso.com and eu.contoso.com form a tree).\n- **Organizational Units (OUs)**: Folders inside a domain used to organise objects. A company might have OUs for each department: IT, Finance, HR, Marketing. OUs are important because **Group Policies can be applied to an OU**, affecting all objects inside it.\n\n**Users, Computers, and Groups**\n\nThree core object types live in Active Directory:\n\n- **User objects**: Represent people. Have a username (sAMAccountName like j.smith), a password, email, phone number, department, and dozens of other attributes.\n- **Computer objects**: Every Windows PC or server joined to the domain gets a computer object in AD. This allows policies to be applied to machines, not just people.\n- **Group objects**: Collections of users and/or computers. Two types matter:\n - **Security Groups**: Used for access control. Add a user to the "Finance" security group and they automatically gain access to finance file shares. Remove them from the group and access is revoked immediately.\n - **Distribution Groups**: Used only for email distribution lists in Exchange/Outlook. They do NOT control access to anything. A common beginner mistake is confusing these two.\n\n**Group Policy Objects (GPOs)**\n\nGroup Policy is AD's remote configuration and enforcement system. A **GPO** is a collection of settings that Active Directory pushes down to computers and users. Examples:\n\n- Force all computers to lock the screen after 5 minutes of inactivity\n- Require passwords to be at least 12 characters long\n- Prevent users from installing software\n- Map a network drive automatically when a user logs in\n- Deploy software updates\n\nGPOs are linked to OUs, domains, or sites. Every time a user logs in or a computer starts up, it contacts the DC and applies any GPOs that apply to it. This is a common attacker target: if an attacker can modify a GPO linked to "All Computers", they can push a malicious script to every machine in the company simultaneously.\n\n**Trust Relationships**\n\nSometimes two separate domains or forests need to let their users access each other's resources. This is done with **trusts**:\n\n- **One-way trust**: Domain A trusts Domain B. Users in B can access resources in A, but not vice versa.\n- **Two-way trust**: Both domains trust each other's users.\n- **Transitive trust**: If A trusts B and B trusts C, then A implicitly trusts C. All trusts within a forest are automatically transitive.\n\nTrusts can be dangerous if misconfigured: a compromise in a less-secure trusted domain can be a path into a more-secure domain.`,
+      content: `Imagine a large company with 2,000 employees. Each employee needs to log in to their computer, access shared folders on the file server, print to the office printer, and open the HR application. Without any central system, an IT administrator would have to create a separate account on every single computer, every server, and every application for every employee: 2,000 accounts multiplied by dozens of systems. Changing one person's password or revoking access when they leave the company would be a nightmare.\n\n**Active Directory (AD)** solves this problem. Think of it as the company's central HR department combined with a master security badge system. Every employee gets one account in Active Directory. That single account controls what they can log in to, what files they can open, what printers they can use, and what applications they can access: everywhere in the company. When an employee leaves, IT disables their one AD account and access is revoked everywhere instantly.\n\nMicrosoft introduced Active Directory in Windows 2000, and it now runs in the vast majority of enterprises worldwide. As a SOC analyst, almost every investigation you do in a Windows environment will touch Active Directory in some way. Understanding it is not optional: it is foundational.\n\n**Domain vs. Workgroup**\n\nWindows computers can operate in one of two modes:\n\n- **Workgroup**: Each computer manages its own accounts locally. Fine for home use or a tiny office of 3–5 people. There is no central control. If you change your password on your laptop, it has no effect on your desktop PC.\n- **Domain**: All computers are joined to a central directory (Active Directory). One account works everywhere. IT can enforce policies on all machines from a single location. This is how every company with more than a handful of staff operates.\n\n**The Domain Controller (DC): The Brain of AD**\n\nA **Domain Controller** is a Windows Server that runs Active Directory Domain Services (AD DS). It is the most critical server in the entire company. Here is what it does:\n\n- Stores the directory database: every user account, computer account, and group\n- Authenticates users when they log in (are you who you say you are?)\n- Authorises access (are you allowed to open that file?)\n- Runs the **Kerberos Key Distribution Center (KDC)**: the authentication engine\n- Hosts the **SYSVOL** share, where Group Policy settings are stored and replicated\n\nIf the Domain Controller goes down, users cannot log in to new sessions, printers stop working, and shared drives become inaccessible. This is why companies always have at least two Domain Controllers for redundancy, and why attackers target them so aggressively. Compromising a DC typically means owning the entire company.\n\n**Forest, Domain, Organizational Units (OUs)**\n\nActive Directory has a hierarchical structure, like a set of nested containers:\n\n- **Forest**: The outermost boundary. A forest can contain one or more domains. The first domain created is the **forest root domain**. All domains in a forest share a common schema (the list of attribute types that objects can have) and a Global Catalog.\n- **Domain**: The main administrative unit. Has a DNS name like **corp.rookwood.example**. Users, computers, and groups live inside domains.\n- **Domain Tree**: Multiple domains sharing a contiguous DNS namespace (e.g., rookwood.example with child domains us.rookwood.example and eu.rookwood.example form a tree).\n- **Organizational Units (OUs)**: Folders inside a domain used to organise objects. A company might have OUs for each department: IT, Finance, HR, Marketing. OUs are important because **Group Policies can be applied to an OU**, affecting all objects inside it.\n\n**Users, Computers, and Groups**\n\nThree core object types live in Active Directory:\n\n- **User objects**: Represent people. Have a username (sAMAccountName like j.smith), a password, email, phone number, department, and dozens of other attributes.\n- **Computer objects**: Every Windows PC or server joined to the domain gets a computer object in AD. This allows policies to be applied to machines, not just people.\n- **Group objects**: Collections of users and/or computers. Two types matter:\n - **Security Groups**: Used for access control. Add a user to the "Finance" security group and they automatically gain access to finance file shares. Remove them from the group and access is revoked immediately.\n - **Distribution Groups**: Used only for email distribution lists in Exchange/Outlook. They do NOT control access to anything. A common beginner mistake is confusing these two.\n\n**Group Policy Objects (GPOs)**\n\nGroup Policy is AD's remote configuration and enforcement system. A **GPO** is a collection of settings that Active Directory pushes down to computers and users. Examples:\n\n- Force all computers to lock the screen after 5 minutes of inactivity\n- Require passwords to be at least 12 characters long\n- Prevent users from installing software\n- Map a network drive automatically when a user logs in\n- Deploy software updates\n\nGPOs are linked to OUs, domains, or sites. Every time a user logs in or a computer starts up, it contacts the DC and applies any GPOs that apply to it. This is a common attacker target: if an attacker can modify a GPO linked to "All Computers", they can push a malicious script to every machine in the company simultaneously.\n\n**Trust Relationships**\n\nSometimes two separate domains or forests need to let their users access each other's resources. This is done with **trusts**:\n\n- **One-way trust**: Domain A trusts Domain B. Users in B can access resources in A, but not vice versa.\n- **Two-way trust**: Both domains trust each other's users.\n- **Transitive trust**: If A trusts B and B trusts C, then A implicitly trusts C. All trusts within a forest are automatically transitive.\n\nTrusts can be dangerous if misconfigured: a compromise in a less-secure trusted domain can be a path into a more-secure domain.`,
       checkpoint: {
         question:
           "Every user in the company suddenly fails to sign in to new sessions and no one can obtain Kerberos tickets, yet the file servers themselves are still running. Which Domain Controller function has stopped working?",
@@ -185,7 +185,7 @@ const activeDirectory: Room = {
         vendor: "Windows Security",
         event_type: "kerberos_tgs",
         severity: "high",
-        hostname: "DC01.corp.contoso.com",
+        hostname: "DC01.corp.rookwood.example",
         description:
           "Kerberos Service Ticket request with RC4 encryption: possible Kerberoasting",
         mitre_technique: "T1558.003",
@@ -198,7 +198,7 @@ const activeDirectory: Room = {
         raw: {
           "event.code": "4769",
           "winlog.channel": "Security",
-          "winlog.computer_name": "DC01.corp.contoso.com",
+          "winlog.computer_name": "DC01.corp.rookwood.example",
           // 4769 field roles, per Microsoft's schema — these were previously
           // swapped here, which taught the wrong field to filter a Kerberoasting
           // hunt on. TargetUserName is the account that REQUESTED the ticket;
@@ -371,7 +371,7 @@ const activeDirectory: Room = {
         vendor: "Windows Security",
         event_type: "auth_success",
         severity: "high",
-        hostname: "SRV-FILE02.corp.contoso.com",
+        hostname: "SRV-FILE02.corp.rookwood.example",
         description:
           "NTLM network logon (type 3) for l.harper on SRV-FILE02",
         mitre_technique: "T1557.001",
@@ -384,7 +384,7 @@ const activeDirectory: Room = {
         raw: {
           "event.code": "4624",
           "winlog.channel": "Security",
-          "winlog.computer_name": "SRV-FILE02.corp.contoso.com",
+          "winlog.computer_name": "SRV-FILE02.corp.rookwood.example",
           "winlog.event_data.SubjectUserSid": "S-1-0-0",
           "winlog.event_data.TargetUserSid": "S-1-5-21-1844237615-456351123-2908421376-2214",
           "winlog.event_data.TargetUserName": "l.harper",
@@ -466,7 +466,7 @@ const activeDirectory: Room = {
         vendor: "Windows Security",
         event_type: "auth_success",
         severity: "medium",
-        hostname: "DC01.corp.contoso.com",
+        hostname: "DC01.corp.rookwood.example",
         description:
           "Privileged account svc-patchmgmt established an interactive RDP session directly onto the Domain Controller outside business hours",
         mitre_technique: "T1021.001",
@@ -482,7 +482,7 @@ const activeDirectory: Room = {
         raw: {
           "event.code": "4624",
           "winlog.channel": "Security",
-          "winlog.computer_name": "DC01.corp.contoso.com",
+          "winlog.computer_name": "DC01.corp.rookwood.example",
           "winlog.event_data.TargetUserName": "svc-patchmgmt",
           "winlog.event_data.TargetDomainName": "CORP",
           "winlog.event_data.LogonType": "10",
@@ -668,7 +668,7 @@ const windowsEventLogs: Room = {
         vendor: "Windows Security",
         event_type: "auth_failure",
         severity: "high",
-        hostname: "DC01.corp.contoso.com",
+        hostname: "DC01.corp.morrowbank.example",
         description:
           "Failed logon attempt: part of high-volume password spray from external IP",
         mitre_technique: "T1110.003",
@@ -683,7 +683,7 @@ const windowsEventLogs: Room = {
         raw: {
           "event.code": "4625",
           "winlog.channel": "Security",
-          "winlog.computer_name": "DC01.corp.contoso.com",
+          "winlog.computer_name": "DC01.corp.morrowbank.example",
           "winlog.event_data.TargetUserName": "j.smith",
           "winlog.event_data.TargetDomainName": "CORP",
           "winlog.event_data.LogonType": "3",
@@ -743,7 +743,7 @@ const windowsEventLogs: Room = {
       id: "win-evtlogs-flag1",
       logTask: "win-evtlogs-la1",
       prompt:
-        "The password spray above lands: a few minutes later 203.0.113.45 logs on successfully as svc_backup (Event ID 4624). The attacker then uses that account to add svc_backup to the Domain Admins group. Which Event ID will the domain controller's Security log record for this group change? Enter the number only.",
+        "The password spray above lands: a few minutes later 203.0.113.45 logs on successfully as svc_backup (Event ID 4624). svc_backup was wrongly delegated the right to manage the Domain Admins group, and the attacker uses that right to add svc_backup to it. Which Event ID will the domain controller's Security log record for this group change? Enter the number only.",
       answer: "4728",
       hint: "Domain Admins is a domain-wide global group, not a group local to one machine. Reading 2 lists separate Event IDs for a member added to a global group and to a local group.",
       xp: 30,

@@ -4,7 +4,7 @@ import type { RoomExperience } from "./types";
 // Script: docs/campaign/95-privileged-access-monitoring.md.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
-// Ironbridge Trust Bank (fictional), not the graded tasks' corp, contoso and DB-PROD-01 records.
+// Ironbridge Trust Bank (fictional). The graded tasks use corp.ironbridge.example and DB-PROD-01 records; the labs use other hosts and accounts.
 // Signature mechanic: Who Used the Key? Vault check-outs set against what the account then did.
 // A KQL hunt joins privileged logons to their 4624 and to PAM session records, and finds an admin
 // session with no check-out behind it. A tune decides which privileged events page someone.
@@ -572,7 +572,7 @@ export const PRIVILEGED_ACCESS_MONITORING: RoomExperience = {
         tables: [
           {
             name: "SecurityEvent",
-            note: "Windows Security events from every server.",
+            note: "Windows Security events from every server: the 4672 and 4673 rows. Its 4624 rows are listed below as the subquery returns them.",
             columns: ["TimeGenerated", "Computer", "EventID", "SubjectUserName", "SubjectLogonId"],
             rows: [
               ["10-27 02:00", "ITB-LEDGER01", "4672", "SYSTEM", "0x3e7"],
@@ -587,8 +587,8 @@ export const PRIVILEGED_ACCESS_MONITORING: RoomExperience = {
             ],
           },
           {
-            name: "Logon4624",
-            note: "Saved function over SecurityEvent: 4624 logons only.",
+            name: "SecurityEvent | where EventID == 4624",
+            note: "The same SecurityEvent table, filtered to 4624 logons: what the subquery inside a join returns.",
             columns: ["TimeGenerated", "Computer", "TargetUserName", "TargetLogonId", "LogonType", "IpAddress", "AuthenticationPackageName"],
             rows: [
               ["10-27 02:05", "ITB-DC01", "ITB-DC01$", "0x1a2f04", "3", "10.40.1.11", "Kerberos"],
@@ -634,9 +634,9 @@ export const PRIVILEGED_ACCESS_MONITORING: RoomExperience = {
           {
             id: "session", ask: "Line 4: a 4672 cannot say where a session came from. Bring in its 4624.",
             choices: [
-              { id: "a", text: "| join kind=inner Logon4624 on Computer, $left.SubjectLogonId == $right.TargetLogonId", right: true, why: "The two events of one session, matched on the machine and the Logon ID. Five rows, each with its source.", apply: { op: "join", table: "Logon4624", left: "SubjectLogonId", right: "TargetLogonId", also: "Computer" } },
-              { id: "b", text: "| join kind=inner Logon4624 on $left.SubjectLogonId == $right.TargetLogonId", why: "Seven rows from five sessions. 0x7c21a8 exists on both ledger servers, because a Logon ID is only unique on one machine.", apply: { op: "join", table: "Logon4624", left: "SubjectLogonId", right: "TargetLogonId" } },
-              { id: "c", text: "| join kind=inner Logon4624 on $left.SubjectUserName == $right.TargetUserName", why: "Seven rows again. adm-ledger01 has two sessions, and each one just picked up the other's logon. An account name does not identify a session.", apply: { op: "join", table: "Logon4624", left: "SubjectUserName", right: "TargetUserName" } },
+              { id: "a", text: "| join kind=inner (SecurityEvent | where EventID == 4624) on Computer, $left.SubjectLogonId == $right.TargetLogonId", right: true, why: "The two events of one session, matched on the machine and the Logon ID. Five rows, each with its source.", apply: { op: "join", table: "SecurityEvent | where EventID == 4624", left: "SubjectLogonId", right: "TargetLogonId", also: "Computer" } },
+              { id: "b", text: "| join kind=inner (SecurityEvent | where EventID == 4624) on $left.SubjectLogonId == $right.TargetLogonId", why: "Seven rows from five sessions. 0x7c21a8 exists on both ledger servers, because a Logon ID is only unique on one machine.", apply: { op: "join", table: "SecurityEvent | where EventID == 4624", left: "SubjectLogonId", right: "TargetLogonId" } },
+              { id: "c", text: "| join kind=inner (SecurityEvent | where EventID == 4624) on $left.SubjectUserName == $right.TargetUserName", why: "Seven rows again. adm-ledger01 has two sessions, and each one just picked up the other's logon. An account name does not identify a session.", apply: { op: "join", table: "SecurityEvent | where EventID == 4624", left: "SubjectUserName", right: "TargetUserName" } },
             ],
           },
           {
@@ -736,7 +736,7 @@ export const PRIVILEGED_ACCESS_MONITORING: RoomExperience = {
         lead: "Event 4672 · ITB-FWM01 · Thursday 14:22 · adm-net02 · SubjectLogonId 0x3c88e10",
         steps: [
           {
-            id: "logon", ask: "Which 4624 started this session?", source: "Logon4624",
+            id: "logon", ask: "Which 4624 started this session?", source: "SecurityEvent · Event ID 4624",
             columns: ["TimeGenerated", "Computer", "TargetUserName", "TargetLogonId", "LogonType", "IpAddress"],
             rows: [
               ["Thu 09:34", "ITB-FWM01", "adm-net02", "0x3c61a04", "10", "10.40.2.11"],

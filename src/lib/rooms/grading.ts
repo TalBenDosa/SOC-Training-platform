@@ -240,20 +240,23 @@ export function gradeTask(task: RoomTask, submission: any, room?: Room): GradeRe
       for (const m of trimmed.matchAll(/\b[0-9a-f]{32,64}\b/gi)) claimed.add(m[0].toLowerCase());
       const fabricated = [...claimed].filter(v => !isRealValue(v));
 
-      // Depth: substance relative to this task's own minWords, not a fixed
-      // constant — a short capstone and a full report shouldn't share a bar.
-      const depthPct = words >= task.minWords * 1.5 ? 1
-        : words >= task.minWords ? 0.8
-        : words >= task.minWords * 0.5 ? 0.4
+      // Depth: substance relative to this task's own minWords. Full marks AT
+      // minWords: writing more than the task needs earns nothing extra (the
+      // old 1.5x tier rewarded length, SPEC-practical-missions section 6).
+      const depthPct = words >= task.minWords ? 1
+        : words >= task.minWords * 0.5 ? 0.5
         : words > 0 ? 0.1 : 0;
 
       // Evidence: proportion of real indicators cited, capped hard by any
       // fabrication — a fabricated indicator caps this near zero regardless
       // of how many real ones were also cited, same rule the scenario grader
-      // uses.
-      const evidencePct = fabricated.length > 0
+      // uses. Indicators pasted with almost no prose are a list, not a report:
+      // below half of minWords the evidence counts for half, so a bare IOC
+      // dump can no longer pass on citations alone.
+      const listOnly = words < task.minWords * 0.5;
+      const evidencePct = (fabricated.length > 0
         ? (iocsCited > 0 ? 0.15 : 0)
-        : iocsTotal > 0 ? iocsCited / iocsTotal : 1;
+        : iocsTotal > 0 ? iocsCited / iocsTotal : 1) * (listOnly ? 0.5 : 1);
 
       // Depth is worth 40 of the 100 rubric points, evidence 60 — citing the
       // case's actual findings matters more here than raw word count, since

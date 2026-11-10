@@ -3,7 +3,8 @@ import type { BriefingLab, RoomExperience } from "./types";
 // "Operation Quiet Wire" for the "tunneling-c2-channels" room.
 // Script: docs/campaign/98-tunneling-c2-channels.md.
 //
-// Halden Geothermal (fictional), not the graded tasks' solvix.local records.
+// Halden Geothermal (fictional). The graded tasks' records sit in its haldengeo.local domain;
+// the labs use other hosts.
 // Signature: Draw the Tunnel. SSH -L, -R and -D, SOCKS and reverse proxies read from connection
 // logs: pathways where the learner draws which host really talks to which, pcap labs where the
 // inner traffic hides in an outer protocol, and a spotdiff of a normal SSH session's shape beside

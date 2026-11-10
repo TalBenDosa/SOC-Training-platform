@@ -746,7 +746,7 @@ export const MEMORY_DISK_FORENSICS: RoomExperience = {
             ],
             cut: "port",
             hint: "This writes over the network. What stops it, and what does that leave in RAM?",
-            why: "Active destruction outweighs a dump you cannot finish in time, though had it fitted in the time left, it would have been worth taking. The encryption runs over SMB, so cutting the network stops it while RAM stays intact for a dump afterwards. Power-off stops it too, but destroys everything in memory for no extra gain.",
+            why: "Active destruction comes first, and the dump loses almost nothing by waiting. The encryption runs over SMB, so cutting the network stops it while RAM stays intact for a dump straight afterwards. Power-off stops it too, but destroys everything in memory for no extra gain.",
           },
           {
             id: "legal",

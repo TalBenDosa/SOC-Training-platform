@@ -31,7 +31,7 @@ const permissionGrantEvent: TelemetryEvent = {
   severity: "critical",
   mitre_technique: "T1098",
   mitre_tactic: "Persistence",
-  hostname: "vcsa-04.medcorehealth.org",
+  hostname: "vcsa-sk.skerryline.example",
   user_email: "administrator@vsphere.local",
   src_ip: "10.60.9.14",
   description:
@@ -55,7 +55,7 @@ const permissionGrantEvent: TelemetryEvent = {
     "vsphere.event.fullFormattedMessage":
       "Permission created for VSPHERE.LOCAL\\svc-backup on Datacenters, role Administrator, propagating",
     "log.file.path": "/var/log/vmware/vpxd/vpxd.log",
-    "syslog.hostname": "vcsa-04.medcorehealth.org",
+    "syslog.hostname": "vcsa-sk.skerryline.example",
     "syslog.program": "vpxd",
     "syslog.pid": "8871",
   },
@@ -70,30 +70,30 @@ const sshEnabledEvent: TelemetryEvent = {
   severity: "critical",
   mitre_technique: "T1021.004",
   mitre_tactic: "Lateral Movement",
-  hostname: "esx-prod-07.medcorehealth.org",
+  hostname: "sk-esx-05.skerryline.example",
   user_email: "svc-backup@vsphere.local",
   src_ip: "10.60.9.14",
   description:
-    "TSM-SSH was started on esx-prod-07 and its startup policy was set to 'on'; the SIEM attributes the change to svc-backup, and no change record exists for a maintenance window at this time.",
+    "TSM-SSH was started on sk-esx-05 and its startup policy was set to 'on'; the SIEM attributes the change to svc-backup, and no change record exists for a maintenance window at this time.",
   raw: {
     "vsphere.event.eventTypeId": "esx.audit.ssh.enabled",
     "vsphere.event.severity": "info",
     "vsphere.event.createdTime": "2026-07-19T23:44:52.611Z",
-    "vsphere.event.host.name": "esx-prod-07.medcorehealth.org",
+    "vsphere.event.host.name": "sk-esx-05.skerryline.example",
     "vsphere.event.host.moref": "host-2091",
-    "vsphere.event.computeResource.name": "PROD-CLUSTER-B",
-    "vsphere.event.datacenter.name": "MEDCORE-DC",
+    "vsphere.event.computeResource.name": "FERRY-A",
+    "vsphere.event.datacenter.name": "Skerry",
     "vsphere.event.fullFormattedMessage": "SSH access has been enabled.",
     "esxi.service.key": "TSM-SSH",
     "esxi.service.label": "SSH",
     "esxi.service.running": "true",
     "esxi.service.policy": "on",
     "log.file.path": "/var/log/vobd.log",
-    "syslog.hostname": "esx-prod-07.medcorehealth.org",
+    "syslog.hostname": "sk-esx-05.skerryline.example",
     "syslog.program": "vobd",
     "syslog.pid": "3310217",
     "event.original":
-      "2026-07-19T23:44:52.611Z esx-prod-07.medcorehealth.org vobd[3310217]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
+      "2026-07-19T23:44:52.611Z sk-esx-05.skerryline.example vobd[3310217]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
   },
 };
 
@@ -104,32 +104,32 @@ const benignMaintenanceSshEvent: TelemetryEvent = {
   vendor: "VMware ESXi",
   event_type: "policy_modification",
   severity: "informational",
-  hostname: "esx-prod-02.medcorehealth.org",
-  user_email: "j.marchetti@medcorehealth.org",
+  hostname: "sk-esx-01.skerryline.example",
+  user_email: "j.marchetti@skerryline.example",
   it_verify_result: "confirmed",
   it_verify_message:
-    "Change ticket CHG-77410 authorises the virtualization team's quarterly firmware-update maintenance window on PROD-CLUSTER-A this weekend, including temporary SSH enablement on each host for the update script.",
+    "Change ticket CHG-77410 authorises the virtualization team's quarterly firmware-update maintenance window on FERRY-B this weekend, including temporary SSH enablement on each host for the update script.",
   description:
-    "TSM-SSH was started on esx-prod-02 by j.marchetti during the scheduled maintenance window, and disabled again forty minutes later at the end of the update run.",
+    "TSM-SSH was started on sk-esx-01 by j.marchetti during the scheduled maintenance window, and disabled again forty minutes later at the end of the update run.",
   raw: {
     "vsphere.event.eventTypeId": "esx.audit.ssh.enabled",
     "vsphere.event.severity": "info",
     "vsphere.event.createdTime": "2026-07-11T02:10:00.000Z",
-    "vsphere.event.host.name": "esx-prod-02.medcorehealth.org",
+    "vsphere.event.host.name": "sk-esx-01.skerryline.example",
     "vsphere.event.host.moref": "host-2033",
-    "vsphere.event.computeResource.name": "PROD-CLUSTER-A",
-    "vsphere.event.datacenter.name": "MEDCORE-DC",
+    "vsphere.event.computeResource.name": "FERRY-B",
+    "vsphere.event.datacenter.name": "Skerry",
     "vsphere.event.fullFormattedMessage": "SSH access has been enabled.",
     "esxi.service.key": "TSM-SSH",
     "esxi.service.label": "SSH",
     "esxi.service.running": "true",
     "esxi.service.policy": "on",
     "log.file.path": "/var/log/vobd.log",
-    "syslog.hostname": "esx-prod-02.medcorehealth.org",
+    "syslog.hostname": "sk-esx-01.skerryline.example",
     "syslog.program": "vobd",
     "syslog.pid": "2207741",
     "event.original":
-      "2026-07-11T02:10:00.000Z esx-prod-02.medcorehealth.org vobd[2207741]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
+      "2026-07-11T02:10:00.000Z sk-esx-01.skerryline.example vobd[2207741]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
   },
 };
 
@@ -224,7 +224,7 @@ const esxiVirtualizationSecurityRoom = {
         "**PermissionAddedEvent: the moment authorization actually happened.** Every time a permission is created, vCenter logs a PermissionAddedEvent naming the affected entity, the principal being granted access, the roleId and roleName, and the propagate flag. This is not a side detail. It is the single event in a vCenter-based investigation that pinpoints exactly when a given account first became capable of the privileged actions that followed. An account that later enables SSH on a host, or powers off a VM, was only ABLE to do either of those things because some earlier PermissionAddedEvent granted it a role carrying the corresponding privilege, and that earlier event is precisely what an investigation needs to find to establish how the actor got there.\n\n" +
         "**Why this matters more than the more visible steps that follow.** An analyst who focuses only on the visible, dramatic actions (SSH being turned on, a VM being stopped) without tracing back to the specific permission grant that authorised them, is investigating symptoms without finding the actual root cause: which account was empowered, over what scope, and by whom.",
       checkpoint: {
-        question: "The Administrator role (roleId -1) is attached to a principal on the cluster PROD-CLUSTER-B -- not on the root folder -- with propagate set to true. What can that principal now administer?",
+        question: "The Administrator role (roleId -1) is attached to a principal on the cluster FERRY-A -- not on the root folder -- with propagate set to true. What can that principal now administer?",
         options: [
           "Every object in the whole inventory, because the Administrator role carries its privileges globally wherever it is attached",
           "The cluster and every object beneath it, such as its hosts and their VMs, but nothing in other clusters or datacenters",
@@ -255,7 +255,7 @@ const esxiVirtualizationSecurityRoom = {
       id: "esxf-la1",
       heading: "A Permission Grant at 23:41",
       context:
-        "MedCore Health's SIEM raised an after-hours alert on vcsa-04.medcorehealth.org, the vCenter appliance managing PROD-CLUSTER-B. The event below is the first vCenter-side finding in the timeline.",
+        "Skerry Line's SIEM raised an after-hours alert on vcsa-sk.skerryline.example, the vCenter appliance managing FERRY-A. The event below is the first vCenter-side finding in the timeline.",
       event: permissionGrantEvent,
       questions: [
         {
@@ -292,7 +292,7 @@ const esxiVirtualizationSecurityRoom = {
           options: [
             "Trace back to how the Administrator session at 10.60.9.14 was established, and forward to what svc-backup did next with its new rights",
             "Wait for a burst of VmPoweredOffEvent records before escalating, since a permission grant on its own is routine administrative activity",
-            "Pull guest EDR telemetry from PROD-CLUSTER-B's VMs, since anything svc-backup does with the new role will surface there first",
+            "Pull guest EDR telemetry from FERRY-A's VMs, since anything svc-backup does with the new role will surface there first",
             "Delete the new permission and close the alert, since reverting the grant removes the access and its origin no longer matters",
           ],
           answer: 0,
@@ -306,9 +306,9 @@ const esxiVirtualizationSecurityRoom = {
     {
       type: "flag" as const,
       id: "esxf-f1",
-      event: permissionGrantEvent, // show the vcsa-04 permission-grant log this flag reads
+      event: permissionGrantEvent, // show the vcsa-sk permission-grant log this flag reads
       prompt:
-        "The danger in the vcsa-04 permission grant is its scope. To search vCenter for every other permission ever attached to that same inventory object, you would pivot on vCenter's internal ID for the object rather than its display name. Enter that ID.",
+        "The danger in the vcsa-sk permission grant is its scope. To search vCenter for every other permission ever attached to that same inventory object, you would pivot on vCenter's internal ID for the object rather than its display name. Enter that ID.",
       answer: "group-d1",
       hint: "A permission is attached to an entity; the principal is who receives it.",
       xp: 20,
@@ -346,14 +346,14 @@ const esxiVirtualizationSecurityRoom = {
     {
       type: "log_analysis" as const,
       id: "esxf-la2",
-      heading: "SSH Enabled on esx-prod-07",
+      heading: "SSH Enabled on sk-esx-05",
       context:
-        "Three minutes after the permission grant investigated above, the following event appeared in esx-prod-07's own host log.",
+        "Three minutes after the permission grant investigated above, the following event appeared in sk-esx-05's own host log.",
       event: sshEnabledEvent,
       questions: [
         {
           question:
-            "This event's log.file.path is /var/log/vobd.log, on the host esx-prod-07 itself -- a different file, on a different machine, from the vpxd.log event investigated earlier. Why does an analyst need to check this log SEPARATELY from vCenter's own event feed?",
+            "This event's log.file.path is /var/log/vobd.log, on the host sk-esx-05 itself -- a different file, on a different machine, from the vpxd.log event investigated earlier. Why does an analyst need to check this log SEPARATELY from vCenter's own event feed?",
           options: [
             "It is the host's own record that the change actually took effect there, with the on-host time -- a separate source from vCenter's management-plane record",
             "It is the host's local replica of vpxd.log, kept so events survive while vCenter is unreachable, so it mainly matters when vCenter is down",
@@ -383,9 +383,9 @@ const esxiVirtualizationSecurityRoom = {
           question:
             "This vobd record names the host and the time but no vCenter user, yet the SIEM attributes it to svc-backup -- the account granted Administrator minutes earlier. Given that the change was pushed through vCenter, how is that attribution properly established?",
           options: [
-            "Match esx-prod-07 and 23:44:52 to the vCenter task that started TSM-SSH, which records the SSO user behind the request",
+            "Match sk-esx-05 and 23:44:52 to the vCenter task that started TSM-SSH, which records the SSO user behind the request",
             "Take the host-side account the change executed as, vpxuser, and treat that account as the actor to investigate",
-            "Pull esx-prod-07's shell.log, which records each SSH service change together with the local account that issued it",
+            "Pull sk-esx-05's shell.log, which records each SSH service change together with the local account that issued it",
             "Map syslog.pid 3310217 to the login session that owns it, since vobd writes under the requesting user's process",
           ],
           answer: 0,

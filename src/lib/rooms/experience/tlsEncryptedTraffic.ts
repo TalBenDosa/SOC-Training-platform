@@ -699,7 +699,7 @@ export const TLS_ENCRYPTED_TRAFFIC: RoomExperience = {
         kind: "worksheet",
         title: "Thresholds That Would Still Catch It",
         prompt: "Last quarter Ruaridh ran a beacon hunt over port 9443, where Tessellate's partner APIs live, and wants a second opinion on the thresholds. The query ends in `| where SessionCount > 200 | where StdevBytesOut < 40`. Here's what the summarize step returned, before those two lines.",
-        caption: "summarize SessionCount, StdevBytesOut by SourceIp, DestinationIp, JA3Hash",
+        caption: "summarize SessionCount, StdevBytesOut by id_orig_h, id_resp_h, ja3",
         primer: {
           fold: true,
           title: "Choosing a floor and a ceiling",
@@ -707,7 +707,7 @@ export const TLS_ENCRYPTED_TRAFFIC: RoomExperience = {
             "`SessionCount` is a **floor**: it has to sit **below** the count of the host you want. Set it at or above that count, and the host drops out.",
             "`StdevBytesOut` is a **ceiling**: it has to sit **above** that host's spread. `stdev()` gives low numbers for flat traffic.",
             "There's no single right number. Any value that still catches the pattern and leaves the noise behind will do.",
-            "`by SourceIp, DestinationIp, JA3Hash` gives each destination its own row, with the hash in it to pivot on afterwards. To follow one source across rotating destinations in a single row, use `by SourceIp, JA3Hash` with `dcount(DestinationIp)`.",
+            "`by id_orig_h, id_resp_h, ja3` gives each destination its own row, with the hash in it to pivot on afterwards. To follow one source across rotating destinations in a single row, use `by id_orig_h, ja3` with `dcount(id_resp_h)`.",
           ],
           example: {
             label: "One host from another network: 500 sessions, byte spread 50",
@@ -717,7 +717,7 @@ export const TLS_ENCRYPTED_TRAFFIC: RoomExperience = {
             ],
           },
         },
-        columns: ["SourceIp", "DestinationIp", "JA3Hash (first 8)", "SessionCount", "StdevBytesOut"],
+        columns: ["id_orig_h", "id_resp_h", "ja3 (first 8)", "SessionCount", "StdevBytesOut"],
         rows: [
           ["10.72.31.4", "203.0.113.131", "a93c10d7", "288", "31"],
           ["10.72.31.4", "198.51.100.61", "5d20c7e1", "64", "2210"],
@@ -730,7 +730,7 @@ export const TLS_ENCRYPTED_TRAFFIC: RoomExperience = {
           { id: "left", q: "How many rows survive both filters?", hint: "A row must clear the floor and sit under the ceiling.", answer: ["2", "two"], why: "288 with 31, and 1440 with 3. The busy browser fails the ceiling. The last row is telemetry, which is why these candidates still need a look." },
           { id: "miss", q: "Row 4 has the same JA3 as row 1 but misses the rule. What is the highest whole-number floor that still keeps it?", hint: "The rule uses a strict greater-than.", answer: ["189"], why: "190 is above 189 and not above 190. A slower host on the same library shouldn't fall through a floor you set for a faster one." },
           { id: "raise", q: "Someone raises the floor to 300 to cut noise. Does the rule still catch 10.72.31.4 in row 1? (yes/no)", hint: "Compare 300 with row 1's SessionCount.", answer: ["no", "n"], why: "288 is under the new floor, so the host you built the rule for has gone. Test every threshold against a known example before you ship it." },
-          { id: "group", q: "Rows 1 and 4 reach different destinations. Which column ties them together?", hint: "What's the same in both rows?", answer: ["JA3Hash", "JA3", "ja3 hash"], why: "The shared hash is your pivot once the rows are in front of you. This query still gives each destination its own row. To see a source rotating through destinations in one row, group by SourceIp and JA3Hash and add dcount(DestinationIp)." },
+          { id: "group", q: "Rows 1 and 4 reach different destinations. Which column ties them together?", hint: "What's the same in both rows?", answer: ["ja3", "JA3 hash", "JA3Hash"], why: "The shared hash is your pivot once the rows are in front of you. This query still gives each destination its own row. To see a source rotating through destinations in one row, group by id_orig_h and ja3 and add dcount(id_resp_h)." },
         ],
       },
     ],

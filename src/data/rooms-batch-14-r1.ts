@@ -90,7 +90,7 @@ const imdsPrivEscEvent: TelemetryEvent = {
   src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "Temporary credentials stolen from an EC2 instance's metadata service were used to create a new default version of ec2-webapp-policy granting * on *",
-  mitre_technique: "T1078.004",
+  mitre_technique: "T1098.003",
   mitre_tactic: "Privilege Escalation",
   raw: {
     "aws.cloudtrail.eventName": "CreatePolicyVersion",

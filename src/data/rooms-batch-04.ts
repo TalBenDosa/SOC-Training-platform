@@ -1330,9 +1330,9 @@ Data connectors are the mechanisms by which Sentinel ingests log data from diffe
    - AWS CloudTrail (via S3)
 
 3. **Custom connectors**: for sources with no pre-built connector:
-   - **Syslog connector**: any device that sends syslog over TCP/UDP
-   - **CEF connector**: devices sending Common Event Format logs
-   - **HTTP Data Collector API**: custom applications can POST JSON logs via REST API
+   - **Syslog via AMA**: any device that sends syslog over TCP/UDP, collected by the Azure Monitor Agent on a forwarder
+   - **CEF via AMA**: devices sending Common Event Format logs, through the same agent
+   - **Logs Ingestion API**: custom applications POST JSON logs over REST, shaped by a data collection rule (DCR). It replaced the older HTTP Data Collector API, which Microsoft retired in September 2026
    - **Azure Event Hubs**: for high-volume streaming data
 
 **Log Tables in Sentinel**

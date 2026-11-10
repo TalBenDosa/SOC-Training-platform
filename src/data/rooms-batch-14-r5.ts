@@ -48,7 +48,7 @@ const setIamPolicyEvent: TelemetryEvent = {
   src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "A service account meant only for BigQuery reads granted itself the Owner role on the entire production project via SetIamPolicy, moments after being used from an unfamiliar external IP",
-  mitre_technique: "T1078.004",
+  mitre_technique: "T1098.003",
   mitre_tactic: "Privilege Escalation",
   raw: {
     "gcp.audit.method_name": "SetIamPolicy",

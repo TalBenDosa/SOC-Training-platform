@@ -80,7 +80,10 @@ export const STUDY_POINTERS: Record<string, string> = {
   "esxf-q2": "esxf-r3",
   "exch-sec-f1": "exch-sec-r2",
   "fw-ac1": "fw-r2",
-  "fw-f1": "fw-r2",
+  // fw-f1 is shared by rooms 16 and 48, and fw-r2 exists in both: pointing at fw-r2 sent room 48's
+  // byte-count flag to its stateless-ACL reading. fw-r10 (field-by-field log reading) exists only in
+  // room 48; room 16 has no fw-r10, so it falls back to its nearest reading, fw-r3 (log fields).
+  "fw-f1": "fw-r10",
   "gcp-ac1": "gcp-r5",
   "gcp-f1": "gcp-r6",
   "gcp-m1": "gcp-r1",

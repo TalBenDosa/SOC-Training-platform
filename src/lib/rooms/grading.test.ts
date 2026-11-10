@@ -134,3 +134,23 @@ describe("gradeTask — ordering", () => {
     expect(r.reveal.correctOrder).toEqual(["one", "two", "three", "four"]);
   });
 });
+
+describe("written_report rubric does not reward length or bare IOC lists", () => {
+  const task = {
+    type: "written_report", id: "wr", heading: "h", context: "c", prompt: "p", rubricHints: [],
+    referenceIocs: ["198.51.100.23", "d.okafor@ashgrove.example"], minWords: 40, explanation: "e", xp: 50,
+  } as unknown as RoomTask;
+  const words = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
+
+  it("a pasted list of the case's indicators does not pass", () => {
+    const g = gradeTask(task, { text: "198.51.100.23 d.okafor@ashgrove.example" });
+    expect(g.ok && g.correct).toBe(false);
+  });
+
+  it("a report at minWords scores the same as one three times longer", () => {
+    const at = gradeTask(task, { text: `${words(40)} 198.51.100.23 d.okafor@ashgrove.example` });
+    const long = gradeTask(task, { text: `${words(120)} 198.51.100.23 d.okafor@ashgrove.example` });
+    expect(at.ok && long.ok && at.reveal.score).toBe(long.ok ? long.reveal.score : -1);
+    expect(at.ok && at.correct).toBe(true);
+  });
+});

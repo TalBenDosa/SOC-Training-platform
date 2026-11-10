@@ -4,7 +4,8 @@ import type { RoomExperience } from "./types";
 // Script: docs/campaign/51-tcpip-deep-dive.md.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
-// Kelvin Point Hosting (fictional), not the graded tasks' SRV-CORE02 or BASTION-01.
+// Kelvin Point Hosting (fictional). The graded tasks' hosts (SRV-CORE02, BASTION-01) sit in its
+// kelvinpoint.local domain; the labs use other hosts.
 // Signature mechanic: pathway (walk a server socket through the TCP state machine).
 // Game mix: pathway + deduce + defuse + rush, and a real capture in the pcap lab.
 // Lab data differs from the graded tasks: the walk is the server's side and never
