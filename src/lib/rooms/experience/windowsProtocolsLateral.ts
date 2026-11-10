@@ -47,6 +47,14 @@ export const WINDOWS_PROTOCOLS_LATERAL: RoomExperience = {
   look: { primary: "#f4a58a", secondary: "#a8dadc", warn: "#e5383b" },
   scene: "facilitysidedoor",
   layout: "facility",
+  story: {
+    intro: { title: "No Alert Fired", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-intro-39525b17.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-intro-cb0a2d12.jpg" },
+    afterStation: {
+      tickets: { title: "A Laptop Nobody Owns", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-ch2-11f096f7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-ch2-f4cb7774.jpg" },
+      doors: { title: "Five Shapes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-ch3-6dcb8c7d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-ch3-aa72f352.jpg" },
+      oursortheirs: { title: "Whose Hand", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-finale-a3fa83df.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-protocols-lateral/sidedoor-finale-b9ae7528.jpg" },
+    },
+  },
   stations: [
     {
       id: "shares",
