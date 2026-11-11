@@ -9,7 +9,7 @@
 
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { MissionTask } from "@/lib/missions/types";
-import { CLEAR_SKY_M1, CLEAR_SKY_M2, CLEAR_SKY_M3, CLEAR_SKY_M4, CLEAR_SKY_M5 } from "@/lib/missions/rooms/clearSky";
+import { CLEAR_SKY_M0, CLEAR_SKY_M1, CLEAR_SKY_M2, CLEAR_SKY_M3, CLEAR_SKY_M4, CLEAR_SKY_M5 } from "@/lib/missions/rooms/clearSky";
 
 // ---------------------------------------------------------------------------
 // Task type re-exports (mirrors rooms.ts to keep rooms-batch-04 self-contained)
@@ -1281,11 +1281,11 @@ const sentinelFundamentals: Room = {
   id: "sentinel-fundamentals",
   title: "Microsoft Sentinel Fundamentals",
   description:
-    "Learn Microsoft Sentinel, the cloud-native SIEM and SOAR built into Azure. Understand data connectors, Log Analytics tables, KQL queries, analytics rules, and incident management.",
+    "Learn Microsoft Sentinel the way analysts use it on shift: the incident queue, analytics rules, hunting and entity pages, KQL over the Log Analytics tables, and working an incident in the console from taking it to its closing classification.",
   difficulty: "intermediate",
   category: "SIEM",
-  estimatedMinutes: 70,
-  xp: 320,
+  estimatedMinutes: 95,
+  xp: 485,
   icon: "☁️",
   prerequisites: ["siem-fundamentals", "security-products-behaviour"],
   tasks: [
@@ -1364,6 +1364,9 @@ Knowing which table to query is the first step in any Sentinel investigation. A 
           "Entra ID (Azure AD) sign-ins, including failed and MFA-challenged ones, are in SigninLogs. SecurityEvent holds Windows Security log events from servers and workstations, not cloud sign-ins. OfficeActivity records what users do inside Exchange, SharePoint and Teams after they are signed in. AuditLogs records directory changes such as new users or role assignments.",
       },
     } satisfies ReadingTask,
+
+    // ----- Mission: find your way around the console -----
+    CLEAR_SKY_M0,
 
     // ----- Mission: three tickets, three tables -----
     CLEAR_SKY_M1,
@@ -1590,7 +1593,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       xp: 25,
     } satisfies QuestionTask,
 
-    // ----- Mission: incident 4412 pivot -----
+    // ----- Mission: incident 4412, worked in the console -----
     CLEAR_SKY_M3,
 
     // ----- Mission: read the raw row -----

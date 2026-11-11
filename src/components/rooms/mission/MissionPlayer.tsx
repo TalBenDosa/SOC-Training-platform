@@ -22,6 +22,8 @@ import { ArtifactView, FieldsBench, ReportBench, RuleBench, StringsBench } from 
 import { Notebook } from "./Notebook";
 import { loadMissionState, newId, saveMissionState, useNotebook } from "./notebookStore";
 import { useMissionDataset } from "./useDataset";
+import { ConsoleBench } from "./ConsoleBench";
+import { useMissionConsole } from "./useMissionConsole";
 
 type Submit = (roomId: string, taskId: string, body: unknown) => Promise<{ correct: boolean; xpEarned: number; reveal: Record<string, unknown> }>;
 
@@ -54,7 +56,7 @@ function Md({ text }: { text: string }) {
 }
 
 const KIND_LABEL: Record<SanitizedStep["kind"], string> = {
-  kql: "Query", fields: "Evidence form", iocs: "Collect indicators", strings: "Strings", rule: "Rule", report: "Finding",
+  kql: "Query", fields: "Evidence form", iocs: "Collect indicators", strings: "Strings", rule: "Rule", report: "Finding", console: "Console",
 };
 
 export function MissionPlayer({ roomId, task, onComplete, isCompleted, onRecord, submit }: {
@@ -82,6 +84,7 @@ export function MissionPlayer({ roomId, task, onComplete, isCompleted, onRecord,
     return () => ro.disconnect();
   }, []);
   const dataset = useMissionDataset(task.dataset);
+  const consoleH = useMissionConsole(roomId, task.console, dataset.data);
 
   // Restore this device's progress on the mission (drafts and passed steps).
   useEffect(() => {
@@ -122,6 +125,7 @@ export function MissionPlayer({ roomId, task, onComplete, isCompleted, onRecord,
       case "strings": return { picks: d.picks ?? [] };
       case "rule": return { source: d.source ?? "" };
       case "report": return { slots: d.slots ?? {} };
+      case "console": return { values: d.values ?? {}, console: consoleH.snapshots() };
     }
   }
 
@@ -192,8 +196,99 @@ export function MissionPlayer({ roomId, task, onComplete, isCompleted, onRecord,
       case "strings": return (d.picks?.length ?? 0) > 0;
       case "rule": return !!d.source?.trim();
       case "report": return step.slots.some(s => d.slots?.[s.id]?.trim());
+      case "console": return step.checksIncidents.length > 0 || step.fields.some(f => d.values?.[f.id]?.trim());
     }
   })();
+  const consoleVerdict = Array.isArray(reveal.console) ? reveal.console as { incident: string; ok: boolean; problems: string[] }[] : undefined;
+
+  // The help ladder, the feedback on the last check and the buttons. A console step shows them
+  // again in the mission card over the console, so the learner checks without leaving it.
+  const controls = (
+          <>
+            {/* Help ladder */}
+            {st.status === "open" && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setSt(s => ({ ...s, hints: Math.max(s.hints, 1) }))} disabled={st.hints >= 1}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs text-slate-300 hover:border-neon-amber/50 hover:text-neon-amber disabled:opacity-60">
+                    <Lightbulb className="h-3.5 w-3.5" aria-hidden /> Hint
+                  </button>
+                  {st.hints >= 1 && (
+                    <button type="button" onClick={() => setSt(s => ({ ...s, hints: 2 }))} disabled={st.hints >= 2}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs text-slate-300 hover:border-neon-amber/50 hover:text-neon-amber disabled:opacity-60">
+                      <MapPin className="h-3.5 w-3.5" aria-hidden /> Where to look <span className="text-slate-500">(step pays 60%)</span>
+                    </button>
+                  )}
+                </div>
+                {st.hints >= 1 && <p className="rounded-md border border-neon-amber/30 bg-neon-amber/5 px-3 py-2 text-xs text-slate-200"><InlineMd text={step.hint} /></p>}
+                {st.hints >= 2 && <p className="rounded-md border border-neon-amber/30 bg-neon-amber/5 px-3 py-2 text-xs text-slate-200"><InlineMd text={step.where} /></p>}
+              </div>
+            )}
+
+            {error && <p role="alert" className="rounded-md border border-neon-amber/40 bg-neon-amber/10 px-3 py-2 text-sm text-neon-amber">{error}</p>}
+
+            {/* Feedback on the last check */}
+            <div aria-live="polite" className="space-y-2">
+              {st.status === "open" && st.misses > 0 && (
+                <div className="space-y-1 rounded-lg border border-neon-amber/40 bg-neon-amber/10 p-3 text-sm">
+                  <p className="font-semibold text-neon-amber">
+                    {workedOut
+                      ? "Not yet. The worked answer is below: read why it works, then check it (no XP) or move on."
+                      : `Not yet. Check ${st.misses} of ${WORKED_AFTER_MISSES} before the worked answer.`}
+                  </p>
+                  {(st.feedback ?? []).map((f, i) => <p key={i} className="text-slate-200"><InlineMd text={f} /></p>)}
+                  {iocVerdict && (
+                    <>
+                      <p className="text-slate-200">{iocVerdict.found} of {iocVerdict.total} attacker indicators are in your notebook.</p>
+                      {iocVerdict.missing.length > 0 && st.hints >= 2 && <p className="text-slate-300">Still missing: {iocVerdict.missing.join(", ")}.</p>}
+                      {iocVerdict.flagged.map(f => <p key={f.value} className="text-severity-high"><span className="font-mono">{f.value}</span>: {f.say}</p>)}
+                    </>
+                  )}
+                  {consoleVerdict && consoleVerdict.filter(c => !c.ok).map(c => (
+                    <ul key={c.incident} className="list-inside list-disc text-slate-200" aria-label={`Incident ${c.incident}`}>
+                      {c.problems.map((p, i) => <li key={i}><InlineMd text={p} /></li>)}
+                    </ul>
+                  ))}
+                  {pickVerdicts && <p className="text-slate-200">{pickVerdicts.filter(p => p.ok).length} of your picks are stable and unique; you need {String(reveal.need)} and no weak ones. Red rows appear in goodware or in too few builds.</p>}
+                  {ruleVerdict && (
+                    <ul className="list-inside list-disc text-slate-200">
+                      {ruleVerdict.visibleWrong.length > 0 && <li>Wrong on the test set: {ruleVerdict.visibleWrong.join(", ")}. Run it and read the table.</li>}
+                      {ruleVerdict.hiddenMissed.map(h => <li key={h.name}>Missed a hidden malicious file{h.note ? `: ${h.note}` : ""}.</li>)}
+                      {ruleVerdict.hiddenFalse.map(h => <li key={h.name}>Matched a hidden clean file{h.note ? `: ${h.note}` : ""}.</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+              {st.status === "passed" && (
+                <div className="space-y-1 rounded-lg border border-neon-green/40 bg-neon-green/10 p-3 text-sm">
+                  <p className="font-semibold text-neon-green">Step done. +{st.xp} XP</p>
+                  {typeof reveal.debrief === "string" && <p className="text-slate-200"><InlineMd text={reveal.debrief} /></p>}
+                </div>
+              )}
+              {(st.status !== "open" || workedOut) && typeof reveal.worked === "string" && (
+                <details className="rounded-lg border border-border bg-bg-elevated/60 p-3 text-sm" open={st.status === "open"}>
+                  <summary className="cursor-pointer font-semibold text-slate-200">{st.status === "passed" ? "Compare with the worked answer" : "Worked answer"}</summary>
+                  <div className="mt-2 text-slate-300"><Md text={reveal.worked} /></div>
+                  {st.status === "open" && typeof reveal.debrief === "string" && <p className="mt-2 text-slate-400"><InlineMd text={reveal.debrief} /></p>}
+                </details>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {st.status === "open" && (
+                <Button variant="primary" size="md" disabled={!ready || busy} onClick={check}>
+                  <Send className="h-4 w-4" /> {busy ? "Checking..." : "Check"}
+                </Button>
+              )}
+              {st.status === "open" && workedOut && (
+                <Button variant="secondary" size="md" onClick={moveOn}>Move on without the XP <ChevronRight className="h-4 w-4" /></Button>
+              )}
+              {st.status !== "open" && active < task.steps.length - 1 && (
+                <Button variant="primary" size="md" onClick={() => { setActive(active + 1); setError(null); }}>Next step <ChevronRight className="h-4 w-4" /></Button>
+              )}
+            </div>
+          </>
+  );
 
   return (
     <div ref={shell} className="space-y-4">
@@ -281,87 +376,15 @@ export function MissionPlayer({ roomId, task, onComplete, isCompleted, onRecord,
             {step.kind === "rule" && (
               <RuleBench key={step.id} language={step.language} source={st.draft.source ?? ""} onSource={s => setDraft({ source: s })} samples={task.samples} events={task.events} hiddenCount={step.hiddenCount} disabled={busy} />
             )}
+            {step.kind === "console" && (
+              <ConsoleBench key={step.id} step={step} stepNo={active + 1} handle={consoleH} values={st.draft.values ?? {}} onValues={v => setDraft({ values: v })}
+                verdicts={fieldVerdicts} disabled={busy || st.status !== "open"} controls={controls} />
+            )}
             {step.kind === "report" && (
               <ReportBench slots={step.slots} values={st.draft.slots ?? {}} onChange={v => setDraft({ slots: v })} verdicts={slotVerdicts} disabled={busy || st.status !== "open"} />
             )}
 
-            {/* Help ladder */}
-            {st.status === "open" && (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setSt(s => ({ ...s, hints: Math.max(s.hints, 1) }))} disabled={st.hints >= 1}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs text-slate-300 hover:border-neon-amber/50 hover:text-neon-amber disabled:opacity-60">
-                    <Lightbulb className="h-3.5 w-3.5" aria-hidden /> Hint
-                  </button>
-                  {st.hints >= 1 && (
-                    <button type="button" onClick={() => setSt(s => ({ ...s, hints: 2 }))} disabled={st.hints >= 2}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs text-slate-300 hover:border-neon-amber/50 hover:text-neon-amber disabled:opacity-60">
-                      <MapPin className="h-3.5 w-3.5" aria-hidden /> Where to look <span className="text-slate-500">(step pays 60%)</span>
-                    </button>
-                  )}
-                </div>
-                {st.hints >= 1 && <p className="rounded-md border border-neon-amber/30 bg-neon-amber/5 px-3 py-2 text-xs text-slate-200"><InlineMd text={step.hint} /></p>}
-                {st.hints >= 2 && <p className="rounded-md border border-neon-amber/30 bg-neon-amber/5 px-3 py-2 text-xs text-slate-200"><InlineMd text={step.where} /></p>}
-              </div>
-            )}
-
-            {error && <p role="alert" className="rounded-md border border-neon-amber/40 bg-neon-amber/10 px-3 py-2 text-sm text-neon-amber">{error}</p>}
-
-            {/* Feedback on the last check */}
-            <div aria-live="polite" className="space-y-2">
-              {st.status === "open" && st.misses > 0 && (
-                <div className="space-y-1 rounded-lg border border-neon-amber/40 bg-neon-amber/10 p-3 text-sm">
-                  <p className="font-semibold text-neon-amber">
-                    {workedOut
-                      ? "Not yet. The worked answer is below: read why it works, then check it (no XP) or move on."
-                      : `Not yet. Check ${st.misses} of ${WORKED_AFTER_MISSES} before the worked answer.`}
-                  </p>
-                  {(st.feedback ?? []).map((f, i) => <p key={i} className="text-slate-200"><InlineMd text={f} /></p>)}
-                  {iocVerdict && (
-                    <>
-                      <p className="text-slate-200">{iocVerdict.found} of {iocVerdict.total} attacker indicators are in your notebook.</p>
-                      {iocVerdict.missing.length > 0 && st.hints >= 2 && <p className="text-slate-300">Still missing: {iocVerdict.missing.join(", ")}.</p>}
-                      {iocVerdict.flagged.map(f => <p key={f.value} className="text-severity-high"><span className="font-mono">{f.value}</span>: {f.say}</p>)}
-                    </>
-                  )}
-                  {pickVerdicts && <p className="text-slate-200">{pickVerdicts.filter(p => p.ok).length} of your picks are stable and unique; you need {String(reveal.need)} and no weak ones. Red rows appear in goodware or in too few builds.</p>}
-                  {ruleVerdict && (
-                    <ul className="list-inside list-disc text-slate-200">
-                      {ruleVerdict.visibleWrong.length > 0 && <li>Wrong on the test set: {ruleVerdict.visibleWrong.join(", ")}. Run it and read the table.</li>}
-                      {ruleVerdict.hiddenMissed.map(h => <li key={h.name}>Missed a hidden malicious file{h.note ? `: ${h.note}` : ""}.</li>)}
-                      {ruleVerdict.hiddenFalse.map(h => <li key={h.name}>Matched a hidden clean file{h.note ? `: ${h.note}` : ""}.</li>)}
-                    </ul>
-                  )}
-                </div>
-              )}
-              {st.status === "passed" && (
-                <div className="space-y-1 rounded-lg border border-neon-green/40 bg-neon-green/10 p-3 text-sm">
-                  <p className="font-semibold text-neon-green">Step done. +{st.xp} XP</p>
-                  {typeof reveal.debrief === "string" && <p className="text-slate-200"><InlineMd text={reveal.debrief} /></p>}
-                </div>
-              )}
-              {(st.status !== "open" || workedOut) && typeof reveal.worked === "string" && (
-                <details className="rounded-lg border border-border bg-bg-elevated/60 p-3 text-sm" open={st.status === "open"}>
-                  <summary className="cursor-pointer font-semibold text-slate-200">{st.status === "passed" ? "Compare with the worked answer" : "Worked answer"}</summary>
-                  <div className="mt-2 text-slate-300"><Md text={reveal.worked} /></div>
-                  {st.status === "open" && typeof reveal.debrief === "string" && <p className="mt-2 text-slate-400"><InlineMd text={reveal.debrief} /></p>}
-                </details>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {st.status === "open" && (
-                <Button variant="primary" size="md" disabled={!ready || busy} onClick={check}>
-                  <Send className="h-4 w-4" /> {busy ? "Checking..." : "Check"}
-                </Button>
-              )}
-              {st.status === "open" && workedOut && (
-                <Button variant="secondary" size="md" onClick={moveOn}>Move on without the XP <ChevronRight className="h-4 w-4" /></Button>
-              )}
-              {st.status !== "open" && active < task.steps.length - 1 && (
-                <Button variant="primary" size="md" onClick={() => { setActive(active + 1); setError(null); }}>Next step <ChevronRight className="h-4 w-4" /></Button>
-              )}
-            </div>
+            {controls}
           </section>
 
           {done && (

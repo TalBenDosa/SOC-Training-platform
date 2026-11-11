@@ -190,7 +190,60 @@ export interface ReportStep {
   }[];
 }
 
-export type MissionStep = KqlStep | FieldsStep | IocStep | StringsStep | RuleStep | ReportStep;
+/** What the learner did to ONE incident in the mission console (built by the browser from its local console state). */
+export interface ConsoleSnapshot {
+  status: string;
+  owner: string | null;
+  /** True when the owner is the learner (the console's "me"). */
+  ownerIsMe: boolean;
+  severity: string;
+  classification?: string;
+  closingComment?: string;
+  comments: string[];
+  /** Bookmarks attached to this incident: the saved rows as text. */
+  bookmarks: { name: string; notes: string; columns: string[]; rows: Record<string, string>[] }[];
+}
+
+/** A text check, as in a report slot: each needs ANY of its patterns (case-insensitive; `re:` for a regex). */
+export interface TextCheck { label: string; anyOf: string[] }
+
+/**
+ * SERVER-ONLY. What the console must show for one incident when the step is checked.
+ * Every part is optional; the ones present must all hold.
+ */
+export interface ConsoleExpect {
+  incidentId: string;
+  status?: "New" | "Active" | "Closed";
+  ownerIsMe?: boolean;
+  /** Accepted closing classifications, with coaching for the wrong ones. */
+  classification?: { accept: string[]; say?: Record<string, string>; coach: string };
+  closingComment?: { checks: TextCheck[]; forbidden?: { pattern: string; say: string }[] };
+  /** At least one comment on the incident must pass these checks (all comments are read together). */
+  comment?: { checks: TextCheck[]; forbidden?: { pattern: string; say: string }[] };
+  /** A bookmark on the incident whose saved rows hold every one of these values. */
+  bookmark?: { values: { value: string; label: string }[] };
+}
+
+/**
+ * Work in the mission's investigation console (the XDR console, our own design, with the room's
+ * workspace): read pages and incidents, act on an incident, and type what you found. The server
+ * grades the typed facts like a fields step and the incident's state against `expect`.
+ */
+export interface ConsoleStep {
+  kind: "console";
+  id: string;
+  prompt: string;
+  /** The job, as a short checklist shown beside the console. Never the answers. */
+  todo: string[];
+  /** Where the console opens: an incident id (its page) or a screen. */
+  open?: { incidentId?: string; screen?: "overview" | "logs" | "incidents" | "hunting" | "entity" | "ti" | "analytics" | "automation" | "search" };
+  /** Facts read in the console. */
+  fields?: MissionField[];
+  /** SERVER-ONLY. One entry per incident the step checks. */
+  expect?: ConsoleExpect[];
+}
+
+export type MissionStep = KqlStep | FieldsStep | IocStep | StringsStep | RuleStep | ReportStep | ConsoleStep;
 
 export type StepWithXp = MissionStep & {
   xp: number;
@@ -225,6 +278,12 @@ export interface MissionTask {
    * grader also runs every query on the SHADOW copy: same tables and shape, different values.
    */
   dataset?: string;
+  /**
+   * Id of the room's investigation console in src/lib/missions/consoles (console steps): the
+   * incidents, alerts, entities, detections and hunts over the mission dataset. One per room, so
+   * what the learner did to an incident in one mission is still there in the next.
+   */
+  console?: string;
   artifacts?: MissionArtifact[];
   samples?: MissionSample[];
   events?: MissionEvent[];

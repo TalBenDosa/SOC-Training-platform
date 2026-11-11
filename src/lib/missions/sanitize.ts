@@ -6,7 +6,7 @@
  */
 import { stringCorpusCounts } from "./grade";
 import { buildSample, extractStrings } from "./yara/samples";
-import type { FieldsStep, IocStep, KqlStep, MissionField, MissionTask, ReportStep, RuleStep, StepWithXp, StringsStep } from "./types";
+import type { ConsoleStep, FieldsStep, IocStep, KqlStep, MissionField, MissionTask, ReportStep, RuleStep, StepWithXp, StringsStep } from "./types";
 
 type Common = { xp: number; hint: string; where: string };
 
@@ -20,7 +20,8 @@ export type SanitizedStep =
   | (Omit<IocStep, "expect" | "forbidden"> & Common & { expectCount: number })
   | (StringsStep & Common & { view: StringRow[]; totals: { bad: number; good: number } })
   | (Omit<RuleStep, "hidden"> & Common & { hiddenCount: number })
-  | (Omit<ReportStep, "slots"> & Common & { slots: Omit<ReportStep["slots"][number], "checks" | "forbidden">[] });
+  | (Omit<ReportStep, "slots"> & Common & { slots: Omit<ReportStep["slots"][number], "checks" | "forbidden">[] })
+  | (Omit<ConsoleStep, "fields" | "expect"> & Common & { fields: SanitizedField[]; checksIncidents: string[] });
 
 export type SanitizedMissionTask = Omit<MissionTask, "steps"> & { steps: SanitizedStep[] };
 
@@ -53,6 +54,15 @@ function sanitizeStep(s: StepWithXp, task: MissionTask): SanitizedStep {
     case "rule": {
       const { hidden, worked: _w, debrief: _d, solution: _s, ...rest } = s;
       return { ...rest, ...common, hiddenCount: (hidden.samples?.length ?? 0) + (hidden.events?.length ?? 0) };
+    }
+    case "console": {
+      const { fields, expect, worked: _w, debrief: _d, solution: _s, ...rest } = s;
+      return {
+        ...rest, ...common,
+        fields: (fields ?? []).map(({ accept: _x, tolerance: _t, coach: _c, traps: _tr, ...f }) => f),
+        // Which incidents the check reads (their numbers are on the screen anyway), never what it wants of them.
+        checksIncidents: (expect ?? []).map(e => e.incidentId),
+      };
     }
     case "report": {
       const { slots, worked: _w, debrief: _d, solution: _s, ...rest } = s;

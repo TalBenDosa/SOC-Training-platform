@@ -978,11 +978,11 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "sentinel-fundamentals",
     "title": "Microsoft Sentinel Fundamentals",
-    "description": "Learn Microsoft Sentinel, the cloud-native SIEM and SOAR built into Azure. Understand data connectors, Log Analytics tables, KQL queries, analytics rules, and incident management.",
+    "description": "Learn Microsoft Sentinel the way analysts use it on shift: the incident queue, analytics rules, hunting and entity pages, KQL over the Log Analytics tables, and working an incident in the console from taking it to its closing classification.",
     "difficulty": "intermediate",
     "category": "SIEM",
-    "estimatedMinutes": 70,
-    "xp": 320,
+    "estimatedMinutes": 95,
+    "xp": 485,
     "icon": "☁️",
     "prerequisites": [
       "siem-fundamentals",
@@ -993,6 +993,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "sentinel-r1",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "sentinel-m0",
+        "type": "mission",
+        "xp": 60
       },
       {
         "id": "sentinel-m1",
@@ -1022,7 +1027,7 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "sentinel-m3",
         "type": "mission",
-        "xp": 60
+        "xp": 125
       },
       {
         "id": "sentinel-m4",
@@ -1032,7 +1037,7 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "sentinel-m5",
         "type": "mission",
-        "xp": 80
+        "xp": 120
       }
     ]
   },

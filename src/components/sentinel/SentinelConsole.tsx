@@ -40,6 +40,10 @@ export interface SentinelConsoleProps {
   savedBookmarks?: SentinelBookmark[];
   /** The team session: remembers which incidents this browser opened (the unopened badge), across tabs. */
   sessionKey?: string;
+  /** The top bar's way back (default "Back to team room"). A room mission says "Back to the mission". */
+  backLabel?: string;
+  /** The page the console opens on (default Incidents). */
+  initialScreen?: Screen;
 }
 
 // XDR's own menu and words (owner, 2026-11-08): familiar to an analyst, not the portal's groups and
@@ -72,9 +76,9 @@ const SCREEN_GROUP = Object.fromEntries(NAV.flatMap(g => g.items.map(i => [i.id,
 
 interface Toast { id: number; kind: "incident" | "error" | "info"; title: string; body?: string; incidentId?: string; severity?: string }
 
-export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial, goTo, onBack, paused = false, savedBookmarks = [], sessionKey }: SentinelConsoleProps) {
+export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial, goTo, onBack, paused = false, savedBookmarks = [], sessionKey, backLabel = "Back to team room", initialScreen = "incidents" }: SentinelConsoleProps) {
   const workspace = useMemo(() => tidyWorkspace(source), [source]);
-  const [screen, setScreen] = useState<Screen>("incidents");
+  const [screen, setScreen] = useState<Screen>(initialScreen);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [navQ, setNavQ] = useState("");
   const [incidentId, setIncidentId] = useState<string | null>(null);
@@ -82,7 +86,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const [investigateId, setInvestigateId] = useState<string | null>(null);
   const [logsOverlay, setLogsOverlay] = useState<(LogsRequest & { key: number }) | null>(null);
   const [logsRequest, setLogsRequest] = useState<(LogsRequest & { key: number }) | null>(null);
-  const [logsMounted, setLogsMounted] = useState(false);
+  const [logsMounted, setLogsMounted] = useState(initialScreen === "logs");
   const [playbook, setPlaybook] = useState<PlaybookRequest | null>(null);
   const [entityFocus, setEntityFocus] = useState<string | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(() => new Set());
@@ -279,7 +283,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
           <span className="st-grow" />
           <span className="st-ellipsis">{actions.me.name}{roleLabel(actions.me.role) ? ` (${roleLabel(actions.me.role)})` : ""}</span>
           {/* Two windows: this brings the team room tab forward when it is open, and opens it otherwise. */}
-          <a href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}>Back to team room</a>
+          <a href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}>{backLabel}</a>
         </header>
         {/* The team room's waiting work, linked back to the SIEM window (UX agent: this strip only). */}
         {sessionKey && !ended && <TeamWindowStrip sessionId={sessionKey} />}

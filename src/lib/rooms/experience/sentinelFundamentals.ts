@@ -1,18 +1,19 @@
 import type { RoomExperience } from "./types";
-import { SENTINEL_INCIDENT_LAB } from "./consoleLabs";
 
 // "Operation Clear Sky" for the "sentinel-fundamentals" room.
 // Script: docs/campaign/36-sentinel-fundamentals.md.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
-// Practical-missions pilot (SPEC-practical-missions.md): the graded work is five
-// missions (src/lib/missions/rooms/clearSky.ts) in which the learner writes KQL
-// against Ashgrove's workspace (dataset "clear-sky") and states the facts; the
-// server grades each query by its RESULT on that workspace and on a shadow copy.
-// Arcade labs left the room. The one lab kept is the incident console on
-// Reading 3 (incident 2291, its own data): it never shows incident 4412, its
-// IP 198.51.100.23, the travel accounts or the spray sources the missions use,
-// and it never picks a rule type (q2).
+// Practical missions (SPEC-practical-missions.md): the graded work is six
+// missions (src/lib/missions/rooms/clearSky.ts). The learner works in the
+// investigation console (our own XDR design, console "clear-sky": the queue,
+// detections, hunts, entity pages, incident pages) and writes KQL against
+// Ashgrove's workspace (dataset "clear-sky"). The server grades each query by its
+// RESULT on that workspace and on a shadow copy, and each console step by the facts
+// typed and the incidents' state (owner, status, classification, comments,
+// bookmarks). Owner 2026-11-11: the room must teach the interface and incident
+// investigation, not only KQL. The scripted portal lab on Reading 3 left the room:
+// the real console replaced it.
 export const SENTINEL_FUNDAMENTALS: RoomExperience = {
   roomId: "sentinel-fundamentals",
   codename: "Operation Clear Sky",
@@ -22,10 +23,10 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
     "Ashgrove Pharmacy. 310 shops, a prescription system that must never go down, and everything already living in Microsoft 365 and Azure.",
     "Last month Ashgrove moved its SIEM to Microsoft Sentinel. The logs are flowing. Most of the team can't read them yet.",
     "Malik Haddad designed the workspace. He wants analysts who know which table to open, can write the query themselves, and can tell an incident from noise.",
-    "Learn the workspace and its tables, KQL, analytics rules and incidents, then read the raw event behind an alert.",
+    "Learn the console the way it is used on shift, the workspace's tables and KQL, then work real incidents: take them, read the evidence, record it, and close them with the right classification.",
   ],
-  mission: "Open the right table for each ticket, write the queries yourself against Ashgrove's workspace, pivot an incident on its IP, read a raw sign-in row, and hunt the password spray.",
-  estimate: "~70 min",
+  mission: "Learn the console's queue, detections, hunts and entity pages, write the queries yourself against Ashgrove's workspace, work incident 4412 in the console from owner to bookmarked evidence, read a raw sign-in row, then hunt the spray and put the queue right.",
+  estimate: "~95 min",
   look: { primary: "#0ea5e9", secondary: "#c084fc", warn: "#f43f5e" },
   scene: "facilitysentinelfundamentals",
   layout: "facility",
@@ -40,11 +41,11 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
   stations: [
     {
       id: "tables",
-      label: "Workspace and Tables",
-      topic: "Log Analytics workspace · data connectors · SigninLogs, AuditLogs, OfficeActivity, DeviceProcessEvents",
-      tagline: "Know which table to open",
+      label: "Console and Tables",
+      topic: "The incident queue · detections · hunts · entity pages · SigninLogs, AuditLogs, OfficeActivity, DeviceProcessEvents",
+      tagline: "Know where everything lives",
       building: "control",
-      taskIds: ["sentinel-r1", "sentinel-m1"],
+      taskIds: ["sentinel-r1", "sentinel-m0", "sentinel-m1"],
     },
     {
       id: "kql",
@@ -56,9 +57,9 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
     },
     {
       id: "incidents",
-      label: "Rules to Incidents",
-      topic: "Scheduled, NRT, Fusion and anomaly rules · incidents · entities · pivoting",
-      tagline: "From an incident to everyone it touched",
+      label: "Work the Incident",
+      topic: "Scheduled, NRT, Fusion and anomaly rules · owner and status · alert evidence · pivoting · bookmarks and comments",
+      tagline: "Take it, read it, pivot, record it",
       building: "office",
       taskIds: ["sentinel-r3", "sentinel-q2", "sentinel-m3"],
     },
@@ -73,23 +74,20 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
     {
       id: "boss",
       label: "Call the Spray",
-      topic: "dcountif, countif, bin() · a spray against a busy NAT · the verdict",
-      tagline: "Hunt it, then make the call",
+      topic: "dcountif, countif, bin() · a spray against a busy NAT · classifications · closing incidents",
+      tagline: "Hunt it, make the call, close it right",
       building: "ticket",
       taskIds: ["sentinel-m5"],
       boss: true,
     },
   ],
   personas: {
+    "sentinel-m0": { name: "Malik Haddad", role: "Sentinel Architect", line: "Sentinel is not a query box. Learn where everything lives first." },
     "sentinel-m1": { name: "Malik Haddad", role: "Sentinel Architect", line: "Three tickets. Three tables. Write the queries yourself." },
     "sentinel-m2": { name: "Malik Haddad", role: "Sentinel Architect", line: "Three countries in a week. A traveller, or a shared password?" },
     "sentinel-q2": { name: "Malik Haddad", role: "Sentinel Architect", line: "Impossible travel, our own thresholds, every five minutes. Which rule type?" },
-    "sentinel-m3": { name: "Malik Haddad", role: "Sentinel Architect", line: "The incident gives you one account. Pivot on the address." },
+    "sentinel-m3": { name: "Malik Haddad", role: "Sentinel Architect", line: "Take it, read the evidence, pivot, and write it on the incident." },
     "sentinel-m4": { name: "Malik Haddad", role: "Sentinel Architect", line: "No portal, no tooltips. Read the row like evidence." },
-    "sentinel-m5": { name: "Malik Haddad", role: "Sentinel Architect", line: "Catch every spray. Do not page me for the 08:00 shift change." },
-  },
-  briefings: {
-    // Reading 3: the incident console (its own incident 2291), a tool, not a game.
-    "sentinel-r3": [SENTINEL_INCIDENT_LAB],
+    "sentinel-m5": { name: "Malik Haddad", role: "Sentinel Architect", line: "Catch every spray, then put the queue right." },
   },
 };

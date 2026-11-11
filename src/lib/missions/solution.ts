@@ -24,5 +24,18 @@ export function solutionFor(task: MissionTask, i: number): Record<string, unknow
     }
     case "rule": return null;
     case "report": return null;
+    case "console": {
+      // Facts: each field's first accepted value. Console: each checked incident as the step wants it,
+      // with comments made of each check's first plain pattern (a step whose checks are regex only
+      // carries its own `solution`).
+      const plain = (anyOf: string[]) => anyOf.find(p => !p.startsWith("re:")) ?? "";
+      const console = Object.fromEntries((s.expect ?? []).map(e => [e.incidentId, {
+        status: e.status ?? "New", owner: e.ownerIsMe ? "You" : null, ownerIsMe: !!e.ownerIsMe, severity: "",
+        classification: e.classification?.accept[0], closingComment: e.closingComment?.checks.map(c => plain(c.anyOf)).join(". "),
+        comments: e.comment ? [e.comment.checks.map(c => plain(c.anyOf)).join(". ")] : [],
+        bookmarks: e.bookmark ? [{ name: "proof", notes: "", columns: ["Value"], rows: [Object.fromEntries(e.bookmark.values.map((v, i) => [`c${i}`, v.value]))] }] : [],
+      }]));
+      return { values: Object.fromEntries((s.fields ?? []).map(f => [f.id, f.format === "set" ? f.accept.join(", ") : f.accept[0]])), console };
+    }
   }
 }

@@ -15,7 +15,7 @@
 import { gradeKql } from "./kqlCompare";
 import { getDataset } from "./datasets";
 import { iocKey, looseText, normalizeAs, parseNumber, parseUtc, splitList, detectIocType } from "./normalize";
-import { HINT2_FACTOR, WORKED_AFTER_MISSES, type MissionField, type MissionTask, type ReportStep, type StepWithXp, type IocType } from "./types";
+import { HINT2_FACTOR, WORKED_AFTER_MISSES, type ConsoleExpect, type ConsoleSnapshot, type MissionField, type MissionTask, type ReportStep, type StepWithXp, type IocType, type TextCheck } from "./types";
 import { buildSample, extractStrings } from "./yara/samples";
 import { compileYara, scanYara } from "./yara";
 import { matchSigma, parseSigma } from "./sigma";
@@ -88,6 +88,83 @@ function gradeReport(step: ReportStep, slots: Record<string, unknown>) {
   return perSlot;
 }
 
+// ─── Console steps ────────────────────────────────────────────────────────────
+
+function gradeFields(fields: MissionField[], values: Record<string, unknown>) {
+  return fields.map(f => {
+    const raw = typeof values[f.id] === "string" ? (values[f.id] as string).slice(0, 2000) : "";
+    const ok = !!raw.trim() && fieldCorrect(f, raw);
+    const trap = ok ? undefined : f.traps?.find(t => looseText(t.value) === looseText(raw) || normalizeAs("ip", t.value) === normalizeAs("ip", raw));
+    return { id: f.id, ok, say: ok ? undefined : (trap?.say ?? f.coach) };
+  });
+}
+
+const str = (v: unknown, max = MAX_TEXT) => (typeof v === "string" ? v.slice(0, max) : "");
+
+/** The browser's snapshot of one incident, re-shaped and bounded (never trusted as sent). */
+function readSnapshot(raw: unknown): ConsoleSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const list = (v: unknown, n: number) => (Array.isArray(v) ? v.slice(0, n) : []);
+  return {
+    status: str(r.status, 20), owner: typeof r.owner === "string" ? r.owner.slice(0, 200) : null, ownerIsMe: r.ownerIsMe === true,
+    severity: str(r.severity, 20), classification: str(r.classification, 100) || undefined, closingComment: str(r.closingComment, 4000) || undefined,
+    comments: list(r.comments, 50).map(c => str(c, 4000)),
+    bookmarks: list(r.bookmarks, 30).map(b => {
+      const x = (b && typeof b === "object" ? b : {}) as Record<string, unknown>;
+      return {
+        name: str(x.name, 200), notes: str(x.notes, 4000), columns: list(x.columns, 60).map(c => str(c, 200)),
+        rows: list(x.rows, 200).map(row => Object.fromEntries(Object.entries(row && typeof row === "object" ? row as Record<string, unknown> : {}).slice(0, 60).map(([k, v]) => [k.slice(0, 200), str(v, 2000)]))),
+      };
+    }),
+  };
+}
+
+function textMisses(checks: TextCheck[], text: string): string[] {
+  return checks.filter(c => !c.anyOf.some(p => matches(p, text))).map(c => c.label);
+}
+
+/** One incident's console state against what the step expects: the problems, in the learner's words. */
+function checkIncident(e: ConsoleExpect, snap: ConsoleSnapshot | null, number: string): string[] {
+  const s = snap ?? { status: "New", owner: null, ownerIsMe: false, severity: "", comments: [], bookmarks: [] };
+  const out: string[] = [];
+  if (e.ownerIsMe && !s.ownerIsMe) out.push(`Incident ${number} is not assigned to you. Take it (Owner) before you work it: an incident without an owner is one nobody is working.`);
+  if (e.status && s.status !== e.status) {
+    out.push(e.status === "Active" ? `Incident ${number} is ${s.status}. Set its status to Active: you are working it, and it is not finished.`
+      : e.status === "Closed" ? `Incident ${number} is still ${s.status}. Close it with a classification and a closing comment.`
+      : `Incident ${number} should be ${e.status}, and it is ${s.status}.`);
+  }
+  if (e.classification && s.status === "Closed") {
+    const c = s.classification ?? "";
+    if (!e.classification.accept.includes(c)) out.push(e.classification.say?.[c] ?? e.classification.coach);
+  }
+  if (e.closingComment && s.status === "Closed") {
+    const text = s.closingComment ?? "";
+    const miss = textMisses(e.closingComment.checks, text);
+    if (miss.length) out.push(`The closing comment on ${number} does not say: ${miss.join("; ")}.`);
+    for (const f of e.closingComment.forbidden ?? []) if (matches(f.pattern, text)) out.push(f.say);
+  }
+  if (e.comment) {
+    const text = s.comments.join("\n");
+    if (!text.trim()) out.push(`Incident ${number} has no comment from you yet. Write what you found in a comment on the incident.`);
+    else {
+      const miss = textMisses(e.comment.checks, text);
+      if (miss.length) out.push(`Your comments on ${number} do not say: ${miss.join("; ")}.`);
+      for (const f of e.comment.forbidden ?? []) if (matches(f.pattern, text)) out.push(f.say);
+    }
+  }
+  if (e.bookmark) {
+    const holds = (b: ConsoleSnapshot["bookmarks"][number], v: string) => b.rows.some(r => Object.values(r).some(x => looseText(x).includes(looseText(v))));
+    const ok = s.bookmarks.some(b => e.bookmark!.values.every(v => holds(b, v.value)));
+    if (!ok) {
+      out.push(s.bookmarks.length === 0
+        ? `Incident ${number} has no bookmark. Run the query, select the rows that prove the finding and add them to the incident as a bookmark.`
+        : `No bookmark on ${number} holds ${e.bookmark.values.map(v => v.label).join(" and ")}. Bookmark the rows that show it.`);
+    }
+  }
+  return out;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the answer shape depends on the step kind and is narrowed per case
@@ -118,12 +195,7 @@ export function gradeMissionStep(task: MissionTask, stepIndex: number, answer: a
       const values = answer.values && typeof answer.values === "object" ? answer.values as Record<string, unknown> : null;
       if (!values) return fail("values (object) is required.", 400);
       if (step.fields.every(f => typeof values[f.id] !== "string" || !(values[f.id] as string).trim())) return fail("Fill in at least one field.", 400);
-      const per = step.fields.map(f => {
-        const raw = typeof values[f.id] === "string" ? (values[f.id] as string).slice(0, 2000) : "";
-        const ok = !!raw.trim() && fieldCorrect(f, raw);
-        const trap = ok ? undefined : f.traps?.find(t => looseText(t.value) === looseText(raw) || normalizeAs("ip", t.value) === normalizeAs("ip", raw));
-        return { id: f.id, ok, say: ok ? undefined : (trap?.say ?? f.coach) };
-      });
+      const per = gradeFields(step.fields, values);
       correct = per.every(p => p.ok);
       reveal.fields = per;
       break;
@@ -213,6 +285,25 @@ export function gradeMissionStep(task: MissionTask, stepIndex: number, answer: a
           warnings: parsed.warnings,
         };
       }
+      break;
+    }
+
+    case "console": {
+      const values = answer.values && typeof answer.values === "object" ? answer.values as Record<string, unknown> : {};
+      const snaps = answer.console && typeof answer.console === "object" ? answer.console as Record<string, unknown> : {};
+      const fields = step.fields ?? [];
+      const typed = fields.some(f => typeof values[f.id] === "string" && (values[f.id] as string).trim());
+      if (!typed && !step.expect?.length) return fail("Fill in at least one field.", 400);
+      if (!typed && !Object.keys(snaps).length) return fail("Do the work in the console first.", 400);
+      const per = gradeFields(fields, values);
+      const numberOf = (id: string) => id.replace(/^inc-/, "");
+      const incidents = (step.expect ?? []).map(e => {
+        const problems = checkIncident(e, readSnapshot(snaps[e.incidentId]), numberOf(e.incidentId));
+        return { incident: numberOf(e.incidentId), ok: problems.length === 0, problems };
+      });
+      correct = per.every(p => p.ok) && incidents.every(i => i.ok);
+      if (fields.length) reveal.fields = per;
+      if (incidents.length) reveal.console = incidents;
       break;
     }
 
