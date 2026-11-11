@@ -6,6 +6,9 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { SourceId } from "./types";
+import { isSentinelSecurityAlert } from "./sources/sentinel_alert";
+import { source as sysmonSource } from "./sources/sysmon";
+import { makeCtx } from "./ctx";
 
 export type StackCategory =
   | "edr" | "firewall" | "vpn" | "proxy" | "dns" | "idp" | "onprem_ad" | "collab"
@@ -213,6 +216,8 @@ export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | n
   if (ev.source === "dlp") return purviewRuleMatch(ev) ? "m365" : null;
   // Workday is the HR system of record: its activity log renders as Workday in every stack.
   if (ev.source === "hr") return /workday/i.test(ev.vendor ?? "") ? "workday" : null;
+  // The SIEM's own alerts are SecurityAlert rows in every stack (the SIEM is the platform, not a stack choice).
+  if (isSentinelSecurityAlert(ev)) return "sentinel_alert";
   const cat = categoryOf(ev);
   if (!cat) return null;
   if (cat === "cloud") {
@@ -228,7 +233,23 @@ export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | n
   // that server's (nginx in front of php-fpm is not an IIS log). Only an unbound one follows the stack.
   if (cat === "web_server" && has(ev, "iis")) return "iis";
   if (cat === "web_server" && has(ev, "nginx")) return "nginx";
-  return stack[cat] ?? nativeDefault(ev, cat);
+  const id = stack[cat] ?? nativeDefault(ev, cat);
+  // Sophos streams detections and Data Lake process rows only: a file, network, DNS or registry event
+  // of a Sophos endpoint has no Sophos record. A shop that also runs Sysmon reads it there (Event IDs
+  // 3 / 11 / 13 / 22), which is where its SOC really sees it, when Sysmon has that event at all (no file
+  // open, no Linux host); otherwise it keeps the legacy view.
+  if (cat === "edr" && id === "sophos" && stack.host_telemetry === "sysmon" && !sophosRecordsIt(ev) && sysmonRecordsIt(ev)) return "sysmon";
+  return id;
+}
+
+/** Does Sysmon write an event for this endpoint activity? (Its record does not depend on the company.) */
+function sysmonRecordsIt(ev: TelemetryEvent): boolean {
+  try { return !!sysmonSource.fromTelemetry(ev, makeCtx("nexacorp")); } catch { return false; }
+}
+
+/** Does Sophos Central have a record of this endpoint event (card edr-sophos.md: SIEM events, detections, process rows)? */
+function sophosRecordsIt(ev: TelemetryEvent): boolean {
+  return !!ev.is_detection || ALERT_EVENT_TYPES.has(ev.event_type) || ev.event_type.startsWith("av_") || ev.event_type === "process_create";
 }
 
 /** A Purview DLP event that names the matched policy (see sources/_m365-dlp isDlpRuleMatch). */
@@ -276,6 +297,8 @@ export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   windows_dns: "Windows DNS", infoblox: "Infoblox", zscaler_zia: "Zscaler Internet Access",
   aws_waf: "AWS WAF", azure_waf: "Azure WAF", iis: "Microsoft IIS", nginx: "nginx",
   ms_graph: "Microsoft Graph Security",
+  sysmon: "Microsoft Sysmon",
+  sentinel_alert: "Microsoft Sentinel",
   mssql_audit: "Microsoft SQL Server Audit", guardium: "IBM Guardium", mysql_audit: "MySQL Enterprise Audit",
   exabeam: "Exabeam Advanced Analytics", securonix: "Securonix SNYPR",
 };

@@ -352,7 +352,10 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     let r = memo.get(key);
     if (!r) {
       const graph = graphAlertFor(ev, companyId, stack, identity);
-      r = { view: nativeView(ev, companyId, stack, identity), graph: graph ? ((graph.record as { data: Record<string, unknown> }).data["ms-graph"] as GraphAlertDetails) : undefined };
+      // A SecurityAlert row of the feed is the alert the workspace raises itself (Raise alerts below),
+      // never a log of its own in the tables: the feed's native SecurityAlert view is for the feed only.
+      const v = nativeView(ev, companyId, stack, identity);
+      r = { view: v?.log.sourceId === "sentinel_alert" ? null : v, graph: graph ? ((graph.record as { data: Record<string, unknown> }).data["ms-graph"] as GraphAlertDetails) : undefined };
       memo.set(key, r);
     }
     return r;

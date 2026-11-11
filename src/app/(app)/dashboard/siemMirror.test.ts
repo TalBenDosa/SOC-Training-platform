@@ -48,6 +48,7 @@ describe("SIEM mirror of an EDR detection", () => {
     const m = siemMirror(stacked, 1)!;
     expect("_authored_source" in m).toBe(false);
     expect(m.source).toBe("siem");
-    expect(nativeView(m, "nexacorp", { edr: "sophos" })).toBeNull();   // no EDR record under the SIEM row
+    // The SIEM row renders as its own SecurityAlert, never as an EDR record under the SIEM label.
+    expect(nativeView(m, "nexacorp", { edr: "sophos" })?.log.sourceId).toBe("sentinel_alert");
   });
 });

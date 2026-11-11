@@ -17,12 +17,20 @@ slugs, room and task ids, fixed seeds); details carry no counts or times, so fix
 removes one key and nothing else moves. XDR background rows have no id of their own and are keyed
 per table.
 
+## Native coverage
+
+The same run counts the rows of the Live Feed and the Scenarios that render with no native source
+module (the legacy raw block, never schema-checked). `native-coverage-baseline.json` holds a ceiling
+per surface and legacy source; the gate fails when a ceiling is passed or a new legacy source appears,
+and `realism:baseline` lowers the ceilings after a module lands (`--grow` for an approved raise).
+
 ## Files
 
 | File | What |
 |---|---|
 | `types.ts` | `LogRow` (one rendered row), `Violation`, `Collected` |
 | `collect.ts` | runs every collector once |
+| `coverage.ts` | native-format coverage per surface and legacy source, and its shrink-only baseline |
 | `collectors/live.ts` | Live Feed for the 5 built-in companies |
 | `collectors/scenarios.ts` | every built-in scenario (SCENARIOS, packs included) |
 | `collectors/team.ts` | Team Training feed, XDR workspace, forensic workbench |

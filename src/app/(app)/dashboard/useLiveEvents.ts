@@ -1,11 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import {
-  initWorldState, generateBenignEvent,
-  pickPlaybook, startAttack, advanceAttack, attackDue,
-} from "@/lib/sim/engine";
-import type { WorldState, GeneratedEvent } from "@/lib/sim/engine";
 import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
@@ -42,7 +37,7 @@ export interface ActiveIncident {
   severity: "critical" | "high";
   injectedAt: number;     // Date.now()
   eventIds: string[];     // IDs of the injected attack events
-  /** The story this incident belongs to (null in engine mode). Lets the page key
+  /** The story this incident belongs to. Lets the page key
    *  the EDR case and the hints to the ACTIVE incident, never to a story that was
    *  armed after it but has not reached the feed yet (QA-DASH-9). */
   story: AttackStory | null;
@@ -215,8 +210,8 @@ export interface DashboardSessionRecord {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 interface UseLiveEventsOptions {
-  eventPool?: TelemetryEvent[];    // legacy mode: benign background noise
-  companyId?: string;              // engine mode: generate events algorithmically
+  /** The company's ordinary noise (feedPool.ts companyFeedPool), drawn through a NoiseDeck. */
+  eventPool?: TelemetryEvent[];
   /** The session's attack story - events injected IN ORDER in small phases */
   story?: AttackStory | null;
   /** Called when the active story's final phase has been injected */
@@ -309,36 +304,8 @@ function buildMissedDebrief(title: string, techniques: string[], events: Telemet
   };
 }
 
-// Incident title generator from attack event descriptions
-function inferIncidentTitle(events: TelemetryEvent[]): string {
-  const highSev = events.find(e => e.severity === "critical" || e.severity === "high");
-  if (!highSev) return "Suspicious Activity Detected";
-  const desc = highSev.description ?? "";
-  // Derive a short title from the description
-  if (/cobalt|beacon|c2/i.test(desc))      return "Active C2 Beaconing Detected";
-  if (/ransomware|encrypt|locked/i.test(desc)) return "Ransomware Activity Detected";
-  if (/lsass|credential|mimikatz|dcsync/i.test(desc)) return "Credential Theft in Progress";
-  if (/psexec|lateral|smb|wmi/i.test(desc)) return "Lateral Movement Detected";
-  if (/phish|invoice|macro/i.test(desc))   return "Phishing Attack - Active Infection";
-  if (/powershell|encoded|base64/i.test(desc)) return "Malicious PowerShell Execution";
-  if (/oauth|consent|graph api/i.test(desc)) return "Unauthorized Cloud Access";
-  if (/exfil|upload|download.*bulk/i.test(desc)) return "Data Exfiltration Attempt";
-  return "High-Severity Incident - Investigate";
-}
-
-// Convert GeneratedEvent (engine output) → TelemetryEvent for enrichEvent()
-function generatedToTelemetry(g: GeneratedEvent, idx: number): TelemetryEvent {
-  return {
-    ...g,
-    id:  g.id  ?? `eng_${Date.now()}_${idx}`,
-    ts:  g.ts  ?? new Date().toISOString(),
-    severity: g.severity ?? "informational",
-  } as TelemetryEvent;
-}
-
 export function useLiveEvents({
   eventPool = [],
-  companyId,
   story = null,
   onStoryComplete,
   isInvestigating,
@@ -346,8 +313,6 @@ export function useLiveEvents({
   maxVisible = 100,
   autoStart = true,
 }: UseLiveEventsOptions): LiveEventsApi {
-  // Engine mode: true when companyId is provided
-  const engineMode = Boolean(companyId);
   // Start empty - populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [isStreaming, setIsStreaming]       = useState(autoStart);
@@ -394,9 +359,6 @@ export function useLiveEvents({
   const savedShiftRef    = useRef(0);
 
   const poolRef           = useRef<TelemetryEvent[]>(eventPool);
-  const worldStateRef     = useRef<WorldState | null>(
-    companyId ? initWorldState(companyId, Date.now() & 0xFFFFFF) : null
-  );
   /** Active attack story + injection cursor (events injected in order) */
   const storyRef          = useRef<AttackStory | null>(story);
   /** The latest story armed (kept after it fully injects) - reset() with no story
@@ -516,24 +478,7 @@ export function useLiveEvents({
     if (!autoStart) return;
     const now = Date.now();
 
-    if (engineMode && worldStateRef.current) {
-      // ENGINE MODE: generate first 15 events algorithmically
-      const world = worldStateRef.current;
-      const initial: TelemetryEvent[] = [];
-      for (let i = 0; i < 15; i++) {
-        const g = generateBenignEvent(world);
-        world.simTime += world.rng.range(30_000, 120_000);
-        initial.push(generatedToTelemetry(g, i));
-      }
-      setEvents(
-        initial.map((e, i) =>
-          enrichWithFidelity(withRebasedTime(e, new Date(now - jitteredOffset(14 - i)).toISOString()), i)
-        ).reverse()
-      );
-      return;
-    }
-
-    // LEGACY MODE: shuffle from static pool
+    // The company noise pool, drawn through the NoiseDeck.
     // The whole pool is shuffled so the initial 15 events cover diverse sources.
     noiseDeckRef.current = new NoiseDeck(poolRef.current);
     const initial = noiseDeckRef.current.backfill(15);
@@ -550,108 +495,7 @@ export function useLiveEvents({
     if (!isStreaming) return;
     const timer = setInterval(() => {
 
-      // ── ENGINE MODE ────────────────────────────────────────────────────────
-      if (engineMode && worldStateRef.current) {
-        const world = worldStateRef.current;
-        world.simTime = Date.now();
-
-        // Fire next attack phase if due
-        if (world.attack && attackDue(world)) {
-          const attackEvents = advanceAttack(world);
-          // advanceAttack() clears world.attack once every phase has injected -
-          // that is the moment the story is genuinely over.
-          const storyJustFinished = world.attack === null;
-          if (attackEvents && attackEvents.length > 0) {
-            const isFP = world.attack?.isFP ?? false;
-            const now  = Date.now();
-            const times = phaseTimes(attackEvents.length, now);
-            const raw  = attackEvents.map((g: GeneratedEvent, i: number) => {
-              const tele = generatedToTelemetry(g, globalIdx.current + i);
-              return {
-                ...tele,
-                // L-02: spread the incident's events across the last minutes, not a 3-4s
-                // burst - building the timeline is a real correlation exercise - and
-                // never in the future (phaseTimes).
-                ts: new Date(times[i]).toISOString(),
-                id: `eng_atk_${now}_${i}`,
-              };
-            });
-            globalIdx.current += raw.length;
-            const enriched = raw.flatMap(ev => {
-              const en = enrichWithFidelity(ev, globalIdx.current++);
-              const m = siemMirror(en, globalIdx.current++);
-              return m ? [en, m] : [en];
-            });
-            const batchIds  = new Set(enriched.map(e => e.id));
-
-            if (!isFP) {
-              const incident: ActiveIncident = {
-                id: `inc_${now}`,
-                title: inferIncidentTitle(raw),
-                severity: raw.some(e => e.severity === "critical") ? "critical" : "high",
-                injectedAt: now,
-                eventIds: Array.from(batchIds),
-                story: null,
-                injected: raw,
-              };
-              activeIncidentRef.current = incident;
-              caughtRef.current = false;
-              attackInjectedAtRef.current = now;
-              presentedRef.current += 1;
-              // Response clock counts UP from 0 - an elapsed timer, not a
-              // countdown. It is never a fail at any value; it only measures how
-              // long the analyst took so the report can coach on pace.
-              setAttackTimerSeconds(0);
-              if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
-              slaIntervalRef.current = setInterval(() => {
-                // Paused while the analyst is working the case (report open / EDR
-                // in play) - that time must not count against them. No fail, ever.
-                if (isInvestigatingRef.current?.()) return;
-                if (!isStreamingRef.current) return;   // feed paused → the clock pauses too (P5-03)
-                setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
-              }, 1000);
-              setActiveIncident(incident);
-            }
-
-            setNewIds(batchIds);
-            setEvents(prev => mergeByTime(enriched, prev, maxVisible));
-            setTimeout(() => setNewIds(new Set()), 2000);
-
-            // Completed uncaught → schedule the POSITIVE Learning-Moment debrief
-            // after a generous grace. Never a fail, never a halt (page.tsx
-            // resumes + arms the next attack on dismiss); a passing report before
-            // then cancels it via markCaught.
-            if (storyJustFinished && !isFP && !caughtRef.current) {
-              const inc = activeIncidentRef.current;
-              if (inc) {
-                const techniques = Array.from(new Set(raw.map(e => e.mitre_technique).filter((m): m is string => !!m)));
-                scheduleDebriefCheck(MISS_DEBRIEF_GRACE_MS, buildMissedDebrief(inc.title, techniques, raw));
-              }
-            }
-          }
-          return;
-        }
-
-        // Generate benign events
-        const batchSize = world.rng.range(1, 2);
-        const newRaw: TelemetryEvent[] = [];
-        for (let i = 0; i < batchSize; i++) {
-          const g = generateBenignEvent(world);
-          world.simTime += world.rng.range(10_000, 40_000);
-          newRaw.push(generatedToTelemetry(g, globalIdx.current + i));
-        }
-        globalIdx.current += newRaw.length;
-        // QA-DASH-7: back-date by the source's ingestion lag, like the attack phases.
-        const bt = benignTimes(newRaw.map(e => e.source), Date.now());
-        const enriched = newRaw.map((e, i) => enrichWithFidelity(withRebasedTime(e, new Date(bt[i]).toISOString()), globalIdx.current++));
-        const batchIds  = new Set(enriched.map(e => e.id));
-        setNewIds(batchIds);
-        setEvents(prev => mergeByTime(enriched, prev, maxVisible));
-        setTimeout(() => setNewIds(new Set()), 1500);
-        return;
-      }
-
-      // ── LEGACY MODE (shuffle deck) ─────────────────────────────────────────
+      // ── Ordinary noise (NoiseDeck) ─────────────────────────────────────────
       const pool = poolRef.current;
       if (pool.length === 0) return;
 
@@ -683,7 +527,7 @@ export function useLiveEvents({
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- interval keyed intentionally; enrichWithFidelity/scheduleDebriefCheck are useCallback-stable and read live values via refs, so recreating the interval on their identity would only churn it
-  }, [isStreaming, intervalMs, maxVisible, engineMode]);
+  }, [isStreaming, intervalMs, maxVisible]);
 
   // ── Attack injection - Story Scheduler ───────────────────────────────────────
   // The session story's events are injected IN ORDER in small phases (2-3 events)
@@ -830,17 +674,8 @@ export function useLiveEvents({
   useEffect(() => {
     if (!isStreaming) return;
 
-    if (engineMode && worldStateRef.current) {
-      // ENGINE MODE: pick a playbook and arm it; the benign tick fires phases
-      const engineDelay = () => Math.floor(Math.random() * 60_000) + 540_000;
-      const scheduleEngineAttack = () => {
-        const world = worldStateRef.current!;
-        startAttack(world, pickPlaybook(world));
-        attackTimerRef.current = setTimeout(scheduleEngineAttack, engineDelay());
-      };
-      attackTimerRef.current = setTimeout(scheduleEngineAttack, engineDelay());
-    } else if (!attackTimerRef.current) {
-      // STORY MODE: arm the first phase - unless reset()/startStory() already
+    if (!attackTimerRef.current) {
+      // Arm the first story phase - unless reset()/startStory() already
       // queued one with its own delay (kept, not doubled: P5-02).
       armPhase(FIRST_PHASE_DELAY());
     }
@@ -853,7 +688,7 @@ export function useLiveEvents({
       if (missTimerRef.current)   clearTimeout(missTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStreaming, maxVisible, engineMode, injectNextPhase]);
+  }, [isStreaming, maxVisible, injectNextPhase]);
 
   /** Arm a new story mid-session (second attack after the first completes) */
   const startStory = useCallback((next: AttackStory, delayMs?: number) => {

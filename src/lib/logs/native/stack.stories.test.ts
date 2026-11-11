@@ -8,7 +8,7 @@ import { storiesForCompany, instantiateStory } from "@/app/(app)/dashboard/attac
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { applyStack, fitsStack, storyFitsStack, storyHonoursLocks, nativeView, NATIVE_SOURCES, authoredOf } from "./index";
-import { categoryOf, coherentStack, PRODUCT_LABEL, COMPANY_STACKS, type Stack } from "./stack";
+import { categoryOf, coherentStack, PRODUCT_LABEL, COMPANY_STACKS, productSourceFor, type Stack } from "./stack";
 import { validateNative } from "./validate";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -57,7 +57,9 @@ function audit(ev: TelemetryEvent, company: string, stack: Stack, problems: stri
   if (eff.collab === "google_workspace" && cat && ["edr", "host_telemetry", "onprem_ad", "dns", "firewall", "proxy"].includes(cat)
     && /\b(Outlook|Teams|OneDrive|SharePoint)\b|OUTLOOK\.EXE|office365\.com/.test(desc)) problems.push(`${company} ${base.id} M365 client noise in a Google shop: ${desc.slice(0, 100)}`);
   if (eff.firewall !== "fortigate" && /FortiOS/.test(desc)) problems.push(`${company} ${base.id} FortiOS story under ${eff.firewall}: ${desc.slice(0, 100)}`);
-  const chosen = cat && SELECTABLE.has(cat) ? eff[cat as keyof Stack] : undefined;
+  const picked = cat && SELECTABLE.has(cat) ? eff[cat as keyof Stack] : undefined;
+  // A Sophos endpoint event Sophos does not stream is the host's Sysmon record when the shop runs Sysmon (stack.ts).
+  const chosen = cat === "edr" && picked === "sophos" && productSourceFor(base, eff) === "sysmon" ? "sysmon" : picked;
   if (!chosen) return;
   const tag = `${company} ${base.id ?? "?"} [${cat}→${chosen}]`;
   if (ev.vendor !== PRODUCT_LABEL[chosen]) problems.push(`${tag} vendor "${ev.vendor}"`);

@@ -61,13 +61,14 @@ import { source as guardium } from "./sources/guardium";
 import { source as mysql_audit } from "./sources/mysql_audit";
 import { source as exabeam } from "./sources/exabeam";
 import { source as securonix } from "./sources/securonix";
+import { source as sentinel_alert } from "./sources/sentinel_alert";
 
 export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   anyconnect, aws_cloudtrail, aws_guardduty, aws_vpcflow, azure_activity, checkpoint, cisco_asa, cisco_ftd,
   cloudflare_access, crowdstrike, defender_o365, entra, fortigate, fortigate_sslvpn, gcp_audit, globalprotect,
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
-  cyberark, windows_security, workday, ms_graph,
+  cyberark, windows_security, workday, ms_graph, sentinel_alert,
   aws_waf, azure_waf, iis, nginx,
   mssql_audit, guardium, mysql_audit, exabeam, securonix,
 };
@@ -288,6 +289,8 @@ function applyStackLabels(ev: TelemetryEvent, companyId: string, stack?: Stack):
   };
   if (cat === "collab") next.source = (id === "google_workspace" ? "gws" : base.source === "gws" ? "o365" : base.source) as TelemetryEvent["source"];
   if (cat === "idp") next.source = (id === "okta" ? "okta" : base.source === "okta" ? "o365" : base.source) as TelemetryEvent["source"];
+  // An endpoint event Sophos does not stream is the host's Sysmon record (stack.ts productSourceFor).
+  if (cat === "edr" && id === "sysmon") next.source = "sysmon";
   // Proofpoint is a mail gateway, not part of Office 365 - the row's source badge says so.
   if (cat === "email_security") next.source = (id === "proofpoint" ? "email_gateway" : base.source === "email_gateway" ? "o365" : base.source) as TelemetryEvent["source"];
   return next;
