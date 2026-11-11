@@ -166,9 +166,31 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
 
 // ─── Column header tooltip ─────────────────────────────────────────────────────
 
-function HeaderTip({ label, tip }: { label: string; tip: string }) {
+function HeaderTip({ label, tip, icon }: { label: string; tip: string; /** Show the label plainly with a "?" that opens the tip. */ icon?: boolean }) {
   const [visible, setVisible] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
+  if (icon) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <button
+          ref={anchor}
+          type="button"
+          aria-label={`What is ${label}?`}
+          aria-expanded={visible}
+          className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-slate-500/70 text-[9px] font-bold leading-none text-slate-400 hover:border-slate-300 hover:text-slate-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60"
+          onMouseEnter={() => setVisible(true)}
+          onMouseLeave={() => setVisible(false)}
+          onFocus={() => setVisible(true)}
+          onBlur={() => setVisible(false)}
+          onClick={(e) => { e.stopPropagation(); setVisible(v => !v); }}
+        >?</button>
+        <FloatingTip anchor={anchor} open={visible} width={220}>
+          <p className="px-3 py-2 text-[10px] normal-case leading-relaxed tracking-normal text-slate-300">{tip}</p>
+        </FloatingTip>
+      </span>
+    );
+  }
   return (
     <div className="relative inline-block">
       {/* A real <button> so keyboard users can reveal the tip (focus/Enter),
@@ -1604,7 +1626,7 @@ export function EventFeed({
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity - EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
               <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical - act now. High levels still need verifying: false positives fire high rules too." /></th>
-              {wide && <th id="ef-th-mitre" className="py-2 pr-3"><HeaderTip label="MITRE" tip="ATT&CK technique of the detection. Click it for details." /></th>}
+              {wide && <th id="ef-th-mitre" className="py-2 pr-3"><HeaderTip icon label="MITRE" tip="ATT&CK technique. Click a badge for details." /></th>}
               <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event." /></th>
             </tr>
           </thead>

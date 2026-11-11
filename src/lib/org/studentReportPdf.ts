@@ -11,6 +11,8 @@ import type { jsPDF } from "jspdf";
 import type { StudentDetail } from "@/app/api/org/students/[id]/route";
 import type { PersonalPlanResponse } from "@/app/api/org/students/[id]/plan/route";
 import { pdfText, needsCanvas } from "@/lib/certificate/pdfText";
+import { metricsOf, reportNarrative, type Narrative, type ReportMetrics } from "./reportMetrics";
+import type { ReportSnapshotResponse } from "@/app/api/org/students/[id]/report-snapshot/route";
 
 const PAGE_W = 210, PAGE_H = 297, M = 14, BOTTOM = PAGE_H - 16;
 const INK: [number, number, number] = [20, 28, 40];
@@ -29,6 +31,8 @@ export interface ReportInput {
   /** Shown in the header and footer ("HACK THE SOC", or the white-label brand). */
   brand: string;
   orgName?: string | null;
+  /** The previous report's figures (migration 0110), for "since the previous report". */
+  previous?: { created_at: string; metrics: ReportMetrics } | null;
 }
 
 const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "n/a");
@@ -108,6 +112,29 @@ class Writer {
     this.y += 2;
   }
 
+  /** The learner's standing as a coloured chip. */
+  status(status: Narrative["status"]) {
+    const p = this.pdf;
+    const rgb = status === "on track" ? GOOD : status === "needs attention" ? WARN : BAD;
+    this.ensure(9);
+    p.setFont("helvetica", "bold"); p.setFontSize(8);
+    const label = status.toUpperCase();
+    p.setFillColor(...rgb); p.roundedRect(M, this.y - 4, p.getTextWidth(label) + 6, 6, 1.5, 1.5, "F");
+    p.setTextColor(255, 255, 255);
+    p.text(label, M + 3, this.y);
+    this.y += 6;
+  }
+
+  /** A bold label, then wrapped text. */
+  labelled(title: string, text: string) {
+    const p = this.pdf;
+    this.ensure(10);
+    p.setFont("helvetica", "bold"); p.setFontSize(9); p.setTextColor(...INK);
+    p.text(title, M, this.y);
+    this.y += 4.2;
+    this.para(text, 9, INK);
+  }
+
   /** A row of key figures: big value, small label. */
   figures(items: { value: string; label: string }[]) {
     const p = this.pdf;
@@ -117,7 +144,7 @@ class Writer {
       items.slice(i, i + per).forEach((f, j) => {
         const x = M + j * w;
         p.setDrawColor(...LINE); p.roundedRect(x + 0.5, this.y - 4, w - 2, 14, 1.5, 1.5, "S");
-        p.setFont("helvetica", "bold"); p.setFontSize(13); p.setTextColor(...INK);
+        p.setFont("helvetica", "bold"); p.setFontSize(f.value.length > 12 ? 10 : 13); p.setTextColor(...INK);
         p.text(f.value, x + 3, this.y + 3);
         p.setFont("helvetica", "normal"); p.setFontSize(7.5); p.setTextColor(...MUTED);
         p.text(f.label, x + 3, this.y + 7.5);
@@ -148,19 +175,27 @@ export function drawStudentReport(pdf: jsPDF, input: ReportInput): void {
   ], M, 33);
   w.y = 46;
 
-  // ── Key figures ──
+  // ── Written summary ──
+  const story = reportNarrative(s, input.plan, input.previous ?? null);
+  w.heading("Overview");
+  w.status(story.status);
+  for (const p of story.paragraphs) w.labelled(p.title, p.text);
+
+  // ── Key figures, with the change since the previous report ──
   const ft = s.summary.first_try;
-  const unsolved = s.mistake_groups.reduce((n, g) => n + g.mistakes.filter(m => !m.solved).length, 0);
-  w.heading("Summary");
+  const cur = metricsOf(s, input.plan);
+  const prev = input.previous?.metrics;
+  const delta = (a: number | null, b: number | null | undefined, unit = "") => (prev && a !== null && b !== null && b !== undefined && a !== b ? ` (${a > b ? "+" : ""}${Math.round((a - b) * 10) / 10}${unit})` : "");
+  w.heading(prev && input.previous ? `Key figures (change since ${fmtDate(input.previous.created_at)})` : "Key figures");
   w.figures([
-    { value: s.xp.toLocaleString(), label: `XP · level ${s.level}` },
-    { value: pct(ft.accuracy), label: `Right first try (${ft.firstTryCorrect}/${ft.items})` },
-    { value: `${s.summary.rooms_completed}/${s.summary.rooms_started}`, label: "Rooms completed / started" },
-    { value: String(s.summary.tasks_answered), label: "Tasks answered" },
-    { value: String(s.summary.scenarios_completed), label: `Scenarios · avg ${pct(s.summary.scenario_avg_score)}` },
-    { value: String(s.summary.sessions), label: `Live SOC shifts · detect ${pct(s.summary.avg_detect_rate)}` },
+    { value: s.xp.toLocaleString() + delta(cur.xp, prev?.xp), label: `XP · level ${s.level}` },
+    { value: pct(ft.accuracy) + delta(cur.first_try_pct, prev?.first_try_pct, " pts"), label: `Right first try (${ft.firstTryCorrect}/${ft.items})` },
+    { value: `${s.summary.rooms_completed}/${s.summary.rooms_started}` + delta(cur.rooms_completed, prev?.rooms_completed), label: "Rooms completed / started" },
+    { value: String(s.activity?.active_days_30 ?? "n/a") + delta(cur.active_days_30, prev?.active_days_30), label: "Active days (last 30)" },
+    { value: String(s.summary.scenarios_completed) + delta(cur.scenarios_completed, prev?.scenarios_completed), label: `Scenarios · avg ${pct(s.summary.scenario_avg_score)}` },
+    { value: String(s.summary.sessions) + delta(cur.sessions, prev?.sessions), label: `Live SOC shifts · detect ${pct(s.summary.avg_detect_rate)}` },
     { value: fmtMs(s.summary.median_decision_latency_ms), label: "Median time to decide" },
-    { value: String(unsolved), label: "Mistakes not yet corrected" },
+    { value: String(cur.open_mistakes) + delta(cur.open_mistakes, prev?.open_mistakes), label: "Mistakes not yet corrected" },
   ]);
 
   // ── Skills ──
@@ -273,15 +308,47 @@ export async function downloadStudentReport(input: ReportInput): Promise<void> {
 }
 
 /** Every student of a list in one PDF, each starting on a new page. */
-export async function downloadClassReport(inputs: ReportInput[], brand: string): Promise<void> {
+export async function downloadClassReport(inputs: ReportInput[], brand: string, orgName?: string | null): Promise<void> {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  inputs.forEach((input, i) => {
-    if (i > 0) pdf.addPage();
+  drawClassOverview(pdf, inputs, brand, orgName);
+  inputs.forEach(input => {
+    pdf.addPage();
     drawStudentReport(pdf, input);
   });
   footer(pdf, brand);
   pdf.save(`class-report_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/** Page 1 of the class report: one line per learner, the ones needing action first. */
+export function drawClassOverview(pdf: jsPDF, inputs: ReportInput[], brand: string, orgName?: string | null) {
+  const w = new Writer(pdf, brand, "Class overview");
+  pdf.setFillColor(...ACCENT); pdf.rect(0, 0, PAGE_W, 4, "F");
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(...ACCENT);
+  pdf.text(`${brand.toUpperCase()}${orgName ? ` · ${ascii(orgName)}` : ""}`, M, 14);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(...MUTED);
+  pdf.text(`Generated ${new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, PAGE_W - M, 14, { align: "right" });
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(20); pdf.setTextColor(...INK);
+  pdf.text("Class progress report", M, 26);
+  const rows = inputs.map(i => ({ i, n: reportNarrative(i.student, i.plan, i.previous ?? null) }));
+  const order = { "not started": 0, inactive: 1, "needs attention": 2, "on track": 3 } as const;
+  rows.sort((a, b) => order[a.n.status] - order[b.n.status] || nameOf(a.i.student).localeCompare(nameOf(b.i.student)));
+  const count = (st: Narrative["status"]) => rows.filter(r => r.n.status === st).length;
+  w.y = 34;
+  w.para(`${rows.length} learners: ${count("on track")} on track, ${count("needs attention")} need attention, ${count("inactive")} inactive, ${count("not started")} not started. The learners who need action are listed first; each learner's full report follows.`, 9.5, MUTED);
+  w.table(
+    [{ label: "Learner", w: 40 }, { label: "Status", w: 26 }, { label: "Last sign-in", w: 24 }, { label: "Active days", w: 18, align: "right" }, { label: "Right 1st try", w: 20, align: "right" }, { label: "Since last report", w: 54 }],
+    rows.map(({ i, n }) => {
+      const s = i.student;
+      const rgb = n.status === "on track" ? GOOD : n.status === "needs attention" ? WARN : BAD;
+      return {
+        cells: [nameOf(s), n.status, s.activity?.last_sign_in_at ? fmtDate(s.activity.last_sign_in_at) : "never", String(s.activity?.active_days_30 ?? "-"), pct(s.summary.first_try.accuracy), n.change],
+        rgb: [null, rgb, s.activity?.last_sign_in_at ? null : BAD, null, null, MUTED],
+      };
+    }),
+    "No learners in this class.",
+  );
+  w.para("Active days: days with any learning activity in the last 30 days. Right 1st try: share of graded questions answered right on the first attempt.", 7.5, MUTED);
 }
 
 /** Reads one student's detail and plan the way the student page does (org-admin routes). */
@@ -293,5 +360,13 @@ export async function loadReportInput(userId: string, brand: string, orgName?: s
   if (!d.ok) throw new Error((await d.json().catch(() => ({})))?.error ?? "Could not load the student.");
   const student = (await d.json()) as StudentDetail;
   const plan = p && p.ok ? ((await p.json()) as PersonalPlanResponse) : null;
-  return { student, plan, brand, orgName };
+  // Keep this report's figures and get the previous report's (0110); the report works without.
+  let previous: ReportInput["previous"] = null;
+  try {
+    const r = await fetch(`/api/org/students/${encodeURIComponent(userId)}/report-snapshot`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metrics: metricsOf(student, plan) }),
+    });
+    if (r.ok) previous = ((await r.json()) as ReportSnapshotResponse).previous;
+  } catch { /* no comparison this time */ }
+  return { student, plan, brand, orgName, previous };
 }

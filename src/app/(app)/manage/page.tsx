@@ -171,7 +171,7 @@ export default function ManagePage() {
         setPdfBusy(`${i + 1}/${list.length}`);
         inputs.push(await loadReportInput(list[i].user_id, brand.productName, org?.name));
       }
-      await downloadClassReport(inputs, brand.productName);
+      await downloadClassReport(inputs, brand.productName, org?.name);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not build the PDF reports.");
     } finally {
@@ -452,8 +452,8 @@ export default function ManagePage() {
                   {students.length > 0 && (
                     <>
                       <Button variant="outline" size="sm" onClick={exportCsv}><Download className="mr-1.5 h-4 w-4" /> Export CSV</Button>
-                      <Button variant="outline" size="sm" onClick={exportPdf} disabled={pdfBusy !== null} title="One PDF with a full progress report for every student">
-                        <FileDown className="mr-1.5 h-4 w-4" /> {pdfBusy ? `Preparing ${pdfBusy}...` : "PDF reports"}
+                      <Button variant="outline" size="sm" onClick={exportPdf} disabled={pdfBusy !== null} title="One PDF: a class overview page, then a full progress report for every student">
+                        <FileDown className="mr-1.5 h-4 w-4" /> {pdfBusy ? `Preparing ${pdfBusy}...` : "Class report (PDF)"}
                       </Button>
                     </>
                   )}

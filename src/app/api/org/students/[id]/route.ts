@@ -3,6 +3,7 @@ import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOMS_META } from "@/data/roomsMeta";
 import { fetchAll } from "@/lib/plans/server";
+import { activityOf, type StudentActivity } from "@/lib/org/activity";
 import { groupItems, summarize, type FirstTrySummary } from "@/lib/org/firstTry";
 import { buildMistakeGroups, type MistakeGroup, type StoredAttempt } from "@/lib/org/mistakeView";
 import { skillStats, judged, type AreaStat, type FirstAnswerRow } from "@/lib/org/skillStats";
@@ -71,7 +72,10 @@ export interface StudentDetail {
     /** The report the student submitted (attemptRecord.ts): verdict, reasoning, rubric score, pass. */
     report: { verdict?: string; verdictReason?: string; reportScore?: number; passed?: boolean } | null }>;
   sessions: Array<{ detect_rate: number | null; played_at: string | null; duration_ms: number | null }>;
+  /** When the learner signed in and how often they were active (for the progress report). */
+  activity?: StudentActivity;
 }
+
 
 const avg = (n: number[]) => (n.length === 0 ? null : Math.round(n.reduce((s, x) => s + x, 0) / n.length));
 const median = (n: number[]) => {
@@ -179,7 +183,20 @@ export async function GET(_req: Request, { params }: Ctx) {
 
   const p = member.profiles as unknown as { handle?: string; display_name?: string; xp?: number; level?: number } | null;
 
+  // Last sign-in (auth) and active days, for the written summary of the progress report.
+  let lastSignIn: string | null = null;
+  try {
+    const { data: au } = await admin.auth.admin.getUserById(id);
+    lastSignIn = au?.user?.last_sign_in_at ?? null;
+  } catch { /* unknown: the report says so */ }
+  const answerDates = [...attemptRows.map(a => a.created_at), ...firsts.map(f => (f as { created_at?: string | null }).created_at)];
+  const activity = activityOf(
+    [...answerDates, ...roomRows.map(r => r.updated_at), ...roomRows.map(r => r.completed_at), ...scenarioRows.map(s => s.completed_at), ...sessionRows.map(s => s.played_at)],
+    answerDates, lastSignIn,
+  );
+
   const detail: StudentDetail = {
+    activity,
     user_id: member.user_id,
     handle: p?.handle ?? null,
     display_name: p?.display_name ?? null,
