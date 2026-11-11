@@ -1600,12 +1600,12 @@ export function EventFeed({
               <th className="w-6 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
-              {wide && <th id="ef-th-srcip" className="py-2 pr-3"><HeaderTip label="Source IP" tip="The address the activity came from, when the log has one. Click a row to pivot on it." /></th>}
+              {wide && <th id="ef-th-srcip" className="py-2 pr-3"><HeaderTip label="Source IP" tip="Where the activity came from." /></th>}
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity - EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
               <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical - act now. High levels still need verifying: false positives fire high rules too." /></th>
-              {wide && <th id="ef-th-mitre" className="py-2 pr-3"><HeaderTip label="MITRE" tip="The ATT&CK technique the detection maps to, with its name. Only detections (EDR, IDS, WAF, DLP, SIEM rules) carry one; a raw log does not, and benign detections carry one too. Click it for the technique." /></th>}
-              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. A detection rule maps to a MITRE ATT&CK technique, shown in the MITRE column (and in the expanded row on narrow screens)." /></th>
+              {wide && <th id="ef-th-mitre" className="py-2 pr-3"><HeaderTip label="MITRE" tip="ATT&CK technique of the detection. Click it for details." /></th>}
+              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event." /></th>
             </tr>
           </thead>
           <FieldFilterContext.Provider value={addFieldFilter}>
