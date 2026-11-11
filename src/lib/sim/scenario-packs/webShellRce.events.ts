@@ -13,6 +13,7 @@ import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { mdeProcess, mdeFile, mdeAlert } from "@/lib/sim/emitters/mde";
 import { panConnection } from "@/lib/sim/emitters/paloalto";
 import { infobloxDns } from "./nativeRecords.events";
+import { wafRequest, type WebSite } from "@/lib/sim/emitters/web";
 import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of `buildWebShellRceScenario`: the events and the story title, no answer key. */
@@ -23,6 +24,8 @@ export function webShellRceScenarioEvents() {
 
   const web = { hostname: "WEB-SHOP-01", ip: "10.40.12.21", site: "shop.nexacorp.com" };
   const db = { hostname: "SQL-SHOP-02", ip: "10.40.12.55", database: "ShopDB" };
+  // The public shop and its IIS origin, as the WAF and the access log see it.
+  const SITE: WebSite = { site: web.site, host: web.hostname, ip: web.ip, server: "iis" };
   const albIp = "10.40.12.9";
 
   // Attacker infrastructure, the source IP rotates across the probing phase.
@@ -38,9 +41,6 @@ export function webShellRceScenarioEvents() {
   const shellHash = "e4ca7770ea1290c68874e81e6dc6a2376304c9ebb3eb002fca67a9f4dbdb7ca1";
   const spoofHash = "d41c7b930a2e58f6b71d904c3e85a2f716c09db45f823a1e97d604cb2a1f7e35";
 
-  const webAclArn =
-    "arn:aws:wafv2:eu-west-1:481920347761:regional/webacl/shop-prod-waf/8f3c2b1a-64d7-4e10-9b52-7c31ad0e5f62";
-  const albId = "481920347761-app/shop-prod-alb/1a2b3c4d5e6f7a8b";
 
   // EDR↔scenario integration (Phase 4): one incident. Server RCE on the web host
   // (w3wp → web shell → cmd on WEB-SHOP-01) → edr_scope "edr". The WAF/IIS/DB
@@ -91,51 +91,12 @@ export function webShellRceScenarioEvents() {
     return e;
   };
 
-  // AWS WAF record for a request the web ACL let through (nothing terminated it).
-  const wafAllow = (id: string, offsetMs: number, o: { method: "GET" | "POST"; uri: string; args: string; contentType?: string; length: number; requestId: string; description: string }): TelemetryEvent => ({
-    id, ts: T(offsetMs), source: "waf", vendor: "AWS WAF", event_type: "waf_allow",
-    hostname: web.hostname, src_ip: atkC, dst_ip: web.ip, dst_port: 443, protocol: "tcp", severity: "low",
-    network: { url: `https://${web.site}${o.uri}`, domain: web.site, method: o.method, user_agent: uaChrome },
-    description: o.description,
-    raw: {
-      formatVersion: 1,
-      timestamp: B + offsetMs,
-      webaclId: webAclArn,
-      terminatingRuleId: "Default_Action",
-      terminatingRuleType: "REGULAR",
-      action: "ALLOW",
-      terminatingRuleMatchDetails: [],
-      httpSourceName: "ALB",
-      httpSourceId: albId,
-      "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesCommonRuleSet",
-      "ruleGroupList[0].terminatingRule": null,
-      "ruleGroupList[0].nonTerminatingMatchingRules": [],
-      "ruleGroupList[0].excludedRules": null,
-      "ruleGroupList[1].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
-      "ruleGroupList[1].terminatingRule": null,
-      "ruleGroupList[1].nonTerminatingMatchingRules": [],
-      "ruleGroupList[1].excludedRules": null,
-      rateBasedRuleList: [],
-      nonTerminatingMatchingRules: [],
-      requestHeadersInserted: null,
-      responseCodeSent: null,
-      "httpRequest.clientIp": atkC,
-      "httpRequest.country": "RU",
-      "httpRequest.httpMethod": o.method,
-      "httpRequest.uri": o.uri,
-      "httpRequest.args": o.args,
-      "httpRequest.httpVersion": "HTTP/1.1",
-      "httpRequest.requestId": o.requestId,
-      "httpRequest.headers[0].name": "Host",
-      "httpRequest.headers[0].value": "shop.nexacorp.com",
-      "httpRequest.headers[1].name": "User-Agent",
-      "httpRequest.headers[1].value": uaChrome,
-      "httpRequest.headers[2].name": "Content-Type",
-      "httpRequest.headers[2].value": o.contentType ?? "application/x-www-form-urlencoded",
-      "httpRequest.headers[3].name": "Content-Length",
-      "httpRequest.headers[3].value": String(o.length),
-    },
-  });
+  // A request the WAF let through (no rule terminated it), as the session's WAF logs it.
+  const wafAllow = (id: string, offsetMs: number, o: { method: "GET" | "POST"; uri: string; args: string; contentType?: string; length: number; requestId: string; description: string }): TelemetryEvent =>
+    wafRequest(SITE, {
+      id, ts: T(offsetMs), srcIp: atkC, method: o.method, path: o.uri, ...(o.args ? { query: o.args } : {}), sent: o.length, ua: uaChrome,
+      action: "allow", geo: { country: "Russia" }, severity: "low", description: o.description,
+    });
 
   // IIS W3C access-log row (Sentinel W3CIISLog table) for a request to the dropped web shell.
   const shellCall = (id: string, offsetMs: number, utc: string, o: { scBytes: number; csBytes: number; taken: number; description: string }): TelemetryEvent => ({
@@ -311,229 +272,40 @@ export function webShellRceScenarioEvents() {
     },
 
     // ── NOISE: the authorized quarterly ASV scan trips the same signatures ─────
-    {
-      id: "evt_03_waf_block_sqli_q",
-      ts: T(6 * MIN),
-      source: "waf",
-      vendor: "AWS WAF",
-      event_type: "waf_block",
-      hostname: web.hostname,
-      src_ip: scannerIp,
-      dst_ip: web.ip,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "low",
-      expected_verdict: "fp",
-      fp_explanation:
+    wafRequest(SITE, {
+      id: "evt_03_waf_block_sqli_q", ts: T(6 * MIN), srcIp: scannerIp, method: "GET", path: "/products/search.aspx",
+      query: "q=test%27%20or%201%3D1--", ua: uaQualys, action: "block", rule: "sqli_query", matched: "' or 1=1--", location: "ARGS:q",
+      geo: { country: "United States" }, severity: "low", verdict: "fp",
+      fpExplanation:
         "64.39.106.131 is inside the Qualys cloud scanner range that NexaCorp whitelisted for its quarterly PCI ASV external scan (change record CHG0042611, window 09:00 to 11:00 UTC on 17 Mar). The scanner fires the whole SQLi payload catalogue at every parameter it finds and the WAF blocks all of it, high volume, uniform payloads, a single source IP that never rotates, and a self-identifying User-Agent. It is scanning noise, not exploitation.",
-      network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaQualys },
-      description:
-        "AWS WAF blocked a SQL injection payload from 64.39.106.131. Representative of a sustained burst from this single address across many parameters and paths.",
-      raw: {
-        formatVersion: 1,
-        timestamp: 1773738360000,
-        webaclId: webAclArn,
-        terminatingRuleId: "AWS-AWSManagedRulesSQLiRuleSet",
-        terminatingRuleType: "MANAGED_RULE_GROUP",
-        action: "BLOCK",
-        "terminatingRuleMatchDetails[0].conditionType": "SQL_INJECTION",
-        "terminatingRuleMatchDetails[0].sensitivityLevel": "LOW",
-        "terminatingRuleMatchDetails[0].location": "QUERY_STRING",
-        "terminatingRuleMatchDetails[0].matchedData": "['\\'', 'or', '1', '=', '1']",
-        httpSourceName: "ALB",
-        httpSourceId: albId,
-        "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
-        "ruleGroupList[0].terminatingRule.ruleId": "SQLi_QUERYARGUMENTS",
-        "ruleGroupList[0].terminatingRule.action": "BLOCK",
-        "ruleGroupList[0].nonTerminatingMatchingRules": [],
-        "ruleGroupList[0].excludedRules": null,
-        rateBasedRuleList: [],
-        nonTerminatingMatchingRules: [],
-        requestHeadersInserted: null,
-        responseCodeSent: "403",
-        "httpRequest.clientIp": scannerIp,
-        "httpRequest.country": "US",
-        "httpRequest.httpMethod": "GET",
-        "httpRequest.uri": "/products/search.aspx",
-        "httpRequest.args": "q=test%27%20or%201%3D1--",
-        "httpRequest.httpVersion": "HTTP/1.1",
-        "httpRequest.requestId": "1-67d84a08-2f19c4b76d0e5a3819bb4c72",
-        "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.nexacorp.com",
-        "httpRequest.headers[1].name": "User-Agent",
-        "httpRequest.headers[1].value": uaQualys,
-        "labels[0].name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments",
-      },
-    },
+      description: "The WAF blocked a SQL injection payload from 64.39.106.131. Representative of a sustained burst from this single address across many parameters and paths.",
+    }),
 
     // ── PROBE 1: naive injection in the query string, blocked ────────────────
-    {
-      id: "evt_04_waf_block_tautology",
-      ts: T(19 * MIN),
-      source: "waf",
-      vendor: "AWS WAF",
-      event_type: "waf_block",
-      hostname: web.hostname,
-      src_ip: atkA,
-      dst_ip: web.ip,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "medium",
-      mitre_technique: "T1190",
-      mitre_tactic: "Initial Access",
-      network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaPython },
-      description:
-        "AWS WAF blocked a tautology injection (q=widget' OR 1=1--) on /products/search.aspx from 203.0.113.82, managed SQLi rule matched the query string, 403 returned.",
-      raw: {
-        formatVersion: 1,
-        timestamp: 1773739140000,
-        webaclId: webAclArn,
-        terminatingRuleId: "AWS-AWSManagedRulesSQLiRuleSet",
-        terminatingRuleType: "MANAGED_RULE_GROUP",
-        action: "BLOCK",
-        "terminatingRuleMatchDetails[0].conditionType": "SQL_INJECTION",
-        "terminatingRuleMatchDetails[0].sensitivityLevel": "LOW",
-        "terminatingRuleMatchDetails[0].location": "QUERY_STRING",
-        "terminatingRuleMatchDetails[0].matchedData": "['\\'', 'or', '1', '=', '1']",
-        httpSourceName: "ALB",
-        httpSourceId: albId,
-        "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
-        "ruleGroupList[0].terminatingRule.ruleId": "SQLi_QUERYARGUMENTS",
-        "ruleGroupList[0].terminatingRule.action": "BLOCK",
-        "ruleGroupList[0].nonTerminatingMatchingRules": [],
-        "ruleGroupList[0].excludedRules": null,
-        rateBasedRuleList: [],
-        nonTerminatingMatchingRules: [],
-        responseCodeSent: "403",
-        "httpRequest.clientIp": atkA,
-        "httpRequest.country": "NL",
-        "httpRequest.httpMethod": "GET",
-        "httpRequest.uri": "/products/search.aspx",
-        "httpRequest.args": "q=widget%27%20OR%201%3D1--",
-        "httpRequest.httpVersion": "HTTP/1.1",
-        "httpRequest.requestId": "1-67d84be4-91af35d2c7043b6e2d18aa50",
-        "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.nexacorp.com",
-        "httpRequest.headers[1].name": "User-Agent",
-        "httpRequest.headers[1].value": uaPython,
-        "labels[0].name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments",
-      },
-    },
+    wafRequest(SITE, {
+      id: "evt_04_waf_block_tautology", ts: T(19 * MIN), srcIp: atkA, method: "GET", path: "/products/search.aspx",
+      query: "q=widget%27%20OR%201%3D1--", ua: uaPython, action: "block", rule: "sqli_query", matched: "' OR 1=1--", location: "ARGS:q",
+      geo: { country: "Netherlands" }, severity: "medium", mitre: "T1190", tactic: "Initial Access",
+      description: "The WAF blocked a tautology injection (q=widget' OR 1=1--) on /products/search.aspx from 203.0.113.82: the managed SQLi rule matched the query string, 403 returned.",
+    }),
 
     // ── PROBE 2: UNION attempt from a rotated address, also blocked ──────────
-    {
-      id: "evt_05_waf_block_union",
-      ts: T(24 * MIN),
-      source: "waf",
-      vendor: "AWS WAF",
-      event_type: "waf_block",
-      hostname: web.hostname,
-      src_ip: atkB,
-      dst_ip: web.ip,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "medium",
-      mitre_technique: "T1190",
-      mitre_tactic: "Initial Access",
-      network: { url: `https://${web.site}/products/detail.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaPython },
-      description:
-        "AWS WAF blocked a UNION SELECT payload on /products/detail.aspx from 203.0.113.94, User-Agent python-requests, 403 returned.",
-      raw: {
-        formatVersion: 1,
-        timestamp: 1773739440000,
-        webaclId: webAclArn,
-        terminatingRuleId: "AWS-AWSManagedRulesSQLiRuleSet",
-        terminatingRuleType: "MANAGED_RULE_GROUP",
-        action: "BLOCK",
-        "terminatingRuleMatchDetails[0].conditionType": "SQL_INJECTION",
-        "terminatingRuleMatchDetails[0].sensitivityLevel": "LOW",
-        "terminatingRuleMatchDetails[0].location": "QUERY_STRING",
-        "terminatingRuleMatchDetails[0].matchedData": "['union', 'select', 'from']",
-        httpSourceName: "ALB",
-        httpSourceId: albId,
-        "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
-        "ruleGroupList[0].terminatingRule.ruleId": "SQLi_QUERYARGUMENTS",
-        "ruleGroupList[0].terminatingRule.action": "BLOCK",
-        "ruleGroupList[0].nonTerminatingMatchingRules": [],
-        "ruleGroupList[0].excludedRules": null,
-        rateBasedRuleList: [],
-        nonTerminatingMatchingRules: [],
-        responseCodeSent: "403",
-        "httpRequest.clientIp": atkB,
-        "httpRequest.country": "NL",
-        "httpRequest.httpMethod": "GET",
-        "httpRequest.uri": "/products/detail.aspx",
-        "httpRequest.args": "id=4471%20UNION%20SELECT%20name%2C1%2C1%20FROM%20sys.tables--",
-        "httpRequest.httpVersion": "HTTP/1.1",
-        "httpRequest.requestId": "1-67d84d10-58c2ba9147ef30d16a7c2298",
-        "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.nexacorp.com",
-        "httpRequest.headers[1].name": "User-Agent",
-        "httpRequest.headers[1].value": uaPython,
-        "labels[0].name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments",
-      },
-    },
+    wafRequest(SITE, {
+      id: "evt_05_waf_block_union", ts: T(24 * MIN), srcIp: atkB, method: "GET", path: "/products/detail.aspx",
+      query: "id=4471%20UNION%20SELECT%20name%2C1%2C1%20FROM%20sys.tables--", ua: uaPython, action: "block", rule: "sqli_query",
+      matched: "UNION SELECT name,1,1 FROM sys.tables", location: "ARGS:id",
+      geo: { country: "Netherlands" }, severity: "medium", mitre: "T1190", tactic: "Initial Access",
+      description: "The WAF blocked a UNION SELECT payload on /products/detail.aspx from 203.0.113.94, User-Agent python-requests, 403 returned.",
+    }),
 
     // ── THE ONE THAT LANDS: injection past the 8 KB body-inspection window ────
-    {
-      id: "evt_06_waf_allow_oversize_body",
-      ts: T(38 * MIN),
-      source: "waf",
-      vendor: "AWS WAF",
-      event_type: "waf_allow",
-      hostname: web.hostname,
-      src_ip: atkC,
-      dst_ip: web.ip,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "high",
-      mitre_technique: "T1190",
-      mitre_tactic: "Initial Access",
-      network: { url: `https://${web.site}/api/v2/inventory/lookup`, domain: web.site, method: "POST", user_agent: uaChrome },
-      description:
-        "AWS WAF returned ALLOW on a 12,438-byte POST to /api/v2/inventory/lookup from 203.0.113.99, presenting a Chrome browser User-Agent.",
-      raw: {
-        formatVersion: 1,
-        timestamp: 1773740280000,
-        webaclId: webAclArn,
-        terminatingRuleId: "Default_Action",
-        terminatingRuleType: "REGULAR",
-        action: "ALLOW",
-        "terminatingRuleMatchDetails": [],
-        httpSourceName: "ALB",
-        httpSourceId: albId,
-        "oversizeFields[0]": "REQUEST_BODY",
-        "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesCommonRuleSet",
-        "ruleGroupList[0].terminatingRule": null,
-        "ruleGroupList[0].nonTerminatingMatchingRules": [],
-        "ruleGroupList[0].excludedRules[0].exclusionType": "EXCLUDED_AS_COUNT",
-        "ruleGroupList[0].excludedRules[0].ruleId": "SizeRestrictions_BODY",
-        "ruleGroupList[1].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
-        "ruleGroupList[1].terminatingRule": null,
-        "ruleGroupList[1].nonTerminatingMatchingRules": [],
-        "ruleGroupList[1].excludedRules": null,
-        rateBasedRuleList: [],
-        nonTerminatingMatchingRules: [],
-        requestHeadersInserted: null,
-        responseCodeSent: null,
-        "httpRequest.clientIp": atkC,
-        "httpRequest.country": "RU",
-        "httpRequest.httpMethod": "POST",
-        "httpRequest.uri": "/api/v2/inventory/lookup",
-        "httpRequest.args": "",
-        "httpRequest.httpVersion": "HTTP/1.1",
-        "httpRequest.requestId": "1-67d85058-3ea71c9f4d206b8853fa1107",
-        "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.nexacorp.com",
-        "httpRequest.headers[1].name": "User-Agent",
-        "httpRequest.headers[1].value": uaChrome,
-        "httpRequest.headers[2].name": "Content-Type",
-        "httpRequest.headers[2].value": "application/json",
-        "httpRequest.headers[3].name": "Content-Length",
-        "httpRequest.headers[3].value": "12438",
-        "labels[0].name": "awswaf:managed:aws:core-rule-set:SizeRestrictions_Body",
-      },
-    },
+    // The body rule is in count mode and the body is longer than the WAF inspects: the request passes.
+    wafRequest(SITE, {
+      id: "evt_06_waf_allow_oversize_body", ts: T(38 * MIN), srcIp: atkC, method: "POST", path: "/api/v2/inventory/lookup",
+      sent: 12438, ua: uaChrome, action: "count", rule: "size_body", oversizeBody: true,
+      geo: { country: "Russia" }, severity: "high", mitre: "T1190", tactic: "Initial Access",
+      description: "The WAF let a 12,438-byte POST to /api/v2/inventory/lookup from 203.0.113.99 through, with a Chrome browser User-Agent.",
+    }),
 
     // ── SAME REQUEST, WEB SERVER SIDE ────────────────────────────────────────
     {
@@ -661,7 +433,7 @@ export function webShellRceScenarioEvents() {
     wafAllow("evt_09a_waf_allow_post", 47 * MIN - 400, {
       method: "POST", uri: "/admin/content/upload.ashx", args: "key=d0f4a1c8-7b23-4e19-9a56-cc81e0b47f3d&target=assets%2Fjs%2Fvendor&name=bootstrap.bundle.aspx",
       contentType: "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", length: 9614, requestId: "1-67d8548c-4b6d19e0a52f7c3318de6a41",
-      description: "AWS WAF returned ALLOW on a 9,614-byte POST to /admin/content/upload.ashx from 203.0.113.99, Chrome browser User-Agent.",
+      description: "The WAF let through a 9,614-byte POST to /admin/content/upload.ashx from 203.0.113.99, Chrome browser User-Agent.",
     }),
 
     // ── DELIVERY: the stolen key is used against the legacy upload handler ────
@@ -751,7 +523,7 @@ export function webShellRceScenarioEvents() {
 
     wafAllow("evt_11a_waf_allow_post", 51 * MIN + 59_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 418, requestId: "1-67d856a7-0d5c3e91b8a24f7611c9e035",
-      description: "AWS WAF returned ALLOW on a 418-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
+      description: "The WAF let through a 418-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
 
     // ── EXECUTION: first command through the shell, at the app pool's level ───
@@ -824,7 +596,7 @@ export function webShellRceScenarioEvents() {
     wafAllow("evt_12a_waf_allow_post", 55 * MIN - 400, {
       method: "POST", uri: "/admin/content/upload.ashx", args: "key=d0f4a1c8-7b23-4e19-9a56-cc81e0b47f3d&target=assets%2Fjs%2Fvendor&name=srv.exe",
       contentType: "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", length: 7842, requestId: "1-67d85a83-71e4c2f09b6d3a5818ef2c40",
-      description: "AWS WAF returned ALLOW on a 7,842-byte POST to /admin/content/upload.ashx from 203.0.113.99, Chrome browser User-Agent.",
+      description: "The WAF let through a 7,842-byte POST to /admin/content/upload.ashx from 203.0.113.99, Chrome browser User-Agent.",
     }),
 
     // ── DELIVERY: the privesc tool goes up through the same legacy handler ────
@@ -914,7 +686,7 @@ export function webShellRceScenarioEvents() {
 
     wafAllow("evt_12c_waf_allow_post", 57 * MIN + 19_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 463, requestId: "1-67d85c2f-5a0b91d3e7c24f6812ab9d37",
-      description: "AWS WAF returned ALLOW on a 463-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
+      description: "The WAF let through a 463-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
     mdeRow("evt_12c_cmd_run_srv", T(57 * MIN + 20_000), {
       name: "cmd.exe", path: `${sys32}cmd.exe`, cmdline: `cmd.exe /c ${vendorDir}\\srv.exe -i -c cmd.exe`, parent: "w3wp.exe", parentPid: 6188, pid: 7612,
@@ -984,7 +756,7 @@ export function webShellRceScenarioEvents() {
     // ── STAGING: the SYSTEM shell packs the files it wants ───────────────────
     wafAllow("evt_13a_waf_allow_post", 61 * MIN + 38_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 529, requestId: "1-67d85dd2-3c8e0a57f1b64d9923c7e810",
-      description: "AWS WAF returned ALLOW on a 529-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
+      description: "The WAF let through a 529-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
     mdeRow("evt_13b_tar_run", T(61 * MIN + 40_000), {
       name: "tar.exe", path: `${sys32}tar.exe`,
@@ -1015,7 +787,7 @@ export function webShellRceScenarioEvents() {
     // ── EXFIL PRELUDE: the last shell call, the SYSTEM command prompt starts curl ─
     wafAllow("evt_13e_waf_allow_post", 63 * MIN + 53_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 571, requestId: "1-67d85e48-0f9a2b6c83d71e4a05fb3c92",
-      description: "AWS WAF returned ALLOW on a 571-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
+      description: "The WAF let through a 571-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
     mdeRow("evt_13f_curl_start", T(63 * MIN + 55_000), {
       name: "curl.exe", path: `${sys32}curl.exe`,

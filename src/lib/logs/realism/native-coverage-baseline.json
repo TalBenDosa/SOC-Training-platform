@@ -2,12 +2,12 @@
  "note": "Legacy (non-native) log rows per surface and source, as the realism gate collects them. Ceilings only go down: add the source's native module (src/lib/logs/native/sources), then `npm run realism:baseline`.",
  "totals": {
   "live": {
-   "rows": 5116,
-   "legacy": 212
+   "rows": 5164,
+   "legacy": 201
   },
   "scenario": {
    "rows": 1755,
-   "legacy": 131
+   "legacy": 121
   }
  },
  "groups": {
@@ -34,13 +34,13 @@
   "live|legacy:okta:Okta": 1,
   "live|legacy:siem:Anthropic Claude Enterprise": 31,
   "live|legacy:siem:AWS Cost Anomaly Detection": 1,
-  "live|legacy:siem:Microsoft Sentinel": 34,
+  "live|legacy:siem:Microsoft Sentinel": 43,
   "live|legacy:siem:Thinkst Canary": 1,
   "live|legacy:ueba:Microsoft Purview Insider Risk Management": 3,
   "live|legacy:vcs:GitHub": 5,
   "live|legacy:vcs:GitHub Advanced Security": 2,
   "live|legacy:vcs:GitHub Audit Log": 1,
-  "live|legacy:waf:AWS WAF": 32,
+  "live|legacy:waf:AWS WAF": 12,
   "live|legacy:waf:Azure Front Door": 4,
   "live|legacy:windows_security:Windows Security": 9,
   "scenario|legacy:ad:Microsoft Defender for Identity": 4,
@@ -69,7 +69,6 @@
   "scenario|legacy:vcs:GitHub": 1,
   "scenario|legacy:vcs:GitHub Advanced Security": 2,
   "scenario|legacy:vcs:GitHub Audit Log": 10,
-  "scenario|legacy:waf:AWS WAF": 10,
   "scenario|legacy:waf:Imperva WAF": 9,
   "scenario|legacy:windows_security:Windows Security": 3
  }

@@ -63,8 +63,11 @@ describe("web application attack catalog", () => {
     for (const c of COMPANIES) for (const d of DIFFS) for (let i = 0; i < 60; i++) expect(ids.has(pickStoryForCompany(c, d).id)).toBe(false);
   });
 
+  // Stories moved onto the neutral WAF on purpose (they render as the session's WAF): webshell-rce named the
+  // backend server and AWS WAF in an Azure shop (2026-11-12).
+  const MIGRATED_TO_NEUTRAL_WAF = new Set(["webshell-rce"]);
   it("no legacy WAF event changed its rendering: only the neutral vendor routes to a module", () => {
-    for (const s of ATTACK_STORIES) if (!s.id.startsWith("web-")) for (const e of s.events) if (e.source === "waf") expect(categoryOf(e), e.id).toBeNull();
+    for (const s of ATTACK_STORIES) if (!s.id.startsWith("web-") && !MIGRATED_TO_NEUTRAL_WAF.has(s.id)) for (const e of s.events) if (e.source === "waf") expect(categoryOf(e), e.id).toBeNull();
   });
 });
 

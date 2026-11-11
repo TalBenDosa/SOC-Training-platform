@@ -1002,7 +1002,9 @@ const TEAM_WIDER: Record<string, string[]> = {
  * server; no company lists one, and mapping it onto another server put a Windows RDS host on a Linux CI
  * runner (Sdema review 2026-11-08).
  */
-const OWN_SERVERS = new Set(["nexacorp-chain-d"]);
+// webshell-rce runs its own IIS shop (WEB-SHOP-01) and its database (SQL-SHOP-02): mapped onto the company's
+// servers it landed on a file or backup server, which no web shop runs on.
+const OWN_SERVERS = new Set(["nexacorp-chain-d", "webshell-rce"]);
 
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
