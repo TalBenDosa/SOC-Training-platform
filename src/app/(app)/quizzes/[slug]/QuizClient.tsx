@@ -1,4 +1,5 @@
 "use client";
+import { useTimeOnContent } from "@/lib/progress/useTimeOnContent";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import Link from "next/link";
@@ -84,6 +85,8 @@ function onRadioGroupKeyDown(e: ReactKeyboardEvent<HTMLElement>) {
 }
 
 export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug: string }) {
+  // Active time on the quiz, for learning-plan time targets (migration 0109).
+  useTimeOnContent("quiz", slug);
   // Allow admin edits stored in localStorage to override the built-in quiz data.
   // Answers are stripped from any overridden questions — grading is server-side
   // (M-01), so admin-preview edits only affect the displayed prompt/options.

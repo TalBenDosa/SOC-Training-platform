@@ -72,7 +72,7 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
                         {/* Time against the manager's target, where one is set. */}
                         {target ? (
                           <span className={`block font-mono text-[9px] ${spent === null || spent === undefined ? "text-slate-600" : spent >= target ? "text-neon-green" : "text-neon-amber"}`}
-                            title={spent === null || spent === undefined ? `Target ${target} min. Time is not measured for this kind of item yet.` : `${spent} of ${target} min`}>
+                            title={spent === null || spent === undefined ? `Target ${target} min. Time is not measured for this item.` : `${spent} of ${target} min`}>
                             {spent === null || spent === undefined ? `-/${target}m` : `${Math.round(spent)}/${target}m`}
                           </span>
                         ) : null}
@@ -90,7 +90,7 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
       </div>
       <p className="text-[10px] text-slate-500">✓ done · ◐ in progress · · not started · - not tracked (custom library lessons record no completion)</p>
       {plan.items.some(i => i.target_minutes) && (
-        <p className="text-[10px] text-slate-500">Under a cell: minutes spent / target. Green when the target is reached. Time is measured in rooms (time on each task) and scenarios; lessons and quizzes show -.</p>
+        <p className="text-[10px] text-slate-500">Under a cell: active minutes spent / target. Green when the target is reached.</p>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { useTimeOnContent } from "@/lib/progress/useTimeOnContent";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { useEffect, useState, useMemo, useId, useRef } from "react";
 import { labelForLang, lessonMarkdownToHtml } from "@/lib/lessons/lessonMarkdown";
@@ -425,6 +426,8 @@ export default function LessonReader() {
   }, [params.slug, params.lesson, reloadKey]);
 
   const lessonKey = `${params.slug}--${params.lesson}`;
+  // Active time on the lesson, for learning-plan time targets (migration 0109).
+  useTimeOnContent("lesson", lessonKey);
   const flashToast = () => {
     setShowCompleteToast(true);
     setTimeout(() => setShowCompleteToast(false), 4000);

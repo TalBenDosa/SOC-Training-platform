@@ -188,7 +188,7 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
 function TimeVsTarget({ spent, target }: { spent?: number | null; target: number }) {
   const measured = spent !== null && spent !== undefined;
   return (
-    <span title={measured ? `${spent} of ${target} minutes` : `Target ${target} min. Time is not measured for lessons and quizzes yet.`}
+    <span title={measured ? `${spent} of ${target} minutes` : `Target ${target} min. Time is not measured for this item (custom library lessons).`}
       className={`ml-1 font-mono ${!measured ? "text-slate-500" : (spent ?? 0) >= target ? "text-neon-green" : "text-neon-amber"}`}>
       {measured ? Math.round(spent ?? 0) : "-"}/{target}m
     </span>
