@@ -7,6 +7,8 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { benignMeetings, meetingPeople } from "@/lib/sim/benignMeetings";
+import { winGroupMemberAdd, domainSidFor } from "@/lib/sim/emitters/windowsSecurity";
 
 // The LIGHT half - interfaces, NEXACORP_PROFILE, COMPANY_PROFILES - moved to
 // companyProfilesMeta.ts so the dashboard can render from it without pulling the
@@ -2466,13 +2468,14 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     fp_explanation: "A service account added to a server's local Administrators group is a privilege change that should always be verified. IT confirms change CHG-GL-2026-0331: the SAP kernel upgrade on SRV-GL-ERP01 needs svc-erp in local Administrators during tonight's maintenance window, it.admin.gl made the change, and removal is scheduled after the upgrade. An approved, time-boxed change by the named administrator is benign; the same 4732 with no ticket would be escalated.",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: change CHG-GL-2026-0331, approved by the change advisory board, adds svc-erp to the local Administrators group on SRV-GL-ERP01 for the SAP kernel upgrade in today's 12:30 to 16:00 maintenance window. it.admin.gl made the change and removes it when the upgrade is signed off.",
-    raw: {
-      // 4732 semantics: TargetUserName is the GROUP; the account being added is
-      // MemberName/MemberSid. Both were briefly mapped to TargetUserName.
-      "winlog.event_id": "4732", "winlog.event_data.TargetUserName": "Administrators",
-      "winlog.event_data.MemberName": "GL\\svc-erp", "winlog.event_data.SubjectUserName": "GL\\it.admin.gl",
-      "host.name": "SRV-GL-ERP01", "action_result": "success"
-    }
+    // The full Security-log record (4732: TargetUserName is the group, the account added is MemberName /
+    // MemberSid), the shape every other group change in the feed has.
+    raw: winGroupMemberAdd({
+      companyId: "globallogis", id: "gl_itv_002", ts: "2026-05-10T12:50:00.000Z", host: "SRV-GL-ERP01", targetUser: "it.admin.gl",
+      userEmail: "it.admin.gl@globallogis.de", eventId: "4732", subjectUser: "it.admin.gl", subjectSid: domainSidFor("globallogis", "it.admin.gl"),
+      memberName: "CN=svc-erp,OU=Service Accounts,DC=globallogis,DC=de", memberSid: domainSidFor("globallogis", "svc-erp"),
+      groupName: "Administrators", groupDomain: "Builtin", groupSid: "S-1-5-32-544", recordId: "5520918",
+    }).raw,
   },
   {
     id: "gl_itv_003", ts: "2026-05-10T17:10:00.000Z",
@@ -4383,9 +4386,10 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
 // Event pools keyed by company id (NexaCorp events come from benignEvents.ts)
 export const COMPANY_EVENTS: Record<string, TelemetryEvent[]> = {
   rocketstack:  ROCKETSTACK_EVENTS,
-  medcore:      MEDCORE_EVENTS,
-  globallogis:  GLOBALLOGIS_EVENTS,
-  quantumbank:  QUANTUMBANK_EVENTS
+  // The Microsoft 365 companies hold Teams meetings: their audit records are ordinary noise (benignMeetings.ts).
+  medcore:      [...MEDCORE_EVENTS, ...benignMeetings("medcore", "2026-05-11", meetingPeople(MEDCORE_EVENTS, "medcorehealth.org"), ["Cardiology morning handover", "Ward capacity review"])],
+  globallogis:  [...GLOBALLOGIS_EVENTS, ...benignMeetings("globallogis", "2026-05-11", meetingPeople(GLOBALLOGIS_EVENTS, "globallogis.de"), ["Hub Frankfurt daily stand-up", "Carrier rates review"])],
+  quantumbank:  [...QUANTUMBANK_EVENTS, ...benignMeetings("quantumbank", "2026-05-11", meetingPeople(QUANTUMBANK_EVENTS, "quantumbank.ch"), ["Private banking desk sync", "Quarterly risk committee prep"])],
 };
 
 // Attack pools keyed by company id - 3 chains × 4 events each (attackChainLen=4)

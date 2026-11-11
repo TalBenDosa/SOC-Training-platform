@@ -2,12 +2,12 @@
  "note": "Legacy (non-native) log rows per surface and source, as the realism gate collects them. Ceilings only go down: add the source's native module (src/lib/logs/native/sources), then `npm run realism:baseline`.",
  "totals": {
   "live": {
-   "rows": 5013,
-   "legacy": 277
+   "rows": 5116,
+   "legacy": 212
   },
   "scenario": {
    "rows": 1755,
-   "legacy": 162
+   "legacy": 131
   }
  },
  "groups": {
@@ -16,7 +16,6 @@
   "live|legacy:ad:Windows TerminalServices": 6,
   "live|legacy:cloud_azure:Azure API Management": 4,
   "live|legacy:cloud_azure:Azure Blob Storage": 8,
-  "live|legacy:cloud_azure:Azure OpenAI": 26,
   "live|legacy:cloud_azure:Microsoft Entra ID": 1,
   "live|legacy:cloud_azure:Microsoft Graph Security": 2,
   "live|legacy:cloud_gcp:Google Security Command Center": 2,
@@ -30,7 +29,7 @@
   "live|legacy:email_gateway:Proofpoint TAP": 1,
   "live|legacy:gws:Google Workspace": 4,
   "live|legacy:linux_audit:Linux auditd": 2,
-  "live|legacy:o365:Microsoft 365": 41,
+  "live|legacy:o365:Microsoft 365": 2,
   "live|legacy:o365:Microsoft Entra ID": 3,
   "live|legacy:okta:Okta": 1,
   "live|legacy:siem:Anthropic Claude Enterprise": 31,
@@ -70,8 +69,6 @@
   "scenario|legacy:vcs:GitHub": 1,
   "scenario|legacy:vcs:GitHub Advanced Security": 2,
   "scenario|legacy:vcs:GitHub Audit Log": 10,
-  "scenario|legacy:virtualization:VMware ESXi": 14,
-  "scenario|legacy:virtualization:VMware vCenter Server": 17,
   "scenario|legacy:waf:AWS WAF": 10,
   "scenario|legacy:waf:Imperva WAF": 9,
   "scenario|legacy:windows_security:Windows Security": 3

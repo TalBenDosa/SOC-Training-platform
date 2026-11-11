@@ -81,3 +81,11 @@ delegation SAS is signed with; a write with that SAS logs `DelegationSas`.
 - `RequesterTenantId` is the Entra tenant, never the subscription id.
 - UNVERIFIED: the exact `streamType` spelling (`Streaming` is confirmed; the non-streaming value is kept as
   the emitter writes it).
+
+## 5. Sample: an Azure OpenAI RequestResponse resource log record
+
+As a diagnostic setting delivers it (the shape of the Elastic integration sample in section 1). Values are fictional.
+
+```json
+{"time":"2026-11-09T09:02:17.412Z","resourceId":"/SUBSCRIPTIONS/6520FE69-D6A1-4C38-9E27-3B1F0C5D8A44/RESOURCEGROUPS/RG-CORP-AI/PROVIDERS/MICROSOFT.COGNITIVESERVICES/ACCOUNTS/CORP-OPENAI-WEU","category":"RequestResponse","operationName":"ChatCompletions_Create","resultSignature":"200","durationMs":1840,"callerIpAddress":"198.51.100.***","correlationId":"6ca58456-c0fc-4e91-8084-a7d06f95cff5","event":"ShoeboxCallResult","location":"westeurope","Tenant":"westeurope","properties":"{\"apiName\":\"Azure OpenAI API version 2025-01-01-preview\",\"requestTime\":639000577355720000,\"requestLength\":3112,\"responseTime\":639000577374120000,\"responseLength\":1506,\"objectId\":\"\",\"streamType\":\"NonStreaming\",\"modelDeploymentName\":\"gpt-4o-support\",\"modelName\":\"gpt-4o\",\"modelVersion\":\"2024-11-20\"}"}
+```

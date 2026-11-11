@@ -32,7 +32,7 @@ type Converted = { ev: import("@/lib/sim/types").TelemetryEvent };
 
 describe("m365 - card samples", () => {
   it("every card sample validates with zero violations", () => {
-    expect(sampleLogs.length).toBe(10);
+    expect(sampleLogs.length).toBe(12);
     for (const l of sampleLogs) expect(validateNative(l, schema), `${l.record.Operation}`).toEqual([]);
   });
 });

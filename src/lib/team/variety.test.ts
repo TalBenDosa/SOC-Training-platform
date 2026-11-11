@@ -35,7 +35,8 @@ function build(company: string, seed: string, opts: VarietyOpts = {}, stack: Sta
   return { tl, rec: rec! as VarietyRecord };
 }
 /** Stories that carry each twist ground: code ran on a workstation, a cloud sign-in worked, a spray never got in. */
-const TWIST_STORIES = ["tech-support-scam", ATTACK_STORIES.find(s => s.events.some(e => e.id === "evt_imp_01_baseline"))!.id, "nexacorp-chain-d"];
+// One story per twist ground: code ran, a sign-in worked, an account logged on, and a spray that never got in.
+const TWIST_STORIES = ["tech-support-scam", ATTACK_STORIES.find(s => s.events.some(e => e.id === "evt_imp_01_baseline"))!.id, "nexacorp-chain-d", "okta-password-burst"];
 const ans = (e: TimelineEntry) => (e.answer ?? {}) as Record<string, unknown>;
 const origId = (e: TimelineEntry) => String(ans(e).original_id ?? "");
 

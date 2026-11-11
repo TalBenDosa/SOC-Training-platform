@@ -48,7 +48,10 @@ describe("decoys have the shape of attacks", () => {
         if (r.channel !== "feed" && r.channel !== "bonus") continue;
         const a = (r.answer ?? {}) as { expected_verdict?: string; original_id?: string };
         const b = r.body as { source?: string; event_type?: string; raw?: Record<string, unknown> };
-        const key = `${b.source}|${b.event_type}`;
+        // One record type per group, as realism R2 compares native kinds: a Windows row is its event id (a 4688
+        // process creation and a 4672 logon privilege set are both "privilege_escalation" but different records).
+        const eid = b.raw?.["winlog.event_id"] ?? b.raw?.["event.code"];
+        const key = `${b.source}|${b.event_type}${(b.source === "ad" || b.source === "windows_security") && eid ? `|${eid}` : ""}`;
         const g = groups.get(key) ?? groups.set(key, { atk: [], non: [], mine: false }).get(key)!;
         (["tp", "escalate"].includes(String(a.expected_verdict)) ? g.atk : g.non).push(Object.keys(b.raw ?? {}).length);
         if (/^(fpa_|msel_)/.test(String(a.original_id ?? ""))) g.mine = true;

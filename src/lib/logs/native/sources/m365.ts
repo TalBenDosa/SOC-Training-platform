@@ -57,6 +57,25 @@ const AAD = [
   "ExtendedProperties", "ExtendedProperties[].Name", "ExtendedProperties[].Value",
   "ModifiedProperties", "ModifiedProperties[].Name", "ModifiedProperties[].NewValue", "ModifiedProperties[].OldValue", "SupportTicketId",
 ];
+// Teams meeting records (Operations MeetingDetail / MeetingParticipantDetail, RecordType 25). Organizer is the
+// schema's MicrosoftTeamsMember (UPN, Role, DisplayName); the meeting fields follow the published audit
+// examples (office365itpros.com/2021/12/09/audit-events-teams-meetings): MeetingDetailId, JoinTime, LeaveTime,
+// Attendees[] (RecipientType, UPN, DisplayName, OrganizationId, UserObjectId), StartTime, EndTime, ItemName.
+const MEMBER = (p: string) => [p, `${p}.UPN`, `${p}.DisplayName`, `${p}.Role`, `${p}.RecipientType`, `${p}.OrganizationId`, `${p}.UserObjectId`];
+const TEAMS_MEETING = [
+  "MeetingDetailId", "ItemName", "StartTime", "EndTime", "JoinTime", "LeaveTime", "MeetingURL", "ArtifactsShared", "ExtraProperties",
+  "ExtraProperties[].Key", "ExtraProperties[].Value", "DeviceInformation", ...MEMBER("Organizer"), ...MEMBER("Attendees[]"),
+];
+// CopilotEventData (copilot-schema EventData). Messages[].JailbreakDetected and AccessedResources[].Status /
+// XPIADetected / PolicyDetails are the Purview Copilot audit additions (purview/audit-copilot).
+const COPILOT = [
+  "CopilotEventData", "CopilotEventData.AppHost", "CopilotEventData.ThreadId", "CopilotEventData.MessageIds",
+  "CopilotEventData.Contexts", "CopilotEventData.Contexts[].Id", "CopilotEventData.Contexts[].Type", "CopilotEventData.Contexts[].ContainerId",
+  "CopilotEventData.Messages", "CopilotEventData.Messages[].Id", "CopilotEventData.Messages[].Size", "CopilotEventData.Messages[].isPrompt", "CopilotEventData.Messages[].JailbreakDetected",
+  "CopilotEventData.AccessedResources", ...["Id", "SiteUrl", "listItemUniqueId", "Type", "Name", "SensitivityLabelId", "Action", "Status", "XPIADetected", "PolicyDetails"].map(f => `CopilotEventData.AccessedResources[].${f}`),
+  "CopilotEventData.ModelTransparencyDetails", ...["ModelProviderName", "ModelName", "ModelVersion"].map(f => `CopilotEventData.ModelTransparencyDetails[].${f}`),
+  "CopilotEventData.AISystemPlugin", ...["Name", "Id", "Version"].map(f => `CopilotEventData.AISystemPlugin[].${f}`),
+];
 const k = (optional: string[]): KindSchema => ({ required: COMMON_REQ, optional: [...COMMON_OPT, ...optional] });
 
 const schema: SourceSchema = {
@@ -85,7 +104,9 @@ const schema: SourceSchema = {
     AzureActiveDirectoryStsLogon: k([...AAD, "ApplicationId", "DeviceProperties", "DeviceProperties[].Name", "DeviceProperties[].Value", "ErrorCode", "LogonError"]),
     // Common schema, plus what a ChatCreated record carries: Microsoft's Storm-1811 hunting query reads these
     // from the audit record (CommunicationType, Members[].DisplayName/UPN, ParticipantInfo.HasForeignTenantUsers).
-    MicrosoftTeams: k(["ChatThreadId", "CommunicationType", "Members", "ParticipantInfo"]),
+    MicrosoftTeams: k(["ChatThreadId", "CommunicationType", "Members", "ParticipantInfo", ...TEAMS_MEETING]),
+    // Copilot interaction (RecordType 261): learn.microsoft.com/office/office-365-management-api/copilot-schema.
+    CopilotInteraction: k(["ClientRegion", "CopilotLogVersion", "AppIdentity", ...COPILOT]),
     // Purview DLP rule match (ComplianceDLPSharePoint 11 / ComplianceDLPExchange 13 / DLPEndpoint 63).
     DlpRuleMatch: DLP_KIND,
   },
@@ -93,7 +114,7 @@ const schema: SourceSchema = {
 
 const RT_KIND: Record<number, string> = {
   1: "ExchangeAdmin", 2: "ExchangeItem", 6: "SharePointFileOperation", 8: "AzureActiveDirectory", 14: "SharePointSharingOperation",
-  15: "AzureActiveDirectoryStsLogon", 25: "MicrosoftTeams", 50: "ExchangeItemAggregated",
+  15: "AzureActiveDirectoryStsLogon", 25: "MicrosoftTeams", 50: "ExchangeItemAggregated", 261: "CopilotInteraction",
   11: "DlpRuleMatch", 13: "DlpRuleMatch", 63: "DlpRuleMatch",
 };
 
@@ -287,7 +308,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const p = puid(ctx, actor);
     if (rt === 8 || rt === 15) return `${p}@${domainOf(actor)}`;
     if (rt === 6 || rt === 14) return `i:0h.f|membership|${p.toLowerCase()}@live.com`;
-    if (rt === 25) return aadObjectId(ctx, actor);
+    if (rt === 25 || rt === 261) return aadObjectId(ctx, actor);
     return p;
   };
   const head = (rt: number, workload: string, result?: string) => {
@@ -643,6 +664,48 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   }
 
   // ── Microsoft Teams (RT 25, common schema only) ──
+  // ── Copilot interaction (RT 261) ──
+  if (op === "CopilotInteraction") {
+    if (!isEmail(actor)) return null;
+    const rec: Record<string, unknown> = head(261, "Copilot");
+    if (ip) rec.ClientIP = ip;
+    rec.UserId = actor;
+    const app = rs(raw, "data.office365.AppIdentity", "AppIdentity");
+    if (app) rec.AppIdentity = app;
+    const data: Record<string, unknown> = { AISystemPlugin: [], AccessedResources: [], AppHost: "BizChat", Contexts: [], MessageIds: [], Messages: [], ModelTransparencyDetails: [] };
+    for (const [key, v] of Object.entries(raw)) {
+      const m = /^(?:data\.office365\.)?CopilotEventData\.(\w+)$/.exec(key);
+      if (m && v !== undefined && v !== null) data[m[1]] = v;
+    }
+    rec.CopilotEventData = data;
+    return out("CopilotInteraction", rec);
+  }
+
+  // ── Teams meeting detail / participant detail (RT 25) ──
+  if (op === "MeetingDetail" || op === "MeetingParticipantDetail") {
+    if (!isEmail(actor)) return null;
+    const rec: Record<string, unknown> = head(25, "MicrosoftTeams", "Succeeded");
+    if (ip) rec.ClientIP = ip;
+    rec.UserId = actor;
+    // A member of this tenant carries this tenant's ids; a member of another organisation keeps its own.
+    const member = (m: unknown) => {
+      if (!m || typeof m !== "object") return m;
+      const o = { ...(m as Record<string, unknown>) };
+      const upn = typeof o.UPN === "string" ? o.UPN : "";
+      if (upn.toLowerCase().endsWith(`@${ctx.domain}`)) {
+        if ("OrganizationId" in o) o.OrganizationId = ctx.tenant.azureTenantId;
+        if ("UserObjectId" in o) o.UserObjectId = aadObjectId(ctx, upn);
+      }
+      return o;
+    };
+    for (const f of ["MeetingDetailId", "ChatThreadId", "CommunicationType", "ItemName", "StartTime", "EndTime", "JoinTime", "LeaveTime", "MeetingURL", "ArtifactsShared", "ExtraProperties", "DeviceInformation", "Organizer", "Attendees"]) {
+      const v = raw[`data.office365.${f}`] ?? raw[f];
+      if (v === undefined) continue;
+      rec[f] = f === "Organizer" ? member(v) : f === "Attendees" && Array.isArray(v) ? v.map(member) : v;
+    }
+    return out("MicrosoftTeams", rec);
+  }
+
   if (TEAMS.has(op)) {
     if (!isEmail(actor)) return null;
     const rec: Record<string, unknown> = head(25, "MicrosoftTeams", "Succeeded");

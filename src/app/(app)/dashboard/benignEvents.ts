@@ -16,6 +16,7 @@ import { sysmonProcess, sysmonFile } from "@/lib/sim/emitters/sysmon";
 import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { auditdRaw } from "@/lib/sim/emitters/auditd";
+import { benignMeetings, meetingPeople } from "@/lib/sim/benignMeetings";
 
 const BASE = new Date("2026-05-10T08:00:00Z").getTime();
 const T = (offsetMin: number) => new Date(BASE + offsetMin * 60_000).toISOString();
@@ -160,7 +161,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", user_title: "Risk Analyst", src_ip: "10.10.30.55",
     description: "s.patel signed in to WS-HR-1142",
     raw: { "event.code": "4624", "logon.type": "2", "authentication.protocol": "Kerberos",
-           "user.name": "NEXACORP\\spatel", "source.ip": "10.10.30.55", "host.name": "WS-HR-1142",
+           "user.name": "NEXACORP\\s.patel", "source.ip": "10.10.30.55", "host.name": "WS-HR-1142",
            "event.outcome": "success" },
   },
   {
@@ -231,7 +232,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.SubjectUserName": "-",
       "winlog.event_data.SubjectDomainName": "-",
       "winlog.event_data.SubjectLogonId": "0x0",
-      "winlog.event_data.TargetUserName": "rwilliams",
+      "winlog.event_data.TargetUserName": "r.williams",
       "winlog.event_data.TargetDomainName": "NEXACORP",
       "winlog.event_data.TargetUserSid": "S-1-0-0",
       "winlog.event_data.Status": "0xC000006D",
@@ -250,7 +251,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.IpPort": "0",
       "event.action": "logon-failed",
       "event.outcome": "failure",
-      "user.name": "NEXACORP\\rwilliams",
+      "user.name": "NEXACORP\\r.williams",
       "source.ip": "10.10.20.14",
       "host.name": "WS-FIN-2847",
     },
@@ -1183,7 +1184,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "process_create", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", user_title: "Risk Analyst",
     process: { name: "OUTLOOK.EXE", pid: 5531, parent_name: "explorer.exe", parent_pid: 2001,
-               cmdline: "OUTLOOK.EXE /recycle", user: "NEXACORP\\spatel", integrity: "medium" },
+               cmdline: "OUTLOOK.EXE /recycle", user: "NEXACORP\\s.patel", integrity: "medium" },
     description: "s.patel launched Outlook on WS-HR-1142",
     raw: {
       "event.provider": "Microsoft Defender ATP",
@@ -1267,7 +1268,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "process_create", severity: "informational",
     hostname: "WS-FIN-2847",
     process: { name: "EXCEL.EXE", pid: 6610, parent_name: "OUTLOOK.EXE", parent_pid: 5400,
-               cmdline: "EXCEL.EXE /dde", user: "NEXACORP\\rwilliams", integrity: "medium" },
+               cmdline: "EXCEL.EXE /dde", user: "NEXACORP\\r.williams", integrity: "medium" },
     description: "r.williams opened invoice attachment in Excel on WS-FIN-2847",
     raw: {
       "event.provider": "Microsoft Defender ATP",
@@ -1289,14 +1290,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "process_create", severity: "informational",
     hostname: "WS-HR-1142",
     process: { name: "OneDrive.exe", pid: 4411, parent_name: "explorer.exe", parent_pid: 2001,
-               cmdline: "OneDrive.exe /background", user: "NEXACORP\\spatel", integrity: "medium" },
+               cmdline: "OneDrive.exe /background", user: "NEXACORP\\s.patel", integrity: "medium" },
     description: "s.patel's OneDrive sync client running on WS-HR-1142",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
       "DeviceName": "WS-HR-1142",
       "FileName": "OneDrive.exe",
-      "FolderPath": "C:\\Users\\spatel\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+      "FolderPath": "C:\\Users\\s.patel\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
       "ProcessCommandLine": "OneDrive.exe /background",
       "InitiatingProcessFileName": "explorer.exe",
       "InitiatingProcessFolderPath": "C:\\Windows\\explorer.exe",
@@ -1342,7 +1343,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "WS-HR-1142",
     process: { name: "cmd.exe", pid: 6612, parent_name: "OUTLOOK.EXE", parent_pid: 5531,
                cmdline: "cmd.exe /c whoami",
-               user: "NEXACORP\\spatel", integrity: "medium" },
+               user: "NEXACORP\\s.patel", integrity: "medium" },
     description: "Outlook launched cmd.exe on WS-HR-1142 - Defender killed it automatically as a precaution",
     raw: {
       "event.provider": "Microsoft Defender ATP",
@@ -1727,7 +1728,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       companyId: CX, id: "b_sys_02", ts: T(19), host: "WS-HR-1142", user: "s.patel@nexacorp.com", srcIp: "10.10.30.55",
       processName: "chrome.exe", processPath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", pid: 7316,
       processGuid: procGuid("WS-HR-1142", "chrome"),
-      path: "C:\\Users\\spatel\\Downloads\\AdobeReader-installer.exe",
+      path: "C:\\Users\\s.patel\\Downloads\\AdobeReader-installer.exe",
       sha256: "e7e8b61210440a8abdc88cbd0135f3f280b522da04e3c4fdf836b632d4e94c18", fileSize: 168_400_000,
     }),
     severity: "informational",
@@ -1790,7 +1791,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_av_01", ts: T(29), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "file_access", severity: "informational",
     hostname: "WS-HR-1142",
-    file: { path: "C:\\Users\\spatel\\Downloads\\AdobeReader-installer.exe",
+    file: { path: "C:\\Users\\s.patel\\Downloads\\AdobeReader-installer.exe",
             sha256: "d4bae171dc602720023bb95019d5b9cd710f3e7b22decb80abc0e478a6a29320" },
     description: "AdobeReader-installer.exe scanned on WS-HR-1142 - no threats detected, clean",
     raw: { "event.action": "av_scan_clean", "file.name": "AdobeReader-installer.exe",
@@ -2204,11 +2205,11 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     fp_explanation: "SeDebugPrivilege lets a process open any other process, including LSASS, so a service account receiving it is worth a call to IT. Here the call settles it: change CHG-00731 approved granting it to svc-reporting on SRV-ERP-02 for the ERP vendor's performance-profiling agent during today's maintenance window, with removal scheduled at 18:00. An approved, time-boxed change on the named host and account is benign; the same grant with no ticket would be escalated.",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: change CHG-00731, approved by the change advisory board, grants SeDebugPrivilege to svc-reporting on SRV-ERP-02 for the ERP vendor's performance-profiling agent during today's 13:30 to 18:00 maintenance window. The privilege is removed when the window closes.",
-    raw: {
-      "event.code": "4672", "user.name": "NEXACORP\\svc-reporting",
-      "host.name": "SRV-ERP-02", "winlog.event_data.PrivilegeList": "SeDebugPrivilege\n\t\t\tSeImpersonatePrivilege",
-      "logon.type": "5", "event.outcome": "success",
-    },
+    // The full Security-log record (4672), the shape every other 4672 in the feed has.
+    raw: winSpecialPrivileges({
+      companyId: CX, id: "b_itv_03", ts: "2026-05-10T14:05:00.000Z", host: "SRV-ERP-02", targetUser: "svc-reporting", userEmail: "svc-reporting@nexacorp.com",
+      logonId: "0x5C21E4", recordId: "7140233", privilegeList: "SeDebugPrivilege\n\t\t\tSeImpersonatePrivilege",
+    }).raw,
   },
 
   {
@@ -8093,7 +8094,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   },
   {
     ...winLogon({
-      companyId: CX, id: "b_wev_02", ts: T(11), host: "SRV-NXC-FS01", logSource: "windows_security", targetUser: "rwilliams",
+      companyId: CX, id: "b_wev_02", ts: T(11), host: "SRV-NXC-FS01", logSource: "windows_security", targetUser: "r.williams",
       userEmail: "r.williams@nexacorp.com", srcIp: "10.10.20.61", srcPort: "51344", logonType: 3, authPackage: "Kerberos",
       logonId: "0xA17C05", recordId: "8841207",
     }),
@@ -8109,7 +8110,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.code": "4625",
       "winlog.channel": "Security",
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-      "winlog.event_data.TargetUserName": "spatel",
+      "winlog.event_data.TargetUserName": "s.patel",
       "winlog.event_data.TargetDomainName": "NEXACORP",
       "winlog.event_data.LogonType": "2",
       "winlog.event_data.Status": "0xc000006d",
@@ -8117,7 +8118,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.FailureReason": "%%2313",
       "winlog.event_data.WorkstationName": "WS-HR-1142",
       "event.action": "logon-failed", "event.outcome": "failure",
-      "user.name": "NEXACORP\\spatel", "host.name": "WS-HR-1142",
+      "user.name": "NEXACORP\\s.patel", "host.name": "WS-HR-1142",
     },
   },
   {
@@ -8319,7 +8320,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.code": "4724", "winlog.channel": "Security",
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
       "winlog.event_data.SubjectUserName": "helpdesk", "winlog.event_data.SubjectDomainName": "NEXACORP",
-      "winlog.event_data.TargetUserName": "spatel", "winlog.event_data.TargetDomainName": "NEXACORP",
+      "winlog.event_data.TargetUserName": "s.patel", "winlog.event_data.TargetDomainName": "NEXACORP",
       "event.action": "reset-user-password", "event.outcome": "success", "host.name": "SRV-NXC-DC02",
     },
   },
@@ -8468,7 +8469,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.code": "4776", "winlog.channel": "Security",
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
       "winlog.event_data.PackageName": "MICROSOFT_AUTHENTICATION_PACKAGE_V1_0",
-      "winlog.event_data.TargetUserName": "rwilliams",
+      "winlog.event_data.TargetUserName": "r.williams",
       "winlog.event_data.Workstation": "WS-FIN-2860",
       "winlog.event_data.Status": "0x0",
       "event.action": "validated-credentials", "event.outcome": "success", "host.name": "SRV-NXC-DC02",
@@ -8500,7 +8501,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     raw: {
       "event.code": "4769", "winlog.channel": "Security",
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-      "winlog.event_data.TargetUserName": "rwilliams@NEXACORP.COM", "winlog.event_data.TargetDomainName": "NEXACORP.COM",
+      "winlog.event_data.TargetUserName": "r.williams@NEXACORP.COM", "winlog.event_data.TargetDomainName": "NEXACORP.COM",
       "winlog.event_data.ServiceName": "SRV-NXC-FS01$",
       "winlog.event_data.TicketOptions": "0x40810000",
       "winlog.event_data.TicketEncryptionType": "0x12",
@@ -8551,3 +8552,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 ];
+
+// NexaCorp's ordinary Teams meetings (benignMeetings.ts), so a meeting record is not the attack's alone.
+BENIGN_EVENTS.push(...benignMeetings("nexacorp", "2026-05-11", meetingPeople(BENIGN_EVENTS, "nexacorp.com"), ["Trading desk morning briefing", "Q3 budget review"]));
+

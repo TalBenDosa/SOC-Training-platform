@@ -13,6 +13,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 import { docOwnerOfIp } from "@/lib/sim/docAddresses";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { NativeCtx } from "../types";
 
 // ── raw-map access ───────────────────────────────────────────────────────────
@@ -178,8 +179,12 @@ export function authoredGeo(ev: TelemetryEvent): { country?: string; city?: stri
  * IPs, the corporate egress and any address the story never placed). One IP, one place.
  */
 export function geoOf(ev: TelemetryEvent, ctx: NativeCtx, ip?: string): GeoFacts {
-  const a = authoredGeo(ev);
-  const known = !a.country && ip && !isPrivateIp(ip) ? knownGeoForIp(ip) : null;
+  // The company's own office egress is always at the company's office: a row authored for another
+  // company's office ("London" on a story re-homed to the Amsterdam hospital) never relocates it.
+  const office = COMPANY_ASSETS[ctx.companyId]?.office;
+  const atOffice = !!office && !!ip && ip === office.ip;
+  const a = atOffice ? { country: office!.country, city: office!.city, latitude: undefined, longitude: undefined } : authoredGeo(ev);
+  const known = (atOffice || !a.country) && ip && !isPrivateIp(ip) ? knownGeoForIp(ip) : null;
   let ci = countryInfo(a.country) ?? (known ? countryInfo(known.country) : undefined);
   if (!ci) ci = countryInfo(COMPANY_HQ[ctx.companyId] ?? "IL");
   const c = ci as CountryInfo;

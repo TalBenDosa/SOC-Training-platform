@@ -7,6 +7,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { SourceId } from "./types";
 import { isSentinelSecurityAlert } from "./sources/sentinel_alert";
+import { isAzureOpenAi } from "./sources/azure_openai";
 import { source as sysmonSource } from "./sources/sysmon";
 import { makeCtx } from "./ctx";
 
@@ -216,6 +217,10 @@ export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | n
   if (ev.source === "dlp") return purviewRuleMatch(ev) ? "m365" : null;
   // Workday is the HR system of record: its activity log renders as Workday in every stack.
   if (ev.source === "hr") return /workday/i.test(ev.vendor ?? "") ? "workday" : null;
+  // Azure OpenAI resource logs are the AI account's own records (AzureDiagnostics), never the Activity Log.
+  if (isAzureOpenAi(ev)) return "azure_openai";
+  // vCenter and ESXi are the hypervisor the company runs: its own records in every stack.
+  if ((ev.source as string) === "virtualization" && has(ev, "vmware")) return "vmware_vsphere";
   // The SIEM's own alerts are SecurityAlert rows in every stack (the SIEM is the platform, not a stack choice).
   if (isSentinelSecurityAlert(ev)) return "sentinel_alert";
   const cat = categoryOf(ev);
@@ -299,6 +304,8 @@ export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   ms_graph: "Microsoft Graph Security",
   sysmon: "Microsoft Sysmon",
   sentinel_alert: "Microsoft Sentinel",
+  vmware_vsphere: "VMware vSphere",
+  azure_openai: "Azure OpenAI",
   mssql_audit: "Microsoft SQL Server Audit", guardium: "IBM Guardium", mysql_audit: "MySQL Enterprise Audit",
   exabeam: "Exabeam Advanced Analytics", securonix: "Securonix SNYPR",
 };

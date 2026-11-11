@@ -615,3 +615,23 @@ Note: directory-audit (RT 8) records use `ResultStatus` `Success`/`Failure` in p
 - `MailItemsAccessed` is RecordType **50** (not 2) and lists items under `Folders[].FolderItems[]`, not `Item`.
 - `CreationTime` has no `Z` and no milliseconds; do not render Entra-style `2026-09-29T07:41:12.345Z` here.
 - Do not mix in Entra sign-in-log (Graph `signIns`) fields such as `riskLevelDuringSignIn`, `conditionalAccessStatus`, `location.city` — that is a different source (see the Entra card).
+
+## Copilot interaction and Teams meeting records
+
+Added 2026-11-11. Sources: learn.microsoft.com/office/office-365-management-api/copilot-schema (RecordType 261,
+`CopilotEventData` with AppHost, Contexts, ThreadId, MessageIds, Messages, AccessedResources,
+ModelTransparencyDetails, AISystemPlugin; `ClientRegion`, `CopilotLogVersion`); the Management Activity API
+Teams schema (`Organizer` as MicrosoftTeamsMember UPN / Role / DisplayName, `ExtraProperties`,
+`ImpersonationType`); the meeting audit examples at office365itpros.com/2021/12/09/audit-events-teams-meetings
+(Operations `MeetingDetail` and `MeetingParticipantDetail`: MeetingDetailId, JoinTime, LeaveTime, Attendees).
+`Messages[].JailbreakDetected` and `AccessedResources[].Status` follow the Purview Copilot audit page. An
+operation named `SecurityRiskInCallDetected` could not be confirmed, so the platform keeps that row in its raw view.
+Values below are fictional.
+
+```json
+{"CreationTime":"2026-11-09T10:41:22","Id":"4b2c7d91-0e3f-4a68-9b15-6c8d2e7f1a30","Operation":"CopilotInteraction","OrganizationId":"3f9c1a52-7d4e-4b8a-9c21-6e0f5d7a2b10","RecordType":261,"UserKey":"9a1f4c7e-2b3d-4e5f-8a6b-0c1d2e3f4a5b","UserType":0,"Version":1,"Workload":"Copilot","ClientIP":"203.0.113.20","ClientRegion":"GB","UserId":"r.alvarez@corp.example","CopilotEventData":{"AISystemPlugin":[],"AccessedResources":[{"Action":"Read","Id":"011HAAL2K1AGIDZ9CS3G721LUT9LW1R5ZG","Name":"Salary_Bands_2026.xlsx","SensitivityLabelId":"f41ab342-8706-4188-bd11-ebb85995028c","SiteUrl":"https://corp.sharepoint.example/sites/HR/","Type":"xlsx"}],"AppHost":"BizChat","Contexts":[],"MessageIds":[],"Messages":[{"Id":"1794215560311","isPrompt":true},{"Id":"1794215561014","isPrompt":false}],"ModelTransparencyDetails":[],"ThreadId":"19:Xn3uQZYgZ7f2ue0vp5w9MglEVjFyp5pza1efaC6g2U41@thread.v2"}}
+```
+
+```json
+{"CreationTime":"2026-11-09T13:02:11","Id":"7e1d2c3b-4a59-4f68-8e7d-9c0b1a2f3e4d","Operation":"MeetingParticipantDetail","OrganizationId":"3f9c1a52-7d4e-4b8a-9c21-6e0f5d7a2b10","RecordType":25,"ResultStatus":"Succeeded","UserKey":"9a1f4c7e-2b3d-4e5f-8a6b-0c1d2e3f4a5b","UserType":0,"Version":1,"Workload":"MicrosoftTeams","ClientIP":"203.0.113.20","UserId":"r.alvarez@corp.example","MeetingDetailId":"a227e1f9-0cde-4e25-9c13-4af8a1d528aa","ChatThreadId":"19:meeting_9c3517354b713129347a78849924076e@thread.v2","JoinTime":"2026-11-09T13:02:11Z","LeaveTime":"2026-11-09T13:41:52Z","Attendees":[{"RecipientType":"User","UPN":"r.alvarez@corp.example","DisplayName":"R. Alvarez","OrganizationId":"3f9c1a52-7d4e-4b8a-9c21-6e0f5d7a2b10","UserObjectId":"9a1f4c7e-2b3d-4e5f-8a6b-0c1d2e3f4a5b"}]}
+```
