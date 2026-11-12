@@ -110,6 +110,7 @@ import { CORE_STORIES } from "./core-stories";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import { WEB_ENTRY_STORIES } from "./web-stories/entry";
 import { WEB_ADVANCED_STORIES } from "./web-stories/advanced";
+import { WEB_INJECTION_STORIES } from "./web-stories/injection";
 import { lateralMovementPthScenarioEvents }        from "@/lib/sim/scenario-packs/lateralMovementPth.events";
 import { goldenSamlScenarioEvents }                from "@/lib/sim/scenario-packs/goldenSaml.events";
 import { windowsPrivescTokenScenarioEvents }       from "@/lib/sim/scenario-packs/windowsPrivescToken.events";
@@ -155,6 +156,12 @@ export interface AttackStory {
   ownServers?: boolean;
   /** The authored office egress: it and its place become the company's own, so a cloud record and the EDR's external address agree. */
   officeEgress?: string;
+  /**
+   * Variants of one parametric template (a different app, entry point, pretext and look-alike for the same attack):
+   * the picker draws the family first, then one variant, so a template with three variants is dealt as often as a
+   * single story, and a variant counts as "seen" once any of its family was.
+   */
+  family?: string;
   complexity: StoryComplexity;
 }
 
@@ -974,6 +981,10 @@ const AI_STORIES: AttackStory[] = [
 const WEB_STORIES: AttackStory[] = [...WEB_ENTRY_STORIES, ...WEB_ADVANCED_STORIES]
   .map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true, ...(d.seat ? { seat: d.seat } : {}) }));
 
+// ── Web injection round: single-player AND Team Training, variants of one template share a family ──────
+const WEB_INJECTION: AttackStory[] = WEB_INJECTION_STORIES
+  .map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), ...(d.family ? { family: d.family } : {}), ...(d.seat ? { seat: d.seat } : {}) }));
+
 /**
  * No cryptocurrency incidents (Tal, 2026-10-02): mining / cryptojacking / wallet clippers are
  * not what the SOC trains for. These storylines stay out of every feed and team exercise.
@@ -1024,6 +1035,7 @@ export const ATTACK_STORIES: AttackStory[] = [
   ...RS_ADVANCED_STORIES,
   ...AI_STORIES,
   ...WEB_STORIES,
+  ...WEB_INJECTION,
   // Team Training only: the single-player dashboard never picks these (pickStoryForCompany).
   ...CORE_STORIES.map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true, ...(d.seat ? { seat: d.seat } : {}) })),
 ].filter(s => !EXCLUDED_STORIES.has(s.id)).map(s => {
@@ -1134,6 +1146,25 @@ export function storiesForCompany(companyId: string, difficulty?: "easy" | "medi
 
 // ── Anti-repeat memory ────────────────────────────────────────────────────────
 
+/** A story's template family: its own id when it is not a variant. */
+export const familyOf = (s: Pick<AttackStory, "id" | "family">) => s.family ?? s.id;
+let FAMILY_BY_ID: Map<string, string> | null = null;
+/** The family of a story id (a recorded id of a story no longer in the catalog is its own family). */
+export function familyOfId(id: string): string {
+  FAMILY_BY_ID ??= new Map(ATTACK_STORIES.map(s => [s.id, familyOf(s)]));
+  return FAMILY_BY_ID.get(id) ?? id;
+}
+/**
+ * One story from a pool, family first: every family is as likely as a single story, then one of its variants.
+ * With no families in the pool this is the plain uniform draw on the same random stream (seeds replay as before).
+ */
+export function pickInFamilies<T extends Pick<AttackStory, "id" | "family">>(pool: T[], rnd: () => number): T {
+  const fams = [...new Set(pool.map(familyOf))];
+  const f = fams[Math.floor(rnd() * fams.length) % fams.length];
+  const members = pool.filter(s => familyOf(s) === f);
+  return members.length === 1 ? members[0] : members[Math.floor(rnd() * members.length) % members.length];
+}
+
 /**
  * Pick the session's attack story for a company: fits the company architecture,
  * matches the requested difficulty's complexity tier, avoids the last N
@@ -1147,7 +1178,9 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
   const fitting = accept ? all.filter(accept) : all;
   const candidates = fitting.length ? fitting : all;
   const recent = readRecent();
-  let pool = candidates.filter(s => !recent.includes(s.id));
+  const seenFamilies = new Set(recent.map(familyOfId));
+  let pool = candidates.filter(s => !recent.includes(s.id) && !seenFamilies.has(familyOf(s)));
+  if (pool.length === 0) pool = candidates.filter(s => !recent.includes(s.id));
   if (pool.length === 0) pool = candidates; // every candidate seen recently - allow repeats
   // Rotate the attack type (Tal 2026-11-12): never the kind of attack of the last shift, and the kinds of
   // the last three only when nothing else is left. A kind is the story's category and the attack it is a
@@ -1157,7 +1190,7 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
   const away = (avoid: Set<string>) => pool.filter(s => !storyThemes(s.id).some(t => avoid.has(t)));
   const rotated = away(lastThree).length ? away(lastThree) : away(last);
   if (rotated.length) pool = rotated;
-  const picked = pool[Math.floor(Math.random() * pool.length)];
+  const picked = pickInFamilies(pool, Math.random);
   pushRecent(picked.id);
   if (process.env.NODE_ENV !== "production") {
     const sources = companySources(companyId);

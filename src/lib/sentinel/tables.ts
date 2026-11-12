@@ -516,6 +516,19 @@ const SCHEMAS: Record<string, Compact> = {
     int: "ClientAuthMethod DurationMs ResponseSizeBytes ResponseStatusCode",
     datetime: "TimeGenerated TokenIssuedAt",
   },
+  // Application Gateway access log, resource-specific (learn.microsoft.com/azure/azure-monitor/reference/tables/agwaccesslogs, checked 2026-11-12)
+  AGWAccessLogs: {
+    string: "AdvancedRoutingConditionSetName AdvancedRoutingMapName AdvancedRoutingRulePriority BackendPoolName BackendSettingName BackendSslCipher BackendSslProtocol ClientIp ErrorInfo Host HttpMethod HttpVersion InstanceId ListenerName OperationName OriginalHost OriginalRequestUriWithArgs RequestQuery RequestUri RuleName ServerRouted SourceSystem SslCipher SslClientCertificateFingerprint SslClientCertificateIssuerName SslClientVerify SslEnabled SslProtocol TenantId TransactionId Type UserAgent WafMode WafPolicyId",
+    int: "ClientPort HttpStatus ReceivedBytes SentBytes ServerStatus UpstreamSourcePort",
+    real: "ClientResponseTime ServerConnectTime ServerHeaderTime ServerResponseLatency TimeTaken WafEvaluationTime",
+    datetime: "TimeGenerated",
+  },
+  // nginx access lines as a text log, Azure Monitor Agent custom text collection (NGINX HTTP Server solution):
+  // the line in RawData, parsed at query time.
+  NGINX_CL: {
+    string: "Computer FilePath RawData TenantId Type",
+    datetime: "TimeGenerated",
+  },
   // IIS logs
   W3CIISLog: {
     string: "AzureDeploymentID cIP Computer Confidence csCookie csHost csMethod csReferer csUriQuery csUriStem csUserAgent csUserName csVersion Description FirstReportedDateTime IndicatorThreatType IsActive LastReportedDateTime MaliciousIP ManagementGroupName RemoteIPCountry Role RoleInstance scStatus scSubStatus scWin32Status sIP SourceSystem sSiteName StorageAccount TLPLevel Type TenantId",

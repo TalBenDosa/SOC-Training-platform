@@ -304,6 +304,8 @@ export const IDENTITY_COLUMNS: Record<string, { user?: string[]; host?: string[]
   BehaviorAnalytics: { user: ["UserPrincipalName"], host: ["SourceDevice"], ip: ["SourceIPAddress", "DestinationIPAddress"] },
   AWSWAF: { ip: ["ClientIp"] },
   AGWFirewallLogs: { host: ["Hostname"], ip: ["ClientIp"] },
+  AGWAccessLogs: { host: ["Host"], ip: ["ClientIp"] },
+  NGINX_CL: { host: ["Computer"] },
   AzureDiagnostics: { user: ["Caller_s"], host: ["Resource"], ip: ["CallerIPAddress"] },
   ApiManagementGatewayLogs: { user: ["UserId"], ip: ["CallerIpAddress"] },
   W3CIISLog: { user: ["csUserName"], host: ["Computer"], ip: ["cIP", "sIP"] },

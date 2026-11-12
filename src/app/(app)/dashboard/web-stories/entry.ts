@@ -27,6 +27,8 @@ export interface WebStoryDef {
   companies?: string[];
   /** The job of the story's staff member: an admin or a service desk agent is an IT seat on every company. */
   seat?: "it";
+  /** The parametric template this story is a variant of (AttackStory.family). */
+  family?: string;
 }
 
 const IA = "Initial Access", COLLECT = "Collection", CRED = "Credential Access", EXEC = "Execution", PERSIST = "Persistence", C2 = "Command and Control", IMPACT = "Impact", STEALTH = "Stealth";

@@ -20,7 +20,7 @@ const WHERE: Record<NeedleKind, Record<string, string[]>> = {
     SigninLogs: ["IPAddress"], AuditLogs: ["InitiatedBy"], OfficeActivity: ["ClientIP"], SecurityEvent: ["IpAddress"], StorageBlobLogs: ["CallerIpAddress"],
     AzureDiagnostics: ["CallerIPAddress", "clientIP_s", "client_ip_s"], ApiManagementGatewayLogs: ["CallerIpAddress"], AzureActivity: ["CallerIpAddress"],
     CommonSecurityLog: ["SourceIP", "DestinationIP"], DeviceNetworkEvents: ["RemoteIP", "LocalIP"], DeviceLogonEvents: ["RemoteIP"], AWSCloudTrail: ["SourceIpAddress"],
-    OktaV2_CL: ["SrcIpAddr"], W3CIISLog: ["cIP"], MicrosoftGraphActivityLogs: ["IPAddress"], CloudAppEvents: ["IPAddress"], AGWFirewallLogs: ["ClientIp"],
+    OktaV2_CL: ["SrcIpAddr"], W3CIISLog: ["cIP"], MicrosoftGraphActivityLogs: ["IPAddress"], CloudAppEvents: ["IPAddress"], AGWFirewallLogs: ["ClientIp"], AGWAccessLogs: ["ClientIp"], AWSWAF: ["ClientIp"],
   },
   account: {
     SigninLogs: ["UserPrincipalName"], AuditLogs: ["InitiatedBy", "TargetResources"], OfficeActivity: ["UserId"], SecurityEvent: ["TargetUserName", "SubjectUserName"],
@@ -29,7 +29,7 @@ const WHERE: Record<NeedleKind, Record<string, string[]>> = {
   },
   host: {
     SecurityEvent: ["Computer"], Event: ["Computer"], Syslog: ["Computer"], DeviceProcessEvents: ["DeviceName"], DeviceNetworkEvents: ["DeviceName"], DeviceFileEvents: ["DeviceName"],
-    DeviceRegistryEvents: ["DeviceName"], DeviceLogonEvents: ["DeviceName"], DeviceEvents: ["DeviceName"], CommonSecurityLog: ["SourceHostName", "DestinationHostName"], W3CIISLog: ["Computer"],
+    DeviceRegistryEvents: ["DeviceName"], DeviceLogonEvents: ["DeviceName"], DeviceEvents: ["DeviceName"], CommonSecurityLog: ["SourceHostName", "DestinationHostName"], W3CIISLog: ["Computer"], NGINX_CL: ["Computer"],
   },
   azureresource: {
     AzureDiagnostics: ["Resource"], StorageBlobLogs: ["AccountName"], ApiManagementGatewayLogs: ["BackendUrl"], AzureActivity: ["ResourceId"],

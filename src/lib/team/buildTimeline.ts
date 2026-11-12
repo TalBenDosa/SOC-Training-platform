@@ -24,7 +24,7 @@ import { approvalRefOf, itVerifyApplies } from "@/lib/sim/itVerify";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
-import { instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, pickInFamilies, familyOf, familyOfId, type AttackStory } from "@/app/(app)/dashboard/attackStories";
 import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type TeamEnv } from "./environment";
 import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
@@ -518,6 +518,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // How many sessions ago this organization last met each kind of attack.
   const themeAgo = new Map<string, number>();
   for (const [id, n] of Object.entries(history.stories)) for (const t of storyThemes(id)) themeAgo.set(t, Math.min(n, themeAgo.get(t) ?? Infinity));
+  const familyAgo = new Map<string, number>();
+  for (const [id, n] of Object.entries(history.stories)) familyAgo.set(familyOfId(id), Math.min(n, familyAgo.get(familyOfId(id)) ?? Infinity));
   const pickStory = (accept: (s: AttackStory) => boolean): AttackStory => {
     const fit = storyPool.filter(accept);
     // A named organization never falls back to a story outside what the admin chose: with too few
@@ -525,14 +527,15 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const from = fit.length ? fit : env ? storyPool.filter(storyFits) : storyPool;
     // Memory across exercises: a storyline this organization ran in its last sessions waits its turn
     // (the least recently run tier only; with no history every story is in it, so seeds replay as before).
-    const ago = (s: AttackStory) => history.stories[s.id] ?? Infinity;
+    // A variant waits as long as its family does: the same template with another pretext is still a repeat.
+    const ago = (s: AttackStory) => Math.min(history.stories[s.id] ?? Infinity, familyAgo.get(familyOf(s)) ?? Infinity);
     const best = Math.max(...from.map(ago));
     const tier = from.filter(s => ago(s) === best);
     // And the kind of attack rotates (Tal 2026-11-12): inside that tier, the stories whose kinds
     // (storyThemes) this organization met longest ago go first. No history: one tier, seeds replay as before.
     const kindAgo = (s: AttackStory) => Math.min(...storyThemes(s.id).map(t => themeAgo.get(t) ?? Infinity));
     const fresh = Math.max(...tier.map(kindAgo));
-    return pick(tier.filter(s => kindAgo(s) === fresh), pickRnd);
+    return pickInFamilies(tier.filter(s => kindAgo(s) === fresh), pickRnd);
   };
   // Concurrent incidents hit different people (a team never works two attacks on one victim).
   const victimOf = (evs: TelemetryEvent[]) => evs.find(e => e.user_email && isMalicious(classifyStoryEvent(e)))?.user_email;

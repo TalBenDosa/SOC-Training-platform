@@ -3,6 +3,7 @@
 //     of the records the use case matches, and a threshold rule fires where the use case fires.
 //  2. Positives: for every rule, a record built to satisfy the use case is returned by the rule, so a
 //     use case the feeds never trigger is still checked.
+import { rawLineOf as nginxLine } from "@/lib/logs/native/sources/nginx";
 import { describe, expect, it } from "vitest";
 import { nativeView, NATIVE_SOURCES, stackFor, type Stack } from "@/lib/logs/native";
 import { matches, runUseCase } from "@/lib/logs/native/engine";
@@ -216,5 +217,7 @@ function rawLineOf(uc: UseCase, rec: Record<string, unknown>, kind: string): str
   if (uc.sourceId === "infoblox") return `<30>Jan  1 09:16:28 ns1 named[1]: 01-Jan-2026 09:16:28.455 client ${rec.client_ip ?? "10.0.0.1"}#1: UDP: query: ${rec.qname ?? "a.example"} IN ${rec.qtype ?? "A"} response: ${rec.rcode ?? "NOERROR"} +ED`;
   if (uc.sourceId === "guardium") return leefLine({ timestamp: "Jan  1 10:00:00", hostname: "gcoll01", appName: "guard_sender", procId: "1", LEEFVersion: "1.0", DeviceVendor: "IBM", DeviceProduct: "Guardium", DeviceVersion: "12.0", EventID: "rule",
     ...Object.fromEntries(Object.entries(rec).map(([k, v]) => [k, String(v)])) });
+  if (uc.sourceId === "nginx") return nginxLine({ remote_addr: "10.0.0.5", remote_user: "-", time_local: "01/Jan/2026:10:00:00 +0000", request: "GET / HTTP/1.1", status: "200", body_bytes_sent: "512",
+    http_referer: "-", http_user_agent: "curl/8.5.0", http_x_forwarded_for: "-", hostname: "web-01", server_addr: "10.0.0.9", http_host: "www.example.com", request_length: "120", request_time: "0.010", ...rec });
   return undefined;
 }

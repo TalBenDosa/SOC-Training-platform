@@ -82,18 +82,19 @@ function decision(f: WebFacts, rateName: string): Record<string, unknown> {
     terminatingRuleId: "Default_Action", terminatingRuleType: "REGULAR", action: blocked ? "BLOCK" : "ALLOW", terminatingRuleMatchDetails: [] as unknown[],
     rateBasedRuleList: [rate] as unknown[], nonTerminatingMatchingRules: [] as unknown[],
   };
-  const groups = ["AWSManagedRulesCommonRuleSet", "AWSManagedRulesKnownBadInputsRuleSet", "AWSManagedRulesSQLiRuleSet", "AWSManagedRulesPHPRuleSet", "AWSManagedRulesATPRuleSet"];
+  const groups = ["AWSManagedRulesCommonRuleSet", "AWSManagedRulesKnownBadInputsRuleSet", "AWSManagedRulesSQLiRuleSet", "AWSManagedRulesPHPRuleSet", "AWSManagedRulesUnixRuleSet", "AWSManagedRulesWindowsRuleSet", "AWSManagedRulesATPRuleSet"];
   const idle = (g: string) => ({ ruleGroupId: `AWS#${g}`, terminatingRule: null, nonTerminatingMatchingRules: [], excludedRules: null });
   if (f.rule === "rate") {
     return { ...base, ruleGroupList: groups.map(idle),
       ...(blocked ? { terminatingRuleId: rateName, terminatingRuleType: "RATE_BASED" } : { nonTerminatingMatchingRules: [{ ruleId: rateName, action: "COUNT", ruleMatchDetails: [] }] }) };
   }
-  if (f.rule === "custom") {
-    const name = f.ruleName ?? "custom-rule";
+  const managed = f.rule && f.rule !== "custom" ? WAF_RULES[f.rule]?.aws : undefined;
+  if (f.rule === "custom" || (managed && "custom" in managed)) {
+    const name = managed && "custom" in managed ? managed.custom : f.ruleName ?? "custom-rule";
     return { ...base, ruleGroupList: groups.map(idle),
       ...(blocked ? { terminatingRuleId: name } : { nonTerminatingMatchingRules: [{ ruleId: name, action: "COUNT", ruleMatchDetails: [] }] }) };
   }
-  const def = f.rule ? WAF_RULES[f.rule]?.aws : undefined;
+  const def = managed && "group" in managed ? managed : undefined;
   if (!def) return { ...base, ruleGroupList: groups.map(idle) };
   // A rule overridden to Count: the request passes, the group reports the match with the configured action.
   const matched = blocked
@@ -104,7 +105,8 @@ function decision(f: WebFacts, rateName: string): Record<string, unknown> {
 }
 
 function labelsOf(f: WebFacts): string[] {
-  const def = f.rule && f.rule !== "rate" && f.rule !== "custom" ? WAF_RULES[f.rule]?.aws : undefined;
+  const r = f.rule && f.rule !== "rate" && f.rule !== "custom" ? WAF_RULES[f.rule]?.aws : undefined;
+  const def = r && "group" in r ? r : undefined;
   return def ? [def.label, ...(def.extraLabel ? [def.extraLabel] : [])] : [];
 }
 

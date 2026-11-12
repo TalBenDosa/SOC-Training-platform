@@ -21,12 +21,13 @@ export const WEB_SERVER_VENDOR = "Web Server";
 export type WafRuleKey =
   | "xss_body" | "sqli_query" | "lfi_query" | "lfi_body" | "ssrf_query" | "java_body" | "php_body"
   | "bad_bot" | "size_body" | "restricted_ext" | "exploitable_path" | "login_volumetric" | "login_stolen"
+  | "cmd_query" | "cmd_body" | "wincmd_query" | "log4j_header" | "sqli_body" | "xss_query" | "crlf_query"
   | "rate" | "custom";
 
 interface AwsRule { group: string; rule: string; label: string; extraLabel?: string }
 interface AzureRule { ruleId: string; ruleGroup: string; message: string; detail: string }
 /** A rule with no managed equivalent on Azure WAF renders as a custom rule of this name. */
-export const WAF_RULES: Record<Exclude<WafRuleKey, "custom" | "rate">, { aws: AwsRule; azure: AzureRule | { custom: string } }> = {
+export const WAF_RULES: Record<Exclude<WafRuleKey, "custom" | "rate">, { aws: AwsRule | { custom: string }; azure: AzureRule | { custom: string } }> = {
   xss_body: {
     aws: { group: "AWSManagedRulesCommonRuleSet", rule: "CrossSiteScripting_BODY", label: "awswaf:managed:aws:core-rule-set:CrossSiteScripting_Body" },
     azure: { ruleId: "941100", ruleGroup: "REQUEST-941-APPLICATION-ATTACK-XSS", message: "XSS Attack Detected via libinjection", detail: "detected XSS using libinjection." },
@@ -78,6 +79,38 @@ export const WAF_RULES: Record<Exclude<WafRuleKey, "custom" | "rate">, { aws: Aw
   login_stolen: {
     aws: { group: "AWSManagedRulesATPRuleSet", rule: "AttributeCompromisedCredentials", label: "awswaf:managed:aws:atp:aggregate:attribute:compromised_credentials", extraLabel: "awswaf:managed:aws:atp:AttributeCompromisedCredentials" },
     azure: { custom: "RateLimitLogin" },
+  },
+  // Injection round (2026-11-12). AWS: use-case groups AWSManagedRulesUnixRuleSet / WindowsRuleSet, Known bad
+  // inputs Log4JRCE_HEADER, SQL database SQLi_BODY, core CrossSiteScripting_QUERYARGUMENTS (developer guide,
+  // checked 2026-11-12). Azure: CRS 3.2 rules 932100, 932110, 944240, 942100, 941100, 921150 (Microsoft Learn,
+  // CRS rule groups and rules, CRS 3.2 tab). AWS has no managed CR/LF rule: a custom match rule.
+  cmd_query: {
+    aws: { group: "AWSManagedRulesUnixRuleSet", rule: "UNIXShellCommandsVariables_QUERYSTRING", label: "awswaf:managed:aws:posix-os:UNIXShellCommandsVariables_QueryString" },
+    azure: { ruleId: "932100", ruleGroup: "REQUEST-932-APPLICATION-ATTACK-RCE", message: "Remote Command Execution: Unix Command Injection", detail: "Pattern match" },
+  },
+  cmd_body: {
+    aws: { group: "AWSManagedRulesUnixRuleSet", rule: "UNIXShellCommandsVariables_BODY", label: "awswaf:managed:aws:posix-os:UNIXShellCommandsVariables_Body" },
+    azure: { ruleId: "932100", ruleGroup: "REQUEST-932-APPLICATION-ATTACK-RCE", message: "Remote Command Execution: Unix Command Injection", detail: "Pattern match" },
+  },
+  wincmd_query: {
+    aws: { group: "AWSManagedRulesWindowsRuleSet", rule: "WindowsShellCommands_QUERYARGUMENTS", label: "awswaf:managed:aws:windows-os:WindowsShellCommands_QueryArguments" },
+    azure: { ruleId: "932110", ruleGroup: "REQUEST-932-APPLICATION-ATTACK-RCE", message: "Remote Command Execution: Windows Command Injection", detail: "Pattern match" },
+  },
+  log4j_header: {
+    aws: { group: "AWSManagedRulesKnownBadInputsRuleSet", rule: "Log4JRCE_HEADER", label: "awswaf:managed:aws:known-bad-inputs:Log4JRCE_Header" },
+    azure: { ruleId: "944240", ruleGroup: "REQUEST-944-APPLICATION-ATTACK-JAVA", message: "Remote Command Execution: Java serialization", detail: "Pattern match" },
+  },
+  sqli_body: {
+    aws: { group: "AWSManagedRulesSQLiRuleSet", rule: "SQLi_BODY", label: "awswaf:managed:aws:sql-database:SQLi_Body" },
+    azure: { ruleId: "942100", ruleGroup: "REQUEST-942-APPLICATION-ATTACK-SQLI", message: "SQL Injection Attack Detected via libinjection", detail: "detected SQLi using libinjection." },
+  },
+  xss_query: {
+    aws: { group: "AWSManagedRulesCommonRuleSet", rule: "CrossSiteScripting_QUERYARGUMENTS", label: "awswaf:managed:aws:core-rule-set:CrossSiteScripting_QueryArguments" },
+    azure: { ruleId: "941100", ruleGroup: "REQUEST-941-APPLICATION-ATTACK-XSS", message: "XSS Attack Detected via libinjection", detail: "detected XSS using libinjection." },
+  },
+  crlf_query: {
+    aws: { custom: "BlockCrlfInQuery" },
+    azure: { ruleId: "921150", ruleGroup: "REQUEST-921-PROTOCOL-ATTACK", message: "HTTP Header Injection Attack via payload (CR/LF detected)", detail: "Pattern match" },
   },
 };
 

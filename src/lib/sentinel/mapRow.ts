@@ -744,6 +744,73 @@ const FDR_BY_KIND: Record<string, Spec> = {
 };
 const MDE_SPECS = new Map([...MDE_TABLES, ...MDO_TABLES].map(t => [t, passProperties(t)]));
 
+
+// ── Web tier (injection round 2026-11-12) ───────────────────────────────────
+// AWS WAF through the AWS S3 connector (AWSWAF), Application Gateway WAF resource-specific tables
+// (AGWFirewallLogs, AGWAccessLogs: learn.microsoft.com/azure/azure-monitor/reference/tables, checked
+// 2026-11-12), IIS through the agent's IIS collection (W3CIISLog), nginx access lines as a text log
+// collected by the Azure Monitor Agent into NGINX_CL (the NGINX HTTP Server solution's table: RawData).
+const AWS_WAF: Spec = {
+  table: "AWSWAF",
+  cols: {
+    Action: "action", ClientIp: "httpRequest.clientIp", Country: "httpRequest.country", FormatVersion: "formatVersion", HttpMethod: "httpRequest.httpMethod", HttpSourceId: "httpSourceId",
+    HttpSourceName: "httpSourceName", HttpVersion: "httpRequest.httpVersion", RequestId: "httpRequest.requestId", TerminatingRuleId: "terminatingRuleId", TerminatingRuleType: "terminatingRuleType",
+    Uri: "httpRequest.uri", Args: "httpRequest.args", WebAclId: "webaclId", Ja3Fingerprint: "ja3Fingerprint", Headers: "httpRequest.headers", HttpRequest: "httpRequest", Labels: "labels",
+    NonTerminatingMatchingRules: "nonTerminatingMatchingRules", RateBasedRuleList: "rateBasedRuleList", RuleGroupList: "ruleGroupList", TerminatingRuleMatchDetails: "terminatingRuleMatchDetails",
+    OversizeFields: "oversizeFields",
+  },
+  fixed: { SourceSystem: "Azure" },
+};
+const AGW_FIREWALL: Spec = {
+  table: "AGWFirewallLogs",
+  cols: {
+    OperationName: "operationName", InstanceId: "properties.instanceId", ClientIp: "properties.clientIp", RequestUri: "properties.requestUri", RuleSetType: "properties.ruleSetType",
+    RuleSetVersion: "properties.ruleSetVersion", RuleId: "properties.ruleId", Message: "properties.message", Action: "properties.action", Site: "properties.site",
+    DetailedMessage: "properties.details.message", DetailedData: "properties.details.data", FileDetails: "properties.details.file", LineDetails: "properties.details.line",
+    Hostname: "properties.hostname", TransactionId: "properties.transactionId", PolicyId: "properties.policyId", PolicyScope: "properties.policyScope", PolicyScopeName: "properties.policyScopeName",
+  },
+  fixed: { SourceSystem: "Azure" },
+  // The table has no rule-group column: the rule file names it.
+  exprs: { "properties.ruleGroup": String.raw`extract(@"rules/([^.]+)\.conf", 1, FileDetails)` },
+};
+const AGW_ACCESS: Spec = {
+  table: "AGWAccessLogs",
+  cols: {
+    OperationName: "operationName", ListenerName: "listenerName", RuleName: "ruleName", BackendPoolName: "backendPoolName", BackendSettingName: "backendSettingName",
+    InstanceId: "properties.instanceId", ClientIp: "properties.clientIP", ClientPort: "properties.clientPort", HttpMethod: "properties.httpMethod", OriginalRequestUriWithArgs: "properties.originalRequestUriWithArgs",
+    RequestUri: "properties.requestUri", RequestQuery: "properties.requestQuery", UserAgent: "properties.userAgent", HttpStatus: "properties.httpStatus", HttpVersion: "properties.httpVersion",
+    ReceivedBytes: "properties.receivedBytes", SentBytes: "properties.sentBytes", TimeTaken: "properties.timeTaken", WafEvaluationTime: "properties.WAFEvaluationTime", WafMode: "properties.WAFMode",
+    TransactionId: "properties.transactionId", SslEnabled: "properties.sslEnabled", SslCipher: "properties.sslCipher", SslProtocol: "properties.sslProtocol",
+    ServerRouted: "properties.serverRouted", ServerStatus: "properties.serverStatus", ServerResponseLatency: "properties.serverResponseLatency", OriginalHost: "properties.originalHost",
+    Host: "properties.host", ErrorInfo: "properties.error_info",
+  },
+  fixed: { SourceSystem: "Azure" },
+};
+const IIS_W3C: Spec = {
+  table: "W3CIISLog",
+  cols: {
+    Computer: "s-computername", sSiteName: "s-sitename", sIP: "s-ip", csMethod: "cs-method", csUriStem: "cs-uri-stem", csUriQuery: "cs-uri-query", sPort: "s-port", csUserName: "cs-username",
+    cIP: "c-ip", csVersion: "cs-version", csUserAgent: "cs(User-Agent)", csReferer: "cs(Referer)", csHost: "cs-host", scStatus: "sc-status", scSubStatus: "sc-substatus",
+    scWin32Status: "sc-win32-status", scBytes: "sc-bytes", csBytes: "cs-bytes", TimeTaken: "time-taken",
+  },
+  fixed: { SourceSystem: "OpsManager" },
+};
+/** One field of the estate's nginx log_format, read out of RawData (the order rawLineOf prints). */
+// A quote in the line is \x22: a verbatim KQL string cannot hold one.
+const nginxField = (re: string) => `extract(@"${re}", 1, RawData)`;
+const NGINX_ACCESS: Spec = {
+  table: "NGINX_CL",
+  cols: { Computer: "hostname", RawData: (_r, log) => log.rawLine },
+  fixed: { FilePath: "/var/log/nginx/access.log" },
+  exprs: {
+    remote_addr: nginxField(String.raw`^(\S+)`), request: nginxField(String.raw`\]\s\x22([^\x22]*)\x22`),
+    status: nginxField(String.raw`\x22\s(\d{3})\s`), body_bytes_sent: nginxField(String.raw`\x22\s\d{3}\s(\d+)`),
+    http_user_agent: nginxField(String.raw`\x22([^\x22]*)\x22\s\x22[^\x22]*\x22\s\S+\s\S+\s\S+\s\d+\s[\d.]+$`),
+    http_x_forwarded_for: nginxField(String.raw`\x22([^\x22]*)\x22\s\S+\s\S+\s\S+\s\d+\s[\d.]+$`),
+    http_host: nginxField(String.raw`(\S+)\s\d+\s[\d.]+$`),
+  },
+};
+
 /** The spec a native kind lands on. Null: no real table takes this record. */
 export function specFor(sourceId: SourceId, kind: string, cloud?: SourceId): Spec | null {
   switch (sourceId) {
@@ -787,6 +854,10 @@ export function specFor(sourceId: SourceId, kind: string, cloud?: SourceId): Spe
     case "mysql_audit": return MYSQL_AUDIT;
     case "exabeam": return EXABEAM;
     case "securonix": return SECURONIX;
+    case "aws_waf": return AWS_WAF;
+    case "azure_waf": return kind === "ApplicationGatewayFirewallLog" ? AGW_FIREWALL : kind === "ApplicationGatewayAccessLog" ? AGW_ACCESS : null;
+    case "iis": return IIS_W3C;
+    case "nginx": return NGINX_ACCESS;
     // ServiceNow tickets, Workday activity, ZPA, Cloudflare Access: no confirmed table with these records.
     default: return null;
   }
