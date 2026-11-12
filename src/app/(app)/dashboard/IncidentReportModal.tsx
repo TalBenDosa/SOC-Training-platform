@@ -86,6 +86,8 @@ interface Props {
   incidentContext?: () => Record<string, unknown> | null;
   onClose: () => void;
   onPassed: (score: number) => void;
+  /** Every graded attempt, passed or not (the end-of-training report collects them). */
+  onGraded?: (result: IncidentReportResponse) => void;
 }
 
 export function IncidentReportModal({
@@ -103,6 +105,7 @@ export function IncidentReportModal({
   incidentContext,
   onClose,
   onPassed,
+  onGraded,
 }: Props) {
   // Draft persistence - this modal unmounts entirely when closed (X / Cancel /
   // Escape), which used to wipe whatever the student had typed. Everything the
@@ -232,6 +235,7 @@ export function IncidentReportModal({
       if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
       const data: IncidentReportResponse = await res.json();
       setResult(data);
+      onGraded?.(data);
       setPassed(data.passed);
       setCredited(data.passed && willCredit);
       if (data.passed) { onPassed(data.score); lsRemove(draftKey); }

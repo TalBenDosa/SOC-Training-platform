@@ -22,6 +22,8 @@ import { IncidentReportModal } from "./IncidentReportModal";
 import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
+import { SessionReportModal } from "./SessionReportModal";
+import { buildSessionReport, SESSION_LIMIT_MS, SESSION_WARN_MS, type GradedReport, type MissedAttack, type SessionEnd, type SessionReport } from "@/lib/dashboard/sessionReport";
 import { startDashboardTour } from "./OnboardingTour";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { COMPANY_PROFILES, NEXACORP_PROFILE } from "@/lib/sim/companyProfilesMeta";
@@ -51,6 +53,8 @@ const COMPANY_ORDER     = ["nexacorp", "rocketstack", "medcore", "globallogis", 
 const ADVANCE_CATCHES   = 2;
 const ADVANCE_WINDOW_MS = 30 * 60_000; // 30 minutes
 const MISSION_BONUS_XP  = 250;         // session-XP reward for completing the mission
+/** The last end-of-training report, reopened from the idle header (device-local copy). */
+const LAST_REPORT_KEY   = "soc_last_training_report_v1";
 
 
 // The analyst's ONE deliverable per company: a passing incident report. It
@@ -127,6 +131,7 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
               { n: "1", title: "Watch the feed", body: "Click any row to open its full raw log." },
               { n: "2", title: "Investigate yourself", body: "There's no “is this bad?” button - read the evidence and decide." },
               { n: "3", title: "Report the incident", body: "Press Report Incident and write what happened. The report is graded." },
+              { n: "4", title: "30 minutes, then your report", body: "Each training runs up to 30 minutes and ends with a report: your success metrics and where to improve." },
             ].map(({ n, title, body }) => (
               <li key={n} className="flex gap-3">
                 <span className="mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-cyber-500/40 bg-cyber-500/15 font-mono text-[11px] font-bold text-cyber-300">
@@ -400,6 +405,25 @@ export default function DashboardPage() {
   const [pausedForReport,     setPausedForReport]     = useState(false);
   const [showResumePrompt,    setShowResumePrompt]    = useState(false);
 
+  // ─── 30-minute training and its report (Tal, 2026-11-12) ──────────────────
+  // A Dashboard training runs at most SESSION_LIMIT_MS. It ends on time, when the company is
+  // secured, or when the analyst ends it, and every end shows the training report: success
+  // metrics against their targets and where to improve (src/lib/dashboard/sessionReport.ts).
+  const [trainingReport,      setTrainingReport]      = useState<SessionReport | null>(null);
+  const [lastReport,          setLastReport]          = useState<SessionReport | null>(null);
+  /** Time ran out while a report was being written: the feed stops, the report can still be filed. */
+  const [timeUp,              setTimeUp]              = useState(false);
+  const timeUpRef            = useRef(false);
+  /** The report shown after a secured company: closing it moves on to the next company. */
+  const advanceAfterReportRef = useRef(false);
+  const pendingReportRef     = useRef<SessionReport | null>(null);
+  const gradedRef            = useRef<GradedReport[]>([]);
+  const missedRef            = useRef<MissedAttack[]>([]);
+  const edrIncidentsRef      = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    try { const raw = lsGet(LAST_REPORT_KEY); if (raw) setLastReport(JSON.parse(raw) as SessionReport); } catch { /* ignore */ }
+  }, []);
+
   // ─── Company progression ──────────────────────────────────────────────────
   // Cleared companies persist through the storage facade → DB (user_progress.
   // cleared_companies) for signed-in users, localStorage for guests. Previously
@@ -481,7 +505,7 @@ export default function DashboardPage() {
   const [caughtInWindow, setCaughtInWindow] = useState(0);
   // Time left (ms) to catch the next attack before the oldest catch rolls out of
   // the 30-min window - null when there are no catches in the window yet.
-  const [windowRemainingMs, setWindowRemainingMs] = useState<number | null>(null);
+  const [, setWindowRemainingMs] = useState<number | null>(null);
 
   // Filters
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
@@ -822,8 +846,9 @@ export default function DashboardPage() {
   };
 
   const handleSelectCompany = (id: string) => {
-    // Switching company ends the running shift: save it first (QA-DASH-8; once per
+    // Switching company ends the running shift: report it and save it first (QA-DASH-8; once per
     // shift, so the save already made by an auto-advance is not repeated).
+    const shiftReport = sessionStartedAt !== null ? collectReport("manual") : null;
     live.endSession();
     setSelectedCompanyId(id);
     lsSet(COMPANY_KEY, id);
@@ -844,6 +869,7 @@ export default function DashboardPage() {
     setTrainingActive(false);
     closeShiftWindows();
     live.pause();
+    showTrainingReport(shiftReport);
   };
 
   const hasActiveFilters =
@@ -915,7 +941,73 @@ export default function DashboardPage() {
 
   const handleClearedContinue = () => {
     setShowClearedModal(false);
+    // The secured shift's report first; closing it moves on to the next company.
+    if (pendingReportRef.current) {
+      advanceAfterReportRef.current = true;
+      showTrainingReport(pendingReportRef.current);
+      pendingReportRef.current = null;
+      return;
+    }
     if (nextCompanyId) handleSelectCompany(nextCompanyId);
+  };
+
+  /** The shift as it stands, as an end-of-training report (null when no training is running). */
+  const collectReport = (endedBy: SessionEnd): SessionReport | null => {
+    if (sessionStartedAt === null) return null;
+    const snap = live.snapshot();
+    return buildSessionReport({
+      company: selectedCompany.name, difficulty: sessionDifficulty, startedAt: sessionStartedAt,
+      endedAt: Math.min(Date.now(), sessionStartedAt + SESSION_LIMIT_MS), endedBy,
+      presented: snap.presented, caught: snap.caught, missed: [...missedRef.current], reports: [...gradedRef.current],
+      eventsOpened: snap.opened, responseTargetSec: live.responseTargetSeconds, edrInvestigations: edrIncidentsRef.current.size, xp: snap.xp,
+    });
+  };
+  const showTrainingReport = (r: SessionReport | null) => {
+    if (!r) return;
+    setTrainingReport(r);
+    setLastReport(r);
+    try { lsSet(LAST_REPORT_KEY, JSON.stringify(r)); } catch { /* ignore */ }
+  };
+  /** End the training now (time is up, or the analyst ends it) and show its report. */
+  const finishTraining = (endedBy: SessionEnd) => {
+    const r = collectReport(endedBy);
+    live.endSession();
+    live.pause();
+    setSessionStartedAt(null);
+    setSessionDifficulty(null);
+    setTrainingActive(false);
+    closeShiftWindows();
+    setShowReportModal(false);
+    setPausedForReport(false);
+    caughtTimesRef.current = [];
+    countedIncidentIdsRef.current.clear();
+    setCaughtInWindow(0);
+    setWindowRemainingMs(null);
+    timeUpRef.current = false;
+    setTimeUp(false);
+    try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
+    showTrainingReport(r);
+  };
+  /** Time is up: a report being written can still be filed (the feed stops); otherwise the training ends now. */
+  const onTimeUpRef = useRef<() => void>(() => {});
+  onTimeUpRef.current = () => {
+    if (showReportModal) { setTimeUp(true); live.pause(); return; }
+    finishTraining("time");
+  };
+  const closeTrainingReport = () => {
+    setTrainingReport(null);
+    if (advanceAfterReportRef.current) {
+      advanceAfterReportRef.current = false;
+      if (nextCompanyId) handleSelectCompany(nextCompanyId);
+    }
+  };
+  const newTrainingFromReport = () => {
+    const d = trainingReport?.facts.difficulty;
+    const next = advanceAfterReportRef.current ? nextCompanyId : null;
+    advanceAfterReportRef.current = false;
+    setTrainingReport(null);
+    if (next) handleSelectCompany(next);
+    if (d === "easy" || d === "medium" || d === "hard") void handleStartTraining(d, next ?? undefined, stackRef.current);
   };
 
   /** The student caught ADVANCE_CATCHES attacks within ADVANCE_WINDOW_MS - end the
@@ -923,6 +1015,9 @@ export default function DashboardPage() {
    *  now that "End Session" is gone: performance advances you, not a button. */
   const autoAdvanceCompany = () => {
     live.addXp(MISSION_BONUS_XP);  // reward the completed mission (session XP)
+    pendingReportRef.current = collectReport("secured");   // shown after the Company Secured modal
+    timeUpRef.current = false;
+    setTimeUp(false);
     live.endSession();          // record the run (history / streak / stats)
     live.pause();               // freeze the feed
     setSessionStartedAt(null);
@@ -938,7 +1033,7 @@ export default function DashboardPage() {
   };
 
   // ── Start training ─────────────────────────────────────────────────────────────
-  const handleStartTraining = async (difficulty: Difficulty, companyOverride?: string, stackOverride?: Stack) => {
+  const handleStartTraining = async (difficulty: Difficulty, companyOverride?: string, stackOverride?: Stack, resumeStartedAt?: number) => {
     // `companyOverride` is set only by the on-refresh resume (see the mount effect
     // below); normal starts use the currently-selected company.
     const company = companyOverride ?? selectedCompanyId;
@@ -974,9 +1069,16 @@ export default function DashboardPage() {
     const story = stackedStory(s, orgMap, company, difficulty, stack, nm);
     setSessionStory(story);
     setInjectedStories([story]);
-    setSessionStartedAt(Date.now());
+    // A refresh resumes the same 30-minute training: its clock keeps the original start.
+    const startedAt = resumeStartedAt ?? Date.now();
+    setSessionStartedAt(startedAt);
     setSessionDifficulty(difficulty);
-    setSessionElapsed(0);
+    setSessionElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    gradedRef.current = [];
+    missedRef.current = [];
+    edrIncidentsRef.current = new Set();
+    timeUpRef.current = false;
+    setTimeUp(false);
     // Open the shift: this is the ONLY thing that starts the feed and unlocks
     // the EDR console. Clear any EDR-report reminder from a previous shift.
     setTrainingActive(true);
@@ -1004,7 +1106,7 @@ export default function DashboardPage() {
     // L-09: remember the active shift so a page refresh resumes it instead of
     // dropping the feed back to an idle 0-event dashboard. Session-scoped: it
     // lives only for this tab and is cleared when the shift is secured.
-    try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty, st: stack })); } catch { /* ignore */ }
+    try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty, st: stack, t: startedAt })); } catch { /* ignore */ }
   };
 
   /** Reset = a clean shift: the same path as Start Training, with the current
@@ -1032,13 +1134,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (resumedRef.current) return;
     resumedRef.current = true;
-    let saved: { c?: string; d?: Difficulty; st?: Stack } | null = null;
+    let saved: { c?: string; d?: Difficulty; st?: Stack; t?: number } | null = null;
     try {
       const raw = ssGet("soc_dash_session");
       if (raw) saved = JSON.parse(raw);
     } catch { saved = null; }
+    // A training whose 30 minutes ran out while the page was away is over: it is not resumed.
+    if (typeof saved?.t === "number" && Date.now() - saved.t >= SESSION_LIMIT_MS) {
+      try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
+      saved = null;
+    }
     if (saved?.c && (saved.d === "easy" || saved.d === "medium" || saved.d === "hard")) {
-      void handleStartTraining(saved.d, saved.c, saved.st);
+      void handleStartTraining(saved.d, saved.c, saved.st, typeof saved.t === "number" ? saved.t : undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1072,10 +1179,25 @@ export default function DashboardPage() {
   /** Close the report - if we paused the feed for it, ask before resuming. */
   const closeReport = () => {
     setShowReportModal(false);
+    // Time ran out while the report was open: closing it ends the training.
+    if (timeUpRef.current) { finishTraining("time"); return; }
     if (pausedForReport) setShowResumePrompt(true);
   };
   const resumeShift = () => { live.resume(); setPausedForReport(false); setShowResumePrompt(false); };
   const stayPaused  = () => { setPausedForReport(false); setShowResumePrompt(false); };
+
+  // The training report's inputs that the hook does not count: each missed attack, and each
+  // incident the analyst took into the EDR console.
+  useEffect(() => {
+    const m = live.missedIncident;
+    if (m && sessionStartedAt !== null) missedRef.current.push({ title: m.title, techniques: m.techniques, tell: m.tell });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.missedIncident]);
+  useEffect(() => {
+    const id = live.activeIncident?.id;
+    if (edrInvestigated && id) edrIncidentsRef.current.add(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edrInvestigated]);
 
   // Tick the session clock once a second while a session is running. The same
   // tick maintains the auto-advance window: it rolls off catches older than
@@ -1085,7 +1207,8 @@ export default function DashboardPage() {
     if (sessionStartedAt === null) return;
     const id = setInterval(() => {
       const now = Date.now();
-      setSessionElapsed(Math.floor((now - sessionStartedAt) / 1000));
+      setSessionElapsed(Math.min(Math.floor((now - sessionStartedAt) / 1000), SESSION_LIMIT_MS / 1000));
+      if (now - sessionStartedAt >= SESSION_LIMIT_MS && !timeUpRef.current) { timeUpRef.current = true; onTimeUpRef.current(); }
       const kept = caughtTimesRef.current.filter(t => now - t <= ADVANCE_WINDOW_MS);
       if (kept.length !== caughtTimesRef.current.length) {
         caughtTimesRef.current = kept;
@@ -1143,11 +1266,10 @@ export default function DashboardPage() {
     return { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen };
   }, [showReportModal, live.events, live.activeIncident]);
 
-  const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
-  // Countdown to the oldest catch expiring - the deadline to reach the next catch.
-  const windowClock = windowRemainingMs != null
-    ? `${String(Math.floor(windowRemainingMs / 60000)).padStart(2, "0")}:${String(Math.floor((windowRemainingMs % 60000) / 1000)).padStart(2, "0")}`
-    : null;
+  // Time left of the 30-minute training (a countdown), amber in its last five minutes.
+  const remainingSec = Math.max(0, SESSION_LIMIT_MS / 1000 - sessionElapsed);
+  const sessionClock = `${String(Math.floor(remainingSec / 60)).padStart(2, "0")}:${String(remainingSec % 60).padStart(2, "0")}`;
+  const timeLow = remainingSec <= SESSION_WARN_MS / 1000;
 
   // Is the viewport wide enough to show the console and the report drawer
   // side by side? Tracked in state (not a Tailwind breakpoint class) because
@@ -1360,36 +1482,50 @@ export default function DashboardPage() {
                   {sessionDifficulty}
                 </span>
               )}
-              <span className="font-mono text-xs font-bold text-white">{sessionClock}</span>
+              <span className={cn("font-mono text-xs font-bold tabular-nums", timeLow ? "text-neon-amber" : "text-white")} title="Time left in this 30-minute training">
+                {sessionClock} left
+              </span>
               {/* Progress toward the auto-advance rule: catch 2 attacks in a
                   rolling 30-min window. Framed as positive progress, not time
                   pressure - if the window lapses the count just resets, no penalty
                   (consistent with the no-fail debrief philosophy elsewhere). */}
               <span
                 className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-cyber-300"
-                title={`Catch ${ADVANCE_CATCHES} attacks within a rolling 30-minute window to secure the company and advance - no rush, the window just resets if it lapses`}
+                title={`Catch ${ADVANCE_CATCHES} attacks in this 30-minute training to secure the company and unlock the next one`}
               >
                 Caught {Math.min(caughtInWindow, ADVANCE_CATCHES)}/{ADVANCE_CATCHES}
               </span>
               {/* Explicit, calm status: how many more and how long left in the
                   current rolling window. Neutral cyber tone (not alarming amber). */}
-              {caughtInWindow > 0 && caughtInWindow < ADVANCE_CATCHES && windowClock && (
-                <span
-                  className="flex items-center gap-1 rounded border border-cyber-500/30 bg-cyber-500/5 px-1.5 py-px font-mono text-[10px] font-semibold text-cyber-300/90"
-                  title="One more catch within this window secures the company. If it lapses the count just resets - no penalty."
-                >
-                  <Clock className="h-3 w-3" /> {ADVANCE_CATCHES - Math.min(caughtInWindow, ADVANCE_CATCHES)} more · {windowClock} left
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={() => finishTraining("manual")}
+                className="rounded border border-border px-2 py-px text-[10px] font-bold uppercase tracking-wider text-slate-300 transition hover:bg-white/5 hover:text-white"
+                title="End this training now and see your training report"
+              >
+                End &amp; report
+              </button>
             </span>
           ) : (
             <span className="ml-auto flex items-center gap-2 text-xs text-slate-400">
               <span className="h-2 w-2 rounded-full bg-slate-600" />
               No active session - press
               <span className="font-semibold text-slate-400">Start Training</span>
+              {lastReport && (
+                <button type="button" onClick={() => setTrainingReport(lastReport)} className="ml-1 flex items-center gap-1 rounded border border-border px-2 py-0.5 font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white">
+                  <FileText className="h-3 w-3" /> Last training report
+                </button>
+              )}
             </span>
           )}
         </div>
+
+        {timeUp && (
+          <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-neon-amber/50 bg-neon-amber/10 px-5 py-3">
+            <Clock className="h-4 w-4 shrink-0 text-neon-amber" />
+            <p className="text-sm text-slate-200">The 30 minutes are up and the feed has stopped. Submit the report you are writing, then close it to see your training report.</p>
+          </div>
+        )}
 
         {/* Sim-data load failure - visible retry instead of a silent dead-end.
             loadSimData() resets its cache on failure, so Retry genuinely re-attempts. */}
@@ -1844,6 +1980,15 @@ export default function DashboardPage() {
             creditsIncident={!!live.activeIncident && !countedIncidentIdsRef.current.has(live.activeIncident.id)}
             incidentContext={live.incidentContext}
             onClose={closeReport}
+            onGraded={(res) => {
+              const ctx = live.incidentContext() as { incidentKey?: string; injectedAt?: number; firstOpenedAt?: number | null } | null;
+              gradedRef.current.push({
+                incidentId: ctx?.incidentKey ?? live.activeIncident?.id ?? `no-incident-${gradedRef.current.length}`,
+                title: ctx ? storyTitle || "Incident" : "Report with no attack in the feed",
+                score: res.score, passed: res.passed, subScores: res.subScores,
+                injectedAt: ctx?.injectedAt ?? null, firstOpenedAt: ctx?.firstOpenedAt ?? null, at: Date.now(),
+              });
+            }}
             onPassed={async (score: number) => {
               // Report filed - clear the EDR "don't forget" reminder.
               try { lsRemove("soc_edr_investigated"); } catch { /* ignore */ }
@@ -1891,6 +2036,8 @@ export default function DashboardPage() {
                   return; // advancing - don't arm another attack for this (now secured) company
                 }
               }
+              // The 30 minutes are up: no next attack, closing the report ends the training.
+              if (timeUpRef.current) return;
               // ONE incident at a time: only now - with the current one reported -
               // do we arm the NEXT attack, and only once per incident. It lands
               // after a short breather so the student is never juggling two.
@@ -1924,6 +2071,16 @@ export default function DashboardPage() {
           xpAwarded={MISSION_BONUS_XP}
           attacksCaught={ADVANCE_CATCHES}
           onContinue={handleClearedContinue}
+        />
+      )}
+
+      {/* ── End-of-training report ─────────────────────────────────────── */}
+      {trainingReport && !showClearedModal && (
+        <SessionReportModal
+          report={trainingReport}
+          companyName={trainingReport.facts.company}
+          onClose={closeTrainingReport}
+          onNewTraining={trainingReport.facts.difficulty ? newTrainingFromReport : undefined}
         />
       )}
 

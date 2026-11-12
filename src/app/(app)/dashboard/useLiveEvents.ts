@@ -275,6 +275,8 @@ export interface LiveEventsApi {
    *  same tick is included). Saves at most once per shift, and only when the shift
    *  had activity; returns null when nothing was saved. reset() starts a new shift. */
   endSession: () => DashboardSessionRecord | null;
+  /** The shift's counters as they stand now, without saving (the end-of-training report reads them). */
+  snapshot: () => { xp: number; caught: number; presented: number; opened: number; missed: number };
   // Attack chain reconstruction (populated after student catches an attack)
   lastAttackChain: LiveEvent[] | null;
   clearLastAttackChain: () => void;
@@ -852,6 +854,10 @@ export function useLiveEvents({
     return record;
   }, []);
 
+  const snapshot = useCallback(() => ({
+    xp: xpRef.current, caught: caughtCountRef.current, presented: presentedRef.current, opened: openedRef.current, missed: fnRef.current,
+  }), []);
+
   const addXp = useCallback((xp: number) => {
     if (xp === 0) return;
     xpRef.current = Math.max(0, xpRef.current + xp);
@@ -906,7 +912,7 @@ export function useLiveEvents({
     missedAttack, missedIncident, clearMissedAttack, markCaught,
     attackTimerSeconds, lastResponseMs, responseTargetSeconds: SLA_SECONDS,
     fnCount, eventsOpenedCount, recordEventOpened, incidentContext,
-    attacksCaughtCount, avgCatchMs, endSession,
+    attacksCaughtCount, avgCatchMs, endSession, snapshot,
     lastAttackChain, clearLastAttackChain, addXp,
   };
 }
