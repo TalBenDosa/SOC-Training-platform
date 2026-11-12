@@ -259,11 +259,20 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "dns_query":
       return `${event.hostname || who} looked up ${dnsQuery || n?.domain || "a domain"}`;
     case "auth_success":
-      return `${who} logged in${host}`;
     case "auth_failure": {
+      // A cloud identity provider's sign-in (Entra, Okta) happens at the provider, not "on" a machine: it names the
+      // application and the address instead, and a row with no account is "a sign-in", never the host as the person.
+      const idp = ["okta", "mfa", "o365", "iam"].includes(event.source) || /entra|azure ad|azure active directory|okta/i.test(event.vendor ?? "");
+      const actor = namedActor ? who : idp ? "An account" : who;
+      const app = idp ? rawStr(event.raw, "azure.signinlogs.properties.appDisplayName", "azure.signinlogs.app_display_name", "okta.target.displayName", "data.office365.ApplicationDisplayName") : "";
+      // The provider records the public address the sign-in came from (an office user arrives from the NAT egress), so a
+      // private workstation address is not what its record shows.
+      const publicIp = event.src_ip && !/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(event.src_ip) ? event.src_ip : "";
+      const where = idp ? `${app ? ` to ${app}` : ""}${publicIp ? ` from ${publicIp}` : ""}` : host;
+      if (event.event_type === "auth_success") return `${actor} signed in${where}`;
       // An identity provider's own result code is part of the record ("error 50126", "error 50072").
       const code = rawStr(event.raw, "azure.signinlogs.properties.status.errorCode", "azure.signinlogs.resultType", "data.office365.ErrorNumber");
-      return `${who} failed to log in${host}${code && code !== "0" ? ` (error ${code})` : ""}`;
+      return `${actor} failed to sign in${where}${code && code !== "0" ? ` (error ${code})` : ""}`;
     }
     case "mfa_challenge":
     case "mfa_push_sent":
