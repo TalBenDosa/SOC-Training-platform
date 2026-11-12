@@ -81,6 +81,15 @@ interface AttackChainBoardProps {
   onXpAward?: (xp: number) => void;
 }
 
+/**
+ * A chip names its event by the time the feed stamped it and its factual line: two rows of one process
+ * ("powershell.exe" three times) stay apart, and nothing is cut to the same truncated text (QA 2026-11-12).
+ */
+function chipText(e: { ts?: string; displayDescription?: string; description?: string }): string {
+  const t = e.ts ? new Date(e.ts).toISOString().slice(11, 19) : "";
+  return `${t ? `${t} ` : ""}${e.displayDescription ?? e.description ?? ""}`;
+}
+
 export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoardProps) {
   const [slots, setSlots]           = useState<SlotMap>({});
   const [dragging, setDragging]     = useState<LiveEvent | null>(null);
@@ -220,7 +229,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                             : "border-border/50 bg-slate-900/60 text-slate-300"
                         )}>
                           <div className="flex items-start justify-between gap-1">
-                            <span className="truncate leading-tight">{assigned.displayDescription ?? assigned.description}</span>
+                            <span className="line-clamp-2 leading-tight" title={chipText(assigned)}>{chipText(assigned)}</span>
                             {!submitted && (
                               <button
                                 onClick={() => handleRemove(phase)}
@@ -285,9 +294,9 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                         : "border-border/60 bg-bg hover:border-border text-slate-300",
                       submitted && "opacity-40 cursor-default"
                     )}
-                    title={event.displayDescription ?? event.description}
+                    title={chipText(event)}
                   >
-                    <p className="truncate font-medium">{event.displayDescription ?? event.description}</p>
+                    <p className="line-clamp-2 font-medium">{chipText(event)}</p>
                     {event.mitre_technique && (
                       <p className="font-mono text-[8px] text-neon-purple/70 mt-0.5">{event.mitre_technique}</p>
                     )}

@@ -134,7 +134,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       BufferSize: String(msg.size), PacketData: msg.hex,
     };
     const chars = internal ? "ADR" : "DR";
-    const rawLine = `${dbg.date} ${dbg.time} ${thread} PACKET  ${pkt} ${f.transport} Snd ${remote} ${xidHex} R Q [${flags.toString(16).padStart(4, "0")}   ${chars.padEnd(3, " ")}${f.rcode.padStart(8, " ")}] ${f.qtype.padEnd(6, " ")} ${wireName(f.qname)}`;
+    // dns.log prints the flags word byte-swapped (a NOERROR answer with RD+RA, 0x8180, reads "8081"; NXDOMAIN
+    // "8381"), as it prints a query's 0x0100 as "0001". The lookup is two lines: the client's query in, the answer out.
+    const swapped = (((flags & 0xff) << 8) | (flags >> 8)).toString(16).padStart(4, "0");
+    const queryLine = `${dbg.date} ${dbg.time} ${thread} PACKET  ${pkt} ${f.transport} Rcv ${remote} ${xidHex}   Q [0001   D   NOERROR] ${f.qtype.padEnd(6, " ")} ${wireName(f.qname)}`;
+    const rawLine = `${queryLine}\n${dbg.date} ${dbg.time} ${thread} PACKET  ${pkt} ${f.transport} Snd ${remote} ${xidHex} R Q [${swapped}   ${chars.padEnd(3, " ")}${f.rcode.padStart(8, " ")}] ${f.qtype.padEnd(6, " ")} ${wireName(f.qname)}`;
     return { sourceId: "windows_dns", kind: "257", format: "xml", record, rawLine, timeMs };
   }
   const msg = dnsMessage({ xid, flags: 0x0100, qname: f.qname, qtype });

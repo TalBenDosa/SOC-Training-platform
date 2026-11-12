@@ -61,7 +61,11 @@ describe("windows_dns - corpus conversion", () => {
   });
   it("debug-log rawLine matches the card's column layout", () => {
     const l = converted.find(c => c.log?.kind === "257")!.log!;
-    expect(l.rawLine).toMatch(/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2} [AP]M [0-9A-F]{4} PACKET  [0-9A-F]{16} UDP Snd [\d.]+ +[0-9a-f]{4} R Q \[(8183|8180)/);
+    // A lookup is two dns.log lines: the client's query (Rcv, flags 0001) and the answer (Snd); the log prints the
+    // flags word byte-swapped, so a NOERROR answer reads 8081 and NXDOMAIN 8381.
+    const [query, answer] = String(l.rawLine).split("\n");
+    expect(query).toMatch(/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2} [AP]M [0-9A-F]{4} PACKET  [0-9A-F]{16} UDP Rcv [\d.]+ +[0-9a-f]{4}   Q \[0001   D   NOERROR\]/);
+    expect(answer).toMatch(/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2} [AP]M [0-9A-F]{4} PACKET  [0-9A-F]{16} UDP Snd [\d.]+ +[0-9a-f]{4} R Q \[(8381|8081)/);
     expect(String(l.record.QNAME)).toMatch(/\.$/);
     expect(String(l.record.TimeCreated)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$/);
   });

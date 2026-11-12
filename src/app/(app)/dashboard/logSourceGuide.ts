@@ -22,10 +22,10 @@ export const LOG_SOURCE_GUIDE: Record<string, LogSourceEntry> = {
     redFlag: "PowerShell with -EncodedCommand or -WindowStyle Hidden",
   },
   ad: {
-    label: "Active Directory - Domain Auth",
-    vendors: "Microsoft Windows Server (built-in)",
-    whatMonitors: ["User login and logout events", "Failed login attempts", "Group membership changes", "Password resets and account locks"],
-    keyFields: ["user.name", "event.id", "source.ip", "logon.type"],
+    label: "Active Directory - the domain controller's Security log",
+    vendors: "Microsoft Windows Server (domain controller, Security channel)",
+    whatMonitors: ["Kerberos tickets (4768, 4769, 4770, 4771) and NTLM validation (4776)", "Account lockouts (4740) and password resets (4723, 4724)", "Account and group changes (4720, 4728, 4732, 4756)", "Directory access and changes (4662, 5136, 5137)"],
+    keyFields: ["EventID", "TargetUserName", "IpAddress", "ServiceName"],
     redFlag: "Many failed logins from one IP followed by a success (password spray)",
   },
   o365: {
@@ -99,11 +99,18 @@ export const LOG_SOURCE_GUIDE: Record<string, LogSourceEntry> = {
     redFlag: "Unknown device connected to internal network switch - possible rogue device",
   },
   windows_security: {
-    label: "Windows Security Log - Host & Domain Auth",
+    label: "Windows Security Log - a member workstation or server",
     vendors: "Microsoft Windows (Security event channel), forwarded via WEF/agent",
-    whatMonitors: ["Logon / logoff (4624, 4625, 4634)", "Account & group changes (4720, 4728, 4732)", "Process creation with command line (4688)", "Kerberos/NTLM ticket requests (4768, 4769, 4776)"],
-    keyFields: ["winlog.event_id", "winlog.event_data.TargetUserName", "winlog.event_data.IpAddress", "winlog.event_data.LogonType"],
+    whatMonitors: ["Logon / logoff on that machine (4624, 4625, 4634)", "Explicit-credential use (4648) and special privileges (4672)", "Process creation with command line (4688)", "Share and file access (5140, 5145, 4663), scheduled tasks (4698)"],
+    keyFields: ["EventID", "TargetUserName", "IpAddress", "LogonType"],
     redFlag: "A burst of 4625 failures on one account then a 4624 success from the same source - brute force that worked",
+  },
+  windows_system: {
+    label: "Windows System Log",
+    vendors: "Microsoft Windows (System event channel), forwarded via WEF/agent",
+    whatMonitors: ["Services installed (7045, Service Control Manager)", "Service start / stop and crashes", "Driver and device events"],
+    keyFields: ["EventID", "ServiceName", "ImagePath", "AccountName"],
+    redFlag: "A new service whose ImagePath runs from a temp or user folder, or launches cmd / powershell, installed as LocalSystem",
   },
   linux_audit: {
     label: "Linux auditd - Kernel Audit Framework",

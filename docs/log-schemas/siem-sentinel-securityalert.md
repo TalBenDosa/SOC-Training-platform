@@ -12,11 +12,15 @@ same row keeps what the product wrote. Checked 2026-11-08 (Sdema review I1).
 
 ## 2. Columns that carry the evidence
 
-- `ExtendedProperties`: a JSON string. A scheduled rule writes its own keys (counts, query period, the
-  account a rule measured); Defender for Cloud writes the alert's extended properties (Model deployment
-  name, End user ID, End user IP address, Grounding document …). The XDR row keeps every key the feed
-  alert states (`ExtendedProperties.<Name>` and `azure.alert.extendedProperties.<Name>`) next to the
-  workspace's own (`Analytic Rule Ids`, Graph ids).
+- `ExtendedProperties`: a JSON string. A scheduled rule writes its own fixed keys (`Query Period`,
+  `Trigger Operator`, `Trigger Threshold`, `Search Query Results Overall Count`, `Analytic Rule Ids`,
+  `Analytic Rule Name`); the fields its author surfaces are `Custom Details`, itself a JSON string of
+  arrays (`{"SourceEDRVendor":["CrowdStrike Falcon"]}`, keys letters and digits only). Defender for
+  Cloud writes the alert's extended properties (Model deployment name, End user ID, End user IP address,
+  Grounding document …) as its own keys.
+- `AlertType`: a scheduled / NRT analytic's alerts carry `<workspace id>_<analytic rule id>` (two GUIDs);
+  a product's alerts carry the product's own type (`SuspiciousPowerShellCommandLine`). Never the alert
+  name with its spaces removed.
 - `Entities`: a JSON string, an array of typed entities (`$id`, `Type` host / account / ip / file /
   azure-resource …). The XDR row keeps the entities the product wrote. An account's `AadUserId` is the
   person's Entra object id, the same one their SigninLogs / AuditLogs rows carry (entraObjectId).
@@ -64,7 +68,7 @@ A scheduled analytics rule:
   "VendorName": "Microsoft",
   "ProductName": "Azure Sentinel",
   "ProductComponentName": "Scheduled Alerts",
-  "AlertType": "PasswordsprayagainstmanyaccountsfromoneaddressAlertType",
+  "AlertType": "6f1c2e84-9b3d-4a57-8e20-d41a7c9b3f06_5b0e8c3a-1f6d-4e72-9a48-7c2d0b6e1f95",
   "SystemAlertId": "8d2e6b14-3c7a-4f19-a5e0-91b4c2d7e6f3",
   "VendorOriginalId": "c41a7e92-6b3d-4d58-8f20-5e9a1c3b7d64",
   "Status": "New",

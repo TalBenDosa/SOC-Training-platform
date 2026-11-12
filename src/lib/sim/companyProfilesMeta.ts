@@ -259,8 +259,8 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     subnet: "10.10.20", domain: "nexacorp.com", netbios: "NEXACORP",
     roster: [
       { name: "r.avraham", title: "Financial Analyst" }, { name: "m.levi", title: "Operations" },
-      { name: "d.cohen", title: "HR Manager" }, { name: "s.patel", title: "Marketing" },
-      { name: "j.chen", title: "Accountant" }, { name: "a.kaplan", title: "Sales" },
+      { name: "d.cohen", title: "HR Manager" }, { name: "s.patel", title: "Risk Analyst" },
+      { name: "j.chen", title: "Financial Analyst" }, { name: "a.kaplan", title: "Sales" },
       { name: "l.ferreira", title: "IT Support" }, { name: "t.harris", title: "DevOps Lead" },
     ],
     serviceAccounts: ["svc-backup", "svc-sql", "svc-scan"],

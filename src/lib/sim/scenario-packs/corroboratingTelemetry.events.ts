@@ -46,6 +46,12 @@ export function mailDelivered(o: MailDeliveredOpts): TelemetryEvent {
       "pps.urls[0]": o.url,
       "pps.urls[0].rewritten": o.urlRewritten,
       "pps.action": "delivered",
+      // The rest of a Proofpoint message record (as core-stories/misc.ts writes it): a delivered message carries
+      // its time, size, addresses, the modules that ran and their scores like every other one in the feed.
+      "pps.messageTime": o.ts, "pps.messageSize": 18_000 + (o.subject.length * 37) % 9_000, "pps.xmailer": "Microsoft Outlook 16.0",
+      "pps.fromAddress": [o.sender], "pps.toAddresses": [o.user], "pps.ccAddresses": [], "pps.headerReplyTo": null, "pps.replyToAddress": [],
+      "pps.malwareScore": 0, "pps.impostorScore": 0, "pps.completelyRewritten": true,
+      "pps.modulesRun": ["access", "av", "zerohour", "spf", "dkimv", "spam", "dmarc", "pdr", "urldefense"],
     },
   };
 }
@@ -121,11 +127,20 @@ export interface ScriptScanOpts {
   content: string; cmdline: string; parentPath: string;
   hostProcessPath: string;      // the NT device path of the interpreter
   description: string;
+  /** The interpreter's authored pid and its parent's: which PowerShell ran this script, when a story has two. */
+  pid?: number; parentPid?: number;
 }
+/** An NT device path as a drive path (\Device\HarddiskVolume3\Windows → C:\Windows). */
+const dosPath = (p: string) => p.replace(/^\\Device\\HarddiskVolume\d+\\/i, "C:\\");
 export function scriptScan(o: ScriptScanOpts): TelemetryEvent {
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_access", severity: "medium",
     hostname: o.host, user_email: o.userEmail, src_ip: o.srcIp, incident_id: o.incidentId, description: o.description,
+    // The interpreter that ran the script, as the process fields every EDR reads (one PowerShell of two in a story).
+    ...(o.pid !== undefined ? { process: {
+      name: o.hostProcessPath.split("\\").pop()!, path: dosPath(o.hostProcessPath), cmdline: o.cmdline, pid: o.pid,
+      parent_name: o.parentPath.split("\\").pop(), ...(o.parentPid !== undefined ? { parent_pid: o.parentPid } : {}),
+    } } : {}),
     raw: {
       "crowdstrike.event_simpleName": "ScriptControlScanTelemetry",
       "crowdstrike.event_platform": "Win",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { source, kindOf } from "./azure_activity";
+import { source, kindOf, armCallerIp, fullResourceId } from "./azure_activity";
 import { validateNative } from "../validate";
 import { runUseCase } from "../engine";
 import { makeCtx } from "../ctx";
@@ -65,7 +65,21 @@ describe("azure_activity - evidence & determinism", () => {
       if (op) expect(blob, `${c.ev.id} operationName`).toContain(op);
       const at = c.ev.raw["azure.alert.alertType"] as string | undefined;
       if (at) expect(blob, `${c.ev.id} alertType`).toContain(at);
-      if (c.ev.src_ip) expect(blob, `${c.ev.id} src_ip`).toContain(c.ev.src_ip);
+      // Azure Resource Manager sees a caller from inside the office as the office's public NAT address (QA 2026-11-12:
+      // never an internal address, a domain controller's included).
+      if (c.ev.src_ip) expect(blob, `${c.ev.id} src_ip`).toContain(log.kind === "ActivityLog" ? armCallerIp(c.ev.src_ip, c.companyId) ?? c.ev.src_ip : c.ev.src_ip);
+    }
+  });
+
+  it("an internal caller address is shown as the office's egress, and a resource id names its resource type", () => {
+    expect(armCallerIp("10.10.1.5", "nexacorp")).toBe("192.0.2.150");
+    expect(armCallerIp("203.0.113.7", "nexacorp")).toBe("203.0.113.7");
+    expect(fullResourceId("SUB", "rg-prod", "MICROSOFT.WEB", "func-x", "MICROSOFT.WEB/SITES/RESTART/ACTION")).toBe("/SUBSCRIPTIONS/SUB/RESOURCEGROUPS/RG-PROD/PROVIDERS/MICROSOFT.WEB/SITES/FUNC-X");
+    expect(fullResourceId("SUB", "rg-prod", "MICROSOFT.COMPUTE", "vm1", "MICROSOFT.COMPUTE/VIRTUALMACHINES/DEALLOCATE/ACTION")).toContain("/PROVIDERS/MICROSOFT.COMPUTE/VIRTUALMACHINES/VM1");
+    for (const c of corpusFor(source.schema.telemetrySources, source.schema.vendorMatch)) {
+      const log = source.fromTelemetry(c.ev, makeCtx(c.companyId));
+      const ip = log?.record.callerIpAddress;
+      if (typeof ip === "string") expect(ip, c.ev.id).not.toMatch(/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/);
     }
   });
 

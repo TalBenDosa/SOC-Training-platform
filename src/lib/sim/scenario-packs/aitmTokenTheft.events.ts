@@ -623,7 +623,7 @@ export function aitmTokenTheftScenarioEvents() {
         "data.office365.ExternalAccess": "false",
         "data.office365.MailAccessType": "Bind",
         "data.office365.SessionId": sessionId,
-        "data.office365.OrganizationId": "a7b8c9d0-1234-5678-abcd-ef0123456789",
+        "data.office365.OrganizationId": "ab1ce26a-8c61-4866-86b1-7e3a63810304",
         "data.office365.Folders[0].Path": "\\Inbox",
         "data.office365.Folders[0].FolderItems[0].InternetMessageId": "<CH2PR12MB4901A7E3F02D9C1B4@CH2PR12MB4901.namprd12.prod.outlook.com>",
         "source.ip": replayIp,

@@ -182,9 +182,9 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
   {
     id: "rs_fw_002", ts: "2026-05-10T10:05:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "medium",
-    vendor: "FortiGate", src_ip: "198.51.100.139", dst_ip: "172.16.14.5", dst_port: 22,
+    vendor: "FortiGate", src_ip: "198.51.100.139", dst_ip: "198.51.100.220", dst_port: 22,
     protocol: "tcp",
-    description: "Inbound SSH connection attempt from 198.51.100.139 to 172.16.14.5 denied by policy 1",
+    description: "Inbound SSH connection attempt from 198.51.100.139 to 198.51.100.220 denied by policy 1",
     raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "SSH", "data.srccountry": "Netherlands", "data.sentbyte": "0", "data.rcvdbyte": "64", "action_result": "blocked" }
   },
   // ── DNS ───────────────────────────────────────────────────────────────────
@@ -314,10 +314,10 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
   {
     id: "rs_fw_004", ts: "2026-05-10T14:00:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "high",
-    vendor: "FortiGate", src_ip: "198.51.100.112", dst_ip: "172.16.14.5", dst_port: 3389,
+    vendor: "FortiGate", src_ip: "198.51.100.112", dst_ip: "198.51.100.220", dst_port: 3389,
     protocol: "tcp", expected_verdict: "fp",
-    fp_explanation: "Opportunistic internet-wide RDP scanning hits RocketStack's public IP range constantly. The perimeter policy denied the connection before any handshake completed (0 bytes sent), and no other telemetry from 172.16.14.5 or this source IP correlates with it - routine background noise, not a targeted or successful attempt.",
-    description: "Inbound RDP connection attempt from 198.51.100.112 to 172.16.14.5 - denied by policy 1",
+    fp_explanation: "Opportunistic internet-wide RDP scanning hits RocketStack's public IP range constantly. The perimeter policy denied the connection before any handshake completed (0 bytes sent), and no other telemetry from this source IP correlates with it - routine background noise, not a targeted or successful attempt.",
+    description: "Inbound RDP connection attempt from 198.51.100.112 to 198.51.100.220 - denied by policy 1",
     raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "RDP", "data.srccountry": "Germany", "data.sentbyte": "0", "data.rcvdbyte": "60", "action_result": "blocked" }
   },
   // ── DNS - additional query events ─────────────────────────────────────────
@@ -965,7 +965,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     user_title: "Clinical Nurse",
     hostname: "WS-MED-045",
     description: "n.smits signed in to WS-MED-045",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "winlog.event_data.AuthenticationPackageName": "Kerberos", "winlog.event_data.WorkstationName": "WS-MED-045", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0xE2DFB2", "winlog.event_data.LogonType": "2", "winlog.event_data.AuthenticationPackageName": "Kerberos", "winlog.event_data.WorkstationName": "WS-MED-045", "action_result": "allowed" }
   },
   {
     id: "mc_ad_002", ts: "2026-05-10T07:03:00.000Z",
@@ -973,16 +973,16 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "p.hoekstra@medcorehealth.org", src_ip: "192.168.10.67",
     hostname: "WS-MED-067",
     description: "p.hoekstra signed in to WS-MED-067",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "winlog.event_data.AuthenticationPackageName": "Kerberos", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x2B5939", "winlog.event_data.LogonType": "2", "winlog.event_data.AuthenticationPackageName": "Kerberos", "action_result": "allowed" }
   },
   {
     id: "mc_ad_003", ts: "2026-05-10T07:15:00.000Z",
     source: "ad", event_type: "auth_success", severity: "informational",
     vendor: "Windows Security", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
     user_title: "Cardiologist",
-    hostname: "WS-MED-022",
-    description: "dr.vandijk authenticated to the EMR server SRV-MEDCORE-EMR01 on WS-MED-022",
-    raw: { "winlog.event_id": "4769", "winlog.event_data.TargetUserName": "dr.vandijk@MEDCORE.NL", "winlog.event_data.ServiceName": "emr-service/SRV-MEDCORE-EMR01", "winlog.event_data.TicketOptions": "0x40810000", "winlog.event_data.TicketEncryptionType": "0x12", "winlog.event_data.Status": "0x0", "winlog.event_data.IpAddress": "192.168.10.22", "action_result": "allowed" }
+    hostname: "SRV-MEDCORE-DC01",
+    description: "dr.vandijk requested a Kerberos service ticket for svc-emr (the EMR server SRV-MEDCORE-EMR01) from WS-MED-022",
+    raw: { "winlog.event_id": "4769", "winlog.event_data.TargetUserName": "dr.vandijk@MEDCORE.NL", "winlog.event_data.ServiceName": "svc-emr", "winlog.event_data.TicketOptions": "0x40810000", "winlog.event_data.TicketEncryptionType": "0x12", "winlog.event_data.Status": "0x0", "winlog.event_data.IpAddress": "192.168.10.22", "action_result": "allowed" }
   },
   {
     id: "mc_ad_004", ts: "2026-05-10T07:44:00.000Z",
@@ -998,7 +998,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "r.bakker@medcorehealth.org", src_ip: "192.168.10.33",
     hostname: "WS-NURS-033",
     description: "r.bakker signed in to WS-NURS-033",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "winlog.event_data.AuthenticationPackageName": "Kerberos", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x534D14", "winlog.event_data.LogonType": "2", "winlog.event_data.AuthenticationPackageName": "Kerberos", "action_result": "allowed" }
   },
   {
     id: "mc_ad_006", ts: "2026-05-10T08:12:00.000Z",
@@ -1026,7 +1026,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     id: "mc_ad_009", ts: "2026-05-10T11:05:00.000Z",
     source: "ad", event_type: "auth_failure", severity: "low",
     vendor: "Windows Security", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
-    hostname: "WS-MED-022",
+    hostname: "SRV-MEDCORE-DC01",
     description: "Kerberos pre-authentication failed for dr.vandijk from 192.168.10.22 (WS-MED-022)",
     raw: { "winlog.event_id": "4771", "winlog.event_data.TargetUserName": "dr.vandijk", "winlog.event_data.Status": "0x18", "winlog.event_data.PreAuthType": "2", "winlog.event_data.TicketOptions": "0x40810010", "winlog.event_data.IpAddress": "::ffff:192.168.10.22", "action_result": "blocked" }
   },
@@ -1339,10 +1339,10 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   {
     id: "mc_fw_005", ts: "2026-05-10T11:45:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "high",
-    vendor: "Check Point NGFW", src_ip: "198.51.100.139", dst_ip: "192.168.10.1", dst_port: 3389,
+    vendor: "Check Point NGFW", src_ip: "198.51.100.139", dst_ip: "192.0.2.220", dst_port: 3389,
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "198.51.100.139 is a known internet-wide scanner IP that repeatedly probes MedCore's public IP range for exposed RDP services. Check Point's Threat Prevention layer dropped the connection at the perimeter before any handshake completed - no other telemetry from this IP correlates with a targeted or successful attempt.",
-    description: "Inbound RDP scan from 198.51.100.139 to 192.168.10.1 - blocked, known scanner IP",
+    description: "Inbound RDP scan from 198.51.100.139 to 192.0.2.220 - blocked, known scanner IP",
     raw: { "action": "Drop", "layer_name": "Threat Prevention", "protection_name": "Microsoft RDP Scan", "protection_type": "Scanner", "action_result": "blocked" }
   },
   {
@@ -1463,16 +1463,18 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   {
     id: "mc_az_001", ts: "2026-05-10T07:30:00.000Z",
     source: "cloud_azure", event_type: "cloud_api_call", severity: "informational",
-    vendor: "Azure Monitor", user_email: "k.devries@medcorehealth.org", src_ip: "192.168.10.5",
-    description: "k.devries read secret emr-db-password from kv-medcore-prod",
-    raw: { "azure.activitylogs.operationName": "Microsoft.KeyVault/vaults/secrets/read", "azure.resource.group": "rg-medcore-prod", "azure.activitylogs.resultType": "Succeeded", "azure.activitylogs.identity.claims.upn": "k.devries@medcorehealth.org", "action_result": "allowed" }
+    // Activity Log rows are control-plane writes and actions from the office's public address: a secret read is Key
+    // Vault's own data-plane audit, a backup job read is not logged at all.
+    vendor: "Azure Monitor", user_email: "k.devries@medcorehealth.org", src_ip: "192.0.2.220",
+    description: "k.devries updated the access policy of kv-medcore-prod for the EMR integration app",
+    raw: { "azure.activitylogs.operationName": "Microsoft.KeyVault/vaults/accessPolicies/write", "azure.resource.group": "rg-medcore-prod", "azure.resource.provider": "Microsoft.KeyVault", "azure.resource.name": "kv-medcore-prod", "azure.activitylogs.resultType": "Succeeded", "azure.activitylogs.identity.claims.upn": "k.devries@medcorehealth.org", "action_result": "allowed" }
   },
   {
     id: "mc_az_002", ts: "2026-05-10T08:00:00.000Z",
     source: "cloud_azure", event_type: "cloud_api_call", severity: "informational",
     vendor: "Azure Monitor",
-    description: "Azure Backup job SQL-MedCore-DB01 completed",
-    raw: { "azure.activitylogs.operationName": "Microsoft.RecoveryServices/vaults/backupJobs/read", "azure.activitylogs.resultType": "Succeeded", "azure.backup_size_gb": "42.1", "action_result": "allowed" }
+    description: "Azure Backup on-demand backup of SQL-MedCore-DB01 started",
+    raw: { "azure.activitylogs.operationName": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems/backup/action", "azure.resource.group": "rg-medcore-prod", "azure.resource.provider": "Microsoft.RecoveryServices", "azure.resource.name": "rsv-medcore-prod", "azure.activitylogs.resultType": "Succeeded", "action_result": "allowed" }
   },
   {
     id: "mc_az_003", ts: "2026-05-10T09:48:00.000Z",
@@ -2007,7 +2009,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "h.muller@globallogis.de", src_ip: "10.50.1.45",
     hostname: "WS-LOG-045",
     description: "h.muller signed in to WS-LOG-045",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x5A427F", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
   },
   {
     id: "gl_ad_002", ts: "2026-05-10T06:15:00.000Z",
@@ -2023,7 +2025,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "k.schmidt@globallogis.de", src_ip: "10.50.2.88",
     hostname: "WS-LOG-088",
     description: "k.schmidt signed in to WS-LOG-088",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x4B71ED", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
   },
   {
     id: "gl_ad_004", ts: "2026-05-10T09:00:00.000Z",
@@ -2098,10 +2100,10 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   {
     id: "gl_fw_002", ts: "2026-05-10T09:45:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "high",
-    vendor: "Cisco Firepower", src_ip: "198.51.100.99", dst_ip: "10.50.1.1", dst_port: 80,
+    vendor: "Cisco Firepower", src_ip: "198.51.100.99", dst_ip: "192.0.2.240", dst_port: 80,
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "198.51.100.99 is a well-known Tor exit node that opportunistically scans internet-facing IP ranges. Cisco Firepower's Security Intelligence feed blocked the connection before any application data was exchanged, and no other GlobalLogis telemetry correlates with this IP - routine background noise, not a targeted attempt.",
-    description: "Inbound HTTP connection from TOR exit node 198.51.100.99 to 10.50.1.1 - blocked by firewall",
+    description: "Inbound HTTP connection from TOR exit node 198.51.100.99 to 192.0.2.240 - blocked by firewall",
     raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Tor_exit_node", "action_result": "blocked" }
   },
   // ── VPN (Cisco AnyConnect) ────────────────────────────────────────────────
@@ -2119,7 +2121,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "p.braun@globallogis.de", src_ip: "10.50.10.12",
     hostname: "WH-TERM-012",
     description: "p.braun signed in to WH-TERM-012 at the start of the early shift",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x889628", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
   },
   {
     id: "gl_ad_102", ts: "2026-05-10T07:30:00.000Z",
@@ -2127,7 +2129,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "k.schmidt@globallogis.de", src_ip: "10.50.2.88",
     hostname: "WS-LOG-088",
     description: "k.schmidt signed in to WS-LOG-088",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x30964F", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
   },
   {
     id: "gl_ad_103", ts: "2026-05-10T07:50:00.000Z",
@@ -2135,7 +2137,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "p.brandt@globallogis.de", src_ip: "10.20.2.107",
     hostname: "WS-GL-ACC-07",
     description: "p.brandt signed in to WS-GL-ACC-07",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x527040", "winlog.event_data.LogonType": "2", "action_result": "allowed" }
   },
   {
     id: "gl_ad_104", ts: "2026-05-10T12:40:00.000Z",
@@ -2143,7 +2145,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "h.muller@globallogis.de", src_ip: "10.50.1.45",
     hostname: "WS-LOG-045",
     description: "h.muller unlocked WS-LOG-045 after lunch",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0xA527E0", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
   },
   {
     id: "gl_ad_105", ts: "2026-05-10T13:05:00.000Z",
@@ -2151,7 +2153,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "k.schmidt@globallogis.de", src_ip: "10.50.2.88",
     hostname: "WS-LOG-088",
     description: "k.schmidt unlocked WS-LOG-088",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0xCEAF2F", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
   },
   {
     id: "gl_ad_106", ts: "2026-05-10T13:20:00.000Z",
@@ -2159,7 +2161,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "p.brandt@globallogis.de", src_ip: "10.20.2.107",
     hostname: "WS-GL-ACC-07",
     description: "p.brandt unlocked WS-GL-ACC-07",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x34AC3C", "winlog.event_data.LogonType": "7", "action_result": "allowed" }
   },
   {
     id: "gl_ad_107", ts: "2026-05-10T06:00:00.000Z",
@@ -2345,20 +2347,20 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Windows Security", user_email: "wh-shift-a@globallogis.de", src_ip: "10.50.10.0",
     hostname: "WH-TERM-001",
     description: "Shared shift account wh-shift-a signed in interactively on WH-TERM-001 at shift start",
-    raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "2", "winlog.event_data.TargetUserName": "wh-shift-a", "winlog.event_data.TargetDomainName": "GLOBALLOGIS", "winlog.event_data.AuthenticationPackageName": "Kerberos", "winlog.event_data.WorkstationName": "WH-TERM-001", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4624", "winlog.event_data.TargetLogonId": "0x54C373", "winlog.event_data.LogonType": "2", "winlog.event_data.TargetUserName": "wh-shift-a", "winlog.event_data.TargetDomainName": "GLOBALLOGIS", "winlog.event_data.AuthenticationPackageName": "Kerberos", "winlog.event_data.WorkstationName": "WH-TERM-001", "action_result": "allowed" }
   },
   {
     id: "gl_ad_006", ts: "2026-05-10T06:30:00.000Z",
     source: "ad", event_type: "auth_success", severity: "informational",
     vendor: "Windows Security", user_email: "svc-erp@globallogis.de", src_ip: "10.50.5.20",
-    hostname: "SRV-GL-ERP01",
-    description: "svc-erp Kerberos ticket granted on SRV-GL-ERP01",
-    raw: { "winlog.event_id": "4769", "winlog.event_data.ServiceName": "SAP_PROD/SRV-GL-ERP01", "winlog.event_data.TicketEncryptionType": "0x12", "action_result": "allowed" }
+    hostname: "DC-GL-FRA01",
+    description: "svc-erp requested a Kerberos service ticket for svc-sap (SAP on SRV-GL-ERP01)",
+    raw: { "winlog.event_id": "4769", "winlog.event_data.ServiceName": "svc-sap", "winlog.event_data.TicketEncryptionType": "0x12", "action_result": "allowed" }
   },
   {
     id: "gl_ad_007", ts: "2026-05-10T08:45:00.000Z",
     source: "ad", event_type: "account_modify", severity: "low",
-    vendor: "Windows Security", user_email: "a.weber@globallogis.de", src_ip: "10.50.1.5",
+    vendor: "Windows Security", user_email: "a.weber@globallogis.de", src_ip: "10.50.1.5", hostname: "DC-GL-FRA01",
     description: "a.weber applied GPO GL-Warehouse-Lockdown to WH-OU",
     raw: { "winlog.event_id": "5136", "winlog.event_data.ObjectClass": "groupPolicyContainer", "winlog.event_data.ObjectDN": "GL-Warehouse-Lockdown", "action_result": "allowed" }
   },
@@ -2381,9 +2383,9 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   {
     id: "gl_fw_005", ts: "2026-05-10T15:00:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "medium",
-    vendor: "Cisco Firepower", src_ip: "198.51.100.194", dst_ip: "10.50.1.1", dst_port: 23,
+    vendor: "Cisco Firepower", src_ip: "198.51.100.194", dst_ip: "192.0.2.240", dst_port: 23,
     protocol: "tcp",
-    description: "Inbound Telnet scan from 198.51.100.194 to 10.50.1.1 - blocked, legacy protocol probe",
+    description: "Inbound Telnet scan from 198.51.100.194 to 192.0.2.240 - blocked, legacy protocol probe",
     raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Attackers", "action_result": "blocked", "source.geo.country_name": "China" }
   },
   // ── Sysmon - additional events ────────────────────────────────────────────
@@ -2450,8 +2452,8 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Helpdesk ticket INC-GL-7712 from k.bauer (Warehouse Supervisor, FRA). k.bauer forgot their password after returning from sick leave. Identity verified via employee ID and manager callback. Password reset performed by Tier-1 support within SLA.",
     raw: {
-      "winlog.event_id": "4723", "winlog.event_data.TargetUserName": "GL\\k.bauer",
-      "winlog.event_data.SubjectUserName": "GL\\it.admin.gl", "host.name": "DC-GL-FRA01",
+      "winlog.event_id": "4724", "winlog.event_data.TargetUserName": "k.bauer", "winlog.event_data.TargetDomainName": "GL",
+      "winlog.event_data.SubjectUserName": "it.admin.gl", "winlog.event_data.SubjectDomainName": "GL", "host.name": "DC-GL-FRA01",
       "action_result": "success"
     }
   },
@@ -3671,7 +3673,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     hostname: "SRV-MEDCORE-DC01",
     description: "p.hoekstra authenticated to domain controller SRV-MEDCORE-DC01 and requested access to the PACS imaging server",
     mitre_technique: "T1078.002",
-    raw: { "winlog.event_id": "4769", "winlog.event_data.TargetUserName": "p.hoekstra@MEDCORE.NL", "winlog.event_data.ServiceName": "pacs-service/SRV-MEDCORE-PACS01", "winlog.event_data.TicketOptions": "0x40810000", "winlog.event_data.TicketEncryptionType": "0x17", "winlog.event_data.Status": "0x0", "winlog.event_data.IpAddress": "::ffff:192.168.10.67", "action_result": "allowed" }
+    raw: { "winlog.event_id": "4769", "winlog.event_data.TargetUserName": "p.hoekstra@MEDCORE.NL", "winlog.event_data.ServiceName": "svc-pacs", "winlog.event_data.TicketOptions": "0x40810000", "winlog.event_data.TicketEncryptionType": "0x17", "winlog.event_data.Status": "0x0", "winlog.event_data.IpAddress": "::ffff:192.168.10.67", "action_result": "allowed" }
   },
   {
     id: "mc_c4", ts: "2026-05-10T13:35:00.000Z", source: "edr", event_type: "process_create",
@@ -3854,7 +3856,7 @@ const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
       "aws.cloudtrail.responseElements":         null,
       "aws.cloudtrail.requestParameters.pathPrefix": "/",
       "aws.cloudtrail.recipientAccountId":        "247316892041",
-      "aws.cloudtrail.request_id":                "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "aws.cloudtrail.request_id":                "9795f3df-f727-4b59-9970-6a751bba2254",
       "cloud.account.id":                         "247316892041",
       "cloud.region":                             "us-east-1",
       "action_result":                            "allowed"
@@ -4192,15 +4194,15 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
   },
   {
     id: "gl_d2", ts: "2026-05-10T18:08:00.000Z", source: "firewall", event_type: "net_connection",
-    severity: "high", vendor: "Cisco Firepower", src_ip: "198.51.100.97", dst_ip: "10.50.6.45",
+    severity: "high", vendor: "Cisco Firepower", src_ip: "198.51.100.97", dst_ip: "192.0.2.240",
     hostname: "SRV-GL-APP02",
-    description: "The same source IP switched target and opened 43 further SSH connections to SRV-GL-APP02",
+    description: "The same source IP switched target and opened 43 further SSH connections to 192.0.2.240, the published SSH address of SRV-GL-APP02",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.application_protocol": "SSH",
            "cisco.ftd.rule_name": "OUTSIDE-IN-MGMT",
            "cisco.ftd.initiator_bytes": "3440", "cisco.ftd.responder_bytes": "5504",
            "cisco.ftd.connection_duration": "1",
-           "source.ip": "198.51.100.97", "destination.ip": "10.50.6.45",
+           "source.ip": "198.51.100.97", "destination.ip": "192.0.2.240",
            "destination.port": "22", "action_result": "allowed" }
   },
   {

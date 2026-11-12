@@ -125,6 +125,7 @@ import { ecsTechnique } from "@/lib/logs/ecsFields";
 import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
 import { attackName } from "./attackNames";
 import { withAuthBurst } from "./authBursts";
+import { scriptCommands } from "@/lib/sim/scriptCommands";
 
 /**
  * Real difficulty for STORY SELECTION - how simple the attack itself is for a
@@ -1029,6 +1030,13 @@ const TEAM_WIDER: Record<string, string[]> = {
  */
 // webshell-rce runs its own IIS shop (WEB-SHOP-01) and its database (SQL-SHOP-02): mapped onto the company's
 // servers it landed on a file or backup server, which no web shop runs on.
+/** Attacker addresses and domains drawn by live renders in this browser (a shift's storylines never share one). */
+const LIVE_IPS = new Set<string>(), LIVE_DOMAINS = new Set<string>();
+/** The live set, emptied once it holds a long session's worth (the draw pool is finite). */
+function liveDrawn(set: Set<string>): Set<string> {
+  if (set.size > 150) set.clear();
+  return set;
+}
 /** Every documentation address the catalog authors (variation.ts never hands one of them to another storyline). */
 let CATALOG_IPS: Set<string> | null = null;
 function catalogIps(): Set<string> {
@@ -1414,7 +1422,15 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
   const et = e.event_type ?? "";
   const isDetection = e.is_detection === true || /detection|threat|malware|ransom/i.test(et);
   const block: Record<string, unknown> = {};
-  if (target === "crowdstrike") {
+  // A script the PowerShell engine was asked to run (Falcon ScriptControlScanTelemetry): Defender records the
+  // commands it invoked (DeviceEvents PowerShellCommand), never a "GeneralEvent".
+  const scriptScan = String(src["crowdstrike.event_simpleName"] ?? "") === "ScriptControlScanTelemetry";
+  if (scriptScan && target === "mde") {
+    const cmd = scriptCommands(String(src["crowdstrike.ScriptContent"] ?? ""))[0];
+    block["ActionType"] = "PowerShellCommand";
+    if (cmd) block["AdditionalFields"] = JSON.stringify({ Command: cmd });
+    if (e.hostname) block["DeviceName"] = e.hostname.toLowerCase();
+  } else if (target === "crowdstrike") {
     // Map each telemetry kind to its real FDR event_simpleName - never DetectionSummaryEvent
     // for a non-detection (a file write mislabelled that way renders as a spurious alert).
     block["crowdstrike.event_simpleName"] = isDetection ? "DetectionSummaryEvent"
@@ -1466,6 +1482,14 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
   put("process.name", e.process?.name); put("process.executable", e.process?.path); put("process.command_line", e.process?.cmdline);
   put("process.pid", e.process?.pid); put("process.parent.name", e.process?.parent_name);
   put("process.hash.sha256", e.process?.hash?.sha256);
+  if (scriptScan) {
+    // The PowerShell host that ran the script and the process that started it, in the neutral fields every EDR reads.
+    const drive = (p: unknown) => (typeof p === "string" ? p.replace(/^\\Device\\HarddiskVolume\d+\\/i, "C:\\") : undefined);
+    const image = drive(src["crowdstrike.ImageFileName"]);
+    put("process.executable", image); put("process.name", image?.split("\\").pop());
+    put("process.command_line", src["crowdstrike.CommandLine"]);
+    put("process.parent.name", drive(src["crowdstrike.ParentImageFileName"])?.split("\\").pop());
+  }
   put("file.path", e.file?.path); put("file.hash.sha256", e.file?.sha256); put("file.size", e.file?.size);
   put("url.full", e.network?.url); put("destination.ip", e.dst_ip); put("destination.port", e.dst_port);
   put("registry.path", e.registry?.path); put("registry.value", e.registry?.value);
@@ -1684,6 +1708,14 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     }
   }
 
+  // One VPN gateway name per company (QA 2026-11-12): a story's gateway (VPN-GW-01, vpn-gw-01) is the gateway
+  // the company's own remote-access rows name.
+  const gwOf = (e: TelemetryEvent) => (e.source === "vpn" ? String(e.raw?.["gp.gateway"] ?? e.raw?.["observer.name"] ?? "") : "");
+  const gwCount = new Map<string, number>();
+  for (const e of companyPool) { const g = gwOf(e); if (g) gwCount.set(g, (gwCount.get(g) ?? 0) + 1); }
+  const companyGw = [...gwCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (companyGw) for (const g of new Set(s.events.map(gwOf).filter(Boolean))) if (g !== companyGw && !gwCount.has(g)) pairs.push([g, companyGw]);
+
   // Internal email domain → the company's (catches any other internal identity that
   // still carried the story's baked-in domain, e.g. cryotech.com on a MedCore feed).
   const victimDomain = victim?.includes("@") ? victim.split("@")[1] : undefined;
@@ -1756,6 +1788,12 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     ownerCount.set(e.hostname, m);
   }
   const ownerOf = (h: string) => { const m = ownerCount.get(h); return m ? [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] : undefined; };
+  /** The desk a person works at in the company's own feed (the host their rows name most): one person, one machine (QA 2026-11-12). */
+  const primaryDeskOf = (user: string) => {
+    let best: string | undefined, n = 0;
+    for (const [h, m] of ownerCount) { const c = m.get(user) ?? 0; if (c > n && WORKSTATION_NAME.test(h)) { best = h; n = c; } }
+    return best;
+  };
   const assetHosts = [...new Set([...registryHostPool, ...hostPool])];
   const dcTargets = [...new Set([...(assets ? [assets.dc] : []), ...assetHosts.filter(isDcHost)])];
   const serverTargets = [...new Set([...registryHostPool.filter(isServerHost), ...hostPool.filter(isServerHost)])];
@@ -1810,15 +1848,33 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       const deskOs = assets?.hostOs ? storyHostOs(h, s.events) : undefined;
       const sameOs = deskOs ? workstationTargets.filter(w => companyHostOs(companyId, w) === deskOs) : [];
       const desks = sameOs.length ? sameOs : workstationTargets;
-      const owned = newUser ? desks.filter(w => ownerOf(w) === newUser) : [];
+      // The person's own desk, even one the company's host registry does not list (their own rows name it), when its OS fits.
+      const own = newUser ? primaryDeskOf(newUser) : undefined;
+      const primary = own && (desks.includes(own) || !deskOs || companyHostOs(companyId, own) === deskOs) ? own : undefined;
+      const owned = newUser ? [...(primary && desks.includes(primary) ? [primary] : []), ...desks.filter(w => w !== primary && ownerOf(w) === newUser)] : [];
       const unowned = desks.filter(w => !ownerOf(w));
       const notOthers = desks.filter(w => { const o = ownerOf(w); return !o || (users?.has(o) ?? false) || o === newUser; });
-      t = pickFrom(owned, h) ?? pickFrom(unowned, h) ?? pickFrom(notOthers, h) ?? pickFrom(desks, h, true);
+      t = (primary && !used.has(primary) ? primary : undefined)
+        ?? pickFrom(owned, h) ?? pickFrom(unowned, h) ?? pickFrom(notOthers, h) ?? pickFrom(desks, h, true);
     }
     if (!t) t = registryHostPool.length ? registryHostPool[hostHash(h) % registryHostPool.length] : h;
     used.add(t);
     if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); }
   });
+
+  // A file server or mail server a story names only inside text (a share path, a service name, a Received
+  // header) is the company's own: one name per server (QA 2026-11-12, SRV-FILE01 / FS02 / FILES01 in one feed).
+  if (assets) {
+    const blob = JSON.stringify(s.events);
+    const exchange = [...new Set(companyPool.map(e => e.hostname).filter((h): h is string => !!h && /exch/i.test(h)))][0];
+    const roleTarget = (tok: string) => /exch/i.test(tok) ? exchange : /file|fs\d/i.test(tok) ? assets.fileServer : undefined;
+    // Longest first, so SRV-FS-013 is renamed before SRV-FS-01 could match inside it.
+    for (const tok of [...new Set(blob.match(/\bSRV-[A-Z0-9-]*(?:FILE|FILES|FS|EXCH|EXCHANGE)[A-Z0-9-]*\b/g) ?? [])].sort((a, b) => b.length - a.length)) {
+      if (storyHosts.includes(tok) || pairs.some(([f]) => f === tok)) continue;
+      const to = hostMap.get(tok) ?? roleTarget(tok);
+      if (to && to !== tok) pairs.push([tok, to]);
+    }
+  }
 
   // The office network as cloud and SaaS logs see it, and where it is: the company's own, the same address its EDR prints.
   const office = s.officeEgress && assets?.office;
@@ -2021,13 +2077,43 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   });
 
   // One story → one set of endpoint identities (image path / hash per host, parent facts, writers, SIDs, logon ids).
-  const placed = { ...s, events: threadEndpointStory(threadHostIps(normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents))) };
+  const threaded = threadEndpointStory(threadHostIps(normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents)));
+  // One person, one job (QA 2026-11-12): a story's title chip for a company person is the title that person
+  // has everywhere else in the company's feed, never the job the story was authored with.
+  const titles = canonicalTitles(companyPool, assets);
+  const placed = { ...s, events: titles.size ? threaded.map(e => {
+    const t = e.user_email ? titles.get(e.user_email.toLowerCase()) : undefined;
+    return t && e.user_title && e.user_title !== t ? { ...e, user_title: t } : e;
+  }) : threaded };
   // Last: this render's attacker infrastructure (variation.ts), so the same storyline never shows the same addresses twice.
   // Its own stream: the swap never shifts the draws a Team session makes after this story.
   const vrnd = vary.seed !== undefined ? streamOf(`${vary.seed}:${companyId ?? ""}`, `vary:${s.id}`)
     : rnd === Math.random ? Math.random : streamOf(`fixed:${companyId ?? ""}`, `vary:${s.id}`);
-  const withIps = varyAttackerInfra(placed, companyPool, companyId, vrnd, { reserved: catalogIps(), used: vary.usedIps }).story;
-  return varyAttackerDomains(withIps, companyPool, vrnd, { used: vary.usedDomains }).story;
+  // A live single-player draw (no seed, Math.random) passes no session set: the addresses and domains already
+  // drawn in this browser keep two storylines of one shift from sharing an attacker (QA 2026-11-12: one IP
+  // was both a ClickFix C2 and a phishing sender). Seeded and fixed draws stay replayable.
+  const live = vary.seed === undefined && rnd === Math.random;
+  const withIps = varyAttackerInfra(placed, companyPool, companyId, vrnd, { reserved: catalogIps(), used: vary.usedIps ?? (live ? liveDrawn(LIVE_IPS) : undefined) }).story;
+  return varyAttackerDomains(withIps, companyPool, vrnd, { used: vary.usedDomains ?? (live ? liveDrawn(LIVE_DOMAINS) : undefined) }).story;
+}
+
+/**
+ * Each company person's job title as the company's own feed shows it (the title most of their rows carry),
+ * else the roster's. Keys are lower-case addresses.
+ */
+export function canonicalTitles(companyPool: TelemetryEvent[], assets?: { domain: string; roster: { name: string; title: string }[] }): Map<string, string> {
+  const counts = new Map<string, Map<string, number>>();
+  for (const e of companyPool) {
+    const t = e.user_title ?? (e.user as { title?: string } | undefined)?.title;
+    if (!e.user_email || !t) continue;
+    const k = e.user_email.toLowerCase();
+    const m = counts.get(k) ?? new Map<string, number>();
+    m.set(t, (m.get(t) ?? 0) + 1); counts.set(k, m);
+  }
+  const out = new Map<string, string>();
+  for (const [k, m] of counts) out.set(k, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]);
+  if (assets) for (const r of assets.roster) { const k = `${r.name}@${assets.domain}`.toLowerCase(); if (!out.has(k)) out.set(k, r.title); }
+  return out;
 }
 
 /**

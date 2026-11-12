@@ -71,6 +71,14 @@ function panCategory(f: FwFacts): string {
   return "any";
 }
 function loc(ip: string, country: string | undefined): string | undefined { return panPrivateLabel(ip) ?? country; }
+/**
+ * A TLS session the firewall decrypted: the record shows what only decryption reveals (a URL path past the host,
+ * the User-Agent, the Referer). The flags column then says so (0x01000000), as PAN-OS writes it.
+ */
+function decryptedTls(f: FwFacts): boolean {
+  if (![443, 8443].includes(f.dport)) return false;
+  return !!(f.userAgent || f.referer || (f.path && f.path !== "/"));
+}
 const digits = (ctx: NativeCtx, seed: string) => `${ctx.int(seed + "a", 100000000, 999999999)}${ctx.int(seed + "b", 100000000, 999999999)}${ctx.int(seed + "c", 1, 9)}`;
 function zones(f: FwFacts): [string, string] {
   if (f.dir === "outbound") return ["trust", "untrust"];
@@ -108,7 +116,10 @@ function head(f: FwFacts, ctx: NativeCtx, type: "TRAFFIC" | "THREAT", subtype: s
   r.sport = String(f.sport); r.dport = String(f.dport);
   r.natsport = natted && isSnat(f) ? String(natPort(f, ctx)) : "0";
   r.natdport = natted ? String(f.dport) : "0";
-  r.flags = firstPacketDrop ? "0x0" : type === "THREAT" ? (f.dir === "inbound" ? "0x402000" : "0x403000") : isSnat(f) ? "0x400053" : "0x400050";
+  const base = firstPacketDrop ? 0 : type === "THREAT" ? (f.dir === "inbound" ? 0x402000 : 0x403000) : isSnat(f) ? 0x400053 : 0x400050;
+  // 0x01000000: the SSL session was decrypted (SSL Forward Proxy). Only then does a session on 443 carry the full
+  // URL path, the User-Agent and the Referer; without it the URL log has the SNI host alone (decryptedTls).
+  r.flags = `0x${(base | (decryptedTls(f) ? 0x01000000 : 0)).toString(16)}`;
   r.proto = f.proto;
   return r;
 }

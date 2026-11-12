@@ -107,11 +107,11 @@ export function buildAzureManagedIdentityAbuseScenario(
         { value: "cred_add", label: "The 'Add service principal credentials' record that appended a new client secret to svc-billing-connector" },
         { value: "role", label: "The roleAssignments/write granting Key Vault Secrets Officer at rg-billing-prod, which authorised the outside sign-ins" },
         { value: "graph_signin", label: "The first non-interactive service-principal sign-in to Microsoft Graph, where the new address first shows up" },
-        { value: "subenum", label: "The resourceGroups/read enumeration of prod-analytics-sub, the earliest Azure Activity record in the whole chain" },
+        { value: "subenum", label: "The exportTemplate of rg-billing-prod, the earliest Azure Activity record in the whole chain" },
       ],
       answer: "cred_add",
       explanation:
-        "A service principal can only sign in if it holds a usable credential. amia_01 is where the intruder gave it one, a new client secret appended to the EXISTING app registration through 'Add service principal credentials'. That is the quiet pivot: no new app is registered and no consent prompt fires, so nothing looks created, yet from that moment the identity can authenticate from anywhere. Every later step, the sign-ins, the role grant, the vault and storage reads, depends on it. The role assignment (amia_05) widened what the identity could do but came after it was already signing in. The Graph sign-in (amia_02) is the first USE of the secret, not its origin. The subscription enumeration (amia_04) is downstream reconnaissance. The credential-add is the join that ties the loud data-access alert back to a cause.",
+        "A service principal can only sign in if it holds a usable credential. amia_01 is where the intruder gave it one, a new client secret appended to the EXISTING app registration through 'Add service principal credentials'. That is the quiet pivot: no new app is registered and no consent prompt fires, so nothing looks created, yet from that moment the identity can authenticate from anywhere. Every later step, the sign-ins, the role grant, the vault and storage reads, depends on it. The role assignment (amia_05) widened what the identity could do but came after it was already signing in. The Graph sign-in (amia_02) is the first USE of the secret, not its origin. The subscription template export (amia_04) is downstream reconnaissance. The credential-add is the join that ties the loud data-access alert back to a cause.",
     },
     {
       id: "amia_q2",
@@ -158,7 +158,7 @@ export function buildAzureManagedIdentityAbuseScenario(
         { value: "role_write", label: "Microsoft.Authorization/roleAssignments/write, it granted the identity a standing role that survives the current token" },
         { value: "kv_read", label: "SecretGet in the Key Vault diagnostic log, reading one secret is the most durable form of access in the chain" },
         { value: "list_keys", label: "Microsoft.Storage/storageAccounts/listKeys/action, listing keys permanently rewrites the storage account's access model" },
-        { value: "rg_read", label: "Microsoft.Resources/subscriptions/resourceGroups/read, enumerating resource groups establishes lasting control of the subscription" },
+        { value: "rg_read", label: "Microsoft.Resources/subscriptions/resourceGroups/exportTemplate/action, exporting the group's template establishes lasting control of the subscription" },
       ],
       answer: "role_write",
       explanation:

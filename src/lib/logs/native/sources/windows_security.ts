@@ -2,13 +2,21 @@
  * Microsoft Windows Security event log (+ System-log 7045) - native module
  * (card: docs/log-schemas/windows-security.md).
  *
- * Record: one EVTX event as the FLAT JSON the card standardises on - the System keys
- * we keep (`EventID` int, `Computer` FQDN, `TimeCreated` ISO-8601 UTC with 7 fractional
- * digits, `Channel`, `Provider`, `EventRecordID` int, `Keywords` hex string) followed
- * by every `EventData/Data` element under its exact Windows PascalCase name, in the
- * documented order, every EventData value a STRING exactly as the XML holds it
- * (`"LogonType": "3"`, `"Status": "0xc000006d"`). `%%NNNN` placeholders stay as-is.
- * `rawLine` = the rendered EVTX XML of the same event.
+ * The wire form is the event's EVTX XML (`rawLine`, format "xml"), as Sysmon's module shows it
+ * (Tal's QA, 2026-11-12: the Security log read as invented flat JSON next to Sysmon's XML). The
+ * parsed `record` keeps the System values we key on (`EventID` int, `Computer` FQDN,
+ * `TimeCreated` = the SystemTime attribute, `Channel`, `Provider` = the Provider Name attribute,
+ * `EventRecordID` int, `Keywords` hex) followed by every `EventData/Data` element under its exact
+ * Windows name, in the documented order, every value a STRING exactly as the XML holds it.
+ * `%%NNNN` placeholders stay as-is (the Analysis view prints their meaning beside them).
+ *
+ * Coherence rules (the same QA): a local logon (types 2 / 7 / 11) is User32 / Negotiate from
+ * 127.0.0.1 port 0 with the computer as Subject; a service / batch logon is Advapi / Negotiate with
+ * no network address; a 4625's FailureReason and Status follow its SubStatus; a machine Subject is
+ * S-1-5-18 with session 0x3E7, a user Subject carries that user's SID and session; a 4769 / 4770
+ * ServiceName is the service ACCOUNT (SRV-FILE01$), never the SPN; a 4740 is written by the
+ * domain controller with the caller computer in TargetDomainName; EventRecordID grows with time on
+ * each computer.
  *
  * The EventData is rebuilt per event id into the card's real shape (never a copy of the
  * authored `winlog.event_data.*` map): a 4740 puts the caller in `TargetDomainName`
@@ -29,13 +37,14 @@
  * the legacy view.
  */
 import { accountSid, logonLuid, domainSidOf, procPid } from "./_proc-identity";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 // ── schema (card §3.2, documented field order) ────────────────────────────────
 const SYS = ["EventID", "Computer", "TimeCreated", "Channel", "Provider", "EventRecordID", "Keywords"];
-const k = (...ed: string[]): KindSchema => ({ required: [...SYS, ...ed], optional: ["KeywordsText"] });
-const kOpt = (req: string[], opt: string[]): KindSchema => ({ required: [...SYS, ...req], optional: [...opt, "KeywordsText"] });
+const k = (...ed: string[]): KindSchema => ({ required: [...SYS, ...ed], optional: [] });
+const kOpt = (req: string[], opt: string[]): KindSchema => ({ required: [...SYS, ...req], optional: opt });
 
 const LOGON_4624 = ["SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "TargetUserSid", "TargetUserName", "TargetDomainName", "TargetLogonId", "LogonType", "LogonProcessName", "AuthenticationPackageName", "WorkstationName", "LogonGuid", "TransmittedServices", "LmPackageName", "KeyLength", "ProcessId", "ProcessName", "IpAddress", "IpPort", "ImpersonationLevel", "RestrictedAdminMode", "TargetOutboundUserName", "TargetOutboundDomainName", "VirtualAccount", "TargetLinkedLogonId", "ElevatedToken"];
 const ACCT_MGMT = ["TargetUserName", "TargetDomainName", "TargetSid", "SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "PrivilegeList", "SamAccountName", "DisplayName", "UserPrincipalName", "HomeDirectory", "HomePath", "ScriptPath", "ProfilePath", "UserWorkstations", "PasswordLastSet", "AccountExpires", "PrimaryGroupId", "AllowedToDelegateTo", "OldUacValue", "NewUacValue", "UserAccountControl", "UserParameters", "SidHistory", "LogonHours"];
@@ -64,6 +73,8 @@ const kinds: Record<string, KindSchema> = {
   // Kerberos / NTLM on the DC
   "4768": kOpt(["TargetUserName", "TargetDomainName", "TargetSid", "ServiceName", "ServiceSid", "TicketOptions", "Status", "TicketEncryptionType", "PreAuthType", "IpAddress", "IpPort", "CertIssuerName", "CertSerialNumber", "CertThumbprint"], ["ResponseTicket", ...KERB_2025, "PreAuthEncryptionType"]),
   "4769": kOpt(["TargetUserName", "TargetDomainName", "ServiceName", "ServiceSid", "TicketOptions", "TicketEncryptionType", "IpAddress", "IpPort", "Status", "LogonGuid", "TransmittedServices"], ["RequestTicketHash", "ResponseTicketHash", ...KERB_2025]),
+  // A service ticket renewed (learn.microsoft.com ... auditing/event-4770): logged on the DC only.
+  "4770": k("TargetUserName", "TargetDomainName", "ServiceName", "ServiceSid", "TicketOptions", "TicketEncryptionType", "IpAddress", "IpPort"),
   "4771": k("TargetUserName", "TargetSid", "ServiceName", "TicketOptions", "Status", "PreAuthType", "IpAddress", "IpPort", "CertIssuerName", "CertSerialNumber", "CertThumbprint"),
   "4776": k("PackageName", "TargetUserName", "Workstation", "Status"),
   // Directory service
@@ -155,12 +166,56 @@ function timeCreated(ms: number): string {
   return new Date(ms).toISOString().replace(/\.(\d{3})Z$/, (_, x) => `.${x}0000Z`);
 }
 
+/** The 4625 Failure Information a SubStatus implies (Microsoft's 4625 status table and message strings). */
+const FAILURE_BY_SUBSTATUS: Record<string, { status: string; reason: string }> = {
+  "0xc0000064": { status: "0xc000006d", reason: "%%2313" },   // user name does not exist
+  "0xc000006a": { status: "0xc000006d", reason: "%%2313" },   // wrong password
+  "0xc0000071": { status: "0xc000006e", reason: "%%2309" },   // password expired
+  "0xc0000072": { status: "0xc000006e", reason: "%%2310" },   // account disabled
+  "0xc000006f": { status: "0xc000006e", reason: "%%2311" },   // outside allowed logon hours
+  "0xc0000070": { status: "0xc000006e", reason: "%%2312" },   // workstation restriction
+  "0xc0000193": { status: "0xc000006e", reason: "%%2305" },   // account expired
+  "0xc000015b": { status: "0xc000015b", reason: "%%2308" },   // logon type not granted
+  "0xc0000224": { status: "0xc000006e", reason: "%%2309" },   // must change password at next logon
+};
+/** Logon types made on the machine itself (console, unlock, cached): no network address. */
+const LOCAL_LOGON = new Set(["2", "7", "11"]);
+/** SPN service classes that run as the computer account: the ticket's ServiceName is HOST$. */
+const MACHINE_SPN = /^(cifs|host|ldap|gc|rpcss|dns|wsman|termsrv|restrictedkrbhost)\/([^/:.]+)/i;
+/** Placeholder session ids authored by hand (0x1a2b3c ...): a real session id is derived instead. */
+const PLACEHOLDER_LUID = /^0x(1a2b3c|abc123|123456|abcdef|deadbeef|12345678|1234)$/i;
+/** A DC by name (SRV-NXC-DC01, DC02, ad-dc-1). */
+export const isDcName = (h?: string) => !!h && /(^|[-_])DC\d*($|[-_.])/i.test(h);
+/** Task (audit subcategory) and Version of each Security event id, as the EVTX System block carries them. */
+const TASK: Record<string, number> = {
+  "4624": 12544, "4625": 12544, "4648": 12544, "4634": 12545, "4672": 12548, "4688": 13312, "4697": 12289,
+  "4720": 13824, "4722": 13824, "4723": 13824, "4724": 13824, "4725": 13824, "4726": 13824, "4738": 13824, "4740": 13824, "4767": 13824,
+  "4728": 13826, "4729": 13826, "4732": 13826, "4733": 13826, "4756": 13826, "4757": 13826,
+  "4768": 14339, "4771": 14339, "4769": 14337, "4770": 14337, "4776": 14336, "4662": 14080, "5136": 14081, "5137": 14081,
+  "1102": 104, "4673": 13056, "5140": 12808, "5145": 12811, "4663": 12800, "4698": 12804, "6416": 13316, "4886": 12805, "4887": 12805,
+};
+const VERSION: Record<string, number> = { "4624": 2, "4688": 2, "4625": 0, "4648": 0, "4672": 0, "4768": 0, "4769": 0, "7045": 0, "5136": 0 };
+const xmlEsc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** EventRecordID: one counter per computer that only grows with time (QA: a DC's 79432703 then 1048341). */
+function recordId(ctx: NativeCtx, host: string, timeMs: number, seed: string): number {
+  const base = ctx.int(`${ctx.companyId}:${host.toLowerCase()}:winsec:recbase`, 1_200_000, 9_000_000);
+  const sec = Math.max(0, Math.floor((timeMs - Date.UTC(2026, 0, 1)) / 1000));
+  return base + sec * 12 + ctx.int(`${seed}:recjit`, 0, 11);
+}
+
 // ── conversion ────────────────────────────────────────────────────────────────
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw = ev.raw ?? {};
   const r = (key: string) => str(raw[key]);
   // A *Sid field (never SidHistory: that one names another domain on purpose) is re-homed.
-  const ed = (name: string) => (/Sid$/.test(name) ? homeSid(ctx, r(`winlog.event_data.${name}`)) : r(`winlog.event_data.${name}`));
+  const email0 = ev.user_email ?? ev.user?.email;
+  // One account, one spelling: "tharris" in a record whose user is t.harris@ is that user (QA: tharris /
+  // t.harris, jchen / j.chen read as two accounts with two SIDs).
+  const canon = (v: string | undefined) => {
+    const local = email0?.split("@")[0];
+    return v && local && !v.includes(".") && local.includes(".") && local.replace(/\./g, "").toLowerCase() === v.toLowerCase() ? local : v;
+  };
+  const ed = (name: string) => (/Sid$/.test(name) ? homeSid(ctx, r(`winlog.event_data.${name}`)) : /UserName$/.test(name) ? canon(r(`winlog.event_data.${name}`)) : r(`winlog.event_data.${name}`));
 
   const id = r("winlog.event_id") ?? r("event.code");
   if (!id || !kinds[id]) return null;
@@ -179,7 +234,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   const email = ev.user_email ?? ev.user?.email;
   // The account the event is ABOUT (target). Keep the authored form verbatim (evidence).
-  const samOf = (v?: string) => (v && v.includes("\\") ? v.split("\\").pop() : v);
+  const samOf = (v?: string) => canon(v && v.includes("\\") ? v.split("\\").pop() : v);
   const targetSam = ed("TargetUserName") ?? samOf(r("user.name")) ?? (email ? email.split("@")[0] : undefined);
   const targetDomain = ed("TargetDomainName") ?? r("user.domain") ?? netbios;
 
@@ -198,8 +253,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const subjectLogonId = ed("SubjectLogonId") ?? "0x3e7";
 
   const keyw = (ok: boolean) => (ok ? "0x8020000000000000" : "0x8010000000000000");
-  const recId = ed("EventRecordID") ?? r("winlog.record_id");
-  const eventRecordID = recId && /^\d+$/.test(recId) ? Number(recId) : ctx.int(`${ctx.companyId}:${hostShort.toLowerCase()}:winsec:rec:${ev.id}`, 1_000_000, 90_000_000);
+  const eventRecordID = recordId(ctx, hostShort, timeMs, ev.id);
 
   let provider = r("winlog.provider_name") ?? "Microsoft-Windows-Security-Auditing";
   let channel = "Security";
@@ -227,7 +281,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         LogonProcessName: logonProc,
         AuthenticationPackageName: authPkg,
         WorkstationName: netbiosName(ed("WorkstationName")) ?? (interactive ? hostShort : "-"),
-        LogonGuid: ed("LogonGuid") ?? (authPkg === "NTLM" ? "{00000000-0000-0000-0000-000000000000}" : curly(logonGuid(ctx, hostShort, targetSam ?? "-"))),
+        // A console / unlock / cached logon is a new session each time: its own LogonGuid (two logons are never one record).
+        LogonGuid: ed("LogonGuid") ?? (authPkg === "NTLM" ? "{00000000-0000-0000-0000-000000000000}"
+          : LOCAL_LOGON.has(lt) ? curly(ctx.uuid(`${ev.id}:logonguid`).toUpperCase()) : curly(logonGuid(ctx, hostShort, targetSam ?? "-"))),
         TransmittedServices: ed("TransmittedServices") ?? "-",
         LmPackageName: ed("LmPackageName") ?? (authPkg === "NTLM" ? "NTLM V2" : "-"),
         KeyLength: ed("KeyLength") ?? (authPkg === "NTLM" ? "128" : "0"),
@@ -293,8 +349,13 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       break;
     }
     case "4648": {
+      // The Subject is the account that used the explicit credentials (a person's session), not SYSTEM.
+      const actor = ed("SubjectUserName") ?? (email0 ? email0.split("@")[0] : `${hostShort}$`);
       data = {
-        SubjectUserSid: subjectSid, SubjectUserName: subjectName, SubjectDomainName: subjectDomain, SubjectLogonId: subjectLogonId,
+        SubjectUserSid: ed("SubjectUserSid") ?? userSid(ctx, actor),
+        SubjectUserName: actor,
+        SubjectDomainName: subjectDomain,
+        SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, actor),
         LogonGuid: ed("LogonGuid") ?? "{00000000-0000-0000-0000-000000000000}",
         TargetUserName: targetSam ?? "-",
         TargetDomainName: targetDomain,
@@ -430,16 +491,20 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       // An authored TargetDomainName that is not the domain itself already IS the caller.
       const tdn = ed("TargetDomainName");
       const tdnIsCaller = !!tdn && ![netbios, domain, "-"].some(d => d.toUpperCase() === tdn.toUpperCase());
-      const caller = ed("CallerComputerName") ?? (tdnIsCaller ? tdn : undefined) ?? (srcIp ? `\\\\${srcIp}` : tdn ?? "-");
+      // The caller is a computer NAME (the workstation the bad passwords came from), never \\<ip>.
+      const authoredCaller = ed("CallerComputerName") ?? (tdnIsCaller ? tdn : undefined);
+      const caller = netbiosName(authoredCaller && !/^\\\\/.test(authoredCaller) ? authoredCaller : undefined)
+        ?? (!isDcName(hostShort) ? hostShort : undefined) ?? "-";
       const tgt = targetSam ?? "-";
       data = {
         TargetUserName: tgt,
         TargetDomainName: caller,
         TargetSid: ed("TargetSid") ?? userSid(ctx, tgt),
-        SubjectUserSid: ed("SubjectUserSid") ?? "S-1-5-18",
-        SubjectUserName: ed("SubjectUserName") ?? `${hostShort}$`,
-        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
-        SubjectLogonId: ed("SubjectLogonId") ?? "0x3e7",
+        // The lockout is written by the DC's own machine account (DC$, SYSTEM's session), whoever authored it.
+        SubjectUserSid: "S-1-5-18",
+        SubjectUserName: `${(isDcName(hostShort) ? hostShort : dcOf(ctx)).toUpperCase()}$`,
+        SubjectDomainName: netbios,
+        SubjectLogonId: "0x3e7",
       };
       break;
     }
@@ -497,6 +562,21 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         Status: status,
         LogonGuid: ed("LogonGuid") ?? curly(logonGuid(ctx, hostShort, reqUser)),
         TransmittedServices: ed("TransmittedServices") ?? "-",
+      };
+      break;
+    }
+    case "4770": {
+      const reqUser = ed("TargetUserName") ?? (email0 ? `${email0.split("@")[0]}@${domain.toUpperCase()}` : targetSam ?? "-");
+      const svc = ed("ServiceName") ?? "krbtgt";
+      data = {
+        TargetUserName: reqUser,
+        TargetDomainName: ed("TargetDomainName") ?? domain.toUpperCase(),
+        ServiceName: svc,
+        ServiceSid: ed("ServiceSid") ?? (svc === "krbtgt" ? `S-1-5-21-${domainId(ctx)}-502` : userSid(ctx, svc.replace(/\$$/, ""))),
+        TicketOptions: ed("TicketOptions") ?? "0x10002",
+        TicketEncryptionType: (ed("TicketEncryptionType") ?? "0x12").toLowerCase(),
+        IpAddress: dcKerbIp() ?? "-",
+        IpPort: ed("IpPort") ?? (srcIp ? ephemeral(ctx, `${ev.id}:ip`) : "0"),
       };
       break;
     }
@@ -706,29 +786,107 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       return null;
   }
 
+  coherence(id, data, { ctx, hostShort, netbios, email: email0 });
+  // A record only the DC writes (Kerberos, lockout, directory changes) authored on another machine is
+  // the DC's record: that machine is the client.
+  let computerOut = computer;
+  if (DC_ONLY.has(id) && !isDcName(hostShort)) {
+    const dc = dcOf(ctx);
+    computerOut = `${dc}.${domain}`;
+    if (id === "4740") { data.SubjectUserName = `${dc}$`; }
+  }
+
   // Coherence guard (Tal's diagnostic, 2026-10-03): a Windows event whose id requires fields the
   // authored event doesn't carry (a 4688 with no process, a 4625 with no target / logon type) is
   // not rendered natively - it would read as a broken record. It stays in the legacy view instead.
   const missing = (REQUIRED_FIELDS[id] ?? []).filter(k => { const v = data[k]; return v === undefined || v === "" || v === "-"; });
   if (missing.length) return null;
 
-  // The record is the Windows event as a SIEM ingests and shows it - the normalised JSON fields,
-  // NOT raw EVTX XML. A SOC analyst reads the event in Sentinel / Elastic / Splunk, so that is what
-  // the feed shows (Tal, 2026-10-03: "why did XML appear at all"). KeywordsText spells out the
-  // Audit Success / Failure a hex Keywords bitmask encodes, as a normalised log does.
   const record: Record<string, unknown> = {
     EventID: Number(id),
-    Computer: computer,
+    Computer: computerOut,
     TimeCreated: timeCreated(timeMs),
     Channel: channel,
     Provider: provider,
     EventRecordID: eventRecordID,
     Keywords: keywords,
-    KeywordsText: keywords === "0x8020000000000000" ? "Audit Success" : keywords === "0x8010000000000000" ? "Audit Failure" : "Classic",
     ...data,
   };
+  return { sourceId: "windows_security", kind: id, format: "xml", record, rawLine: evtxXml(id, record, data, ctx, hostShort, timeMs), timeMs };
+}
 
-  return { sourceId: "windows_security", kind: id, format: "json", record, timeMs };
+/** Records only a domain controller writes. */
+const DC_ONLY = new Set(["4768", "4769", "4770", "4771", "4740", "4662", "5136", "5137"]);
+/** The organization's DC (its short name). */
+function dcOf(ctx: NativeCtx): string {
+  return COMPANY_ASSETS[ctx.companyId]?.dc ?? "DC01";
+}
+
+/** The rule-level fixes every authored row gets (see the header). Mutates `data`. */
+function coherence(id: string, data: Record<string, string>, o: { ctx: NativeCtx; hostShort: string; netbios: string; email?: string }): void {
+  const { ctx, hostShort, netbios } = o;
+  // Subject: a machine account is SYSTEM's session; a person carries their own SID and session.
+  if (data.SubjectUserName !== undefined) {
+    const name = data.SubjectUserName;
+    if (/\$$/.test(name)) {
+      if (name.toUpperCase() === `${netbios.toUpperCase()}$`) data.SubjectUserName = `${hostShort.toUpperCase()}$`;
+      if (data.SubjectUserSid !== undefined) data.SubjectUserSid = "S-1-5-18";
+      if (data.SubjectLogonId !== undefined) data.SubjectLogonId = "0x3e7";
+    } else if (name !== "-" && !/^(system|local service|network service|anonymous logon)$/i.test(name)) {
+      if (data.SubjectUserSid === undefined || ["S-1-5-18", "S-1-0-0", ""].includes(data.SubjectUserSid)) data.SubjectUserSid = userSid(ctx, name);
+      if (data.SubjectLogonId !== undefined && (["0x0", "0x3e7"].includes(data.SubjectLogonId.toLowerCase()) || PLACEHOLDER_LUID.test(data.SubjectLogonId))) data.SubjectLogonId = logonId(ctx, hostShort, name);
+    }
+  }
+  if (id === "4624" || id === "4625") {
+    const lt = data.LogonType;
+    const machine = { SubjectUserSid: "S-1-5-18", SubjectUserName: `${hostShort.toUpperCase()}$`, SubjectDomainName: netbios, SubjectLogonId: "0x3e7" };
+    if (LOCAL_LOGON.has(lt)) {
+      Object.assign(data, machine, { LogonProcessName: "User32 ", AuthenticationPackageName: "Negotiate", WorkstationName: hostShort.toUpperCase(), IpAddress: "127.0.0.1", IpPort: "0" });
+      if (id === "4625") Object.assign(data, { ProcessName: "C:\\Windows\\System32\\svchost.exe", ProcessId: `0x${(procPid(ctx, { host: hostShort, os: "Win", timeMs: 0 }, { name: "svchost.exe" }) ?? 0x3cc).toString(16)}` });
+    } else if (lt === "10") {
+      Object.assign(data, { LogonProcessName: "User32 ", AuthenticationPackageName: "Negotiate" });
+    } else if (lt === "5" || lt === "4") {
+      Object.assign(data, machine, { LogonProcessName: "Advapi  ", AuthenticationPackageName: "Negotiate", WorkstationName: hostShort.toUpperCase(), IpAddress: "-", IpPort: "-",
+        ProcessName: lt === "5" ? "C:\\Windows\\System32\\services.exe" : "C:\\Windows\\System32\\svchost.exe",
+        ProcessId: `0x${(procPid(ctx, { host: hostShort, os: "Win", timeMs: 0 }, { name: lt === "5" ? "services.exe" : "svchost.exe" }) ?? 0x2d0).toString(16)}` });
+      if (data.LmPackageName !== undefined) data.LmPackageName = "-";
+      if (data.KeyLength !== undefined) data.KeyLength = "0";
+    }
+  }
+  if (id === "4625") {
+    const sub = (data.SubStatus ?? "").toLowerCase();
+    const f = FAILURE_BY_SUBSTATUS[sub];
+    if (f) { data.Status = f.status; data.FailureReason = f.reason; }
+    else if (!/^%%\d+$/.test(data.FailureReason ?? "")) data.FailureReason = "%%2313";
+  }
+  if (id === "4769" || id === "4770") {
+    const m = MACHINE_SPN.exec(data.ServiceName ?? "");
+    if (m) { data.ServiceName = `${m[2].toUpperCase()}$`; data.ServiceSid = userSid(ctx, m[2]); }
+  }
+  // One account, one SID (QA: m.torres / j.chen / t.harris each with two domain SIDs across the feed): a named
+  // domain account's SID is the organization's SID for that account, whatever a row authored. Groups keep theirs.
+  const GROUP_EVENT = /^(4728|4729|4732|4733|4756|4757)$/.test(id);
+  for (const [sidK, nameK] of [["SubjectUserSid", "SubjectUserName"], ["TargetUserSid", "TargetUserName"], ["TargetSid", "TargetUserName"], ["MemberSid", "MemberName"]] as const) {
+    const sid = data[sidK], name = data[nameK];
+    if (sid === undefined || !/^S-1-5-21-/.test(sid) || !name || name === "-" || /[$@\\]|^CN=/i.test(name)) continue;
+    if (sidK === "TargetSid" && GROUP_EVENT) continue;
+    data[sidK] = userSid(ctx, name);
+  }
+}
+
+/** The EVTX XML of the record (Security channel, or the System channel for 7045). */
+function evtxXml(id: string, record: Record<string, unknown>, data: Record<string, string>, ctx: NativeCtx, hostShort: string, timeMs: number): string {
+  const system = String(record.Channel) === "System";
+  const provider = system
+    ? `<Provider Name="Service Control Manager" Guid="{555908d1-a6d7-4695-8e1e-26931d2012f4}" EventSourceName="Service Control Manager"/>`
+    : record.Provider === "Microsoft-Windows-Eventlog"
+      ? `<Provider Name="Microsoft-Windows-Eventlog" Guid="{fc65ddd8-d6ef-4962-83d5-6e5cfe9ce148}"/>`
+      : `<Provider Name="${xmlEsc(String(record.Provider))}" Guid="{54849625-5478-4994-a5ba-3e3b0328c30d}"/>`;
+  const lsass = procPid(ctx, { host: hostShort, os: "Win", timeMs }, { name: system ? "services.exe" : "lsass.exe" }) ?? 0x2e4;
+  const thread = ctx.int(`${ctx.companyId}:${hostShort}:${String(record.EventRecordID)}:tid`, 100, 3000) * 4;
+  const sys = `<System>${provider}<EventID${system ? ` Qualifiers="16384"` : ""}>${id}</EventID><Version>${VERSION[id] ?? 0}</Version><Level>${system ? 4 : 0}</Level><Task>${system ? 0 : TASK[id] ?? 0}</Task><Opcode>0</Opcode><Keywords>${record.Keywords}</Keywords><TimeCreated SystemTime="${record.TimeCreated}"/><EventRecordID>${record.EventRecordID}</EventRecordID><Correlation/><Execution ProcessID="${lsass}" ThreadID="${thread}"/><Channel>${record.Channel}</Channel><Computer>${xmlEsc(String(record.Computer))}</Computer><Security/></System>`;
+  const body = Object.entries(data).map(([k, v]) => `<Data Name="${k}">${xmlEsc(v)}</Data>`).join("");
+  return `<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">${sys}<EventData>${body}</EventData></Event>`;
 }
 
 /** Fields a given Event ID must carry to render as a coherent record. */
@@ -743,6 +901,7 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   "7045": ["ServiceName"],
   "4768": ["TargetUserName"],
   "4769": ["TargetUserName", "ServiceName"],
+  "4770": ["TargetUserName", "ServiceName"],
   "4771": ["TargetUserName"],
   "4776": ["TargetUserName"],
   "4740": ["TargetUserName"],
@@ -969,7 +1128,7 @@ export const source: NativeSource = {
   companions,
   schema: {
     sourceId: "windows_security", category: "onprem_ad", card: "windows-security.md", product: "Windows Security",
-    format: "json", vendorMatch: ["windows security", "windows terminalservices", "microsoft-windows-security", "active directory"], telemetrySources: ["ad", "windows_security"], kinds,
+    format: "xml", vendorMatch: ["windows security", "windows terminalservices", "microsoft-windows-security", "active directory"], telemetrySources: ["ad", "windows_security"], kinds,
   },
   fromTelemetry,
   useCases,

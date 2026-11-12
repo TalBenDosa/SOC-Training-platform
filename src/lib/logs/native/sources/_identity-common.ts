@@ -228,7 +228,21 @@ export function uaOf(ev: TelemetryEvent): UaFacts {
   const raw = ev.network?.user_agent ?? rawStr(ev, "okta.client.userAgent.rawUserAgent", "azure.signinlogs.properties.userAgent", "user_agent.original")
     ?? (/python-requests/i.test(rawStr(ev, "azure.signinlogs.device_detail.browser") ?? "") ? rawStr(ev, "azure.signinlogs.device_detail.browser")! : undefined)
     ?? DEFAULT_UA;
-  return parseUa(raw);
+  return parseUa(ordinaryBrowser(ev) ? sameBrowserVersion(raw, ev.user_email ?? "") : raw);
+}
+
+/** A person's everyday sign-in (no attack technique, no alert, not a true positive): their one managed browser. */
+const ordinaryBrowser = (ev: TelemetryEvent) => !!ev.user_email && !ev.mitre_technique && !ev.is_detection && ev.expected_verdict !== "tp";
+/**
+ * One browser build per person on their own machine: a managed Chrome / Edge updates fleet-wide, so a person's
+ * ordinary sign-ins in one shift name one major version (QA 2026-11-12: three Chrome versions for one user).
+ * An attacker's client keeps the version it was written with.
+ */
+export function sameBrowserVersion(raw: string, user: string): string {
+  if (!/Windows NT|Macintosh/.test(raw) || !/Chrome\/\d+/.test(raw)) return raw;
+  let h = 0; for (const c of user.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const major = 138 + (h % 3);
+  return raw.replace(/Chrome\/\d+/, `Chrome/${major}`).replace(/Edg\/\d+/, `Edg/${major}`);
 }
 export function parseUa(raw: string): UaFacts {
   const py = /python-requests\/([\d.]+)/i.exec(raw);

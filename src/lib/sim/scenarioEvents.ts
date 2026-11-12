@@ -100,7 +100,7 @@ export function phishingToExfilEvents() {
         "winlog.event_data.TargetUserName": "j.smith",
         "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetLogonId": "0x8F4A21",
-        "winlog.event_data.LogonGuid": "{A1B2C3D4-E5F6-A1B2-C3D4-E5F6A1B2C3D4}",
+        "winlog.event_data.LogonGuid": "{5E17C0A2-94D3-4B6F-A8E1-2C7D90B3F64A}",
         // Logon type and process
         "winlog.event_data.LogonType": "2",
         "winlog.event_data.LogonProcessName": "User32",
@@ -218,7 +218,7 @@ export function phishingToExfilEvents() {
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
         "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
         "winlog.event_data.UtcTime": "2026-05-08 09:47:30.118",
-        "winlog.event_data.ProcessGuid": "{a1b2c3d4-e5f6-a1b2-0002-c3d4e5f60002}",
+        "winlog.event_data.ProcessGuid": "{4f9c1b7e-2d14-6731-9e01-000000002b00}",
         "winlog.event_data.ProcessId": "4128",
         "winlog.event_data.Image": wordPath,
         "winlog.event_data.CommandLine": `"${wordPath}" "${docmPath}"`,
@@ -324,7 +324,7 @@ export function phishingToExfilEvents() {
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
         "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
         "winlog.event_data.UtcTime": "2026-05-08 09:47:42.203",
-        "winlog.event_data.ProcessGuid": "{a1b2c3d4-e5f6-a1b2-0001-c3d4e5f60001}",
+        "winlog.event_data.ProcessGuid": "{4f9c1b7e-2d10-6731-9a01-000000002a00}",
         "winlog.event_data.ProcessId": "5512",
         "winlog.event_data.QueryName": c2Domain,
         "winlog.event_data.QueryStatus": "0",
@@ -433,7 +433,7 @@ export function phishingToExfilEvents() {
         "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
         "winlog.event_data.UtcTime": "2026-05-08 09:50:20.118",
         "winlog.event_data.EventType": "SetValue",
-        "winlog.event_data.ProcessGuid": "{a1b2c3d4-e5f6-a1b2-0001-c3d4e5f60001}",
+        "winlog.event_data.ProcessGuid": "{4f9c1b7e-2d10-6731-9a01-000000002a00}",
         "winlog.event_data.ProcessId": "5512",
         "winlog.event_data.Image": psPath,
         "winlog.event_data.Details": "rundll32.exe C:\\Users\\j.smith\\AppData\\Local\\Temp\\svchost32.dll,DllMain",
@@ -648,6 +648,8 @@ export function becScenarioEvents() {
       "source.ip": sprayIp,
       "destination.ip": adfsIp,
       "destination.port": "443",
+      // The AD FS proxy is published: the record shows the public address, with the server as the translation.
+      "pan.dst": "192.0.2.150", "pan.natdst": adfsIp,
       "url.domain": "adfs.nexacorp.com",
       "pan.app": "ssl",
       "pan.action": "allow",
@@ -849,7 +851,7 @@ export function becScenarioEvents() {
         "data.office365.OrganizationId": tenant,
         "data.office365.Workload": "Exchange",
         "data.office365.UserId": "l.harris@nexacorp.com",
-        "data.office365.UserKey": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
+        "data.office365.UserKey": "5e17c0a2-94d3-4b6f-a8e1-2c7d90b3f64a",
         "data.office365.UserType": "0",
         "data.office365.ResultStatus": "True",
         "data.office365.ClientIP": attackerIp,
@@ -1720,7 +1722,8 @@ export function oauthScenarioEvents() {
   const winUa      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
   const macUa      = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
   const pyUa       = "python-requests/2.31.0";
-  const guid = (n: number) => `a1b2c3d4-e5f6-4a1b-b2c3-${n.toString(16).padStart(12, "0")}`;
+  // A request / correlation id per row: random-looking and stable (QA 2026-11-12: no hand-typed placeholder GUIDs).
+  const guid = (n: number) => { const h = makeSha256(`aitm-guid:${n}`); return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${"89ab"[parseInt(h[16], 16) % 4]}${h.slice(17, 20)}-${h.slice(20, 32)}`; };
   const sess = { attacker: "9c41f6e2-1b7a-4d35-8e08-3a5c7d9b2f10", tok1: "ab1e3c55-6a07-4f99-b3d2-4e8f1c0a7d21", tok2: "c7d20e84-35bb-4a61-9f0c-81a2b6e4d3f9", tok3: "d3f81a09-7c2e-4b5d-a6e1-0f94c2b7e5a8" };
 
   // ── Entra sign-ins ───────────────────────────────────────────────────────────
@@ -3721,6 +3724,8 @@ export function dcSyncScenarioEvents() {
       raw: {
         "event.action": "allow",
         "source.ip": attackerIp, "destination.ip": dc01Ip, "destination.port": "3389",
+        // RDP reaches the domain controller through a publish rule: the public address, translated to the server.
+        "pan.dst": "192.0.2.150", "pan.natdst": dc01Ip,
         "pan.app": "ms-rdp", "pan.action": "allow", "pan.rule": "ALLOW-INBOUND-RDP",
         "pan.elapsed_time": "1623",
         "source.geo.country_name": "Netherlands",
@@ -5284,7 +5289,7 @@ export function k8sPodEscapeScenarioEvents() {
     {
       id: "k8s_00_baseline_ci_deploy", ts: "2026-05-19T14:20:00.000Z", source: "k8s_audit", vendor: "Kubernetes Audit", event_type: "k8s_rbac", severity: "informational",
       is_baseline: true, expected_verdict: "informational", src_ip: RUNNER,
-      description: "The ci-deploy service account patched the api-prod deployment from the CI runner 34.201.17.88 during yesterday's release.",
+      description: "The ci-deploy service account patched the api-prod deployment from the CI runner 34.201.17.88 during the release window.",
       raw: {
         "kubernetes.audit.verb": "patch", "kubernetes.audit.objectRef.resource": "deployments", "kubernetes.audit.objectRef.apiGroup": "apps", "kubernetes.audit.objectRef.apiVersion": "v1",
         "kubernetes.audit.objectRef.name": "api-prod", "kubernetes.audit.objectRef.namespace": "production", "kubernetes.audit.responseStatus.code": 200,
@@ -6679,11 +6684,11 @@ export function lolBinsScenarioEvents() {
     proc("evt_lol_ctx_userinit", -133 * MIN + 6 * SEC, userinit, "winlogon.exe started userinit.exe for s.patel's session on WS-HR-1133."),
     proc("evt_lol_ctx_explorer", -133 * MIN + 12 * SEC, explorer, "userinit.exe started explorer.exe for s.patel's session on WS-HR-1133."),
     proc("evt_lol_ctx_outlook", -132 * MIN, outlook, "explorer.exe started Outlook for s.patel on WS-HR-1133."),
-    // What certutil looks like when it is used the normal way: an autoenrollment task, three days earlier.
+    // What certutil looks like when it is used the normal way: the autoenrollment task (its own row, timed as the feed places it).
     {
       ...proc("evt_lol_baseline_certutil", -3 * 24 * 60 * MIN - 106 * MIN,
         sys("certutil.exe", 5196, "C:\\Windows\\System32\\certutil.exe", "svchost.exe", 1468, "certutil.exe -pulse"),
-        "The certificate autoenrollment task ran certutil -pulse on WS-HR-1133 three days earlier; certutil has not been used with -urlcache on this host before.", { is_baseline: true, user_email: undefined }),
+        "svchost.exe started certutil.exe -pulse (certificate autoenrollment) on WS-HR-1133.", { is_baseline: true, user_email: undefined }),
     },
 
     // ── T-2min: the phishing email, and the document opening ────────────────────────

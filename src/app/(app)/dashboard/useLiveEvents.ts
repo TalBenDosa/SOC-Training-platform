@@ -155,6 +155,7 @@ export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
     eventAction: "edr-alert-forwarded",
     description: desc,
   });
+  const ruleId = buildRuleId({ ...e, source: "siem", event_type: "edr_alert", severity: "medium" } as TelemetryEvent, index);
   const mirror: LiveEvent = {
     ...alert,
     id: `${e.id}__siem`,
@@ -166,8 +167,9 @@ export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
     // technique in the alert's Techniques / Tactics columns.
     mitre_technique: undefined,
     mitre_tactic: undefined,
-    ruleLevel: severityBase("medium"),
-    ruleId: buildRuleId({ ...e, source: "siem", event_type: "edr_alert", severity: "medium" } as TelemetryEvent, index),
+    // One level per rule: the row's level is the one its rule id carries (HTS-xxxxx.<level>), never a second guess.
+    ruleId,
+    ruleLevel: Number(ruleId.split(".").pop()) || severityBase("medium"),
     displayDescription: desc,
   } as LiveEvent;
   return mirror;

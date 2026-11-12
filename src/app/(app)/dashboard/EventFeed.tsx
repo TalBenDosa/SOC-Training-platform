@@ -16,6 +16,7 @@ import { eventMatchesSearch } from "./eventSearch";
 import { toRawLog } from "./rawLogFormat";
 import { isPublicIp } from "@/lib/edr/iocIntel";
 import { useNativeLog, useNativeRenderer, nativeRows, type NativeView, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+import { windowsEventSections, windowsValueMeaning } from "@/lib/logs/windowsEventView";
 import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
@@ -34,6 +35,7 @@ const opaqueEventId = (id: string) =>
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
+import { capitalizeAction } from "@/lib/sim/describeEvent";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery,
@@ -55,6 +57,7 @@ const SOURCE_COLORS: Record<string, string> = {
   proxy:      "bg-slate-400/20 text-slate-300 border-slate-400/30",
   // Scenario-pack source channels
   windows_security: "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
+  windows_system:   "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
   linux_audit:      "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
   email_gateway:    "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
   waf:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
@@ -79,6 +82,7 @@ const SOURCE_LABEL: Record<string, string> = {
   cloudtrail: "Cloud",   // overridden per-event below: AWS vs Azure
   proxy:      "Proxy",
   windows_security: "Windows Security",
+  windows_system:   "Windows System",
   linux_audit:      "Linux auditd",
   email_gateway:    "Email Gateway",
   waf:              "WAF",
@@ -88,7 +92,19 @@ const SOURCE_LABEL: Record<string, string> = {
   siem:             "SIEM",
   soar:             "SOAR",
   ms_graph:         "Microsoft Graph Security",
+  cloud_azure:      "Azure Activity",
+  cloud_gcp:        "Google Cloud",
+  k8s_audit:        "Kubernetes",
+  vcs:              "GitHub",
 };
+
+/** A row's source badge: the product that wrote it (an Entra sign-in is Entra ID, never "Office 365" or the raw source key). */
+export function sourceLabelOf(source: string, vendor?: string): string {
+  if (/\bentra\b|azure active directory|azure ad\b/i.test(vendor ?? "") && ["o365", "iam", "cloud_azure", "mfa"].includes(source)) return "Entra ID";
+  if (source === "cloud_azure" && /openai/i.test(vendor ?? "")) return "Azure OpenAI";
+  if (source === "cloudtrail") return cloudLabel(vendor);
+  return SOURCE_LABEL[source] ?? source.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
 
 /** Derive the cloudtrail badge label from vendor field (AWS vs Azure vs generic). */
 function cloudLabel(vendor?: string): string {
@@ -106,7 +122,7 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
   const anchor = useRef<HTMLButtonElement>(null);
   const key = source === "cloudtrail" ? "cloud" : source;
   const guide = LOG_SOURCE_GUIDE[key];
-  const sourceLabel = source === "cloudtrail" ? cloudLabel(vendor) : (SOURCE_LABEL[source] ?? source.toUpperCase());
+  const sourceLabel = sourceLabelOf(source, vendor);
   const sourceColor = SOURCE_COLORS[source] ?? SOURCE_COLORS.proxy;
 
   if (!guide) {
@@ -913,8 +929,11 @@ export function DetailPanelBody({
               </p>
               <div className="space-y-1.5">
                 {(() => {
-                  return detailedFields.map(([k, v]) => {
+                  // A Windows event reads as Event Viewer lays it out: grouped, each code with its meaning.
+                  const winRecord = nativeView?.log.sourceId === "windows_security" ? nativeView.log.record : null;
+                  const renderRow = ([k, v]: [string, string]) => {
                   const leaf       = k.split(".").pop() ?? k;
+                  const meaning    = winRecord ? windowsValueMeaning(k, v, winRecord) : undefined;
                   const showHash   = isSha256Field(nativeView ? leaf.replace(/\[\d+\]$/, "") : k, v) || (!!nativeView && /^[a-f0-9]{64}$/i.test(v) && /sha|hash|digest/i.test(k));
                   const showIp     = nativeView ? isPublicIp(v) : isIpCheckField(k, v);
                   const showDomain = nativeView
@@ -930,7 +949,7 @@ export function DetailPanelBody({
                           <span className={cn(
                             "min-w-0 flex-1 font-mono text-[10px] [overflow-wrap:anywhere]",
                             showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
-                          )}>{v}</span>
+                          )}>{v}{meaning && <span className="ml-2 font-sans text-slate-400">({meaning})</span>}</span>
                           <DecodeButton value={v} />
                           <FilterButtons field={k} value={v} label={k} />
                         </span>
@@ -980,7 +999,14 @@ export function DetailPanelBody({
                       </div>
                     </div>
                   );
-                  });
+                  };
+                  if (winRecord) return windowsEventSections(winRecord).map(sec => (
+                    <div key={sec.title} className="space-y-1.5 pb-1">
+                      <p className="pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyber-300">{sec.title}</p>
+                      {sec.rows.map(renderRow)}
+                    </div>
+                  ));
+                  return detailedFields.map(renderRow);
                 })()}
               </div>
             </div>
@@ -1310,7 +1336,8 @@ const EventRow = memo(function EventRow({
                 const escaped  = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
                 const stripped = rawDesc
                   .replace(new RegExp(`^${escaped}(?:['’]s)?[\\s\\-:·,]+`, "i"), "");
-                const cleanDesc = (stripped.charAt(0).toUpperCase() + stripped.slice(1)).trim() || rawDesc;
+                // A verb is capitalised, a process / file / domain keeps its case ("powershell.exe", not "Powershell.exe").
+                const cleanDesc = (stripped !== rawDesc ? capitalizeAction(stripped) : stripped).trim() || rawDesc;
 
                 return (
                   <>

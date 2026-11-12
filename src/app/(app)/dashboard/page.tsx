@@ -23,6 +23,7 @@ import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
 import { SessionReportModal } from "./SessionReportModal";
+import { describeEvent } from "@/lib/sim/describeEvent";
 import { buildSessionReport, SESSION_LIMIT_MS, SESSION_WARN_MS, type GradedReport, type MissedAttack, type SessionEnd, type SessionReport } from "@/lib/dashboard/sessionReport";
 import { startDashboardTour } from "./OnboardingTour";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
@@ -70,6 +71,7 @@ const SOURCES = [
   { value: "edr",        label: "EDR" },
   { value: "ad",         label: "Active Directory" },
   { value: "windows_security", label: "Windows Security" },
+  { value: "windows_system", label: "Windows System" },
   { value: "o365",       label: "Office 365" },
   { value: "gws",        label: "Google Workspace" },
   { value: "okta",       label: "Okta" },
@@ -200,13 +202,15 @@ const DIFFICULTIES: { id: Difficulty; label: string; blurb: string; accent: stri
 function StartTrainingModal({
   onStart,
   onClose,
+  initial = "easy",
 }: {
   onStart: (difficulty: Difficulty) => void;
   onClose: () => void;
+  /** The level the dialog opens on: the analyst's last level, else Easy (foundation-tier single-host attacks
+   *  are the right first practical). The analyst still picks before the training starts. */
+  initial?: Difficulty;
 }) {
-  // Default new analysts to Easy - foundation-tier single-host attacks are the
-  // right first practical. Students can step up to Medium/Hard themselves.
-  const [selected, setSelected] = useState<Difficulty>("easy");
+  const [selected, setSelected] = useState<Difficulty>(initial);
   // a11y: modal dialog - focus trapped inside, Escape closes, focus returns to the trigger.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
@@ -669,7 +673,9 @@ export default function DashboardPage() {
 
   const live = useLiveEvents({
     eventPool,
-    intervalMs: 90_000,   // 90s between ticks - readable pace for training
+    // Ordinary noise per level: Hard's "heavy noise" is a busier feed than Easy's readable pace (QA 2026-11-12:
+    // Hard showed fewer rows than Easy with one interval for all levels).
+    intervalMs: sessionDifficulty === "hard" ? 35_000 : sessionDifficulty === "medium" ? 55_000 : 90_000,
     story:      sessionStory,
     onStoryComplete: handleStoryComplete,
     // Pause the response clock while the analyst is genuinely working the case:
@@ -1007,7 +1013,10 @@ export default function DashboardPage() {
     advanceAfterReportRef.current = false;
     setTrainingReport(null);
     if (next) handleSelectCompany(next);
-    if (d === "easy" || d === "medium" || d === "hard") void handleStartTraining(d, next ?? undefined, stackRef.current);
+    // A new training starts from the level choice, never silently on the last level (QA 2026-11-12).
+    void d;
+    loadSimData().catch(() => {});
+    setShowTrainingModal(true);
   };
 
   /** The student caught ADVANCE_CATCHES attacks within ADVANCE_WINDOW_MS - end the
@@ -1109,12 +1118,13 @@ export default function DashboardPage() {
     try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty, st: stack, t: startedAt })); } catch { /* ignore */ }
   };
 
-  /** Reset = a clean shift: the same path as Start Training, with the current
-   *  difficulty and products (new story from phase 0, counters and report state
-   *  reset). The running shift is saved first (QA-DASH-5 / QA-DASH-8). */
+  /** Reset = a new training: it opens the same level choice as Start Training (Tal, 2026-11-13: starting a
+   *  training always offers the level). Starting from the dialog saves the running shift first (QA-DASH-5 /
+   *  QA-DASH-8); cancelling it leaves the running shift as it was. */
   const handleResetShift = () => {
     if (!sessionDifficulty) return;
-    void handleStartTraining(sessionDifficulty, undefined, stackRef.current);
+    loadSimData().catch(() => {});
+    setShowTrainingModal(true);
   };
 
   // QA-DASH-8: a shift with activity is saved when the tab is hidden for good or
@@ -1207,6 +1217,18 @@ export default function DashboardPage() {
     if (sessionStartedAt === null) return;
     const id = setInterval(() => {
       const now = Date.now();
+      // The training clock stops while the feed is paused (a report being written, a debrief, the analyst's own
+      // pause): only streaming time counts toward the 30 minutes (QA 2026-11-12: four minutes were lost while
+      // writing the report). The start moves forward by the paused second, and the refresh marker with it.
+      if (liveRef.current && !liveRef.current.isStreaming && !timeUpRef.current) {
+        setSessionStartedAt(s => (s === null ? s : s + 1000));
+        try {
+          const raw = ssGet("soc_dash_session");
+          const m = raw ? JSON.parse(raw) as { t?: number } : null;
+          if (m && typeof m.t === "number") ssSet("soc_dash_session", JSON.stringify({ ...m, t: m.t + 1000 }));
+        } catch { /* ignore */ }
+        return;
+      }
       setSessionElapsed(Math.min(Math.floor((now - sessionStartedAt) / 1000), SESSION_LIMIT_MS / 1000));
       if (now - sessionStartedAt >= SESSION_LIMIT_MS && !timeUpRef.current) { timeUpRef.current = true; onTimeUpRef.current(); }
       const kept = caughtTimesRef.current.filter(t => now - t <= ADVANCE_WINDOW_MS);
@@ -1257,8 +1279,9 @@ export default function DashboardPage() {
       for (const e of live.events) {
         if (!e.fp_explanation || seen.has(e.fp_explanation)) continue;
         seen.add(e.fp_explanation);
-        const label = (e.description?.split(/[.-]/)[0]?.trim().slice(0, 90))
-          || e.event_type || e.source;
+        // The row's own factual line names it (an authored description cut at its first "." became "O365 a").
+        const line = describeEvent(e, { fieldsOnly: true, preferFields: true });
+        const label = (line.length > 90 ? `${line.slice(0, 87)}...` : line) || e.event_type || e.source;
         out.push({ label, source: e.source, fp_explanation: e.fp_explanation });
       }
       return out.slice(0, 6);
@@ -1317,6 +1340,7 @@ export default function DashboardPage() {
       {showTrainingModal && (
         <StartTrainingModal
           onStart={(d) => handleStartTraining(d)}
+          initial={(() => { const d = sessionDifficulty ?? lastReport?.facts.difficulty; return d === "medium" || d === "hard" ? d : "easy"; })()}
           onClose={() => setShowTrainingModal(false)}
         />
       )}

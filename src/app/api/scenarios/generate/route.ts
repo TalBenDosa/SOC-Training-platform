@@ -180,7 +180,7 @@ IP ADDRESS RANGES (use realistic, varied ranges, NOT just 10.10.x.x):
 HOSTNAMES:
   Workstations: WS-NXC-CHEN, WS-NXC-WEBB, WS-NXC-PATEL (surname-based)
   Laptops: LT-NXC-KOVAC, LT-NXC-TANAKA
-  Servers: SRV-NXC-DC01, SRV-NXC-FS02, SRV-NXC-EXCH01, SRV-NXC-VEEAM, SRV-NXC-JIRA
+  Servers: SRV-NXC-DC01, SRV-NXC-FS01, SRV-NXC-EXCH01, SRV-NXC-VEEAM, SRV-NXC-JIRA
 
 PROCESS NAMES (realistic, not generic):
   Attacker tools: mshta.exe, wscript.exe, cscript.exe, regsvr32.exe, rundll32.exe, certutil.exe, bitsadmin.exe

@@ -33,6 +33,7 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { scriptCommands } from "@/lib/sim/scriptCommands";
 import { edrFacts, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
 import {
   procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, SERVICE_ACCOUNT, imageHashes, sha1Of, md5Of, accountSid, logonLuid, hostKey,
@@ -41,7 +42,7 @@ import {
 import { imagePath } from "./_cs-s1-common";
 import { aadObjectId } from "./collab-email-shared";
 import {
-  TACTICS, techniqueName, tacticOf, fixPath, baseOf, dirOf, effectiveAction, imageName,
+  TACTICS, TECHNIQUES, techniqueName, tacticOf, fixPath, baseOf, dirOf, effectiveAction, imageName,
   isPrivate, ipType, isSystemUser, isoFrac, isServer,
 } from "./_edr_mde_sophos_common";
 
@@ -148,7 +149,10 @@ function proc(ctx: NativeCtx, s: ProcScope, p: EdrProc): Proc {
   const sha256 = p.sha256 ?? fleet?.sha256 ?? null;
   const ident = sha256 ?? (path ?? name ?? "").toLowerCase();
   return {
-    name, path, pid, cmdline: p.cmdline ?? (name ? OS_COMMAND_LINE[name.toLowerCase()] : undefined) ?? null,
+    // Windows always records a command line: with no arguments it is the image as it was started (Explorer quotes
+    // the full path); a Linux exec's argv[0] is the path. Never an empty column on a named process.
+    name, path, pid, cmdline: p.cmdline ?? (name ? OS_COMMAND_LINE[name.toLowerCase()] : undefined)
+      ?? (path && /[\\/]/.test(path) ? (path.startsWith("/") ? path : `"${path}"`) : name) ?? null,
     sha1: ident ? sha1Of(ctx, ident) : null,
     // R2: a story's own binary carries its MD5 like a fleet binary does (DeviceProcessEvents always has both).
     sha256, md5: p.md5 ?? (p.sha256 ? md5Of(ctx, p.sha256) : fleet?.md5 ?? null),
@@ -284,9 +288,42 @@ const DEFENDER_THREAT = /^([A-Za-z]+):([A-Za-z0-9]+)\/([A-Za-z0-9_-]+)/; // e.g.
 const VENDOR_MATCH = ["microsoft defender", "defender for endpoint", "defender antivirus", "windows defender", "mde"];
 const isNative = (ev: TelemetryEvent) => VENDOR_MATCH.some(v => (ev.vendor ?? "").toLowerCase().includes(v));
 
+/**
+ * A script the PowerShell engine ran in memory: a Falcon ScriptControlScanTelemetry record, or the same event
+ * already reshaped for Defender (raw ActionType PowerShellCommand). Defender records it as DeviceEvents
+ * ActionType PowerShellCommand, one row per command, AdditionalFields {"Command": "<name>"}.
+ */
+/**
+ * A registry key as DeviceRegistryEvents writes it: full hive names, and a user's hive under the user's SID
+ * (HKEY_CURRENT_USER\S-1-5-21-...\Software\...), never the HKCU / HKLM abbreviations.
+ */
+export function mdeRegistryKey(key: string, sid: string | null): string {
+  const m = /^(HKCU|HKEY_CURRENT_USER)\\(.*)$/i.exec(key);
+  if (m) {
+    const rest = m[2];
+    if (/^S-1-5-/i.test(rest)) return `HKEY_CURRENT_USER\\${rest}`;
+    return sid ? `HKEY_CURRENT_USER\\${sid}\\${rest}` : `HKEY_CURRENT_USER\\${rest}`;
+  }
+  return key.replace(/^HKLM\\/i, "HKEY_LOCAL_MACHINE\\").replace(/^HKU\\/i, "HKEY_USERS\\").replace(/^HKCR\\/i, "HKEY_CLASSES_ROOT\\");
+}
+
+const isScriptScan = (ev: TelemetryEvent) => {
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  return String(r["crowdstrike.event_simpleName"] ?? "") === "ScriptControlScanTelemetry" || r["ActionType"] === "PowerShellCommand";
+};
+/** The commands of a script-scan event: the reshaped Defender row's own Command, else the scanned script's. */
+function scanCommands(ev: TelemetryEvent): string[] {
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  if (r["ActionType"] === "PowerShellCommand") {
+    try { const c = (JSON.parse(String(r["AdditionalFields"] ?? "{}")) as { Command?: unknown }).Command; if (typeof c === "string" && c) return [c]; } catch { /* not JSON */ }
+  }
+  return scriptCommands(String(r["crowdstrike.ScriptContent"] ?? ""));
+}
+
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const f = edrFacts(ev);
-  if (f.kind === "unsupported" || !f.host) return null;
+  const scriptScan = isScriptScan(ev) && f.os === "Win";
+  if ((f.kind === "unsupported" && !scriptScan) || !f.host) return null;
   const host = f.host;
   const seed = (p: string) => `${ev.id}:mde:${p}`;
   const u = who(ctx, f, host);
@@ -330,6 +367,14 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     if (name.toLowerCase() === c.name.toLowerCase()) return null;
     return proc(ctx, scope, { name, path: linux ? "/usr/lib/systemd/systemd" : name === "explorer.exe" ? "C:\\Windows\\explorer.exe" : "C:\\Windows\\System32\\services.exe" });
   };
+
+  // A script the engine ran in memory: the PowerShell host is the initiating process (its own parent named by the
+  // scan), the command it invoked is in AdditionalFields. One row per command; the first is the primary record,
+  // the rest are companions (scriptScanRows).
+  if (scriptScan) {
+    const rows = scriptScanRows(ev, ctx);
+    return rows[0] ? wrap("DeviceEvents", rows[0]) : null;
+  }
 
   // A task registration is a DeviceEvents ScheduledTaskCreated row, not a ProcessCreated row of the task's program.
   const task = f.kind === "process" ? taskFacts(ev, f) : null;
@@ -397,7 +442,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         AccountUpn: u.upn,
         AccountObjectId: u.objectId,
         LogonId: u.logonId,
-        ...initiatingCols(creator, osParentOf(creator), cu, ci),
+        ...initiatingCols(creator, f.grandparent?.name ? proc(ctx, scope, f.grandparent) : osParentOf(creator), cu, ci),
         ProcessUniqueId: p.uniqueId,
         CreatedProcessSessionId: u.system ? 0 : 1,
         IsProcessRemoteSession: false,
@@ -487,6 +532,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const valueName = ev.registry?.key ?? (typeof rawKey === "string" && rawKey ? rawKey : null);
       if (key && valueName && key.toLowerCase().endsWith(`\\${valueName.toLowerCase()}`)) key = key.slice(0, -(valueName.length + 1));
       if (!key) return null;
+      key = mdeRegistryKey(key, u.sid);
       return wrap("DeviceRegistryEvents", {
         ...base,
         ActionType: "RegistryValueSet",
@@ -575,17 +621,20 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     family = familyOf(ev, d.name);
     const kind = /^(pua|pup|adware|riskware|app)\b/i.test(d.name) ? "unwanted software" : /hacktool/i.test(d.name) ? "hacktool" : "malware";
     title = `'${family}' ${kind} was ${verb}`;
-  } else if (d.name && isNative(ev)) {
+  } else if (d.name && isNative(ev) && /\s/.test(d.name.trim())) {
     title = d.name; // authored for Defender: keep the detection name verbatim
   } else if (entity === "File" && family) {
     title = `'${family}' malware was ${verb}`;
   } else if (entity === "File") {
     title = `Malware was ${verb}`;
-  } else if (techName && nativeTechniques(ev) !== "[]") {
+  } else if (techName) {
     title = `Suspicious ${techName} activity`;
   } else {
     title = tactic ? `Suspicious ${tactic.toLowerCase()} activity` : "Suspicious activity";
   }
+  // The techniques Defender maps the alert to ("User Execution (T1204)", "Malicious Copy and Paste (T1204.004)"):
+  // authored for Defender when given, else the detection's own technique. An alert never lists none.
+  const techniques = nativeTechniques(ev) !== "[]" ? nativeTechniques(ev) : defenderTechniques(d.techniqueId, techName);
   const alertId = `da${String(ctx.int(`${ev.id}:mde:alert:a`, 100_000_000, 999_999_999))}${String(ctx.int(`${ev.id}:mde:alert:b`, 100_000_000, 999_999_999))}_${ctx.int(`${ev.id}:mde:alert:c`, -2_147_483_648, 2_147_483_647)}`;
   const sameImage = !!(filePath && p.name && baseOf(filePath)?.toLowerCase() === p.name.toLowerCase());
   const procDir = dirOf(p.path ?? undefined) ?? (sameImage ? dirOf(filePath) : undefined) ?? null;
@@ -597,7 +646,7 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     // Only the product's own AttackTechniques (authored for Defender) is printed: a technique the row
     // carries as ATT&CK mapping metadata (threat.technique.*, the story's mitre_technique) is the
     // answer the analyst is asked for, not something this row would show them.
-    AttackTechniques: nativeTechniques(ev),
+    AttackTechniques: techniques,
     ServiceSource: "Microsoft Defender for Endpoint",
     // Antivirus = a signature / file verdict (a named family, a file, a quarantine); a behavioural
     // detection of a running process is the EDR sensor's, whatever the feed row's source.
@@ -649,6 +698,17 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
  * The AlertInfo row (one per alert) that accompanies an AlertEvidence row produced by
  * fromTelemetry - same AlertId / Title / Severity / techniques, joinable on AlertId.
  */
+/** Defender's AttackTechniques for one ATT&CK id: the parent technique and the sub-technique, "Name (Id)" each. */
+function defenderTechniques(id: string | undefined, name: string | undefined): string {
+  if (!id) return "[]";
+  const out: string[] = [];
+  const parent = id.includes(".") ? id.split(".")[0] : null;
+  if (parent && TECHNIQUES[parent]) out.push(`${TECHNIQUES[parent][0]} (${parent})`);
+  const own = TECHNIQUES[id]?.[0] ?? name;
+  if (own) out.push(`${own} (${id})`);
+  return JSON.stringify(out);
+}
+
 /** The AttackTechniques column as authored for Defender (raw AttackTechniques / mde.AttackTechniques), else "[]". */
 function nativeTechniques(ev: TelemetryEvent): string {
   const r = (ev.raw ?? {}) as Record<string, unknown>;
@@ -782,8 +842,50 @@ const useCases: UseCase[] = [
   },
 ];
 
+/** The DeviceEvents PowerShellCommand rows of a scanned script, one per command, 40 ms apart. */
+function scriptScanRows(ev: TelemetryEvent, ctx: NativeCtx): Record<string, unknown>[] {
+  const f = edrFacts(ev);
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  if (!f.host) return [];
+  const cmds = scanCommands(ev);
+  const host = f.host;
+  const u = who(ctx, f, host);
+  const integ = integrity(f, u);
+  const scope: ProcScope = { host, os: f.os, timeMs: f.timeMs, user: u.name ?? undefined, incident: ev.incident_id };
+  const ps = proc(ctx, scope, { ...f.proc, name: f.proc.name ?? "powershell.exe" });
+  const parentPath = typeof r["crowdstrike.ParentImageFileName"] === "string" ? String(r["crowdstrike.ParentImageFileName"]).replace(/^\\Device\\HarddiskVolume\d+\\/i, "C:\\") : undefined;
+  const parent = parentPath ? proc(ctx, scope, { name: parentPath.split("\\").pop(), path: parentPath })
+    : f.parent.name || f.parent.path ? proc(ctx, scope, f.parent) : null;
+  return cmds.map((c, i) => {
+    const seed = (p: string) => `${ev.id}:mde:ps${i}:${p}`;
+    return {
+      Timestamp: isoFrac(f.timeMs + i * 40, 7, ctx, seed("ts")),
+      DeviceId: ctx.hex(`${ctx.companyId}:${deviceKey(host)}`, 40),
+      DeviceName: host,
+      ActionType: "PowerShellCommand",
+      AccountDomain: u.domain, AccountName: u.name, AccountSid: u.sid,
+      ...initiatingCols(ps, parent, u, integ),
+      AdditionalFields: JSON.stringify({ Command: c }),
+      ReportId: ctx.int(seed("report"), 1_000, 999_999),
+      AppGuardContainerId: null,
+      MachineGroup: machineGroup(host, f.os),
+    };
+  });
+}
+
 /** The DeviceEvents ScheduledTaskCreated row Defender records next to a `schtasks.exe /create` ProcessCreated row. */
 function companions(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
+  if (isScriptScan(ev)) {
+    const f = edrFacts(ev);
+    if (f.os !== "Win") return [];
+    return scriptScanRows(ev, ctx).slice(1).map((props, i) => ({
+      sourceId: "mde", kind: "DeviceEvents", format: "json", timeMs: f.timeMs + (i + 1) * 40,
+      record: {
+        time: isoFrac(f.timeMs + ctx.int(`${ev.id}:mde:ps${i + 1}:lag`, 1_000, 6_000), 7, ctx, `${ev.id}:mde:ps${i + 1}:time`), tenantId: ctx.tenant.azureTenantId,
+        operationName: "Publish", category: "AdvancedHunting-DeviceEvents", properties: props,
+      },
+    }));
+  }
   const f = edrFacts(ev);
   if (!f.host || f.os !== "Win") return [];
   const t = schtasksTask(f);

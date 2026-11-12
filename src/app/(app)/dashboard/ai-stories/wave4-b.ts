@@ -33,7 +33,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { azureOpenAiRequest, defenderAiAlert, type AzureAiResource } from "@/lib/sim/emitters/azureAi";
 import type { AiStoryDef } from "./wave2";
-import { authoredFor, CX, DEV, OFFICE_EGRESS, SUB, apimGateway, appServiceHttp, azureOp, bedrockInvocation, benign, dnsRow, frontDoor, inbound, proc, sentinel, ticket, web, withIncident } from "./wave4-shared";
+import { authoredFor, CX, DEV, OFFICE_EGRESS, PUBLISHED_IP, SUB, apimGateway, appServiceHttp, azureOp, bedrockInvocation, benign, dnsRow, frontDoor, inbound, proc, sentinel, ticket, web, withIncident } from "./wave4-shared";
 
 const dev = { host: DEV.host, ip: DEV.ip, user: DEV.user };
 const home = `C:\\Users\\${DEV.bare}`;
@@ -144,7 +144,7 @@ function buildPortalInjectionAws(): TelemetryEvent[] {
   });
   return withIncident([
     benign(inbound({
-      id: "ai4pb01", ts: "2026-10-26T09:02:14.000Z", fromIp: "192.0.2.65", server: app.host, serverIp: app.ip, port: 443, bytesIn: 1840, bytesOut: 2960, elapsedSec: 3, severity: "informational",
+      id: "ai4pb01", ts: "2026-10-26T09:02:14.000Z", fromIp: "192.0.2.65", server: app.host, serverIp: app.ip, port: 443, publishedAs: PUBLISHED_IP, bytesIn: 1840, bytesOut: 2960, elapsedSec: 3, severity: "informational",
       description: `Firewall session end: a customer address reached the portal on ${app.host}, about 3 KB out.`,
     }), "An ordinary customer session on the portal, a few kilobytes each way."),
     benign(guardDutyFinding({
@@ -156,7 +156,7 @@ function buildPortalInjectionAws(): TelemetryEvent[] {
     }), "Same finding, innocent cause: the scheduled QA regression pack, stopped by the guardrail: filter action BLOCKED, and no data call by the role follows."),
 
     inbound({
-      id: "ai4pb03", ts: "2026-10-26T11:14:02.000Z", fromIp: visitor, server: app.host, serverIp: app.ip, port: 443, bytesIn: 4120, bytesOut: 6240, elapsedSec: 41, repeatCount: 36, severity: "low", mitre: "T1190", tactic: "Initial Access",
+      id: "ai4pb03", ts: "2026-10-26T11:14:02.000Z", fromIp: visitor, server: app.host, serverIp: app.ip, port: 443, publishedAs: PUBLISHED_IP, bytesIn: 4120, bytesOut: 6240, elapsedSec: 41, repeatCount: 36, severity: "low", mitre: "T1190", tactic: "Initial Access",
       description: `Firewall session end: ${visitor} reached the portal on ${app.host} in 36 repeated sessions, about 6 KB out.`,
     }),
     applyGuardrail({
@@ -182,7 +182,7 @@ function buildPortalInjectionAws(): TelemetryEvent[] {
       description: `AWS CloudTrail data event: ApplyGuardrail on OUTPUT by role ${role}: sensitive information filter detected EMAIL and ADDRESS, action NONE.`,
     }),
     inbound({
-      id: "ai4pb09", ts: "2026-10-26T11:20:12.000Z", fromIp: visitor, server: app.host, serverIp: app.ip, port: 443, bytesIn: 2204, bytesOut: 418_204, elapsedSec: 9, severity: "high", mitre: "T1041", tactic: "Exfiltration",
+      id: "ai4pb09", ts: "2026-10-26T11:20:12.000Z", fromIp: visitor, server: app.host, serverIp: app.ip, port: 443, publishedAs: PUBLISHED_IP, bytesIn: 2204, bytesOut: 418_204, elapsedSec: 9, severity: "high", mitre: "T1041", tactic: "Exfiltration",
       description: `Firewall session end: ${visitor} to the portal on ${app.host}, about 418 KB out in one session.`,
     }),
     guardDutyFinding({

@@ -111,21 +111,41 @@ function ruleNameOf(name: string, ev: TelemetryEvent): string {
   return name;
 }
 
+/** The keys a scheduled / NRT analytic writes into ExtendedProperties itself (anything else is the rule's Custom Details). */
+const SCHEDULED_KEYS = new Set(["Query", "Query Period", "Query Start Time UTC", "Query End Time UTC", "Trigger Operator", "Trigger Threshold",
+  "Search Query Results Overall Count", "Data Sources", "Event Grouping", "Analytic Rule Ids", "Analytic Rule Name", "Correlation Id",
+  "ProcessedBySentinel", "Alert generation status", "Custom Details"]);
+/** A Custom Details key as Sentinel accepts it: letters and digits only ("Source EDR Vendor" -> "SourceEDRVendor"). */
+const customKey = (k: string) => k.replace(/[^A-Za-z0-9]+/g, "");
+/** The analytic rule's id in the workspace (the same id its alerts' AlertType and "Analytic Rule Ids" carry). */
+const ruleIdOf = (ctx: NativeCtx, r: Rec, ruleName: string) => ctx.uuid(`sentinel-rule:${ctx.companyId}:${str(r["alert.rule.id"]) ?? ruleName}`);
+
 function extendedOf(r: Rec, ctx: NativeCtx, scheduled: boolean, ruleName: string): Rec {
   const out: Rec = {};
+  const custom: Record<string, string[]> = {};
   for (const [k, v] of Object.entries(r)) {
     const m = /^(?:ExtendedProperties|azure\.alert\.extendedProperties)\.(.+)$/.exec(k);
-    if (m && v !== undefined && v !== null && v !== "") out[m[1]] = Array.isArray(v) ? v.join(", ") : v;
+    if (m && v !== undefined && v !== null && v !== "") {
+      // A scheduled rule writes only its own keys; the fields its author chose to surface are Custom Details, a JSON
+      // string of arrays ({"SourceEDRVendor":["CrowdStrike Falcon"]}). A product's alert keeps its own keys as is.
+      if (scheduled && !SCHEDULED_KEYS.has(m[1])) custom[customKey(m[1])] = (Array.isArray(v) ? v : [v]).map(String);
+      else out[m[1]] = Array.isArray(v) ? v.join(", ") : v;
+    }
     // Defender for Endpoint's alert fields ride in ExtendedProperties under its own prefix.
     if (/^MicrosoftDefenderAtp\./.test(k) && str(v)) out[k] = v;
   }
   if (str(r.ThreatName)) out.ThreatName = r.ThreatName;
   if (str(r.ThreatFamilyName)) out.ThreatFamilyName = r.ThreatFamilyName;
-  // A scheduled / NRT analytic names itself: the rule's id in the workspace, never the platform's rule label.
+  // A scheduled / NRT analytic names itself (the rule's id in the workspace, never the platform's rule label) and
+  // states the query window and trigger it ran with.
   if (scheduled) {
-    const rule = str(r["alert.rule.id"]) ?? ruleName;
-    out["Analytic Rule Ids"] = JSON.stringify([ctx.uuid(`sentinel-rule:${ctx.companyId}:${rule}`)]);
+    out["Query Period"] ??= "01:00:00";
+    out["Trigger Operator"] ??= "GreaterThan";
+    out["Trigger Threshold"] ??= "0";
+    out["Search Query Results Overall Count"] ??= "1";
+    out["Analytic Rule Ids"] = JSON.stringify([ruleIdOf(ctx, r, ruleName)]);
     out["Analytic Rule Name"] = ruleName;
+    if (Object.keys(custom).length) out["Custom Details"] = JSON.stringify(custom);
   }
   return out;
 }
@@ -164,7 +184,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     VendorName: str(r.VendorName) ?? "Microsoft",
     ProductName: str(r.ProductName) ?? "Azure Sentinel",
     ...(str(r.ProductComponentName) ? { ProductComponentName: r.ProductComponentName } : {}),
-    AlertType: str(r.AlertType) ?? name.replace(/[^A-Za-z0-9]+/g, ""),
+    // A scheduled / NRT analytic's alert type is "<workspace id>_<rule id>", never its name run together; a
+    // product's own alert type (Defender's "SuspiciousPowerShellCommandLine") is what the product wrote.
+    AlertType: scheduled ? `${ctx.uuid(`sentinel-workspace:${ctx.companyId}`)}_${ruleIdOf(ctx, r, ruleNameOf(name, ev))}` : str(r.AlertType) ?? name.replace(/[^A-Za-z0-9]+/g, ""),
     SystemAlertId: str(r.SystemAlertId) ?? ctx.uuid(`${ev.id}:system`),
     VendorOriginalId: str(r.VendorOriginalId) ?? ctx.uuid(`${ev.id}:vendor`),
     Status: str(r.Status) && STATUSES.has(String(r.Status)) ? r.Status : "New",
@@ -202,8 +224,8 @@ const useCases: UseCase[] = [
     title: "Endpoint detection forwarded from the EDR",
     sourceId: "sentinel_alert", kinds: K, severity: "medium", mitre: [],
     description: "The SIEM copy of an EDR detection. It names the host and the technique; the process tree, command line and hashes are in the EDR. Use it to line the endpoint up with the sign-ins and network rows of the same host.",
-    logic: "// KQL (Microsoft Sentinel)\nSecurityAlert\n| where ExtendedProperties has \"Source EDR Vendor\"\n| extend Edr = tostring(parse_json(ExtendedProperties)[\"Source EDR Vendor\"])\n| summarize count() by Edr, CompromisedEntity",
-    match: { field: "ExtendedProperties", op: "contains", value: "Source EDR Vendor" },
+    logic: "// KQL (Microsoft Sentinel)\nSecurityAlert\n| extend cd = parse_json(tostring(parse_json(ExtendedProperties)[\"Custom Details\"]))\n| where isnotempty(cd.SourceEDRVendor)\n| extend Edr = tostring(cd.SourceEDRVendor[0])\n| summarize count() by Edr, CompromisedEntity",
+    match: { field: "ExtendedProperties", op: "contains", value: "SourceEDRVendor" },
     falsePositives: ["Every EDR alert is forwarded, including the ones the EDR itself will clear as benign"],
   },
   {

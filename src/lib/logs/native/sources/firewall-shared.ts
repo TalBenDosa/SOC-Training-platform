@@ -16,6 +16,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
+import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 
 export type Sev = "informational" | "low" | "medium" | "high" | "critical";
 export type Dir = "outbound" | "inbound" | "internal";
@@ -163,6 +164,17 @@ const ISO: Record<string, string> = {
   BR: "Brazil", PL: "Poland", LT: "Lithuania", LV: "Latvia", SC: "Seychelles", PA: "Panama", BY: "Belarus",
   KZ: "Kazakhstan", TR: "Turkey", VN: "Vietnam", NZ: "New Zealand",
 };
+/** Where a public address sits, for a GeoIP column: the feed's own placement, the company's office, else a stable pick. */
+const GEOIP_FALLBACK = ["United States", "Netherlands", "Germany", "United Kingdom", "France", "Singapore"];
+export function geoCountryOf(ip: string | undefined): string | undefined {
+  if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return undefined;
+  const known = knownGeoForIp(ip)?.country;
+  if (known) return normCountry(known);
+  const office = Object.values(COMPANY_ASSETS).find(a => a.office?.ip === ip)?.office?.country;
+  if (office) return normCountry(office);
+  return GEOIP_FALLBACK[(Number(ip.split(".")[3]) || 0) % GEOIP_FALLBACK.length];
+}
+
 export function normCountry(v: string | undefined): string | undefined {
   if (!v) return undefined;
   if (/^[A-Z]{2}$/.test(v)) return ISO[v] ?? v;
@@ -483,6 +495,10 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
   let dstCountry = normCountry(rawGet(raw, "destination.geo.country_name", "destination.geo.country_iso_code", "data.dstcountry", "dst_country"));
   const g = normCountry(ev.geo?.country);
   if (g) { if (dir === "inbound") srcCountry = srcCountry ?? g; else dstCountry = dstCountry ?? g; }
+  // A firewall's GeoIP database places a public destination: as the rest of the feed places it, else the
+  // company's own office for its egress, else a stable country for the address. (The source keeps its authored
+  // country: the companies' benign firewall rows are outbound, so a filled inbound source would mark attack rows.)
+  if (!dPriv) dstCountry = dstCountry ?? geoCountryOf(dst);
   if (sPriv) srcCountry = undefined;
   if (dPriv) dstCountry = undefined;
 

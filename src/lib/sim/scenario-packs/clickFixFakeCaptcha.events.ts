@@ -54,11 +54,13 @@ export function clickFixFakeCaptchaScenarioEvents() {
   const sensorId = makeSha256(`sensor:${host.hostname}`).slice(0, 32);
   // Falcon ScriptControlScanTelemetry: the script text the PowerShell engine was asked to run, in memory
   // (the fileless stages leave no file, so this is where their content is visible).
+  // The PowerShell that ran each script: the stager (8840, from explorer 3912), then its encoded child (8901).
   const scriptScan = (id: string, ms: number, content: string, cmdline: string, parentPath: string, description: string): TelemetryEvent =>
     scriptScanRecord({
       id, ts: T(ms), incidentId: INCIDENT, host: host.hostname, user: victim.sam, userEmail: victim.email, srcIp: host.ip, sensorId,
       userDomainName: "NEXACORP\\t.avraham", content, cmdline, parentPath,
       hostProcessPath: "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", description,
+      ...(/explorer\.exe$/i.test(parentPath) ? { pid: 8840, parentPid: 3912 } : { pid: 8901, parentPid: 8840 }),
     });
 
   const events: TelemetryEvent[] = [

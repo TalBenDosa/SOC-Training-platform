@@ -59,7 +59,9 @@ const DEPT_LABEL: Record<Dept, string> = {
 };
 
 const WORKSTATION_SOURCES = new Set(["edr", "sysmon", "av", "windows_security", "ad", "firewall", "proxy", "dns", "linux_audit", "dlp"]);
-const HOST_IP_SOURCES = new Set(["edr", "sysmon", "av", "windows_security", "linux_audit", "firewall", "proxy", "dns"]);
+// Not the Windows Security log: a logon on a server names the CLIENT's address, and the record has no field for the
+// logging computer's own (QA 2026-11-12: a file server and the DC both took one client's address).
+const HOST_IP_SOURCES = new Set(["edr", "sysmon", "av", "linux_audit", "firewall", "proxy", "dns"]);
 const PRIVATE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/;
 const NON_PEOPLE = /^(system|local service|network service|anonymous logon|unknown|n\/a|-|none)$/i;
 const SERVICE = /^(svc[-._]|ci-|.*[-._]svc$|.*-service$|dc-replication)/i;

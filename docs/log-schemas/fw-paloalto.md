@@ -49,7 +49,7 @@ Scope: TRAFFIC, THREAT (incl. subtype `url` = URL Filtering log, `spyware`, `vul
 | 22 | `sessionid` | Session ID (reused over time — pair with time) | `384112`; `0` for first-packet drops |
 | 23 | `repeatcnt` | Repeat count (aggregation) | `1` |
 | 24–27 | `sport`, `dport`, `natsport`, `natdport` | Ports pre/post NAT | `52144`, `443`, `31877`, `443` |
-| 28 | `flags` | Session flags (hex bitfield) | `0x400053` |
+| 28 | `flags` | Session flags (hex bitfield; AND each bit: `0x01000000` SSL session decrypted (SSL Proxy), `0x00400000` NAT performed, `0x00100000` non-standard destination port, `0x00800000` denied by URL filtering; PAN-OS Traffic Log Fields reference). A session on 443 carries a URL path, User-Agent or Referer only with the decrypted bit set; otherwise the URL log has the SNI host alone | `0x400053` |
 | 29 | `proto` | IP protocol (name) | `tcp`, `udp`, `icmp` |
 | 30 | `action` | Action taken | TRAFFIC: `allow`, `deny`, `drop`, `drop ICMP`, `reset both`, `reset client`, `reset server` · THREAT: `alert`, `allow`, `deny`, `drop`, `reset-client`, `reset-server`, `reset-both`, `block-url`, `block-ip`, `sinkhole`, `block-continue`, `continue`, `block-override`, `override`, `random-drop`, `syncookie-sent` |
 

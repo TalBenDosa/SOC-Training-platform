@@ -135,6 +135,10 @@ const CODE_FOR: Record<string, number> = {
   mfa_required: 50074, mfa_registration: 50072, mfa_denied: 500121, ca_block: 53003, other: 50126,
 };
 const LEGACY_CLIENTS = ["Exchange ActiveSync", "IMAP4", "POP3", "Authenticated SMTP", "MAPI Over HTTP", "Exchange Web Services", "Other clients"];
+/** Office desktop clients (the app a sign-in names, or the authored client app). */
+const DESKTOP_CLIENT = /^(microsoft office|microsoft outlook|outlook|microsoft teams|teams|onedrive( syncengine)?|microsoft onedrive)$/i;
+/** The user agent the Office desktop apps sign in with (MSAL in Office 16 on Windows). */
+const OFFICE_DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; Microsoft Outlook 16.0.18129; Pro)";
 const MFA_METHOD: Record<MfaMethod, { step: string; used: string; detail: string }> = {
   push: { step: "Mobile app notification", used: "Authenticator App", detail: "Microsoft Authenticator" },
   totp: { step: "Software OATH token", used: "Software OATH token", detail: "Authenticator app code" },
@@ -178,13 +182,17 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
   const ip = isPrivateIp(lanIp) ? egressIp(ctx) : lanIp;
   const geo = geoOf(ev, ctx, ip);
   const asn = asnOf(ev, geo, ip);
-  const ua = uaOf(ev);
+  const legacyRaw = rawStr(ev, "azure.signinlogs.properties.clientAppUsed", "azure.signinlogs.client_app_used", "azure.clientAppUsed", "azure.client_app");
+  // An Office desktop app (Outlook, Teams, OneDrive sync, "Microsoft Office") signs in as a rich client: its own
+  // user agent, deviceDetail.browser "Rich Client", clientAppUsed "Mobile Apps and Desktop clients", never a browser.
+  const authoredUa = !!(ev.network?.user_agent ?? rawStr(ev, "okta.client.userAgent.rawUserAgent", "azure.signinlogs.properties.userAgent", "user_agent.original"));
+  const desktop = !authoredUa && DESKTOP_CLIENT.test(legacyRaw ?? opts.appName ?? f.appName ?? rawStr(ev, "azure.signinlogs.properties.appDisplayName", "azure.signinlogs.app_display_name", "azure.appDisplayName") ?? "");
+  const ua = desktop ? { ...uaOf(ev), raw: OFFICE_DESKTOP_UA, entraBrowser: "Rich Client 16.0.18129.20158", entraOs: "Windows10", scripted: false } : uaOf(ev);
   const code = opts.code;
   const ok = code === 0;
   const interactive = opts.interactive ?? f.interactive;
-  const legacyRaw = rawStr(ev, "azure.signinlogs.properties.clientAppUsed", "azure.signinlogs.client_app_used", "azure.clientAppUsed", "azure.client_app");
   const clientAppUsed = legacyRaw && (legacyRaw === "Browser" || legacyRaw === "Mobile Apps and Desktop clients" || LEGACY_CLIENTS.includes(legacyRaw)) ? legacyRaw :
-    ua.scripted ? "Mobile Apps and Desktop clients" : "Browser";
+    ua.scripted || desktop ? "Mobile Apps and Desktop clients" : "Browser";
   const legacy = LEGACY_CLIENTS.includes(clientAppUsed);
   const protocol = rawStr(ev, "azure.signinlogs.properties.authenticationProtocol") ?? (legacy || (ua.scripted && !ok) ? "ropc" : interactive ? "oAuth2" : "none");
   const app = appOf(ctx, opts.appName ?? f.appName ?? rawStr(ev, "azure.signinlogs.properties.appDisplayName", "azure.signinlogs.app_display_name", "azure.appDisplayName"));
@@ -540,6 +548,15 @@ function auditFor(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | n
       const tpl = ROLE_TEMPLATES[role] ?? ctx.uuid(`role-template:${role}`);
       const mods = [mod("Role.ObjectID", jsonStr(ctx.uuid(`${ctx.companyId}:role:${role}`))), mod("Role.DisplayName", jsonStr(role)), mod("Role.TemplateId", jsonStr(tpl))];
       if (role === "Global Administrator") mods.push(mod("Role.WellKnownObjectName", jsonStr("TenantAdmins")));
+      // A just-in-time activation is PIM's own record (card idp-entra-id.md: "Add member to role completed (PIM
+      // activation)", logged by PIM), carrying the justification and ticket the requester typed.
+      if (/PIM activation/i.test(rawStr(ev, "azure.operation", "azure.auditlogs.properties.activityDisplayName") ?? "")) {
+        const pim: { key: string; value: string }[] = [];
+        for (const [key, k] of [["StartTime", "azure.pim.start_time"], ["ExpirationTime", "azure.pim.expiration_time"], ["Justification", "azure.pim.justification"],
+          ["TicketNumber", "azure.pim.ticket_number"], ["TicketSystem", "azure.pim.ticket_system"]]) { const value = rawStr(ev, k); if (value) pim.push({ key, value }); }
+        return renderAudit(ev, ctx, f, { activity: "Add member to role completed (PIM activation)", category: "RoleManagement", service: "PIM", operationType: "Assign",
+          initiator: me, targets: [userTarget(ctx, target, mods)], additional: pim });
+      }
       return renderAudit(ev, ctx, f, { activity: "Add member to role", category: "RoleManagement", service: "Core Directory", operationType: "Assign",
         initiator: me, targets: [userTarget(ctx, target, mods)] });
     }

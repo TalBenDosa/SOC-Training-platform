@@ -100,7 +100,14 @@ export function procPid(ctx: NativeCtx, s: ProcScope, p: ProcRef): number | unde
   if (windows) {
     if (name === "system") return 4;
     if (name === "registry") return 92;
-    return SINGLETON.has(name) ? ctx.int(`${key}:pid`, 100, 320) * 4 : ctx.int(`${key}:pid`, 250, 5000) * 4;
+    if (SINGLETON.has(name)) return ctx.int(`${key}:pid`, 100, 320) * 4;
+    let pid = ctx.int(`${key}:pid`, 250, 5000) * 4;
+    if (SESSION.has(name)) return pid;
+    // Two live processes never share a pid: a story process steps past the pid its user's session processes
+    // (Explorer, the usual parent) hold that day, so a child never reads as its own parent.
+    const taken = new Set([...SESSION].filter(n => n.endsWith(".exe")).map(n => procPid(ctx, s, { name: n })));
+    while (taken.has(pid)) pid = pid >= 19_996 ? 1_000 : pid + 4;
+    return pid;
   }
   if (name === "systemd" || name === "init" || name === "launchd") return 1;
   return SINGLETON.has(name) ? ctx.int(`${key}:pid`, 300, 2000) : ctx.int(`${key}:pid`, 1000, 65000);
@@ -409,10 +416,12 @@ export function threadEndpointStory(events: TelemetryEvent[]): TelemetryEvent[] 
   // 4. A process's own row: integrity, account, command line (for the rows that name it as a parent).
   const ownBy = new Map<string, PView>();
   const startBy = new Map<string, number>();
+  /** The parent a process's own row names: an action row of that process (a DNS lookup, a file write) has the same parent. */
+  const ownParentBy = new Map<string, PView>();
   for (const v of vs) {
     if (v.f.kind !== "process" || !v.proc.name) continue;
     const key = `${k2(v.host, v.proc.name)}|${instOf(v.host, v.proc) ?? ""}`;
-    if (!ownBy.has(key)) { ownBy.set(key, v.proc); startBy.set(key, v.t); }
+    if (!ownBy.has(key)) { ownBy.set(key, v.proc); startBy.set(key, v.t); if (nm(v.parent)) ownParentBy.set(key, v.parent); }
   }
 
   const threadProc = (v: View, p: PView, asParent: boolean): ThreadProc | undefined => {
@@ -519,8 +528,23 @@ export function threadEndpointStory(events: TelemetryEvent[]): TelemetryEvent[] 
     if (!v) return e;
     const t: EndpointThread = { ...(threadOf(e) ?? {}) };
     const proc = threadProc(v, v.proc, false);
-    const parent = threadProc(v, v.parent, true);
+    // An action row that names its process but not the parent: the parent that process's own row names.
+    // Only a parent the story pins down: an image with several instances in the story needs its pid to say which.
+    const pinnedView = (p: PView | undefined) => !!p && !!nm(p) && (known(p) || !split.has(`${v.host}|${nm(p)}`));
+    const inheritedRaw = v.f.kind !== "process" && !nm(v.parent) && v.proc.name
+      ? ownParentBy.get(`${k2(v.host, v.proc.name)}|${instOf(v.host, v.proc) ?? ""}`) : undefined;
+    const inherited = pinnedView(inheritedRaw) ? inheritedRaw : undefined;
+    const parent = inherited
+      ? (() => { const tp = threadProc(v, inherited, true); return { ...(tp ?? {}), name: inherited.name ?? baseOf(inherited.path), pid: inherited.pid, ...(tp?.path || !inherited.path ? {} : { path: inherited.path }) }; })()
+      : threadProc(v, v.parent, true);
     const writer = writerOf(v);
+    // A process row's creator: its own creator, from the creator's own row (so the creator's parent is not guessed).
+    const gpView = v.f.kind === "process" && nm(v.parent) && v.parent.name
+      ? ownParentBy.get(`${k2(v.host, v.parent.name)}|${instOf(v.host, v.parent) ?? ""}`) : undefined;
+    if (gpView && pinnedView(gpView)) {
+      const tp = threadProc(v, gpView, true);
+      t.grandparent = { ...(tp ?? {}), name: gpView.name ?? baseOf(gpView.path), pid: gpView.pid, ...(tp?.path || !gpView.path ? {} : { path: gpView.path }) };
+    }
     if (proc) t.proc = proc;
     if (parent) t.parent = parent;
     if (writer) t.writer = writer;

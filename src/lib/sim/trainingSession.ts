@@ -11,6 +11,8 @@
  * (clean slate) and on End Session, so a stale flag can never leave the EDR
  * reachable without a live shift.
  */
+import { clearContainment } from "@/lib/edr/containment";
+
 export const TRAINING_KEY = "soc_training_active";
 const KEY = TRAINING_KEY;
 export const TRAINING_EVENT = "soc:training-changed";
@@ -23,6 +25,9 @@ export function isTrainingActive(): boolean {
 export function setTrainingActive(active: boolean): void {
   if (typeof window === "undefined") return;
   try {
+    // A shift that starts (not one already running) starts with no host contained: a containment from an
+    // earlier training must not show on the new one's hosts (QA 2026-11-12).
+    if (active && localStorage.getItem(KEY) !== "1") clearContainment();
     if (active) localStorage.setItem(KEY, "1");
     else localStorage.removeItem(KEY);
   } catch { /* storage unavailable — ignore */ }

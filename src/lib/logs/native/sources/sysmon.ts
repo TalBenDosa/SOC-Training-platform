@@ -101,6 +101,13 @@ const META: Record<string, { d: string; o: string }> = {
 };
 const PORTNAME: Record<string, string> = { "443": "https", "80": "http", "445": "microsoft-ds", "3389": "ms-wbt-server", "22": "ssh", "53": "domain", "389": "ldap", "636": "ldaps", "88": "kerberos", "135": "epmap", "139": "netbios-ssn", "1433": "ms-sql-s", "5985": "wsman", "5986": "wsmans", "8080": "http-alt", "25": "smtp" };
 const SYSTEM_PARENTS = new Set(["services.exe", "svchost.exe", "wmiprvse.exe", "smss.exe", "wininit.exe", "winlogon.exe", "psexesvc.exe"]);
+/** The account an OS image runs as when the event names none (Sysmon always prints the process's user). */
+const SERVICE_IMAGE_ACCOUNT: Record<string, string> = {
+  "svchost.exe": "NT AUTHORITY\\NETWORK SERVICE", "services.exe": "NT AUTHORITY\\SYSTEM", "lsass.exe": "NT AUTHORITY\\SYSTEM",
+  "spoolsv.exe": "NT AUTHORITY\\SYSTEM", "msmpeng.exe": "NT AUTHORITY\\SYSTEM", "wmiprvse.exe": "NT AUTHORITY\\NETWORK SERVICE",
+  "system": "NT AUTHORITY\\SYSTEM", "smss.exe": "NT AUTHORITY\\SYSTEM", "csrss.exe": "NT AUTHORITY\\SYSTEM", "wininit.exe": "NT AUTHORITY\\SYSTEM",
+  "mssense.exe": "NT AUTHORITY\\SYSTEM", "sysmon64.exe": "NT AUTHORITY\\SYSTEM",
+};
 
 /**
  * Long deterministic hex (hashes, GUIDs). ctx.hex chains seeds that differ only in their
@@ -187,12 +194,14 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (wr) { a.name = wr.name; a.cmd = wr.cmdline; }
   a.cmd ??= th?.proc?.cmdline;
   a.inst = wr?.inst ?? th?.proc?.inst;
+  // Sysmon always prints the image's full path: an authored bare name ("svchost.exe") resolves like any other name.
   a.path = (wr?.path && isWinPath(wr.path) ? wr.path : undefined) ?? (th?.proc?.path && isWinPath(th.proc.path) ? th.proc.path : undefined)
-    ?? ed("Image") ?? (isWinPath(ev.process?.path) ? ev.process!.path : undefined) ?? (isWinPath(r("process.executable")) ? r("process.executable") : undefined)
+    ?? (isWinPath(ed("Image")) ? ed("Image") : undefined) ?? (isWinPath(ev.process?.path) ? ev.process!.path : undefined) ?? (isWinPath(r("process.executable")) ? r("process.executable") : undefined)
     ?? joinPath(r("crowdstrike.FilePath"), r("crowdstrike.FileName") === a.name ? a.name : undefined) ?? devicePath(r("crowdstrike.ImageFileName"))
     ?? joinPath(mdeProcEvent ? r("FolderPath") : r("InitiatingProcessFolderPath"), a.name)
     ?? (a.name ? KNOWN[a.name.toLowerCase()] : undefined) ?? pathFromCmd(a.cmd, a.name)
-    ?? (a.name && isWinPath(ev.file?.path) && base(ev.file!.path).toLowerCase() === a.name.toLowerCase() ? ev.file!.path : undefined);
+    ?? (a.name && isWinPath(ev.file?.path) && base(ev.file!.path).toLowerCase() === a.name.toLowerCase() ? ev.file!.path : undefined)
+    ?? (ed("Image") && !isWinPath(ed("Image")) ? KNOWN[base(ed("Image")!).toLowerCase()] ?? `C:\\Windows\\System32\\${base(ed("Image")!)}` : undefined);
   // Non-Windows actors (Linux EDR telemetry) have no Sysmon-for-Windows record.
   const linuxish = (ev.process?.path ?? "").startsWith("/") || r("host.os.type") === "linux" || ev.event_type.startsWith("linux_")
     || (!!a.name && !a.path && !/\.(exe|com|scr|bat|cmd|ps1|dll)$/i.test(a.name));
@@ -214,8 +223,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (!a.user && wr?.user) a.user = normUser(wr.user);
   if (!a.user && th?.user) a.user = normUser(th.user);
 
-  // Unknown account: SYSTEM only when the parent is a service host; otherwise Sysmon-style "-" (never a guessed user).
-  const user = a.user ?? (ev.process?.parent_name && SYSTEM_PARENTS.has(ev.process.parent_name.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : "-");
+  // Unknown account: the account Windows runs that image as (svchost's DNS client and network stack run as NETWORK
+  // SERVICE, the other OS services as SYSTEM), SYSTEM when the parent is a service host; otherwise Sysmon-style "-".
+  const serviceAccount = a.name ? SERVICE_IMAGE_ACCOUNT[a.name.toLowerCase()] : undefined;
+  const user = a.user ?? serviceAccount ?? (ev.process?.parent_name && SYSTEM_PARENTS.has(ev.process.parent_name.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : "-");
   const isSystemUser = /^NT AUTHORITY\\/i.test(user);
   const userName = user.includes("\\") ? user.split("\\").pop()! : user;
   // Every pid and ProcessGuid comes from the shared process identity (./_proc-identity: host + image +

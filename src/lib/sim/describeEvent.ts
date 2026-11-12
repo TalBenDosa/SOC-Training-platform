@@ -114,6 +114,9 @@ export interface DescribeOptions {
   /** Never use the authored prose — every row (attack or noise) gets the same field-built
    *  sentence, so neither length nor style tells an attack row from noise (team feed). */
   fieldsOnly?: boolean;
+  /** With fieldsOnly: an alert named for its conclusion ("Exfiltration:S3/...", "Ransomware.X") still gets the
+   *  neutral line, as the single-player feed promises no hints (technical-integrity rule 3). */
+  neutralAlerts?: boolean;
 }
 
 /** Windows LogonType → the wording analysts (and the live feed) use. */
@@ -159,7 +162,7 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   }
   // A row line never states the conclusion: a finding named for its tactic ("Exfiltration:S3/...",
   // "Ransomware.MedLock") keeps that name in the record and the row falls back to the neutral line.
-  const namesConclusion = !opts.fieldsOnly && ROW_CONCLUSION.test(alertName);
+  const namesConclusion = (!opts.fieldsOnly || !!opts.neutralAlerts) && ROW_CONCLUSION.test(alertName);
   if ((opts.fieldsOnly || opts.preferFields) && alertName && !namesConclusion && (event.is_detection || ["siem", "ueba", "dlp", "av", "ids", "guardduty", "cloud_gcp", "cloudtrail"].includes(event.source) || /alert|detection|quarantine|finding|signature|anomaly/.test(event.event_type))) {
     return `Alert: ${alertName}${event.hostname ? ` on ${event.hostname}` : ""}`;
   }
@@ -169,8 +172,13 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   if (opts.preferFields && event.hostname) {
     const lt = rawStr(event.raw, "winlog.event_data.LogonType") || String(event.raw?.["winlog.event_data.LogonType"] ?? "");
     const kind = LOGON_TYPES[lt];
-    if (eventCode === "4624" && kind) return `${kind} logon to ${event.hostname}`;
-    if (eventCode === "4625" && kind) return `Failed ${kind.toLowerCase()} logon to ${event.hostname}`;
+    // The event id leads, then the fields an analyst reads first (QA 2026-11-12: one factual template from the log).
+    if (eventCode === "4624" && kind) return `4624 ${kind} logon to ${event.hostname} (LogonType ${lt})`;
+    if (eventCode === "4625" && kind) {
+      const status = rawStr(event.raw, "winlog.event_data.SubStatus", "winlog.event_data.Status");
+      const code = status && !/^0x0+$/i.test(status) ? status : rawStr(event.raw, "winlog.event_data.Status");
+      return `4625 Failed ${kind.toLowerCase()} logon to ${event.hostname} (LogonType ${lt}${code ? `, ${code}` : ""})`;
+    }
     if (eventCode === "5145") {
       const share = rawStr(event.raw, "winlog.event_data.ShareName");
       const rel = rawStr(event.raw, "winlog.event_data.RelativeTargetName");
@@ -186,8 +194,8 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   const useViewer = eventCode && WIN_EVENT_VIEWER_DESCRIPTIONS[eventCode] &&
     !(opts.preferFields && FIELD_RICH.has(event.event_type) && hasFields);
   if (useViewer) {
-    const text = WIN_EVENT_VIEWER_DESCRIPTIONS[eventCode!];
-    // On the scenario page say WHERE it happened — the live feed shows the host in its own column.
+    const text = `${eventCode} ${WIN_EVENT_VIEWER_DESCRIPTIONS[eventCode!]}`;
+    // Say WHERE it happened: the event id, the Event Viewer text and the host that logged it.
     return opts.preferFields && event.hostname && !text.includes(event.hostname)
       ? `${text.replace(/\.$/, "")} on ${event.hostname}` : text;
   }
@@ -281,7 +289,9 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "privilege_escalation":
       return `${who} gained elevated privileges${host}`;
     case "cloud_api_call": {
-      if (op && namedActor) return `${who} called ${op}`;
+      // A Microsoft 365 audit operation names its workload / app host: "called CopilotInteraction (Word)".
+      const where = rawStr(event.raw, "data.office365.CopilotEventData.AppHost", "CopilotEventData.AppHost", "data.office365.Workload", "Workload");
+      if (op && namedActor) return `${who} called ${op}${where && where !== op ? ` (${where})` : ""}`;
       // A service's own request log names no caller: the resource (and model deployment) that served it.
       const res = rawStr(event.raw, "azure.resource.name", "gcp.resource.name");
       const dep = rawStr(event.raw, "azure.open_ai.properties.model_deployment_name");
@@ -305,11 +315,17 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "av_detection":
     case "av_quarantine":
     case "av_blocked":
-    case "edr_alert":
-      return `Threat detected on ${event.hostname || "endpoint"}`;
+    case "edr_alert": {
+      // The process or file the detection names is in the record: say which, not just "a threat".
+      const what = p?.name || fileName;
+      return `Endpoint detection on ${event.hostname || "endpoint"}${what ? `: ${what}` : ""}`;
+    }
     case "email_received": {
       const { from } = mailParties(event);
-      return safe(`${who} received an email${from ? ` from ${from}` : ""}`, `${who} received an email`);
+      const subject = rawStr(event.raw, "email.subject", "Subject", "data.office365.Subject", "proofpoint.subject", "subject");
+      const subj = subject ? ` "${subject.length > 70 ? `${subject.slice(0, 67)}...` : subject}"` : "";
+      const withFrom = `${who} received an email${from ? ` from ${from}` : ""}`;
+      return safe(`${who} received an email${subj}${from ? ` from ${from}` : ""}`, safe(withFrom, `${who} received an email`));
     }
     case "email_clicked":
       return `${who} clicked a link in an email`;
@@ -376,14 +392,30 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
       if (event.source === "web_server") return `${n?.method ?? "GET"} ${String(event.raw?.["url.path"] ?? "/")} on ${n?.domain ?? "web server"} answered ${n?.status ?? 200}`;
       // An API gateway's own log (Azure API Management): the API operation it proxied, never browsing.
       if (rawStr(event.raw, "Type") === "ApiManagementGatewayLogs") return apimLine(event);
-      return `${who} browsed to ${n?.domain || hostOf(n?.url) || hostOf(rawStr(event.raw, "zscaler.url", "data.http.url")) || rawStr(event.raw, "zscaler.hostname", "url.domain") || event.dst_ip || "a website"}`;
-    case "http_blocked":
-      return `Web request blocked for ${who}`;
+    {
+      const site = n?.domain || hostOf(n?.url) || hostOf(rawStr(event.raw, "zscaler.url", "data.http.url")) || rawStr(event.raw, "zscaler.hostname", "url.domain") || event.dst_ip || "a website";
+      // A script or a command-line tool fetching a URL is not someone browsing: name the client the record shows.
+      const ua = n?.user_agent || rawStr(event.raw, "user_agent.original", "http.user_agent", "pan.user_agent", "zscaler.useragent", "useragent");
+      const proc = p?.name && !/^(chrome|msedge|firefox|safari|iexplore|opera|brave|outlook|teams)(\.exe)?$/i.test(p.name) ? p.name : "";
+      const client = proc || (/WindowsPowerShell|PowerShell/i.test(ua) ? "PowerShell" : /^curl\//i.test(ua) ? "curl" : /^Wget/i.test(ua) ? "wget" : /python-(requests|urllib)|python\//i.test(ua) ? "a Python client" : /Microsoft-CryptoAPI|CertUtil/i.test(ua) ? "certutil" : /Microsoft BITS/i.test(ua) ? "BITS" : "");
+      const dl = event.file?.name || baseName(rawStr(event.raw, "pan.file_name", "file.name"));
+      if (dl) return `${client || who} downloaded ${dl} from ${site}`;
+      if (client) return `${client} requested ${site}${proc ? "" : ` for ${who}`}`;
+      return `${who} browsed to ${site}`;
+    }
+    case "http_blocked": {
+      const site = n?.domain || hostOf(n?.url) || event.dst_ip;
+      return `Web request${site ? ` to ${site}` : ""} blocked for ${who}`;
+    }
     case "mfa_disabled":
       return `MFA removed from account for ${who}`;
     case "policy_modification":
       // An Exchange / PowerShell cmdlet (New-InboxRule, Set-Mailbox) is a command the account ran.
-      if (/^[A-Z][a-z]+-[A-Za-z]+$/.test(op)) return `${who} ran ${op}`;
+      if (/^[A-Z][a-z]+-[A-Za-z]+$/.test(op)) {
+        // The object the cmdlet acted on (the mailbox / rule the audit names), when the record carries it.
+        const obj = rawStr(event.raw, "data.office365.ObjectId", "ObjectId");
+        return `${who} ran ${op}${obj ? ` on ${obj.length > 60 ? `${obj.slice(0, 57)}...` : obj}` : ""}`;
+      }
       return op ? `${who} changed a policy (${op})` : `Security policy modified${host}`;
     case "privileged_operation":
       return `Privileged operation performed by ${who}${host}`;
@@ -426,6 +458,16 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
 }
 
 /**
+ * The first letter of a row's action after the user name is stripped: a verb is capitalised ("Received an
+ * email"), a process, file or domain keeps its own case ("powershell.exe started ...", never "Powershell.exe").
+ */
+export function capitalizeAction(s: string): string {
+  const first = s.split(/\s/)[0] ?? "";
+  if (/[.\\/:@_]/.test(first) || /\d/.test(first)) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
  * The Live SOC row layout: the user on its own line and the action under it,
  * with the username stripped from the front of the sentence so it isn't said
  * twice ("j.chen" / "Received an email"). No user → just the sentence.
@@ -439,6 +481,6 @@ export function describeEventForRow(event: TelemetryEvent, opts: DescribeOptions
   const stripped = full.replace(new RegExp(`^${escaped}(?:['’]s)?[\\s\\-:·,]+`, "i"), "").trim();
   // Capitalise only when the username was actually removed ("received an email" →
   // "Received an email"); a sentence that starts with a process keeps its case.
-  const action = stripped && stripped !== full ? stripped.charAt(0).toUpperCase() + stripped.slice(1) : full;
+  const action = stripped && stripped !== full ? capitalizeAction(stripped) : full;
   return { user, title: event.user_title ?? event.user?.title, action };
 }

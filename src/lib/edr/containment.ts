@@ -28,6 +28,11 @@ export function isContained(host: string): boolean {
   return read().includes(host);
 }
 
+/** A new training starts with no host contained: a containment belongs to the shift it was made in (QA 2026-11-12). */
+export function clearContainment(): void {
+  if (read().length) write([]);
+}
+
 export function setContained(host: string, contained: boolean): void {
   const cur = read();
   write(contained ? [...cur, host] : cur.filter(h => h !== host));

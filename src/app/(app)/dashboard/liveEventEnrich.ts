@@ -11,6 +11,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { getRuleDescription } from "@/lib/sim/ruleDescriptions";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { describeEvent } from "@/lib/sim/describeEvent";
+import { windowsFeedSource } from "@/lib/logs/windowsFeedSource";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 import { edrFacts } from "@/lib/logs/native/sources/edr-normalize";
 
@@ -549,7 +550,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     raw["data.office365.ResultStatus"] = (event.event_type === "auth_failure" || event.event_type === "mfa_denied")
       ? "Failed" : "Success";
     raw["data.office365.UserType"]      = "0"; // Regular user
-    raw["data.office365.OrganizationId"]= "a7b8c9d0-1234-5678-abcd-ef0123456789";
+    raw["data.office365.OrganizationId"]= "ab1ce26a-8c61-4866-86b1-7e3a63810304";
     if (o365Op) raw["data.office365.Operation"] = o365Op;
   }
 
@@ -609,6 +610,10 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     raw,
     ruleLevel: calculateRuleLevel(event),
     ruleId: buildRuleId(tagged === event.mitre_technique ? event : { ...event, mitre_technique: undefined }, index),
-    displayDescription: describeEvent(event),
+    // One factual line built from the log's own fields for every row, attack or noise (QA 2026-11-12): the
+    // authored description explains the event and would hand over the verdict, so it stays for the debrief.
+    displayDescription: describeEvent(event, { fieldsOnly: true, preferFields: true, neutralAlerts: true }),
+    // A Windows log row is tagged by who wrote it: the DC ("ad"), a member's Security log, or the System log.
+    ...(!(event as LiveEvent).feed_source && windowsFeedSource(event) ? { feed_source: windowsFeedSource(event) } : {}),
   };
 }

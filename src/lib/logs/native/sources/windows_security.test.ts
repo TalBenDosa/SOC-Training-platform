@@ -4,6 +4,7 @@ import { corpusFor } from "../testing/corpus";
 import { makeCtx } from "../ctx";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { runUseCase } from "../engine";
+import { accountSid } from "./_sid";
 import { sampleLogs, violationsOf, convertAll, contains, flatSamples, isNoise, type Converted } from "./_dnsHostItsm.testkit";
 
 /*
@@ -47,9 +48,12 @@ describe("windows_security - corpus conversion", () => {
       if (!c.log) continue;
       expect(violationsOf(c.log, source), `${c.c.ev.id} → ${c.log.kind}`).toEqual([]);
       expect(c.log.timeMs).toBe(Date.parse(c.c.ev.ts));
-      // Windows is shown as the SIEM's normalised JSON - not raw EVTX XML (Tal, 2026-10-03).
-      expect(c.log.format).toBe("json");
-      expect(c.log.rawLine).toBeUndefined();
+      // The wire form is the event's EVTX XML, as Sysmon's is (Tal's QA, 2026-11-12); no invented flat fields.
+      expect(c.log.format).toBe("xml");
+      expect(c.log.rawLine?.startsWith(`<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="`)).toBe(true);
+      expect(c.log.rawLine).toContain(`<EventID${c.log.record.Channel === "System" ? ' Qualifiers="16384"' : ""}>${c.log.record.EventID}</EventID>`);
+      expect(c.log.rawLine).toContain(`<TimeCreated SystemTime="${c.log.record.TimeCreated}"/>`);
+      expect(Object.keys(c.log.record)).not.toContain("KeywordsText");
       expect(typeof c.log.record.EventID).toBe("number");
       expect(typeof c.log.record.EventRecordID).toBe("number");
       expect(String(c.log.record.TimeCreated)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$/);
@@ -89,10 +93,14 @@ describe("windows_security - corpus conversion", () => {
       const ipKinds = ["4624", "4625", "4648", "4768", "4769", "4771"];
       // Skip when the authored record explicitly says no source ("-" = local / console logon).
       const authIp = ev.raw?.["winlog.event_data.IpAddress"] as string | undefined;
-      if (ev.src_ip && ipKinds.includes(k) && /^\d/.test(ev.src_ip) && authIp !== "-") expect(contains(rec, ev.src_ip), `${ev.id} src_ip`).toBe(true);
+      // A local (2 / 7 / 11), service (5) or batch (4) logon has no network address: Windows writes 127.0.0.1 or "-".
+      const noNet = (k === "4624" || k === "4625") && ["2", "7", "11", "4", "5"].includes(String(rec.LogonType ?? ""));
+      if (ev.src_ip && ipKinds.includes(k) && /^\d/.test(ev.src_ip) && authIp !== "-" && !noNet) expect(contains(rec, ev.src_ip), `${ev.id} src_ip`).toBe(true);
       // service name on a TGS request
       const svc = ev.raw?.["winlog.event_data.ServiceName"] as string | undefined;
-      if (k === "4769" && svc) expect(contains(rec, svc), `${ev.id} ServiceName`).toBe(true);
+      // A machine SPN (cifs/host/ldap ...) is the computer ACCOUNT in the record: the ServiceName is HOST$.
+      const spn = svc ? /^(cifs|host|ldap|gc|rpcss|dns|wsman|termsrv|restrictedkrbhost)\/([^/:.]+)/i.exec(svc) : null;
+      if (k === "4769" && svc) expect(spn ? rec.ServiceName === `${spn[2].toUpperCase()}$` : contains(rec, svc), `${ev.id} ServiceName`).toBe(true);
       // process command line on 4688
       if (k === "4688" && ev.process?.cmdline) expect(contains(rec, ev.process.cmdline), `${ev.id} cmdline`).toBe(true);
       // authored ticket encryption type (the Kerberoasting / AS-REP RC4 signal)
@@ -111,10 +119,10 @@ describe("windows_security - corpus conversion", () => {
     expect(locks.length).toBeGreaterThan(0);
     for (const c of locks) {
       expect(Object.keys(c.log!.record)).not.toContain("CallerComputerName");
-      // The caller computer name (or, when the authored event only had an IP, that IP) rides in TargetDomainName.
-      const caller = c.c.ev.raw?.["winlog.event_data.CallerComputerName"] as string | undefined;
-      const expected = caller ?? (c.c.ev.src_ip ? `\\\\${c.c.ev.src_ip}` : undefined);
-      if (expected) expect(String(c.log!.record.TargetDomainName)).toContain(expected.replace(/^\\\\/, ""));
+      // The caller computer NAME rides in TargetDomainName (never \\<ip>), the DC wrote the record, its Subject is DC$.
+      expect(String(c.log!.record.TargetDomainName), c.c.ev.id).not.toMatch(/^\\\\/);
+      expect(String(c.log!.record.Computer), c.c.ev.id).toMatch(/(^|[-_])DC\d*($|[-_.])/i);
+      expect(String(c.log!.record.SubjectUserName), c.c.ev.id).toMatch(/\$$/);
     }
   });
 });
@@ -197,9 +205,10 @@ describe("windows_security: renderer defaults an analyst would catch", () => {
     expect(r.SubjectLogonId).toBe("0x3e7");
     expect(r.ProcessId).not.toBe("0x0");
   });
-  it("a foreign domain SID is re-homed onto the organization's domain (RID kept)", () => {
+  it("an account's SID is the organization's one SID for that account, on its domain (QA 2026-11-12: one account, one SID)", () => {
     const r = ev("d2", { "event.code": "4720", "winlog.event_data.TargetUserName": "svc-backup2", "winlog.event_data.TargetSid": "S-1-5-21-1111111111-2222222222-3333333333-1353" }, { event_type: "account_create" });
-    expect(r.TargetSid).toBe("S-1-5-21-3421479547-3897544621-1789562108-1353");
+    expect(r.TargetSid).toBe(accountSid(ctx, "svc-backup2"));
+    expect(String(r.TargetSid)).toMatch(/^S-1-5-21-3421479547-3897544621-1789562108-\d+$/);
   });
   it("a Remote Desktop 4624 is made by winlogon.exe, and WorkstationName is never an FQDN", () => {
     const r = ev("d3", { "event.code": "4624", "winlog.event_data.TargetUserName": "administrator", "winlog.event_data.LogonType": "10", "winlog.event_data.WorkstationName": "SRV-NXC-DC01.nexacorp.com", "winlog.event_data.IpAddress": "10.10.20.150" }, { event_type: "auth_success" });

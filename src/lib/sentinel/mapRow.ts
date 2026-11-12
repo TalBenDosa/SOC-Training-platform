@@ -175,7 +175,8 @@ const WINDOWS_SECURITY: Spec = {
   eventData: true,
   cols: {
     EventID: "EventID", Computer: "Computer", Channel: "Channel", EventSourceName: "Provider", EventRecordId: "EventRecordID",
-    Keywords: "KeywordsText", LogonType: "LogonType",
+    // SecurityEvent's Keywords column holds the audit result in words (the record keeps the hex bitmask).
+    Keywords: r => r.Keywords === "0x8020000000000000" ? "Audit Success" : r.Keywords === "0x8010000000000000" ? "Audit Failure" : undefined, LogonType: "LogonType",
     Account: r => account(r.TargetDomainName, r.TargetUserName) ?? account(r.SubjectDomainName, r.SubjectUserName),
     SubjectAccount: r => account(r.SubjectDomainName, r.SubjectUserName),
     TargetAccount: r => account(r.TargetDomainName, r.TargetUserName),

@@ -477,7 +477,7 @@ export function csNetwork(o: CsNetworkOpts): TelemetryEvent {
     src_ip: remote.src, dst_ip: remote.dst, dst_port: o.remotePort, protocol: transport,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
-    ...(o.processName ? { process: { pid: pid!, name: o.processName, path: o.processPath ?? `C:\\Windows\\System32\\${o.processName}`, cmdline: o.cmdline ?? o.processName, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined } } : {}),
+    ...(o.processName ? { process: { pid: pid!, name: o.processName, path: o.processPath ?? `C:\\Windows\\System32\\${o.processName}`, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined } } : {}),
     network: { domain: o.domain, ...(o.bytesOut !== undefined ? { bytes_out: o.bytesOut } : {}), ...(o.bytesIn !== undefined ? { bytes_in: o.bytesIn } : {}) },
     description: o.description ?? `${dir === "inbound" ? "Inbound" : "Outbound"} ${transport.toUpperCase()} connection ${dir === "inbound" ? "to" : "from"} ${r.host} ${dir === "inbound" ? "from" : "to"} ${o.remoteIp}:${o.remotePort}`,
     raw: {
@@ -530,7 +530,7 @@ export function csDns(o: CsDnsOpts): TelemetryEvent {
     incident_id: o.incidentId,
     dns: { query: o.domain, query_type: qtype, response: o.resolvedIp },
     network: { domain: o.domain },
-    ...(o.processName && o.pid !== undefined ? { process: { pid: o.pid, name: o.processName, path: o.processPath ?? `C:\\Windows\\System32\\${o.processName}`, cmdline: o.cmdline ?? o.processName, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined } } : {}),
+    ...(o.processName && o.pid !== undefined ? { process: { pid: o.pid, name: o.processName, path: o.processPath ?? `C:\\Windows\\System32\\${o.processName}`, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined } } : {}),
     description: o.description ?? `${r.host} resolved ${o.domain}`,
     raw: {
       "crowdstrike.event_simpleName": "DnsRequest",

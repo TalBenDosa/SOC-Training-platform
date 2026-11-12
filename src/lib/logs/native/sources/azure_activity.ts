@@ -14,6 +14,28 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
 import { entitySeed, iso7, iso7z, rs, rv, underPrefix } from "./cloud-shared";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
+
+const PRIVATE_IP = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.)/;
+/**
+ * The address Azure Resource Manager saw the call come from: a portal or CLI call from the office reaches Azure
+ * through the office's public NAT, never as an internal address (a domain controller's, a workstation's).
+ */
+export function armCallerIp(ip: string | undefined, companyId: string): string | undefined {
+  if (!ip || !PRIVATE_IP.test(ip)) return ip;
+  return COMPANY_ASSETS[companyId]?.office?.ip ?? undefined;
+}
+
+/**
+ * A resource id with its provider path whole: /PROVIDERS/<NAMESPACE>/<TYPE>/<NAME>. A row that names the namespace
+ * and the resource but not its type takes the type from the operation (Microsoft.Web/sites/restart/action → SITES).
+ */
+export function fullResourceId(sub: string, rg: string, provider: string, name: string, op: string): string {
+  const [ns, type] = op.split("/");
+  const providerPath = provider.includes("/") ? provider
+    : type && ns && ns.toLowerCase() === provider.toLowerCase() ? `${ns}/${type}` : provider;
+  return `/SUBSCRIPTIONS/${sub}/RESOURCEGROUPS/${rg}/PROVIDERS/${providerPath}/${name}`.toUpperCase();
+}
 
 const kinds: Record<string, KindSchema> = {
   ActivityLog: {
@@ -56,12 +78,13 @@ function buildActivityLog(ev: TelemetryEvent, ctx: NativeCtx): NativeLog {
   const sub = ctx.tenant.azureSubscriptionId.toUpperCase();
   // A subscription-level operation (no resource group) is scoped to the subscription itself.
   const subScoped = !rs(raw, "azure.resource.group") && !rs(raw, "azure.resource.provider") && /^microsoft\.resources\/subscriptions\//i.test(op);
-  const resourceId = rs(raw, "azure.resource.id") ?? (subScoped ? `/SUBSCRIPTIONS/${sub}` : `/SUBSCRIPTIONS/${sub}/RESOURCEGROUPS/${(rs(raw, "azure.resource.group") ?? "rg-prod").toUpperCase()}/PROVIDERS/${(rs(raw, "azure.resource.provider") ?? "MICROSOFT.RESOURCES").toUpperCase()}/${(rs(raw, "azure.resource.name") ?? "resource").toUpperCase()}`);
+  const resourceId = rs(raw, "azure.resource.id") ?? (subScoped ? `/SUBSCRIPTIONS/${sub}`
+    : fullResourceId(sub, rs(raw, "azure.resource.group") ?? "rg-prod", rs(raw, "azure.resource.provider") ?? "MICROSOFT.RESOURCES", rs(raw, "azure.resource.name") ?? "resource", op));
   // A service principal caller (card: claims carry appid + objectidentifier) has no UPN claim.
   const appIdClaim = rs(raw, "azure.activitylogs.identity.claims.appid");
   const spObjectId = rs(raw, "azure.activitylogs.identity.claims.objectidentifier");
   const upn = appIdClaim && spObjectId ? undefined : rs(raw, "azure.activitylogs.identity.claims_initiated_by_user.name", "azure.activitylogs.identity.claims.upn") ?? ev.user?.email ?? ev.user_email;
-  const ip = ev.src_ip ?? rs(raw, "azure.activitylogs.callerIpAddress", "source.ip");
+  const ip = armCallerIp(ev.src_ip ?? rs(raw, "azure.activitylogs.callerIpAddress", "source.ip"), ctx.companyId);
   const result = rs(raw, "azure.activitylogs.resultType") ?? "Success";
 
   const evRole = rs(raw, "azure.activitylogs.identity.authorization.evidence.role");

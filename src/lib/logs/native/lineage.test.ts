@@ -96,11 +96,21 @@ describe("process lineage within a story", () => {
         for (const diff of ["easy", "medium", "hard"] as const) for (const s of storiesForCompany(company, diff)) {
           if (seen.has(s.id)) continue;
           seen.add(s.id);
-          const rendered = renderStory(instantiateStory(s, pool, PRODUCT_LABEL[edr], company).events ?? [], company, edr);
+          const storyEvents = instantiateStory(s, pool, PRODUCT_LABEL[edr], company).events ?? [];
+          const rendered = renderStory(storyEvents, company, edr);
           if (!rendered.length) continue;
           stories++;
           const own = new Map<string, Proc[]>();
           const refs: Ref[] = [];
+          // Images the story runs as more than one process (a webshell's sh, then the root sh it spawns two
+          // levels down): a reference by name and pid alone can point at an instance with no EDR row of its own.
+          const authoredPids = new Map<string, Set<number>>();
+          const notePid = (host: unknown, name: unknown, pid: unknown) => {
+            if (!name || typeof pid !== "number") return;
+            const key = `${lc(host)}|${lc(name)}`;
+            authoredPids.set(key, (authoredPids.get(key) ?? new Set<number>()).add(pid));
+          };
+          for (const ev of storyEvents) { notePid(ev.hostname, ev.process?.name, ev.process?.pid); notePid(ev.hostname, ev.process?.parent_name, ev.process?.parent_pid); }
           for (const { log, ev } of rendered) {
             const x = extract(log, ev);
             for (const o of x.own) own.set(`${o.host}|${o.name}`, [...(own.get(`${o.host}|${o.name}`) ?? []), o]);
@@ -119,6 +129,9 @@ describe("process lineage within a story", () => {
           for (const ref of refs) {
             const targets = own.get(`${ref.host}|${ref.name}`);
             if (!targets?.length) continue;
+            // A name-only reference to an image the story runs more than once, matching none of its EDR rows: the
+            // other instance (its own row is in another source), not a contradiction.
+            if (ref.id === undefined && !targets.some(t => t.pid === ref.pid) && (authoredPids.get(`${ref.host}|${ref.name}`)?.size ?? 0) > 1) continue;
             checked++;
             const target = targets.find(t => (ref.id !== undefined && t.id === ref.id) || (ref.id === undefined && t.pid === ref.pid)) ?? targets[0];
             if (ref.id !== undefined && target.id !== undefined && ref.id !== target.id) problems.add(`${company} ${s.id} ${ref.ev} ${ref.what} ${ref.name}: id ${ref.id} ≠ own ${target.id}`);

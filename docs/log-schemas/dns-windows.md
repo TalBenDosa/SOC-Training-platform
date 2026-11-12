@@ -97,8 +97,8 @@ Rendered message: `A resource record of type 1, name wpad.corp.nexacorp.local, T
 [
   {"Date": "10/1/2026", "Time": "8:14:03 AM", "Thread ID": "0A4C", "Context": "PACKET", "Internal packet identifier": "000002B1C4E8A170", "UDP/TCP indicator": "UDP", "Send/Receive indicator": "Rcv", "Remote IP": "10.20.31.77", "Xid (hex)": "6c1a", "Query/Response": "", "Opcode": "Q", "Flags (hex)": "0001", "Flags (char codes)": "D", "ResponseCode": "NOERROR", "Question Type": "A", "Question Name": "(14)qxkzjvbtrwpmhd(3)com(0)",
    "raw": "10/1/2026 8:14:03 AM 0A4C PACKET  000002B1C4E8A170 UDP Rcv 10.20.31.77     6c1a   Q [0001   D   NOERROR] A      (14)qxkzjvbtrwpmhd(3)com(0)"},
-  {"Date": "10/1/2026", "Time": "8:14:03 AM", "Thread ID": "0A4C", "Context": "PACKET", "Internal packet identifier": "000002B1C4E8A170", "UDP/TCP indicator": "UDP", "Send/Receive indicator": "Snd", "Remote IP": "10.20.31.77", "Xid (hex)": "6c1a", "Query/Response": "R", "Opcode": "Q", "Flags (hex)": "8183", "Flags (char codes)": "DR", "ResponseCode": "NXDOMAIN", "Question Type": "A", "Question Name": "(14)qxkzjvbtrwpmhd(3)com(0)",
-   "raw": "10/1/2026 8:14:03 AM 0A4C PACKET  000002B1C4E8A170 UDP Snd 10.20.31.77     6c1a R Q [8183   DR NXDOMAIN] A      (14)qxkzjvbtrwpmhd(3)com(0)"}
+  {"Date": "10/1/2026", "Time": "8:14:03 AM", "Thread ID": "0A4C", "Context": "PACKET", "Internal packet identifier": "000002B1C4E8A170", "UDP/TCP indicator": "UDP", "Send/Receive indicator": "Snd", "Remote IP": "10.20.31.77", "Xid (hex)": "6c1a", "Query/Response": "R", "Opcode": "Q", "Flags (hex)": "8381", "Flags (char codes)": "DR", "ResponseCode": "NXDOMAIN", "Question Type": "A", "Question Name": "(14)qxkzjvbtrwpmhd(3)com(0)",
+   "raw": "10/1/2026 8:14:03 AM 0A4C PACKET  000002B1C4E8A170 UDP Snd 10.20.31.77     6c1a R Q [8381   DR NXDOMAIN] A      (14)qxkzjvbtrwpmhd(3)com(0)"}
 ]
 ```
 

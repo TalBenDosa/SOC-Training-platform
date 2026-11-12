@@ -138,7 +138,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
         "This is the control case for the whole scenario, a legitimate secret rotation that has the identical audit shape to the attack. Three attributes make it sanctioned. The Actor is a named human (d.almeida) on a recorded change (CHG-2211), not a workload identity. The ActorIpAddress is the known Azure DevOps hosted-agent egress the billing pipeline always uses. And the target is sp-terraform-cicd, the SP whose secret Platform Engineering rotates every quarter. The intrusion later runs the SAME 'Add service principal credentials' operation, but its actor is a workload identity, its address is unfamiliar, and there is no change behind it. An analyst who alerts on 'a secret was added to an app' alone will flag this and be wrong.",
       raw: {
         // O365 Unified Audit Log + Entra ID Audit Log, Add service principal credentials
-        "data.office365.Id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "data.office365.Id": "e9443a8d-55bc-45ad-96f3-b2ccd538bd6f",
         "data.office365.RecordType": "8",
         "data.office365.CreationTime": "2026-08-27T14:20:00Z",
         "data.office365.Operation": "Add service principal credentials.",
@@ -230,7 +230,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       description:
         "A new client secret was appended to the existing app registration svc-billing-connector. The 'Add service principal credentials' record shows it was initiated by an application, the workload identity webjob-ingest-prod, not by the pipeline or the engineers who own svc-billing-connector.",
       raw: {
-        "data.office365.Id": "c3d4e5f6-a1b2-4c3d-8e5f-6a1b2c3d4e5f",
+        "data.office365.Id": "b393c599-e385-4ae8-836a-cffaf1263f44",
         "data.office365.RecordType": "8",
         "data.office365.CreationTime": "2026-08-29T01:12:00Z",
         "data.office365.Operation": "Add service principal credentials.",
@@ -370,10 +370,10 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "The svc-billing-connector token was used to list the subscription and its resource groups in prod-analytics-sub, Microsoft.Resources/subscriptions/resourceGroups/read from 203.0.113.211.",
-      cloud: { provider: "Microsoft", service: "Azure Resource Manager", api_call: "Microsoft.Resources/subscriptions/resourceGroups/read", region: "westeurope", resource: subName },
+        "The svc-billing-connector token exported the resource template of rg-billing-prod in prod-analytics-sub (Microsoft.Resources/subscriptions/resourceGroups/exportTemplate/action), a full list of the group's resources, from 203.0.113.211.",
+      cloud: { provider: "Microsoft", service: "Azure Resource Manager", api_call: "Microsoft.Resources/subscriptions/resourceGroups/exportTemplate/action", region: "westeurope", resource: subName },
       raw: {
-        "azure.activitylogs.operationName": "Microsoft.Resources/subscriptions/resourceGroups/read",
+        "azure.activitylogs.operationName": "Microsoft.Resources/subscriptions/resourceGroups/exportTemplate/action",
         "azure.resource.id": `/SUBSCRIPTIONS/${subU}`,
         "azure.subscription.id": subId,
         "azure.correlation_id": "d1f4b238-6e57-4a91-8c43-8b5a1e0d7f06",

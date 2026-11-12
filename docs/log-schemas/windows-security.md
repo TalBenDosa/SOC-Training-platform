@@ -51,7 +51,19 @@ Category: ENDPOINT / IDENTITY (Windows hosts and Active Directory domain control
 
 Delivery paths: local `.evtx`; Windows Event Forwarding (WEC, `ForwardedEvents` channel — `Channel` stays `Security`); agents (Winlogbeat, NXLog, Splunk UF, Wazuh, AMA) that re-shape the record. Those agent shapes are **not** native.
 
-**STANDARD FOR THIS PLATFORM — flat JSON, Windows names unchanged:**
+**STANDARD FOR THIS PLATFORM (revised 2026-11-12 after Tal's QA):** the feed's raw view is the event's **EVTX XML**
+(the full `System` block: `Provider Name/Guid`, `EventID`, `Version`, `Level`, `Task`, `Opcode`, `Keywords`,
+`TimeCreated SystemTime`, `EventRecordID`, `Correlation`, `Execution ProcessID/ThreadID`, `Channel`, `Computer`, `Security`,
+then `EventData`), exactly as Sysmon's module shows its events. The parsed record (the samples below, what the Analysis
+view and the SIEM tables read) keeps the Windows names flat; the Analysis view groups them as Event Viewer does
+(Subject, Logon Information, New Logon, Failure Information, Process / Network / Detailed Authentication Information)
+and prints each code's meaning beside it. Coherence the renderer enforces: a local logon (2 / 7 / 11) is `User32` /
+`Negotiate` from `127.0.0.1` port `0` with the computer as Subject; a service / batch logon is `Advapi` / `Negotiate`
+with `-` for the address; a 4625's `FailureReason` / `Status` follow its `SubStatus`; a machine Subject is `S-1-5-18`
+/ `0x3e7`; one domain account has one SID; a 4769 / 4770 `ServiceName` is the service account (`SRV-FILE01$`), never
+an SPN; Kerberos, lockout and directory records are written by a DC; `EventRecordID` grows with time on each computer.
+
+Parsed record keys:
 - System keys we keep: `EventID` (int), `Computer` (FQDN), `TimeCreated` (the `SystemTime` attribute, ISO-8601 UTC, 7 fractional digits), `Channel`, `Provider` (the `Provider Name` attribute), `EventRecordID` (int), `Keywords` (hex string). Other System elements (`Version`, `Task`, `Level`, `Opcode`, `Execution`, `Correlation`) are omitted from samples.
 - Then every `EventData/Data` element as `"<Name>": "<text>"`, in the documented order, **all values as strings** exactly as the XML holds them (`"LogonType": "3"`, `"Status": "0xc000006d"`, `"IpPort": "0"`).
 - Empty values stay as Windows writes them: `"-"` for "not applicable", `"0x0"`, `"NULL SID"` (only in rendered text — XML holds `S-1-0-0`), `"{00000000-0000-0000-0000-000000000000}"`.

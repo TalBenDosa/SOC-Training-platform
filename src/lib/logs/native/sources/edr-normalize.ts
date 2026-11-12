@@ -34,6 +34,8 @@ export interface EndpointThread {
   parent?: ThreadProc;
   /** The process that wrote the file / set the value when the event names none. */
   writer?: ThreadProc;
+  /** The parent of the event's parent, from that process's own row (a process row's creator's own creator). */
+  grandparent?: ThreadProc;
   sid?: string;
   /** Authored logon id of the user's session on this host ("0x…" hex). */
   logonId?: string;
@@ -67,6 +69,8 @@ export interface EdrFacts {
   host?: string;
   hostIp?: string;
   os: "Win" | "Lin" | "Mac";
+  /** The creator's own parent, when the story's row for the creator names it (threadEndpointStory). */
+  grandparent?: EdrProc;
   /** sAMAccountName-style user (no domain), domain, and email when known. */
   user?: string;
   userDomain?: string;
@@ -329,6 +333,8 @@ function applyThread(f: EdrFacts, t: EndpointThread | undefined): EdrFacts {
   }
   const merge = (p: EdrProc, s?: ThreadProc): EdrProc => (!s ? p : {
     ...p,
+    // A parent the row does not name, known from the process's own row (threadEndpointStory).
+    name: p.name ?? s.name, pid: p.pid ?? (p.name ? undefined : s.pid),
     path: s.path ?? p.path, sha256: s.sha256 ?? p.sha256, md5: s.md5 ?? p.md5, inst: s.inst ?? p.inst,
     cmdline: p.cmdline ?? s.cmdline, integrity: p.integrity ?? s.integrity, user: p.user ?? s.user, startMs: p.startMs ?? s.startMs, shownPid: s.shownPid ?? p.shownPid,
   });
@@ -346,6 +352,7 @@ function applyThread(f: EdrFacts, t: EndpointThread | undefined): EdrFacts {
     referrerUrl: f.referrerUrl ?? t.referrerUrl,
     access: f.access ?? (f.kind === "process" ? t.access : undefined),
     detection: f.detection && !f.detection.name && t.threatName ? { ...f.detection, name: t.threatName } : f.detection,
+    ...(t.grandparent?.name ? { grandparent: { name: t.grandparent.name, path: t.grandparent.path, pid: t.grandparent.pid, inst: t.grandparent.inst, cmdline: t.grandparent.cmdline, sha256: t.grandparent.sha256, md5: t.grandparent.md5 } } : {}),
   };
 }
 
