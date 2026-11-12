@@ -72,11 +72,12 @@ describe("the arsenal follows the environment", () => {
     expect(resolveTeamStory(TENANT_TEMPLATE, "hard", id, { platforms: ["azure", "linux"], industry: "general" })).toBeNull();
     expect(resolveTeamStory(TENANT_TEMPLATE, "hard", id, { platforms: ALL, industry: "general" })?.id).toBe(id);
   });
-  it("a single-player storyline is never offered or accepted, whatever the environment allows (Tal 2026-11-12)", () => {
+  it("a single-player storyline is never offered; one an older plan chose still runs, inside the environment (Tal 2026-11-12)", () => {
     const all: TeamEnv = { platforms: ALL, industry: "general" };
     for (const id of offered(all)) expect(story(id).teamOnly, id).toBe(true);
     expect(allowed(all).has("rocketstack-chain-a")).toBe(true);
-    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", all)).toBeNull();
+    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", all)?.id).toBe("rocketstack-chain-a");
+    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", DEFAULT_ENV)).toBeNull();   // still needs AWS
   });
 });
 

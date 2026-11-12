@@ -609,7 +609,8 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     id: indicator, indicator_id: indicator, local_process_id: tName ? String(pidOf(ctx, b.scope, trig)) : undefined,
     logon_domain: u.user ? u.domain : undefined, md5: trig.md5, name, objective: OBJECTIVE[tacticKey],
     parent_details: parentKnown ? {
-      cmdline: parent.cmdline, filename: parent.name ?? baseName(parent.path),
+      // A running process always has a command line: the bare image path when nothing else is known.
+      cmdline: parent.cmdline ?? imagePath(parent), filename: parent.name ?? baseName(parent.path),
       filepath: imagePath(parent) ? (win ? ntDevicePath(imagePath(parent)!) : imagePath(parent)) : undefined,
       local_process_id: String(pidOf(ctx, b.scope, parent)), process_graph_id: `pid:${aid}:${parentId}`, process_id: parentId,
       user_id: u.sid, user_name: u.user,

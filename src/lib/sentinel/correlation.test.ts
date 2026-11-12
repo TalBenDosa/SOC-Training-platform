@@ -276,12 +276,15 @@ for (const [name, make] of SESSIONS) {
       expect(baseline.length).toBe(s.ws.baselineRows);
       const attackers = new Set<string>();
       const domains = new Set<string>();
+      const ABUSED_SERVICES = /(^|\.)(microsoft\.com|microsoftonline\.com|live\.com|office\.com|google\.com)$/i;
       const victims = new Set<string>();
       for (const e of s.events) {
         if (!isAttack(s.answers.get(e.id))) continue;
         for (const ip of [e.src_ip, e.dst_ip]) if (ip && !PRIVATE.test(ip)) attackers.add(ip);
         const d = e.network?.domain ?? e.dns?.query;
-        if (d && !d.endsWith(domain)) domains.add(d.toLowerCase());
+        // A real sign-in service an attack sends its victim to (device-code phishing's microsoft.com/devicelogin) is
+        // everyone's everyday traffic too, not the attacker's own infrastructure.
+        if (d && !d.endsWith(domain) && !ABUSED_SERVICES.test(d)) domains.add(d.toLowerCase());
         const u = (e.user_email ?? e.user?.email)?.toLowerCase();
         if (u) victims.add(u);
       }

@@ -372,8 +372,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   }
 
   // ── Mailbox records (RT 2 / 50) ──
+  const OWA_APP_ID = "9199bf20-a13f-4107-85dc-02114787ef48";
   const mailboxCommon = (mailbox: string) => {
-    const appId = rs(raw, "application.id", "ClientAppId", "AppAccessContext.ClientAppId");
+    // A mailbox record names the client application whatever it was: an authored one (an API client, the token
+    // broker) or, for a person in a browser, Outlook on the web (app id 9199bf20-a13f-4107-85dc-02114787ef48, Message Center MC711020).
+    const appId = rs(raw, "application.id", "ClientAppId", "AppAccessContext.ClientAppId") ?? (rs(raw, "ClientInfoString") ? undefined : OWA_APP_ID);
     const ctxObj: Record<string, unknown> = {
       // The Entra session this token belongs to (the sign-in's sessionId) and when it was issued
       // (the sign-in - threadIdentityContext - never before it).
@@ -385,7 +388,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     return {
       ...exoToken(mailbox),
       ClientIPAddress: ip,
-      ClientInfoString: rs(raw, "ClientInfoString") ?? (appId || /graph|rest/i.test(rs(raw, "authentication.method") ?? "") ? "Client=REST;Client=RESTSystem;;" : "Client=OWA;Action=ViaProxy"),
+      ClientInfoString: rs(raw, "ClientInfoString") ?? ((appId && appId !== OWA_APP_ID) || /graph|rest/i.test(rs(raw, "authentication.method") ?? "") ? "Client=REST;Client=RESTSystem;;" : "Client=OWA;Action=ViaProxy"),
+      ClientAppId: appId,
       InternalLogonType: 0,
       LogonType: logonType(raw),
       LogonUserSid: isEmail(actor) ? userSid(ctx, actor) : undefined,

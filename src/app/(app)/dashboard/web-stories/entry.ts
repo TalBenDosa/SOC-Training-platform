@@ -44,6 +44,18 @@ export const clock = (iso: string) => { const b = Date.parse(iso); return (min: 
 export const asUser = (e: TelemetryEvent, user: string): TelemetryEvent => ({ ...e, process: e.process ? { ...e.process, user } : e.process });
 /** Context row: the approved change or request behind a look-alike. */
 export const ticket = (o: Parameters<typeof serviceNowRecord>[0]): TelemetryEvent => ({ ...serviceNowRecord(o), is_baseline: true });
+/**
+ * A change request's own fields (type, approval, who asked, the CI, the window, the full description), as a real
+ * approved change carries them: a bare envelope reads thinner than every other change in the feed.
+ */
+export const changeFields = (o: { requestedBy: string; approvedBy?: string; group: string; ci: string; from: string; hours: number; detail: string }) => {
+  const at = (iso: string) => iso.replace("T", " ").slice(0, 19);
+  return {
+    "servicenow.type": "Standard", "servicenow.approval": "Approved", "servicenow.assignment_group": o.group, "servicenow.requested_by": o.requestedBy,
+    "servicenow.approved_by": o.approvedBy ?? "CAB - Security", "servicenow.cmdb_ci": o.ci, "servicenow.start_date": at(o.from),
+    "servicenow.end_date": at(new Date(Date.parse(o.from) + o.hours * 3_600_000).toISOString()), "servicenow.description": o.detail,
+  };
+};
 /** A byte count as a row description prints it (1,902). */
 export const bytesText = (n: number) => n.toLocaleString("en-US");
 

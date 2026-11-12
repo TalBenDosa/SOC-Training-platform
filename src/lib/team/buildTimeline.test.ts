@@ -261,11 +261,13 @@ describe("buildTeamTimeline — staff-chosen storyline (exercise-report #18)", (
     s.events.find(e => e.incident_id)?.incident_id ?? `story:${s.id}`;
 
   it("resolveTeamStory accepts only stories offered for that company + difficulty", () => {
-    // Never a single-player story (the engines share none, Tal 2026-11-12).
-    const solo = storiesForCompany("nexacorp", "easy", true)[0];
-    expect(resolveTeamStory("nexacorp", "easy", solo.id)).toBeNull();
     const easy = storiesForCompany("nexacorp", "easy", "team");
     expect(easy.length).toBeGreaterThan(1);
+    // The list offers Team Training's own stories; a single-player one an older plan chose still runs (Tal 2026-11-12).
+    const solo = storiesForCompany("nexacorp", "easy", true)[0];
+    expect(easy.some(s => s.id === solo.id)).toBe(false);
+    expect(resolveTeamStory("nexacorp", "easy", solo.id)?.id).toBe(solo.id);
+
     expect(resolveTeamStory("nexacorp", "easy", easy[0].id)?.id).toBe(easy[0].id);
     expect(resolveTeamStory("nexacorp", "easy", null)).toBeNull();
     expect(resolveTeamStory("nexacorp", "easy", "no-such-story")).toBeNull();

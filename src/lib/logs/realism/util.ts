@@ -101,6 +101,8 @@ export function rowIps(row: LogRow): { key: string; ip: string }[] {
     for (const m of v.matchAll(IP_IN_TEXT)) {
       const before = v.slice(Math.max(0, m.index! - 9), m.index!);
       if (/version|ver\s*$|v$|build|\bOS\b/i.test(before)) continue;
+      // A product token's version (Chrome/126.0.0.0 in a user agent inside a raw log line), not an address.
+      if (/[A-Za-z]\/$/.test(before)) continue;
       if (isValidIPv4(m[1])) out.push({ key: k, ip: m[1] });
     }
   }

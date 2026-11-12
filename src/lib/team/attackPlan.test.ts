@@ -98,7 +98,9 @@ describe("timing and the bonus attack", () => {
     const startsOf = (seed: string) => {
       const feed = build(seed, false).filter(t => t.channel === "feed");
       const first = new Map<string, number>();
-      feed.forEach((t, i) => { const a = ans(t); if (a.origin === "story" && a.incident_id && !first.has(a.incident_id)) first.set(a.incident_id, i / feed.length); });
+      // Where each attack opens: its first malicious row (the engine places a band by it; the context rows a story
+      // opens with, a ticket or a baseline sign-in, sit before it).
+      feed.forEach((t, i) => { const a = ans(t); if (a.origin === "story" && a.incident_id && ["tp", "escalate"].includes(String(a.expected_verdict)) && !first.has(a.incident_id)) first.set(a.incident_id, i / feed.length); });
       return [...first.values()].sort((a, b) => a - b);
     };
     const a = startsOf("s1"), b = startsOf("s2");

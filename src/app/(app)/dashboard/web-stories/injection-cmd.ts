@@ -20,7 +20,7 @@ import { mdeNetwork, mdeProcess } from "@/lib/sim/emitters/mde";
 import { panWeb } from "@/lib/sim/emitters/paloalto";
 import { wafRequest, webAccess, type WebSite } from "@/lib/sim/emitters/web";
 import { makeSha256 } from "@/lib/sim/iocs";
-import { asUser, clock, ticket, type WebStoryDef } from "./entry";
+import { asUser, changeFields, clock, ticket, type WebStoryDef } from "./entry";
 
 const IA = "Initial Access", EXEC = "Execution", CRED = "Credential Access", DISC = "Discovery", C2 = "Command and Control", STEALTH = "Stealth";
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
@@ -39,14 +39,16 @@ function netcheck(): TelemetryEvent[] {
   const GUNICORN = { parentName: "python3.11", parentPid: 3310 };
   const payload = makeSha256("web_status_kworkerd_payload");
   const sh = (id: string, min: number, pid: number, cmd: string, extra = {}) => csProcess({ id, ts: T(min), ...host, processName: "dash", processPath: "/usr/bin/dash", cmdline: cmd, pid, ...GUNICORN,
-    runAsUser: "svc-status", sha256: makeSha256("usr_bin_dash_debian_signed"), description: `Process started on ${w.host}`, ...extra });
+    runAsUser: "svc-status", description: `Process started on ${w.host}`, ...extra });
   const post = (id: string, min: number, sent: number, matched: string, extra = {}) => wafRequest(w, { id, ts: T(min), srcIp: atk, method: "POST", path: api, action: "count", rule: "cmd_body", matched, location: "REQUEST_BODY",
-    ua: CURL, sent, bytes: 412, severity: "medium", mitre: "T1190", tactic: IA, description: "WAF rule matched a shell command in a request body", ...extra });
+    ua: CURL, sent, bytes: 412, severity: "medium", mitre: "T1190", tactic: IA, description: `WAF rule matched a shell command in a request body (${sent} bytes)`, ...extra });
   const answered = (id: string, min: number, sent: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: atk, method: "POST", path: api, sent, bytes, ua: CURL, mitre: "T1190", tactic: IA,
-    description: "Status site answered a network check", ...extra });
+    description: `Status site answered a network check (${sent} bytes in, ${bytes} bytes out)`, ...extra });
   return [
     ticket({ id: "web_ci_001", ts: T(0), table: "change_request", number: "CHG0044611", state: "Implement", severity: "informational",
-      shortDescription: "Quarterly external web vulnerability scan, source 203.0.113.157", description: "ServiceNow change CHG0044611 (Implement): quarterly external web vulnerability scan" }),
+      shortDescription: "Quarterly external web vulnerability scan, source 203.0.113.157", description: "ServiceNow change CHG0044611 (Implement): quarterly external web vulnerability scan",
+      extra: changeFields({ requestedBy: "m.levi@nexacorp.com", group: "Security Operations", ci: "status-site", from: T(-60), hours: 8,
+        detail: "Quarterly external vulnerability scan of the public status and portal sites by the contracted scanning service. Scanner source address 203.0.113.157, declared user agent ASV-Scanner (times UTC)." }) }),
     webAccess(w, { id: "web_ci_002", ts: T(3), srcIp: "10.10.20.41", method: "POST", path: api, sent: 236, bytes: 388, ua: CHROME, isBaseline: true, description: "Status site answered a network check" }),
     sh("web_ci_003", 3.02, 40112, "sh -c ping -c 2 10.10.30.5", { severity: "high", isDetection: true, mitre: "T1059.004", tactic: EXEC, expectedVerdict: "fp",
       fpExplanation: "The network check working as built: an engineer at the office ran it, the app passed one internal address to ping, and nothing follows the ping." }),
@@ -69,7 +71,7 @@ function netcheck(): TelemetryEvent[] {
     panWeb({ id: "web_ci_017", ts: T(45.03), host: w.host, user: null, srcIp: w.ip, url: `https://${mirror}/u.sh`, domain: mirror, dstIp: mirrorIp, category: "unknown", action: "alert", userAgent: CURL, bytesIn: 3112,
       severity: "medium", mitre: "T1105", tactic: C2, description: "Server downloaded a file from an uncategorized domain" }),
     csProcess({ id: "web_ci_020", ts: T(45.1), ...host, processName: "dash", processPath: "/usr/bin/dash", cmdline: "sh /tmp/.u.sh", pid: 40481, parentName: "dash", parentPid: 40463, runAsUser: "svc-status",
-      sha256: makeSha256("usr_bin_dash_debian_signed"), severity: "medium", mitre: "T1059.004", tactic: EXEC, description: `Process started on ${w.host}` }),
+      severity: "medium", mitre: "T1059.004", tactic: EXEC, description: `Process started on ${w.host}` }),
     csProcess({ id: "web_ci_018", ts: T(45.2), ...host, processName: "kworkerd", processPath: "/tmp/.cache/kworkerd", cmdline: "/tmp/.cache/kworkerd", pid: 40502, parentName: "dash", parentPid: 40481,
       runAsUser: "svc-status", sha256: payload, severity: "high", isDetection: true, mitre: "T1036.005", tactic: STEALTH, description: `Process started on ${w.host}` }),
     asUser(csNetwork({ id: "web_ci_019", ts: T(45.4), ...host, remoteIp: c2, remotePort: 443, processName: "kworkerd", processPath: "/tmp/.cache/kworkerd", cmdline: "/tmp/.cache/kworkerd", pid: 40502,
@@ -90,7 +92,7 @@ function pdfExport(): TelemetryEvent[] {
   const CONVERTER = "\"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe\" --quiet https://billing.nexacorp.com/invoices/render";
   const exportCmd = (inv: string, name: string) => `cmd.exe /c ${CONVERTER}?id=${inv} "C:\\inetpub\\billing\\exports\\${name}.pdf"`;
   const cmd = (rid: string, min: number, pid: number, inv: string, name: string, extra = {}) => mdeProcess({ id: rid, ts: T(min), ...host, ...id, ...W3WP, processName: "cmd.exe",
-    processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: exportCmd(inv, name), pid, sha256: makeSha256("windows_system32_cmd_exe_signed_microsoft"), signed: true, integrity: "High",
+    processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: exportCmd(inv, name), pid, signed: true, integrity: "High",
     severity: "medium", isDetection: true, mitre: "T1059.003", tactic: EXEC, description: `Process started on ${w.host}`, ...extra });
   const blocked = (rid: string, min: number, query: string, matched: string, extra = {}) => wafRequest(w, { id: rid, ts: T(min), srcIp: atk, path: "/invoices/export", query, action: "block", rule: "wincmd_query",
     matched, location: "ARGS:name", ua, severity: "medium", mitre: "T1190", tactic: IA, description: "WAF rule matched a Windows command in a query parameter", ...extra });
@@ -128,7 +130,13 @@ function pdfExport(): TelemetryEvent[] {
   ];
 }
 
+/**
+ * GlobalLogis runs Sophos on its endpoints: Sophos Central keeps no record of a Linux server's process and network
+ * events, so a story told through them would show at GlobalLogis without its native records.
+ */
+const NOT_GLOBALLOGIS = ["nexacorp", "rocketstack", "medcore", "quantumbank"];
+
 export const WEB_INJECTION_CMD_STORIES: WebStoryDef[] = [
-  { id: "web-inj-cmdi-netcheck", family: "web-inj-cmdi", mode: "solo", title: "Network Check Page Running More Than Ping", complexity: "core", events: netcheck() },
+  { id: "web-inj-cmdi-netcheck", family: "web-inj-cmdi", mode: "solo", title: "Network Check Page Running More Than Ping", complexity: "core", events: netcheck(), companies: NOT_GLOBALLOGIS },
   { id: "web-inj-cmdi-pdfexport", family: "web-inj-cmdi", mode: "team", title: "Invoice Export Failing and the Billing Server Downloading a File", complexity: "core", events: pdfExport() },
 ];

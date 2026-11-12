@@ -100,7 +100,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       const fits = teamStoryFilter(sess.company_id, stack, env);
       for (const sid of pinnedIds(plan)) {
         const pinned = resolveTeamStory(sess.company_id, sess.difficulty, sid, env, stack);
-        if (pinned && !fits(pinned)) {
+        // The admin's choice always runs (Tal, 2026-11-12): a storyline that no longer exists never turns into a
+        // random attack in silence; the lobby says so and the admin picks again.
+        if (!pinned) {
+          return NextResponse.json({ error: "A chosen storyline is no longer available for this session. Close this lobby and create the session again with another storyline." }, { status: 409 });
+        }
+        if (!fits(pinned)) {
           return NextResponse.json({ error: `The chosen storyline "${pinned.title}" can no longer run on this session's products. Close this lobby and create the session again with another storyline (or a random one).` }, { status: 409 });
         }
       }

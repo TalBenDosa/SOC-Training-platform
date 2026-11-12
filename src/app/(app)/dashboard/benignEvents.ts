@@ -11,7 +11,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { makeCtx } from "@/lib/logs/native/ctx";
-import { winLogon, winSpecialPrivileges } from "@/lib/sim/emitters/windowsSecurity";
+import { domainSidFor, winLogon, winSpecialPrivileges } from "@/lib/sim/emitters/windowsSecurity";
 import { sysmonProcess, sysmonFile } from "@/lib/sim/emitters/sysmon";
 import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
 import { m365Operation } from "@/lib/sim/emitters/m365";
@@ -6996,7 +6996,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.channel": "Security",
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
       "winlog.event_data.TargetUserName": "k.taylor",
-      "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1116",
+      // The SID every product gives k.taylor (one account, one SID across the workspace).
+      "winlog.event_data.TargetSid": domainSidFor("nexacorp", "k.taylor"),
       "winlog.event_data.ServiceName": "krbtgt/NEXACORP",
       "winlog.event_data.TicketOptions": "0x40810010",
       "winlog.event_data.Status": "0x18",
@@ -8084,7 +8085,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   // baseline an analyst learns before the same IDs turn up inside an attack.
   {
     ...winLogon({
-      companyId: CX, id: "b_wev_01", ts: T(6), host: "WS-ENG-3310", logSource: "windows_security", targetUser: "ajones",
+      companyId: CX, id: "b_wev_01", ts: T(6), host: "WS-ENG-3310", logSource: "windows_security", targetUser: "a.jones",
       userEmail: "a.jones@nexacorp.com", srcIp: "127.0.0.1", srcPort: "0", logonType: 2, authPackage: "Negotiate", logonProcess: "User32 ",
       subjectSid: "S-1-5-18", subjectUser: "WS-ENG-3310$", logonId: "0x9C41A2", processName: "C:\\Windows\\System32\\winlogon.exe",
       workstation: "WS-ENG-3310", lmPackage: "-", keyLength: "0", recordId: "2210873",

@@ -9,7 +9,8 @@ import { hostKey } from "@/lib/team/format";
 import { buildEvidenceView, type FeedRow, type HostState } from "./workbench";
 
 const T0 = Date.parse("2026-10-10T08:00:00.000Z");
-const tl = buildTeamTimeline("nexacorp", "medium", "fw-demo-1").filter(e => e.channel === "feed").sort((a, b) => a.due_offset_ms - b.due_offset_ms);
+// An endpoint attack the admin chose (a Team Training story that runs code on a workstation).
+const tl = buildTeamTimeline("nexacorp", "medium", "fw-demo-1", "tech-support-scam").filter(e => e.channel === "feed").sort((a, b) => a.due_offset_ms - b.due_offset_ms);
 const rows: FeedRow[] = tl.map(e => { const at = T0 + e.due_offset_ms; return { ev: withRebasedTime(e.body as unknown as TelemetryEvent, new Date(at).toISOString()), atMs: at }; });
 // The attacked endpoint host with the most endpoint rows (test setup reads the answer key).
 const atk = tl.filter(e => ["tp", "escalate"].includes(String(e.answer?.expected_verdict)) && ["edr", "sysmon"].includes(String(e.body.source)));

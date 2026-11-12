@@ -44,8 +44,10 @@ describe("variation layer: attacker infrastructure", () => {
       const blob = JSON.stringify(out);
       for (const [from, to] of Object.entries(variation.ips)) {
         expect(blob, `${id}: ${from} left behind`).not.toMatch(new RegExp(`(?<![\\d.])${from.replace(/\./g, "\\.")}(?![\\d])`));
-        const before = base.events.filter(e => (e.description ?? "").includes(from)).length;
-        const after = out.events.filter(e => (e.description ?? "").includes(to)).length;
+        // Whole addresses only: 203.0.113.16 is not inside 203.0.113.169.
+        const names = (ip: string) => new RegExp(`(?<![\\d.])${ip.replace(/\./g, "\\.")}(?![\\d])`);
+        const before = base.events.filter(e => names(from).test(e.description ?? "")).length;
+        const after = out.events.filter(e => names(to).test(e.description ?? "")).length;
         expect(after, `${id}: descriptions naming ${from}`).toBe(before);
       }
     }

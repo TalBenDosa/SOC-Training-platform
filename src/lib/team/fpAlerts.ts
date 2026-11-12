@@ -40,6 +40,7 @@ import { entraSignIn as entraEmit } from "@/lib/sim/emitters/entra";
 import { sentinelAlert as sentinelEmit } from "@/lib/sim/emitters/sentinel";
 import { winFailedLogon } from "@/lib/sim/emitters/windowsSecurity";
 import { makeCtx } from "@/lib/logs/native/ctx";
+import { imageHashes } from "@/lib/logs/native/sources/_proc-identity";
 import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
 
@@ -151,6 +152,7 @@ function edrDetection(c: Ctx, o: { tag: string; host: string; userEmail?: string
   // A signed vendor binary carries the fleet's own hash for its path (the native renderer derives it, the same on
   // every host); only an unsigned, one-off build gets a hash of its own.
   const sha256 = o.proc.signed === false ? o.proc.sha256 ?? sha256Of(`${c.companyId}:${o.host}:${path.toLowerCase()}`) : undefined;
+  const alertSha = sha256 ?? imageHashes(makeCtx(c.companyId), path).sha256;
   const runAs = sys ? "NT AUTHORITY\\SYSTEM" : undefined;
   const parentPath = o.proc.parentPath ?? parentPathOf(o.proc.parent);
   const procEv = mdeProcess({
@@ -167,10 +169,11 @@ function edrDetection(c: Ctx, o: { tag: string; host: string; userEmail?: string
     id: `fpa_${o.tag}_${c.n}`, ts: c.ts, companyId: c.companyId, host: o.host, user,
     alertTitle: o.alertTitle, category: o.category, detectionSource: "EDR", evidenceRole: "Impacted", mitre: o.mitre,
     ...(o.techniqueName ? { techniqueName: o.techniqueName } : {}),
-    mdeIncidentId: String(intIn(4000, 9800, c.rnd)), severity: o.severity, ...(sha256 ? { sha256 } : {}),
+    // The alert names the file it fired on: a signed tool's fleet build (the hash its process row derives), else its own.
+    mdeIncidentId: String(intIn(4000, 9800, c.rnd)), severity: o.severity, sha256: alertSha,
     extra: {
       "process.name": o.proc.name, "process.executable": path, "process.command_line": o.proc.cmdline,
-      "process.parent.name": o.proc.parent, ...(sha256 ? { "process.hash.sha256": sha256 } : {}),
+      "process.parent.name": o.proc.parent, "process.hash.sha256": alertSha,
       ...(o.file?.size ? { "file.size": o.file.size } : {}),
       "action_result": "detected",
     },
@@ -800,6 +803,17 @@ export function fpAlerts(assets: CompanyAssets | undefined, companyId: string, c
       if (r.verdict === "escalate") missLeft--;
       kinds.add(m.kind);
       out.push(r);
+    }
+  }
+  // Severity never gives the answer away (realism R8): when no benign-positive alert of the session is high,
+  // the last unforced one gives its place to a maker whose alert is (a scanner, an admin's remote tool, a DLP hit).
+  const high = (o: FpOut) => o.verdict === "fp" && o.rows.some(e => e.severity === "high" || e.severity === "critical");
+  const slot = out.map((o, i) => ({ o, i })).reverse().find(x => !forced.some(f => f.id === x.o.makerId))?.i;
+  if (out.length && !out.some(high) && slot !== undefined) {
+    for (const m of order) {
+      if (out.some(o => o.makerId === m.id) || [...kinds].some(k => k === m.kind && out[slot].kind !== k)) continue;
+      const r = m.make({ ...base, n: slot, miss: false });
+      if (r && r.rows.every(fits) && high(r)) { out[slot] = r; break; }
     }
   }
   return out;

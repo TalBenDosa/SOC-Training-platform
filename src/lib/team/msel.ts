@@ -288,6 +288,8 @@ export interface TwistCtx {
   edr: string; fw: { flavour: FwFlavour; vendor: string }; useSysmon: boolean; ips: Set<string>; domains: Set<string>;
   /** Hosts / people the session already uses for other things (the remote-session target avoids them). */
   usedHosts: Set<string>;
+  /** People other incidents of the session are about: a twist never drags them into this one. */
+  avoidUsers?: Set<string>;
   /** The host's operating system, read from the story's own process paths on it. */
   os: "windows" | "linux" | "mac";
   /** The organization (its domain SIDs and FQDNs); found from `assets` when absent. */
@@ -654,7 +656,7 @@ const TWISTS: TwistKind[] = [
       const users = shuffledOf(g.sprayed, c.rnd).slice(0, 4);
       for (let k = 0; users.length < 3 && c.assets && k < 20; k++) {
         const r = pickOf(c.assets.roster, c.rnd), e = `${r.name}@${c.assets.domain}`;
-        if (!users.includes(e)) users.push(e);
+        if (!users.includes(e) && !c.avoidUsers?.has(e)) users.push(e);
       }
       const win = !g.cloud && !!c.assets;
       const fail = (u: string, k: number) => win

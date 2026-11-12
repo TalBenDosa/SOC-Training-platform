@@ -95,7 +95,6 @@ function sampleN<T>(arr: T[], n: number, rnd: () => number): T[] {
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a.slice(0, Math.min(n, a.length));
 }
-const pick = <T,>(arr: T[], rnd: () => number): T => arr[Math.floor(rnd() * arr.length) % arr.length];
 /** Rows in authored time order, stable (left as they are when a ts does not parse). */
 function byAuthoredTime<T extends { ts?: string }>(evs: T[]): T[] {
   const t = evs.map(e => Date.parse(e.ts ?? ""));
@@ -336,7 +335,16 @@ export interface VarietyOpts {
  */
 export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium" | "hard", storyId: string | null | undefined, env: TeamEnv | null = null, stack: Stack = {}): AttackStory | null {
   if (!storyId) return null;
-  return teamStoryPool(companyId, difficulty, env, stack).find(s => s.id === storyId) ?? null;
+  const own = teamStoryPool(companyId, difficulty, env, stack).find(s => s.id === storyId);
+  if (own) return own;
+  // The admin chooses the attacks, and a chosen attack always runs (Tal, 2026-11-12). A plan saved before the
+  // engines stopped sharing stories may name one that is now single-player only: it still runs, under the same
+  // company / tier / environment fit. The storyline list offers Team Training's own stories only, so no new
+  // choice reaches here.
+  const legacy = env
+    ? storiesForTier(difficulty, difficulty === "hard").filter(s => !s.teamOnly && envAllowsStory(env, s))
+    : storiesForCompany(companyId, difficulty, true);
+  return legacy.find(s => s.id === storyId) ?? null;
 }
 
 /**
@@ -539,7 +547,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     return pickInFamilies(tier.filter(s => kindAgo(s) === fresh), pickRnd);
   };
   // Concurrent incidents hit different people (a team never works two attacks on one victim).
-  const victimOf = (evs: TelemetryEvent[]) => evs.find(e => e.user_email && isMalicious(classifyStoryEvent(e)))?.user_email;
+  // Every person on a story's malicious rows is one of its victims (a web story can name several accounts): a second
+  // incident that touches any of them is the same victim worked twice.
+  const victimsOf = (evs: TelemetryEvent[]) => [...new Set(evs.filter(e => e.user_email && isMalicious(classifyStoryEvent(e))).map(e => e.user_email!))];
   const takenVictims = new Set<string>();
   // The attacker addresses this session's storylines drew (variation.ts): two storylines never share one.
   const storyIps = new Set<string>();
@@ -562,13 +572,13 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         const events0 = instantiateStory(story, companyPool, edr, companyId, pickRnd, { seed, usedIps: storyIps, usedDomains: storyDomains }).events ?? [];
         if (events0.length === 0) return null;
         if ((stacked || env) && !forced && !sessionFit(companyId, stack, env)(events0)) continue;
-        const victim = victimOf(events0);
+        const victims = victimsOf(events0);
         // The bonus lands on new ground (expert review P0-4): no host or person the planned attacks touched.
         if (keepOff && !forced && attempt < maxAttempts - 1
           && events0.some(e => (e.hostname && keepOff.hosts.has(e.hostname)) || (e.user_email && keepOff.users.has(e.user_email)))) { avoid.push(story.id); continue; }
         // A random pick tries another story; a chosen one is re-instantiated onto another victim.
-        if (victim && takenVictims.has(victim) && attempt < maxAttempts - 1) { if (!forced) avoid.push(story.id); continue; }
-        if (victim) takenVictims.add(victim);
+        if (victims.some(v => takenVictims.has(v)) && attempt < maxAttempts - 1) { if (!forced) avoid.push(story.id); continue; }
+        for (const v of victims) takenVictims.add(v);
         const events = events0.map(e => applyStack(e, companyId, stack));
         const incident0 = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
         const incident = env ? incident0.replace(DEMO_COMPANY, "org") : incident0;
@@ -1066,6 +1076,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       edr: edr ?? "Microsoft Defender for Endpoint", fw, useSysmon, ips: new Set(sessionIps), domains: new Set(), usedHosts, os: hostOs,
       // What the attack achieved (msel.ts twistGround): a twist needs a cause on its host.
       companyId, story: twistStory.filter(p => isMalicious(p.verdict)).map(p => p.ev),
+      // The other incidents' people (their victims, the benign-positive makers' staff), never this story's own.
+      avoidUsers: new Set([...usedUsers].filter(u => !twistStory.some(p => p.ev.user_email === u))),
     }, history, opts.force?.twist) : null;
     if (!twist) dropInject("msel_twist");
     else {

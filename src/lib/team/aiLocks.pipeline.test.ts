@@ -2,7 +2,7 @@
 // was (`soloCompanies` keeps the old list, the dashboard draw never offers a gained company), and since the
 // two engines stopped sharing stories (Tal, 2026-11-12) Team Training deals none of them.
 import { describe, expect, it } from "vitest";
-import { ATTACK_STORIES, pickStoryForCompany, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { ATTACK_STORIES, pickStoryForCompany, storiesForCompany, type AttackStory } from "@/app/(app)/dashboard/attackStories";
 import { buildTeamTimeline, teamStoryPool } from "./buildTimeline";
 
 const WIDENED: Record<string, string[]> = {
@@ -46,12 +46,17 @@ describe("widened AI storylines", () => {
 
       // The single-player dashboard and Team Training never share a story (Tal, 2026-11-12): a single-player
       // storyline is not dealt in Team Training on any company, whatever its widened list says.
-      it("Team Training never deals it, on any company or level", () => {
+      it("Team Training never deals it on its own, on any company or level", () => {
         for (const c of FIVE) for (const d of DIFFS) expect(teamStoryPool(c, d, null).some(x => x.id === id), `${c} ${d}`).toBe(false);
-        // Even pinned by id, the timeline refuses it and draws a team story instead.
+      });
+      // An admin's choice always runs (Tal 2026-11-12): a plan saved before the split that names it still gets it,
+      // on a company it was written for.
+      it("still runs when an older plan chose it", () => {
+        const c = old[0];
+        const d = DIFFS.find(x => storiesForCompany(c, x, true).some(st => st.id === id))!;
         const ids = new Set(s.events.map(e => e.id));
-        const tl = buildTeamTimeline(gained[0] ?? "nexacorp", "medium", `locks-${id}`, id);
-        expect(tl.some(e => ids.has(String((e.answer as { original_id?: string } | undefined)?.original_id ?? "").replace(/__\d+$/, "")))).toBe(false);
+        const tl = buildTeamTimeline(c, d, `locks-${id}`, id);
+        expect(tl.filter(e => ids.has(String((e.answer as { original_id?: string } | undefined)?.original_id ?? "").replace(/__\d+$/, ""))).length).toBe(s.events.length);
       });
     });
   }
