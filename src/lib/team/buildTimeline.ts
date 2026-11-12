@@ -347,8 +347,9 @@ export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium
  * to core when fewer than 8 advanced stories fit, as the dashboard does.
  */
 export function teamStoryPool(companyId: string, difficulty: "easy" | "medium" | "hard", env: TeamEnv | null, stack: Stack = {}): AttackStory[] {
-  if (!env) return storiesForCompany(companyId, difficulty);
-  const inEnv = (broaden: boolean) => storiesForTier(difficulty, broaden).filter(s => envAllowsStory(env, s));
+  // Team Training's own stories only: the single-player dashboard and Team Training never share one (Tal, 2026-11-12).
+  if (!env) return storiesForCompany(companyId, difficulty, "team");
+  const inEnv = (broaden: boolean) => storiesForTier(difficulty, broaden).filter(s => s.teamOnly && envAllowsStory(env, s));
   const pool = inEnv(false);
   if (difficulty === "hard" && pool.filter(teamStoryFilter(companyId, stack, env)).length < 8) return inEnv(true);
   return pool;

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { AI_WAVE3_B_STORIES } from "@/app/(app)/dashboard/ai-stories/wave3-b";
 import { AI_WAVE3_C_STORIES } from "@/app/(app)/dashboard/ai-stories/wave3-c";
 import { AI_WAVE3_D_STORIES } from "@/app/(app)/dashboard/ai-stories/wave3-d";
+import { ATTACK_STORIES } from "@/app/(app)/dashboard/attackStories";
 import { buildTeamTimeline, teamStoryPool, teamStoryFilter } from "./buildTimeline";
 import { TENANT_TEMPLATE } from "./tenant";
 import { PLATFORM_CHOICES, type TeamEnv } from "./environment";
@@ -29,6 +30,14 @@ describe("wave-3 AI storylines in the Team-SOC pipeline", () => {
   it("has the six stories", () => { expect(STORIES.map(s => s.id).sort()).toHaveLength(6); });
 
   for (const s of STORIES) {
+    // A single-player storyline is never dealt in Team Training (Tal, 2026-11-12: the engines share no story).
+    if (!ATTACK_STORIES.find(x => x.id === s.id)?.teamOnly) {
+      it(`${s.id} is single-player only: no Team Training pool deals it`, () => {
+        for (const c of s.companies) for (const d of DIFFS) expect(teamStoryPool(c, d, null).some(x => x.id === s.id), `${c} ${d}`).toBe(false);
+        for (const d of DIFFS) expect(teamStoryPool(TENANT_TEMPLATE, d, FULL_ENV).some(x => x.id === s.id), d).toBe(false);
+      });
+      continue;
+    }
     describe(s.id, () => {
       const pools = s.companies.flatMap(c => DIFFS.filter(d => teamStoryPool(c, d, null).some(x => x.id === s.id)).map(d => ({ c, d })));
 

@@ -36,7 +36,8 @@ function build(company: string, seed: string, opts: VarietyOpts = {}, stack: Sta
 }
 /** Stories that carry each twist ground: code ran on a workstation, a cloud sign-in worked, a spray never got in. */
 // One story per twist ground: code ran, a sign-in worked, an account logged on, and a spray that never got in.
-const TWIST_STORIES = ["tech-support-scam", ATTACK_STORIES.find(s => s.events.some(e => e.id === "evt_imp_01_baseline"))!.id, "nexacorp-chain-d", "okta-password-burst"];
+// Team Training stories only (the engines share none, Tal 2026-11-12): code ran, a cloud sign-in worked, a spray, a web attack from outside.
+const TWIST_STORIES = ["tech-support-scam", "core-device-code-phish", "nexacorp-chain-d", "web-inj-cmdi-pdfexport"];
 const ans = (e: TimelineEntry) => (e.answer ?? {}) as Record<string, unknown>;
 const origId = (e: TimelineEntry) => String(ans(e).original_id ?? "");
 

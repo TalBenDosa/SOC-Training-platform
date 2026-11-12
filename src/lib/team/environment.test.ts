@@ -15,6 +15,12 @@ const offered = (env: TeamEnv, stack = {}) => {
   return new Set((["easy", "medium", "hard"] as const).flatMap(d => teamStoryPool(TENANT_TEMPLATE, d, env, stack).filter(fits).map(s => s.id)));
 };
 
+/** What the environment rules let through, whichever engine deals the story (the rules themselves, not the pool). */
+const allowed = (env: TeamEnv, stack = {}) => {
+  const fits = teamStoryFilter(TENANT_TEMPLATE, stack, env);
+  return new Set(ATTACK_STORIES.filter(s => envAllowsStory(env, s) && fits(s)).map(s => s.id));
+};
+
 describe("environment input", () => {
   it("keeps known platforms / industry only and defaults the rest", () => {
     expect(sanitizeEnv(null)).toEqual(DEFAULT_ENV);
@@ -42,30 +48,35 @@ describe("the arsenal follows the environment", () => {
     expect(storyIndustry("qb-swift-wire-fraud")).toBe("finance");
     expect(storyIndustry("phishing-malware")).toBe("general");
     const all: TeamEnv = { platforms: ALL, industry: "general" };
-    expect(offered(all).has("medcore-chain-a")).toBe(false);
-    expect(offered({ ...all, industry: "healthcare" }).has("medcore-chain-a")).toBe(true);
-    expect(offered({ ...all, industry: "healthcare" }).has("qb-swift-wire-fraud")).toBe(false);
+    expect(allowed(all).has("medcore-chain-a")).toBe(false);
+    expect(allowed({ ...all, industry: "healthcare" }).has("medcore-chain-a")).toBe(true);
+    expect(allowed({ ...all, industry: "healthcare" }).has("qb-swift-wire-fraud")).toBe(false);
   });
   it("opens the Microsoft-world stories the old company fit hid", () => {
-    const def = offered(DEFAULT_ENV);
+    const def = allowed(DEFAULT_ENV);
     for (const id of ["dcsync", "oauth", "bruteforce-single", "ransomware"]) expect(def.has(id), id).toBe(true);
     // "insider" stays out: its exfil trail is a Zscaler web-proxy log, a product the admin never chose.
     expect(def.has("insider")).toBe(false);
-    const ndr = offered({ ...DEFAULT_ENV, platforms: [...DEFAULT_ENV.platforms, "ndr"] });
+    const ndr = allowed({ ...DEFAULT_ENV, platforms: [...DEFAULT_ENV.platforms, "ndr"] });
     for (const id of ["asrep-roasting", "ntlm-relay"]) expect(ndr.has(id), id).toBe(true);
   });
   it("product-specific stories follow the chosen products", () => {
     const all: TeamEnv = { platforms: ALL, industry: "general" };
-    expect(offered(all).has("okta-password-burst")).toBe(false);                    // an Entra shop
-    expect(offered(all, { idp: "okta" }).has("okta-password-burst")).toBe(true);
-    expect(offered(all).has("edge-vpn-cve-exploit")).toBe(false);                   // a FortiOS CVE on a GlobalProtect shop
-    expect(offered(all, { vpn: "fortigate_sslvpn", firewall: "fortigate" }).has("edge-vpn-cve-exploit")).toBe(true);
+    expect(allowed(all).has("okta-password-burst")).toBe(false);                    // an Entra shop
+    expect(allowed(all, { idp: "okta" }).has("okta-password-burst")).toBe(true);
+    expect(allowed(all).has("edge-vpn-cve-exploit")).toBe(false);                   // a FortiOS CVE on a GlobalProtect shop
+    expect(allowed(all, { vpn: "fortigate_sslvpn", firewall: "fortigate" }).has("edge-vpn-cve-exploit")).toBe(true);
   });
   it("a pinned storyline outside the environment is refused", () => {
-    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", DEFAULT_ENV)).toBeNull();
-    // Its first alert is a Microsoft Sentinel analytic, and Sentinel runs on Azure.
-    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", { platforms: ["aws"], industry: "general" })).toBeNull();
-    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", { platforms: ["aws", "azure"], industry: "general" })?.id).toBe("rocketstack-chain-a");
+    const id = "ai-assistant-commit-key-leak-aws";   // a Team Training story that needs AWS
+    expect(resolveTeamStory(TENANT_TEMPLATE, "hard", id, { platforms: ["azure", "linux"], industry: "general" })).toBeNull();
+    expect(resolveTeamStory(TENANT_TEMPLATE, "hard", id, { platforms: ALL, industry: "general" })?.id).toBe(id);
+  });
+  it("a single-player storyline is never offered or accepted, whatever the environment allows (Tal 2026-11-12)", () => {
+    const all: TeamEnv = { platforms: ALL, industry: "general" };
+    for (const id of offered(all)) expect(story(id).teamOnly, id).toBe(true);
+    expect(allowed(all).has("rocketstack-chain-a")).toBe(true);
+    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", all)).toBeNull();
   });
 });
 

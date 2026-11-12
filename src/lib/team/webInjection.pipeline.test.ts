@@ -1,7 +1,8 @@
 // The web injection round (Tal, 2026-11-12) through both engines. Every family is a parametric template
-// of two or more variants that differ in app, entry, server platform and look-alike; the single-player
-// dashboard deals it (unlike the first web catalog) family first, Team Training deals it with the same
-// family memory, every web row renders natively and lands in the XDR table its product really fills.
+// of two or more variants that differ in app, entry, server platform and look-alike. The engines never share
+// a story, so each family gives the single-player dashboard one variant and Team Training another: both
+// practise every attack class, never on the same incident. Variants are dealt family first, every web row
+// renders natively and lands in the XDR table its product really fills.
 import { describe, expect, it } from "vitest";
 import { WEB_INJECTION_STORIES } from "@/app/(app)/dashboard/web-stories/injection";
 import { ATTACK_STORIES, familyOf, pickInFamilies, storiesForCompany } from "@/app/(app)/dashboard/attackStories";
@@ -30,6 +31,7 @@ const sitesOf = (evs: TelemetryEvent[]) => new Set(evs.filter(e => e.source === 
 const pathsOf = (evs: TelemetryEvent[]) => new Set(evs.filter(e => e.source === "waf" || e.source === "web_server").map(e => e.network?.url?.replace(/^https:\/\/[^/]+/, "").split("?")[0]));
 /** Companies a story can run at in either engine. */
 const fitting = (id: string) => COMPANIES.filter(c => DIFFS.some(d => storiesForCompany(c, d).some(s => s.id === id)));
+const isTeam = (id: string) => !!ATTACK_STORIES.find(s => s.id === id)?.teamOnly;
 const WEB_TABLES = new Set(["AWSWAF", "AGWFirewallLogs", "AGWAccessLogs", "W3CIISLog", "NGINX_CL"]);
 
 function emptyValues(o: unknown, path = ""): string[] {
@@ -40,12 +42,20 @@ function emptyValues(o: unknown, path = ""): string[] {
 }
 
 describe("web injection round: catalog", () => {
-  it("every story is registered for both engines, in a family of two or more different variants", () => {
+  it("every family has a single-player variant and a Team Training variant, each in one engine only", () => {
     expect(DEFS.length).toBeGreaterThanOrEqual(2);
+    for (const [fam, vs] of families()) {
+      expect(vs.some(v => v.mode === "solo"), `${fam} has a single-player variant`).toBe(true);
+      expect(vs.some(v => v.mode === "team"), `${fam} has a Team Training variant`).toBe(true);
+    }
     for (const d of DEFS) {
       const s = ATTACK_STORIES.find(x => x.id === d.id);
       expect(s, d.id).toBeTruthy();
-      expect(s!.teamOnly, `${d.id} is dealt in the single-player dashboard too`).toBeFalsy();
+      expect(!!s!.teamOnly, d.id).toBe(d.mode === "team");
+      for (const c of COMPANIES) for (const df of DIFFS) {
+        expect(storiesForCompany(c, df, true).some(x => x.id === d.id) && d.mode === "team", `${d.id} solo ${c}`).toBe(false);
+        expect(teamStoryPool(c, df, null).some(x => x.id === d.id) && d.mode === "solo", `${d.id} team ${c}`).toBe(false);
+      }
       expect(s!.family, d.id).toBe(d.family);
       expect(d.id.startsWith("web-inj-"), d.id).toBe(true);
       expect(storyCategory(d.id)).toBe("web");
@@ -62,12 +72,11 @@ describe("web injection round: catalog", () => {
     }
   });
 
-  it("each story fits at least two companies, and its family is dealt there in the single-player dashboard", () => {
+  it("each story fits at least two companies, and each engine deals its family somewhere", () => {
     for (const d of DEFS) expect(fitting(d.id).length, d.id).toBeGreaterThanOrEqual(2);
-    for (const [fam, vs] of families()) {
-      const anywhere = COMPANIES.some(c => DIFFS.some(df => storiesForCompany(c, df, true).some(s => familyOf(s) === fam)));
-      expect(anywhere, fam).toBe(true);
-      void vs;
+    for (const [fam] of families()) {
+      expect(COMPANIES.some(c => DIFFS.some(df => storiesForCompany(c, df, true).some(s => familyOf(s) === fam))), `${fam} solo`).toBe(true);
+      expect(COMPANIES.some(c => DIFFS.some(df => teamStoryPool(c, df, null).some(s => familyOf(s) === fam))), `${fam} team`).toBe(true);
     }
   });
 
@@ -83,11 +92,14 @@ describe("web injection round: catalog", () => {
     expect(calls).toBe(1);
   });
 
-  it("a Team session that met one variant waits before dealing its sibling", () => {
-    const [fam, vs] = [...families()][0];
-    const c = fitting(vs[0].id)[0];
-    const d = DIFFS.find(x => teamStoryPool(c, x, null).some(s => s.id === vs[0].id))!;
-    const history = { ...emptyHistory(), stories: { [vs[0].id]: 1 } };
+  it("a Team session waits before dealing a family it met, through any of its variants", () => {
+    const fams = [...families()].filter(([, vs]) => vs.filter(v => v.mode === "team").length > 0);
+    const [fam, vs] = fams[0];
+    const t = vs.find(v => v.mode === "team")!;
+    const c = fitting(t.id).find(x => DIFFS.some(d => teamStoryPool(x, d, null).some(s => s.id === t.id)))!;
+    const d = DIFFS.find(x => teamStoryPool(c, x, null).some(s => s.id === t.id))!;
+    // The organization met the family's single-player twin elsewhere in its history: still a repeat of the family.
+    const history = { ...emptyHistory(), stories: Object.fromEntries(vs.map(v => [v.id, 1])) };
     for (const seed of ["fam-1", "fam-2", "fam-3", "fam-4", "fam-5", "fam-6"]) {
       let picked: string[] = [];
       buildTeamTimeline(c, d, seed, null, undefined, {}, null, null, { history, onVariety: r => { picked = r.stories; } });
@@ -101,8 +113,9 @@ for (const def of DEFS) {
     const story = ATTACK_STORIES.find(s => s.id === def.id)!;
     const companies = fitting(def.id);
 
-    it("is in the Team Training pool of every company it fits", () => {
+    it("is in its own engine's pool of every company it fits, and never in the other's", () => {
       for (const c of companies) {
+        if (!isTeam(def.id)) { expect(DIFFS.some(d => storiesForCompany(c, d, true).some(s => s.id === def.id)), c).toBe(true); continue; }
         expect(DIFFS.some(d => teamStoryPool(c, d, null).some(s => s.id === def.id)), c).toBe(true);
         expect(teamStoryFilter(c)(story), c).toBe(true);
       }
@@ -140,7 +153,7 @@ for (const def of DEFS) {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
-    for (const c of companies) {
+    for (const c of isTeam(def.id) ? companies : []) {
       it(`Team: complete, ordered, native, no answer data, every web row in its own XDR table (${c})`, () => {
         const d = DIFFS.find(x => teamStoryPool(c, x, null).some(s => s.id === def.id))!;
         const tl = buildTeamTimeline(c, d, `inj-${def.id}`, def.id);

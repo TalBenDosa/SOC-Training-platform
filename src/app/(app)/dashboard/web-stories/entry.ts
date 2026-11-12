@@ -29,6 +29,11 @@ export interface WebStoryDef {
   seat?: "it";
   /** The parametric template this story is a variant of (AttackStory.family). */
   family?: string;
+  /**
+   * Which engine deals it (injection round on): the single-player dashboard and Team Training never share a
+   * story (Tal, 2026-11-12), so a family gives each its own variant. Omitted: Team Training (the first web catalog).
+   */
+  mode?: "solo" | "team";
 }
 
 const IA = "Initial Access", COLLECT = "Collection", CRED = "Credential Access", EXEC = "Execution", PERSIST = "Persistence", C2 = "Command and Control", IMPACT = "Impact", STEALTH = "Stealth";

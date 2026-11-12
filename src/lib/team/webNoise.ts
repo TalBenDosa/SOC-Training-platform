@@ -79,8 +79,9 @@ export function webNoise(o: { assets: CompanyAssets; storyEvents: TelemetryEvent
   const clients = Array.from({ length: 30 }, (_, i) => `${i % 2 ? "198.51.100" : "203.0.113"}.${221 + (i >> 1)}`).filter(ip => !o.avoidIps.has(ip));
   const rows: TelemetryEvent[] = [];
   for (let n = 0; n < o.count; n++) {
-    // The sites a story of this session runs on get half the traffic: their rows must not stand alone.
-    const w = own.length && n % 2 === 0 ? pick(own, rnd) : pick(sites, rnd);
+    // The sites a story of this session runs on get half the traffic: their rows must not stand alone. Every
+    // one of them gets a row in the first pass, so a session with two web stories never leaves one site bare.
+    const w = n < own.length * 2 && n % 2 === 0 ? own[n / 2] : own.length && n % 2 === 0 ? pick(own, rnd) : pick(sites, rnd);
     const make = n % 3 === 2 ? pick(WAF, rnd) : pick(ACCESS, rnd);
     rows.push(make({ w, id: `wn_${n}`, ts, ip: pick(clients, rnd), rnd }));
   }

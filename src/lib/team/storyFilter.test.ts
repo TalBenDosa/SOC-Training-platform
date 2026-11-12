@@ -15,7 +15,7 @@ describe("teamStoryFilter (one storyline rule everywhere)", () => {
   it("every company × difficulty keeps pinnable storylines under the company's own products", () => {
     for (const c of COMPANY_PROFILES) for (const d of DIFFS) {
       const fits = teamStoryFilter(c.id, {});
-      expect(storiesForCompany(c.id, d).filter(fits).length, `${c.id} ${d}`).toBeGreaterThan(0);
+      expect(storiesForCompany(c.id, d, "team").filter(fits).length, `${c.id} ${d}`).toBeGreaterThan(0);
     }
   });
 
@@ -23,7 +23,7 @@ describe("teamStoryFilter (one storyline rule everywhere)", () => {
     let judged = 0, differsFromRaw = 0;
     for (const c of COMPANY_PROFILES.slice(0, 3)) for (const stack of STACKS.slice(1)) {
       const fits = teamStoryFilter(c.id, stack);
-      for (const s of storiesForCompany(c.id, "medium")) {
+      for (const s of storiesForCompany(c.id, "medium", "team")) {
         const ok = fits(s);
         judged++;
         if (ok !== storyFitsStack(s.events, c.id, stack)) differsFromRaw++;
@@ -40,7 +40,7 @@ describe("teamStoryFilter (one storyline rule everywhere)", () => {
 
   it("resolveTeamStory only knows stories storiesForCompany offers", () => {
     expect(resolveTeamStory("nexacorp", "easy", "definitely-not-a-story")).toBeNull();
-    const first = storiesForCompany("nexacorp", "easy")[0];
+    const first = storiesForCompany("nexacorp", "easy", "team")[0];
     expect(resolveTeamStory("nexacorp", "easy", first.id)?.id).toBe(first.id);
   });
 });

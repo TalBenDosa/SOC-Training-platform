@@ -129,6 +129,6 @@ function pdfExport(): TelemetryEvent[] {
 }
 
 export const WEB_INJECTION_CMD_STORIES: WebStoryDef[] = [
-  { id: "web-inj-cmdi-netcheck", family: "web-inj-cmdi", title: "Network Check Page Running More Than Ping", complexity: "core", events: netcheck() },
-  { id: "web-inj-cmdi-pdfexport", family: "web-inj-cmdi", title: "Invoice Export Failing and the Billing Server Downloading a File", complexity: "core", events: pdfExport() },
+  { id: "web-inj-cmdi-netcheck", family: "web-inj-cmdi", mode: "solo", title: "Network Check Page Running More Than Ping", complexity: "core", events: netcheck() },
+  { id: "web-inj-cmdi-pdfexport", family: "web-inj-cmdi", mode: "team", title: "Invoice Export Failing and the Billing Server Downloading a File", complexity: "core", events: pdfExport() },
 ];

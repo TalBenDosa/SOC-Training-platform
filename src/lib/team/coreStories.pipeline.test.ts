@@ -6,6 +6,7 @@ vi.mock("server-only", () => ({}));
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { CORE_STORIES } from "@/app/(app)/dashboard/core-stories";
 import { ATTACK_STORIES, instantiateStory, pickStoryForCompany, storiesForCompany } from "@/app/(app)/dashboard/attackStories";
+import { companyFeedPool, feedCompanyProfile } from "@/app/(app)/dashboard/feedPool";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { nativeView } from "@/lib/logs/native";
@@ -27,6 +28,12 @@ const emptyValues = (o: unknown, path = ""): string[] => {
 };
 const offered = (company: string, id: string) => DIFFS.filter(d => teamStoryPool(company, d, null).filter(teamStoryFilter(company)).some(s => s.id === id));
 type Body = TelemetryEvent & { raw: Record<string, unknown> };
+/** A single-player story's rows as the dashboard renders them, by authored id. */
+const soloRows = (id: string, company: string): Map<string, Body> => {
+  const s = ATTACK_STORIES.find(x => x.id === id)!;
+  const pool = companyFeedPool({ BENIGN_EVENTS, COMPANY_EVENTS }, company);
+  return new Map(instantiateStory(s, pool, feedCompanyProfile(company).architecture?.edr, company, () => 0.5).events.map(e => [e.id, e as Body] as const));
+};
 /** One story's rows as a player receives them, by authored id. */
 const rows = (id: string, company: string, seed = "rework"): Map<string, Body> => {
   const s = ATTACK_STORIES.find(x => x.id === id)!;
@@ -187,7 +194,8 @@ describe("core attack catalog in the Team-SOC pipeline", () => {
         const r = rows("core-shadow-credentials", c);
         for (const id of ["csc02l", "csc05", "csc06", "csc07"]) expect(r.get(id)!.src_ip).toBe(r.get("csc02")!.src_ip);
       }
-      const pth = rows("lateral-movement-pth", "nexacorp");
+      // A single-player story since the engines stopped sharing them (Tal 2026-11-12): checked on its dashboard render.
+      const pth = soloRows("lateral-movement-pth", "nexacorp");
       const hostIps = new Set([...pth.values()].filter(b => b.source !== "windows_security" && b.hostname === pth.get("evt_lm_02_pth_logon")!.hostname).map(b => b.src_ip));
       expect(hostIps.has(pth.get("evt_lm_02_pth_logon")!.src_ip)).toBe(false);
     });
@@ -250,7 +258,6 @@ describe("core attack catalog in the Team-SOC pipeline", () => {
       expect(offered("medcore", "core-ide-extension-theft")).toEqual([]);
       expect(offered("globallogis", "core-ide-extension-theft")).toEqual([]);
       for (const [c, host] of Object.entries(seats)) expect(rows("core-ide-extension-theft", c).get("cid03")!.hostname).toMatch(host);
-      expect(rows("rs-cicd-pipeline-poisoning", "globallogis").get("rscp1")!.user_email).toMatch(/^(c\.becker|l\.kowalski)@/);
     });
 
     it("takes a story off a company where it makes no sense", () => {
@@ -258,16 +265,11 @@ describe("core attack catalog in the Team-SOC pipeline", () => {
       for (const [id, c] of [["webshell-rce", "medcore"], ["webshell-rce", "globallogis"], ["infostealer-session-theft", "rocketstack"], ["rocketstack-chain-a", "quantumbank"], ["rocketstack-chain-d", "quantumbank"],
         ["rocketstack-chain-b", "globallogis"], ["rocketstack-chain-b", "quantumbank"], ["lateral-movement-pth", "quantumbank"], ["windows-privesc-token", "quantumbank"], ["core-wmi-remote-exec", "quantumbank"],
         ["core-rmm-first-stage", "rocketstack"], ["core-thread-hijack-smuggling", "rocketstack"]]) expect(has(id, c), `${id} on ${c}`).toBeFalsy();
-      expect(rows("globallogis-chain-d", "rocketstack").get("gl_d3")!.hostname).toMatch(/SRV-PROD-001|prod-srv-01/);
     });
 
-    it("keeps a widened story free of its home company's names and of long dashes", () => {
-      for (const [id, c] of [["nexacorp-chain-c", "globallogis"], ["nexacorp-chain-c", "quantumbank"]]) {
-        expect(JSON.stringify([...rows(id, c).values()])).not.toMatch(/LAPTOP-|\bNX\b/);
-      }
-      expect(JSON.stringify([...rows("rs-terraform-iac-backdoor", "quantumbank").values()])).not.toContain("n.shapiro");
-      expect(JSON.stringify(rows("nexacorp-chain-b", "quantumbank").get("nx_b2"))).not.toMatch(/[–—]/);
-      expect(JSON.stringify(rows("exfil-first-extortion", "quantumbank").get("evt_efe_03_dlp_audit"))).not.toMatch(/[–—]/);
+    it("deals no single-player story a company list was widened for (the engines share none, Tal 2026-11-12)", () => {
+      for (const [id, c] of [["nexacorp-chain-c", "globallogis"], ["nexacorp-chain-c", "quantumbank"], ["rs-terraform-iac-backdoor", "quantumbank"], ["nexacorp-chain-b", "quantumbank"],
+        ["exfil-first-extortion", "quantumbank"], ["rs-cicd-pipeline-poisoning", "globallogis"], ["globallogis-chain-d", "rocketstack"]]) expect(offered(c, id), `${id} on ${c}`).toEqual([]);
     });
 
     it("carries no real public address for the office", () => {

@@ -146,7 +146,10 @@ export interface AttackStory {
   mitre: string[];
   /** Explicit company allowlist. Omitted = decided by the source-fit rule. */
   companies?: string[];
-  /** Runs in Team Training only: the single-player dashboard never picks it. */
+  /**
+   * Which engine deals it. The single-player dashboard and Team Training never share a story (Tal, 2026-11-12:
+   * "different data, different stories"): true = Team Training only, absent = the single-player dashboard only.
+   */
   teamOnly?: boolean;
   /** The single-player dashboard keeps this company lock when Team Training no longer has one. */
   soloCompanies?: string[];
@@ -981,9 +984,9 @@ const AI_STORIES: AttackStory[] = [
 const WEB_STORIES: AttackStory[] = [...WEB_ENTRY_STORIES, ...WEB_ADVANCED_STORIES]
   .map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true, ...(d.seat ? { seat: d.seat } : {}) }));
 
-// ── Web injection round: single-player AND Team Training, variants of one template share a family ──────
+// ── Web injection round: each family has a single-player variant and a Team Training variant ─────────────
 const WEB_INJECTION: AttackStory[] = WEB_INJECTION_STORIES
-  .map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), ...(d.family ? { family: d.family } : {}), ...(d.seat ? { seat: d.seat } : {}) }));
+  .map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), ...(d.family ? { family: d.family } : {}), ...(d.mode !== "solo" ? { teamOnly: true } : {}), ...(d.seat ? { seat: d.seat } : {}) }));
 
 /**
  * No cryptocurrency incidents (Tal, 2026-10-02): mining / cryptojacking / wallet clippers are
@@ -1027,6 +1030,13 @@ function catalogIps(): Set<string> {
 
 const OWN_SERVERS = new Set(["nexacorp-chain-d", "webshell-rce"]);
 
+/**
+ * Single-player storylines handed to Team Training when the engines stopped sharing stories (Tal, 2026-11-12):
+ * the ones real team exercises already ran (the Sdema sessions' attack plans pinned them), so a saved team
+ * plan keeps its storylines. Each story belongs to one engine; these leave the single-player dashboard.
+ */
+const TEAM_ASSIGNED = new Set(["nexacorp-chain-d", "ai-rag-chatbot-document-injection", "ai-helpdesk-voice-reset", "tech-support-scam"]);
+
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
   ...COMPANY_CHAIN_STORIES,
@@ -1038,7 +1048,7 @@ export const ATTACK_STORIES: AttackStory[] = [
   ...WEB_INJECTION,
   // Team Training only: the single-player dashboard never picks these (pickStoryForCompany).
   ...CORE_STORIES.map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true, ...(d.seat ? { seat: d.seat } : {}) })),
-].filter(s => !EXCLUDED_STORIES.has(s.id)).map(s => {
+].filter(s => !EXCLUDED_STORIES.has(s.id)).map(s => (TEAM_ASSIGNED.has(s.id) ? { ...s, teamOnly: true } : s)).map(s => {
   const more = TEAM_WIDER[s.id];
   const own = OWN_SERVERS.has(s.id) ? { ...s, ownServers: true } : s;
   return more && own.companies ? { ...own, companies: [...own.companies, ...more], soloCompanies: own.companies } : own;
@@ -1114,8 +1124,11 @@ const COMPLEXITY_FOR_DIFFICULTY: Record<"easy" | "medium" | "hard", StoryComplex
  * filtered afterwards, because the size thresholds below choose what a thin pool broadens to. Filtering
  * later would leave them counted, and QuantumBank's Hard would stop reaching its core stories.
  */
-export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", solo = false): AttackStory[] {
-  const pool = (solo ? ATTACK_STORIES.filter(s => !s.teamOnly && (!s.soloCompanies || s.soloCompanies.includes(companyId))) : ATTACK_STORIES)
+export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", solo: boolean | "team" = false): AttackStory[] {
+  // "team" is Team Training's pool: its own stories only, never one the single-player dashboard deals. false is the
+  // whole catalog (catalog checks and QA), true the single-player dashboard's.
+  const pool = (solo === "team" ? ATTACK_STORIES.filter(s => s.teamOnly)
+    : solo ? ATTACK_STORIES.filter(s => !s.teamOnly && (!s.soloCompanies || s.soloCompanies.includes(companyId))) : ATTACK_STORIES)
     // A story whose machine runs an OS the company has no machine of is not dealt there.
     .filter(s => storyOsFitsCompany(s, companyId));
   const sources = companySources(companyId);

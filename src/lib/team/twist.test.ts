@@ -25,7 +25,8 @@ import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { nativeView } from "@/lib/logs/native";
 
-const impId = ATTACK_STORIES.find(s => s.events.some(e => e.id === "evt_imp_01_baseline"))!.id;
+// A cloud account takeover with no code run (a Team Training story: the engines share none, Tal 2026-11-12).
+const impId = "core-device-code-phish";
 const EXEC_STORY = "tech-support-scam";
 const SPRAY_STORY = "nexacorp-chain-d";
 // A web injection story attacked from outside: the operator's return (web_return) lands on its own site.
@@ -119,8 +120,8 @@ describe("the twist", () => {
         break;
       }
     }
-    // spray_resumes needs a story made only of failures; none is authored now (checked on its own rows below).
-    expect([...built].sort()).toEqual(TWIST_KINDS.filter(k => k !== "spray_resumes").sort());
+    // spray_resumes needs a story made only of failures (checked on its own rows below); the others all land here.
+    for (const k of TWIST_KINDS.filter(k => k !== "spray_resumes")) expect(built.has(k), k).toBe(true);
   });
 });
 
