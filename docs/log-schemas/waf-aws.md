@@ -10,7 +10,7 @@ Scope: the traffic log of a regional web ACL in front of an Application Load Bal
 | Log fields for protection pack (web ACL) traffic: https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html | Every field below, `action` values, `terminatingRuleType` values, `httpSourceName` values, `rateBasedRuleList` members |
 | Log examples: https://docs.aws.amazon.com/waf/latest/developerguide/logging-examples.html | Nesting and value types, rate-based block, SQLi block, group rule match, `labels` as `[{ "name": … }]` |
 | Baseline rule groups: https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html | Rule names and labels of `AWSManagedRulesCommonRuleSet` and `AWSManagedRulesKnownBadInputsRuleSet` |
-| Use-case rule groups: https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-use-case.html | `AWSManagedRulesSQLiRuleSet`, `AWSManagedRulesPHPRuleSet` rule names and labels |
+| Use-case rule groups: https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-use-case.html | `AWSManagedRulesSQLiRuleSet`, `AWSManagedRulesPHPRuleSet`, `AWSManagedRulesUnixRuleSet` (POSIX, `UNIXShellCommandsVariables_QUERYSTRING` / `_BODY`), `AWSManagedRulesWindowsRuleSet` (`WindowsShellCommands_QUERYARGUMENTS`) rule names and labels (checked 2026-11-12) |
 | ATP rule group: https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-atp.html | `AWSManagedRulesATPRuleSet` rules, labels and thresholds |
 
 ## 2. Native format and delivery
@@ -98,6 +98,23 @@ Rate-based rule in Count (the client stays under no block), and ATP on a login:
 }
 ```
 
+Blocked by the Log4j rule of Known bad inputs (a JNDI lookup in a header):
+
+```json
+{
+  "timestamp": 1777900201114, "formatVersion": 1,
+  "webaclId": "arn:aws:wafv2:eu-west-1:111122223333:regional/webacl/example-edge-acl/1a2b3c4d-1111-4222-8333-444455556666",
+  "terminatingRuleId": "AWS-AWSManagedRulesKnownBadInputsRuleSet", "terminatingRuleType": "MANAGED_RULE_GROUP", "action": "BLOCK",
+  "terminatingRuleMatchDetails": [], "httpSourceName": "ALB", "httpSourceId": "111122223333-app/example-public-alb/50dc6c495c0c9188",
+  "ruleGroupList": [{ "ruleGroupId": "AWS#AWSManagedRulesKnownBadInputsRuleSet", "terminatingRule": { "ruleId": "Log4JRCE_HEADER", "action": "BLOCK", "ruleMatchDetails": null }, "nonTerminatingMatchingRules": [], "excludedRules": null }],
+  "rateBasedRuleList": [], "nonTerminatingMatchingRules": [], "requestHeadersInserted": null, "responseCodeSent": null,
+  "httpRequest": { "clientIp": "203.0.113.220", "country": "NL", "headers": [{ "name": "Host", "value": "helpdesk.example.com" }, { "name": "User-Agent", "value": "${jndi:ldap://...}" }], "uri": "/login", "args": "", "httpVersion": "HTTP/1.1", "httpMethod": "GET", "requestId": "1-6731a2b9-0c4e7f1d2a3b5c6d7e8f9a0b" },
+  "labels": [{ "name": "awswaf:managed:aws:known-bad-inputs:Log4JRCE_Header" }]
+}
+```
+
+A nested lookup (`${${lower:j}ndi:...}`) is not the plain form the rule reads: the request that gets through has no label at all, and the proof is the server's outbound LDAP or DNS, not this record.
+
 ## 5. Investigation notes
 
 - A block is a request that failed. The question is what the same `clientIp` did next: the first `ALLOW` after a run of blocks is the row that matters.
@@ -110,4 +127,6 @@ Rate-based rule in Count (the client stays under no block), and ATP on a login:
 - `waf.attack.type`, `waf.attack.score`, `bot.score`, `url.query`, `http.request.body`, `action_result`: none of these exist in a web ACL log (the draft field list in the platform's memory was ECS-style, not AWS's).
 - No `httpResponseCode` on the record. `responseCodeSent` is only the custom response of a block.
 - The EC2 metadata rule is `EC2MetaDataSSRF_*`, in the core rule set.
+- AWS managed rules have no CR/LF (header injection) rule and no NoSQL operator rule: a match on either is a custom rule of the web ACL, named by the team (`terminatingRuleType: "REGULAR"`).
+- The POSIX command injection rule on the query string is `UNIXShellCommandsVariables_QUERYSTRING` (label `..._QueryString`), not `_QUERYARGUMENTS`; the Windows one is `WindowsShellCommands_QUERYARGUMENTS`.
 - Rule-level labels use mixed case that differs from the rule name (`CrossSiteScripting_Body` for rule `CrossSiteScripting_BODY`).

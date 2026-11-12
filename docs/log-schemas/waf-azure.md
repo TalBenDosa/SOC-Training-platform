@@ -9,7 +9,8 @@ Scope: `ApplicationGatewayFirewallLog` and `ApplicationGatewayAccessLog` resourc
 |---|---|
 | Monitor logs for Azure WAF: https://learn.microsoft.com/en-us/azure/web-application-firewall/ag/web-application-firewall-logs | Firewall log fields, `action` meanings, sample record; access log fields |
 | Monitoring data reference: https://learn.microsoft.com/en-us/azure/application-gateway/monitor-application-gateway-reference | v2 access log sample (`timeStamp`, `listenerName`, `originalRequestUriWithArgs`, `requestQuery`, `WAFMode`, `serverRouted`, `serverStatus`, `error_info`) |
-| CRS and DRS rule groups and rules: https://learn.microsoft.com/en-us/azure/web-application-firewall/ag/application-gateway-crs-rulegroups-rules | Rule ids, groups and wording (CRS 3.2 tab) |
+| CRS and DRS rule groups and rules: https://learn.microsoft.com/en-us/azure/web-application-firewall/ag/application-gateway-crs-rulegroups-rules | Rule ids, groups and wording (CRS 3.2 tab); checked 2026-11-12 for the injection rules: 932100 / 932105 "Remote Command Execution: Unix Command Injection", 932110 "Remote Command Execution: Windows Command Injection" (REQUEST-932-APPLICATION-ATTACK-RCE), 944240 "Remote Command Execution: Java serialization" (REQUEST-944-APPLICATION-ATTACK-JAVA), 921150 "HTTP Header Injection Attack via payload (CR/LF detected)" (REQUEST-921-PROTOCOL-ATTACK) |
+| AGWFirewallLogs / AGWAccessLogs tables: https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/agwaccesslogs | The resource-specific columns the XDR console maps these records to (checked 2026-11-12) |
 | Troubleshoot rule 949110: https://learn.microsoft.com/en-us/troubleshoot/azure/application-gateway/troubleshoot-waf-anomaly-scoring-rule-949110-blocks | Anomaly scoring: rule rows are `Matched`, the final row is `Blocked` or `Detected`, joined on `transactionId` |
 | Troubleshoot WAF: https://learn.microsoft.com/en-us/troubleshoot/azure/web-application-firewall/web-application-firewall-troubleshoot | Wording of a blocking row (`Access denied with code 403 (phase 2). Operator GE matched 5 at TX:anomaly_score.`); a body is inspected only up to the inspection limit when the size limit is off |
 
@@ -118,6 +119,8 @@ Access log row:
 - Rule 949110 names no attack. Filter `Action == "Blocked"`, take the `transactionId`, and read the `Matched` rows of that transaction.
 - `Detected` means nothing stopped the request. The access log and the origin's log decide what happened.
 - A request the WAF did not understand has no firewall row at all: compare the client's access log rows after its last match (`sentBytes`, `serverStatus`).
+- Injection rules on CRS 3.2: an operating-system command in an argument is 932100 (Unix) or 932110 (Windows); a JNDI lookup in a header is caught by 944240; CR/LF in an argument by 921150. A split or re-encoded form (caret-split `w^h^o^a^m^i`, a nested lookup, a double URL-encoded value) often matches none of them: read the access log's `timeTaken`, `sentBytes` and `serverStatus` for the request that came after the blocks.
+- In the workspace these rows are `AGWFirewallLogs` (firewall) and `AGWAccessLogs` (access). The rule group has no column: it is in `FileDetails` (`rules/REQUEST-932-APPLICATION-ATTACK-RCE.conf`).
 
 ## 6. Common mistakes and fields that do not exist
 
