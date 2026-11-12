@@ -39,7 +39,8 @@ import {
 // telemetry actually carries it - ESXi/vCenter at on-prem datacenters, Linux
 // auditd where there are Linux servers, AiTM/AD attacks at the M365/AD shops.
 import { esxiRansomwareScenarioEvents }        from "@/lib/sim/scenario-packs/esxiRansomware.events";
-import { lsReadJson, lsSet, isStringArray } from "@/lib/storage/safeStorage";
+import { readRecent, pushRecent } from "./recentStories";
+import { storyThemes } from "@/lib/team/storyCategory";
 import { isNonHumanAccount, isRehomeablePerson } from "@/lib/sim/nonHuman";
 import { companyNetbios as companyNetbiosOf, makeCtx } from "@/lib/logs/native/ctx";
 import { testNetIp } from "@/lib/logs/native/sources/remote-access-shared";
@@ -1133,19 +1134,6 @@ export function storiesForCompany(companyId: string, difficulty?: "easy" | "medi
 
 // ── Anti-repeat memory ────────────────────────────────────────────────────────
 
-const RECENT_KEY = "soc_recent_story_ids";
-const RECENT_N   = 8;
-
-function readRecent(): string[] {
-  // E-22: storage can throw (private mode / blocked) and the value can be any shape.
-  return lsReadJson(RECENT_KEY, [] as string[], isStringArray);
-}
-
-function pushRecent(id: string) {
-  const next = [id, ...readRecent().filter(x => x !== id)].slice(0, RECENT_N);
-  lsSet(RECENT_KEY, JSON.stringify(next));
-}
-
 /**
  * Pick the session's attack story for a company: fits the company architecture,
  * matches the requested difficulty's complexity tier, avoids the last N
@@ -1161,6 +1149,14 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
   const recent = readRecent();
   let pool = candidates.filter(s => !recent.includes(s.id));
   if (pool.length === 0) pool = candidates; // every candidate seen recently - allow repeats
+  // Rotate the attack type (Tal 2026-11-12): never the kind of attack of the last shift, and the kinds of
+  // the last three only when nothing else is left. A kind is the story's category and the attack it is a
+  // variant of (storyThemes: an AI help-desk voice reset is also an identity takeover).
+  const themesOf = (ids: string[]) => new Set(ids.flatMap(id => storyThemes(id)));
+  const last = themesOf(recent.slice(0, 1)), lastThree = themesOf(recent.slice(0, 3));
+  const away = (avoid: Set<string>) => pool.filter(s => !storyThemes(s.id).some(t => avoid.has(t)));
+  const rotated = away(lastThree).length ? away(lastThree) : away(last);
+  if (rotated.length) pool = rotated;
   const picked = pool[Math.floor(Math.random() * pool.length)];
   pushRecent(picked.id);
   if (process.env.NODE_ENV !== "production") {

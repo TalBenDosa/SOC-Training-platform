@@ -35,6 +35,7 @@ import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/Native
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
 import { companyFeedPool, feedCompanyProfile, feedStoryEvents } from "./feedPool";
+import { mergeRecent } from "./recentStories";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
@@ -619,6 +620,17 @@ export default function DashboardPage() {
     return { ...st, events: feedStoryEvents(st.events, company).map(e => nm.applyStack(e, company, stack)) };
   };
   const eventPool       = useMemo(() => (sim ? stackedPool(resolveEvents(sim, orgCompanyMap, selectedCompanyId), selectedCompanyId, sessionStack, nativeMod) : []), [sim, selectedCompanyId, orgCompanyMap, sessionStack, nativeMod]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The learner's server-side history (dashboard_incidents): the draw avoids storylines met on any device.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/me/incidents", { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { storyIds?: unknown } | null) => {
+        if (alive && d && Array.isArray(d.storyIds)) mergeRecent(d.storyIds.filter((x): x is string => typeof x === "string"));
+      })
+      .catch(() => { /* a guest or an offline page keeps this browser's own memory */ });
+    return () => { alive = false; };
+  }, []);
   useEffect(() => {
     if (!sim || nativeMod) return;
     let alive = true;
