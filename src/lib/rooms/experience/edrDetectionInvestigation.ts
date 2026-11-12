@@ -52,6 +52,14 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
   look: { primary: "#a8d8b9", secondary: "#ffb86b", warn: "#ff5d5d" },
   scene: "facilityprocesstree",
   layout: "facility",
+  story: {
+    intro: { title: "Killed Is Not Cured", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-intro-072874dc.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-intro-f4c6369f.jpg" },
+    afterStation: {
+      tree: { title: "Not Yet", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-ch2-8163345e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-ch2-dfdd57f5.jpg" },
+      pivot: { title: "Back Online", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-ch3-4026c6c7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-ch3-e6955273.jpg" },
+      branch: { title: "Root and Branch", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-finale-a9093ae1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/edr-detection-investigation/processtree-finale-6b726245.jpg" },
+    },
+  },
   stations: [
     {
       id: "detection",
