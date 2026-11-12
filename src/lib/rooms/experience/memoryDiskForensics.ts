@@ -51,6 +51,14 @@ export const MEMORY_DISK_FORENSICS: RoomExperience = {
   look: { primary: "#d6b370", secondary: "#7cc6b8", warn: "#ff5964" },
   scene: "facilitypagefile",
   layout: "facility",
+  story: {
+    intro: { title: "The Label on the Case", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-intro-14913e16.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-intro-03afe4fc.jpg" },
+    afterStation: {
+      image: { title: "Nine Days", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-ch2-2f6259c6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-ch2-79bf4c10.jpg" },
+      behind: { title: "Friday Morning", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-ch3-fa6f4f29.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-ch3-89801d16.jpg" },
+      shadow: { title: "Doors Open", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-finale-f8826dc2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/memory-disk-forensics/pagefile-finale-b61c8c9d.jpg" },
+    },
+  },
   stations: [
     {
       id: "image",
