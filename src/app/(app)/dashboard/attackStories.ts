@@ -107,6 +107,7 @@ import { AI_WAVE3_D_STORIES } from "./ai-stories/wave3-d";
 import { AI_WAVE4_A_STORIES } from "./ai-stories/wave4-a";
 import { AI_WAVE4_B_STORIES } from "./ai-stories/wave4-b";
 import { AI_ROUND5_STORIES } from "./ai-stories/round5";
+import { CLOUD_ROUND6_STORIES } from "./cloud-stories/round6";
 import { CORE_STORIES } from "./core-stories";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import { WEB_ENTRY_STORIES } from "./web-stories/entry";
@@ -981,6 +982,8 @@ const AI_STORIES: AttackStory[] = [
   ...AI_WAVE4_B_STORIES.map(aiStory),
   // AI round (2026-11-12): six families, each with a single-player variant and a Team Training variant.
   ...AI_ROUND5_STORIES.map(aiStory),
+  // Cloud round (2026-11-12): sixteen families on AWS, Azure and Google Cloud, a single-player and a Team Training variant each.
+  ...CLOUD_ROUND6_STORIES.map(aiStory),
   story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: aiLlmJackingScenarioEvents().events }, "advanced", ["quantumbank"]),
 ];
 
