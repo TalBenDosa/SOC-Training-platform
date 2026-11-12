@@ -8,6 +8,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import type { SourceId } from "./types";
 import { isSentinelSecurityAlert } from "./sources/sentinel_alert";
 import { isAzureOpenAi } from "./sources/azure_openai";
+import { isGithubAudit, isGithubOther } from "./sources/github_audit";
 import { source as sysmonSource } from "./sources/sysmon";
 import { makeCtx } from "./ctx";
 
@@ -219,6 +220,10 @@ export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | n
   if (ev.source === "hr") return /workday/i.test(ev.vendor ?? "") ? "workday" : null;
   // Azure OpenAI resource logs are the AI account's own records (AzureDiagnostics), never the Activity Log.
   if (isAzureOpenAi(ev)) return "azure_openai";
+  // GitHub is the company's source control in every stack: its audit events are its own records. A webhook
+  // payload or an Advanced Security alert under a GitHub vendor keeps its own view (never a CloudTrail record).
+  if (isGithubAudit(ev)) return "github_audit";
+  if (isGithubOther(ev)) return null;
   // vCenter and ESXi are the hypervisor the company runs: its own records in every stack.
   if ((ev.source as string) === "virtualization" && has(ev, "vmware")) return "vmware_vsphere";
   // The SIEM's own alerts are SecurityAlert rows in every stack (the SIEM is the platform, not a stack choice).
@@ -309,6 +314,7 @@ export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   sentinel_alert: "Microsoft Sentinel",
   vmware_vsphere: "VMware vSphere",
   azure_openai: "Azure OpenAI",
+  github_audit: "GitHub audit log",
   mssql_audit: "Microsoft SQL Server Audit", guardium: "IBM Guardium", mysql_audit: "MySQL Enterprise Audit",
   exabeam: "Exabeam Advanced Analytics", securonix: "Securonix SNYPR",
 };

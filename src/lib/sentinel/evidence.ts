@@ -20,12 +20,12 @@ const WHERE: Record<NeedleKind, Record<string, string[]>> = {
     SigninLogs: ["IPAddress"], AuditLogs: ["InitiatedBy"], OfficeActivity: ["ClientIP"], SecurityEvent: ["IpAddress"], StorageBlobLogs: ["CallerIpAddress"],
     AzureDiagnostics: ["CallerIPAddress", "clientIP_s", "client_ip_s"], ApiManagementGatewayLogs: ["CallerIpAddress"], AzureActivity: ["CallerIpAddress"],
     CommonSecurityLog: ["SourceIP", "DestinationIP"], DeviceNetworkEvents: ["RemoteIP", "LocalIP"], DeviceLogonEvents: ["RemoteIP"], AWSCloudTrail: ["SourceIpAddress"],
-    OktaV2_CL: ["SrcIpAddr"], W3CIISLog: ["cIP"], MicrosoftGraphActivityLogs: ["IPAddress"], CloudAppEvents: ["IPAddress"], AGWFirewallLogs: ["ClientIp"], AGWAccessLogs: ["ClientIp"], AWSWAF: ["ClientIp"],
+    OktaV2_CL: ["SrcIpAddr"], W3CIISLog: ["cIP"], MicrosoftGraphActivityLogs: ["IPAddress"], CloudAppEvents: ["IPAddress"], AGWFirewallLogs: ["ClientIp"], AGWAccessLogs: ["ClientIp"], AWSWAF: ["ClientIp"], GitHubAuditLogsV2_CL: ["ActorIp"],
   },
   account: {
     SigninLogs: ["UserPrincipalName"], AuditLogs: ["InitiatedBy", "TargetResources"], OfficeActivity: ["UserId"], SecurityEvent: ["TargetUserName", "SubjectUserName"],
     DeviceProcessEvents: ["AccountName"], DeviceLogonEvents: ["AccountName"], StorageBlobLogs: ["RequesterUpn"], AzureActivity: ["Caller"], OktaV2_CL: ["ActorUsername"],
-    CloudAppEvents: ["AccountDisplayName"], EmailEvents: ["RecipientEmailAddress"], MicrosoftGraphActivityLogs: ["UserId"],
+    CloudAppEvents: ["AccountDisplayName"], EmailEvents: ["RecipientEmailAddress"], MicrosoftGraphActivityLogs: ["UserId"], GitHubAuditLogsV2_CL: ["Actor", "ExternalIdentityNameid"],
   },
   host: {
     SecurityEvent: ["Computer"], Event: ["Computer"], Syslog: ["Computer"], DeviceProcessEvents: ["DeviceName"], DeviceNetworkEvents: ["DeviceName"], DeviceFileEvents: ["DeviceName"],

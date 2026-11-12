@@ -40,6 +40,8 @@ export type SourceId =
   | "vmware_vsphere"
   // Azure OpenAI resource logs (RequestResponse)
   | "azure_openai"
+  // Source control: GitHub Enterprise audit log (streamed)
+  | "github_audit"
   // Database activity monitoring and native database audit
   | "mssql_audit" | "guardium" | "mysql_audit"
   // User and entity behaviour analytics
@@ -49,7 +51,7 @@ export type SourceId =
 export type SourceCategory =
   | "edr" | "firewall" | "idp" | "onprem_ad" | "pam" | "collab" | "email_security"
   | "cloud" | "cloud_detection" | "network_flow" | "k8s" | "vpn" | "ztna" | "proxy" | "dns"
-  | "host_telemetry" | "itsm" | "hr" | "waf" | "web_server" | "detection_feed" | "siem" | "virtualization" | "database" | "ueba";
+  | "host_telemetry" | "itsm" | "hr" | "waf" | "web_server" | "detection_feed" | "siem" | "virtualization" | "database" | "ueba" | "vcs";
 
 /** Wire format of the source: JSON-native, or text-native rendered as a flat JSON object. */
 export type NativeFormat = "json" | "kv" | "csv" | "syslog" | "xml" | "cef" | "ndjson";

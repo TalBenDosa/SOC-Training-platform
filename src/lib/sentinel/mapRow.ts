@@ -811,6 +811,29 @@ const NGINX_ACCESS: Spec = {
   },
 };
 
+// ── Source control ──────────────────────────────────────────────────────────
+// GitHub Enterprise audit log through the GitHub solution's codeless connector (GitHubAuditLogsV2_CL, 481 columns:
+// the snake_case keys in PascalCase; Azure-Sentinel Solutions/GitHub GitHubAuditLogs_Table.json, checked 2026-11-12).
+// The fields with no column of their own land in AdditionalFields.
+const GITHUB_AUDIT: Spec = {
+  table: "GitHubAuditLogsV2_CL",
+  cols: {
+    Action: "action", Actor: "actor", ActorId: "actor_id", ActorIp: "actor_ip", ActorLocation: "actor_location", CountryCode: "actor_location.country_code",
+    ActorIsBot: "actor_is_bot", ActorIsAgent: "actor_is_agent", AgentSessionId: "agent_session_id", UserAgent: "user_agent", RequestId: "request_id",
+    Business: "business", BusinessId: "business_id", CreatedAt: "created_at", DocumentId: "_document_id", OperationType: "operation_type",
+    Org: "org", OrgId: "org_id", Repo: "repo", RepoId: "repo_id", Repository: "repository", RepositoryPublic: "repository_public",
+    TransportProtocol: "transport_protocol", TransportProtocolName: "transport_protocol_name", Visibility: "visibility", PreviousVisibility: "previous_visibility", PublicRepo: "public_repo",
+    ProgrammaticAccessType: "programmatic_access_type", HashedToken: "hashed_token", TokenId: "token_id", TokenScopes: "token_scopes",
+    ExternalIdentityNameid: "external_identity_nameid", ExternalIdentityUsername: "external_identity_username", Email: r => str(r.external_identity_nameid),
+    PullRequestId: "pull_request_id", PullRequestTitle: "pull_request_title", PullRequestUrl: "pull_request_url", Fingerprint: "fingerprint", ReadOnly: "read_only",
+    User: "user", UserId: "user_id", Permission: "permission", Team: "team", RepositorySelection: "repository_selection", repositories: "repositories",
+    RunnerId: "runner_id", RunnerName: "runner_name", RunnerLabels: r => Array.isArray(r.runner_labels) ? (r.runner_labels as unknown[]).join(",") : str(r.runner_labels), RunnerGroupName: "runner_group_name",
+    Branch: "branch", HookId: "hook_id", Name: "name", Active: "active", WorkflowId: "workflow_id", WorkflowRunId: "workflow_run_id", HeadBranch: "head_branch", HeadSha: "head_sha",
+    RunNumber: "run_number", RunAttempt: "run_attempt", Event: "event", Conclusion: "conclusion", secret_type: "secret_type", publicly_leaked: "publicly_leaked",
+  },
+  rest: "AdditionalFields",
+};
+
 /** The spec a native kind lands on. Null: no real table takes this record. */
 export function specFor(sourceId: SourceId, kind: string, cloud?: SourceId): Spec | null {
   switch (sourceId) {
@@ -858,6 +881,7 @@ export function specFor(sourceId: SourceId, kind: string, cloud?: SourceId): Spe
     case "azure_waf": return kind === "ApplicationGatewayFirewallLog" ? AGW_FIREWALL : kind === "ApplicationGatewayAccessLog" ? AGW_ACCESS : null;
     case "iis": return IIS_W3C;
     case "nginx": return NGINX_ACCESS;
+    case "github_audit": return GITHUB_AUDIT;
     // ServiceNow tickets, Workday activity, ZPA, Cloudflare Access: no confirmed table with these records.
     default: return null;
   }

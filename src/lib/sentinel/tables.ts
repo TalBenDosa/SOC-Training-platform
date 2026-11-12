@@ -566,7 +566,12 @@ const SCHEMAS: Record<string, Compact> = {
   // GitHub codeless connector (the columns this workspace fills, of 481)
   GitHubAuditLogsV2_CL: {
     datetime: "TimeGenerated",
-    string: "Org Action Repo Actor User OperationType ActorIp UserAgent Email CountryCode Type TenantId",
+    string: "Org Action Repo Actor User OperationType ActorIp UserAgent Email CountryCode Type TenantId DocumentId Business Repository TransportProtocolName " +
+      "HashedToken TokenScopes ProgrammaticAccessType Visibility PreviousVisibility PullRequestTitle PullRequestUrl Fingerprint Permission RequestId " +
+      "ExternalIdentityNameid ExternalIdentityUsername AgentSessionId RunnerName RunnerLabels RunnerGroupName Branch Name HeadBranch HeadSha Conclusion Event RepositorySelection Team",
+    real: "ActorId BusinessId OrgId RepoId CreatedAt TransportProtocol TokenId PullRequestId UserId RunnerId HookId WorkflowId WorkflowRunId RunNumber RunAttempt",
+    bool: "ActorIsBot ActorIsAgent RepositoryPublic PublicRepo ReadOnly Active",
+    dynamic: "ActorLocation AdditionalFields repositories secret_type publicly_leaked",
   },
 };
 

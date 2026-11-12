@@ -64,13 +64,14 @@ import { source as securonix } from "./sources/securonix";
 import { source as sentinel_alert } from "./sources/sentinel_alert";
 import { source as vmware_vsphere } from "./sources/vmware_vsphere";
 import { source as azure_openai } from "./sources/azure_openai";
+import { source as github_audit } from "./sources/github_audit";
 
 export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   anyconnect, aws_cloudtrail, aws_guardduty, aws_vpcflow, azure_activity, checkpoint, cisco_asa, cisco_ftd,
   cloudflare_access, crowdstrike, defender_o365, entra, fortigate, fortigate_sslvpn, gcp_audit, globalprotect,
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
-  cyberark, windows_security, workday, ms_graph, sentinel_alert, vmware_vsphere, azure_openai,
+  cyberark, windows_security, workday, ms_graph, sentinel_alert, vmware_vsphere, azure_openai, github_audit,
   aws_waf, azure_waf, iis, nginx,
   mssql_audit, guardium, mysql_audit, exabeam, securonix,
 };
