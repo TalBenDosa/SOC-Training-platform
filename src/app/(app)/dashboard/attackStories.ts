@@ -1811,7 +1811,10 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     const set = storyHostUsers.get(e.hostname) ?? new Set<string>();
     set.add(e.user_email); storyHostUsers.set(e.hostname, set);
   }
-  storyHosts.forEach((h) => {
+  // The drawn person's machines are placed first: their own desk is theirs before another row (a twin's
+  // developer, a second victim) can take it (one person, one desk; QA 2026-11-12).
+  const victimFirst = [...storyHosts].sort((a, b) => Number(!!(victim && storyHostUsers.get(b)?.has(victim))) - Number(!!(victim && storyHostUsers.get(a)?.has(victim))));
+  victimFirst.forEach((h) => {
     let t: string | undefined;
     if (s.ownServers && isServerHost(h)) {
       t = assets?.serverPrefix ? h.replace(/^SRV-NXC(?=-)/, assets.serverPrefix) : h;

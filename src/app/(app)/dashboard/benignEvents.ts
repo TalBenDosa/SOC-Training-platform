@@ -2473,15 +2473,15 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     ...inboxRule({
       id: "b_fwd_atk_02", ts: T(215), user: "p.wright@nexacorp.com", op: "Set-InboxRule",
-      params: [["Identity", "p.wright\\Leave delegate INC-90217"], ["ForwardTo", "k.levy@nexacorp.com"], ["ForwardAsAttachment", "False"], ["StopProcessingRules", "False"]],
+      params: [["Identity", "p.wright\\Leave delegate RITM0090217"], ["ForwardTo", "k.levy@nexacorp.com"], ["ForwardAsAttachment", "False"], ["StopProcessingRules", "False"]],
       description: "Inbox rule on p.wright's mailbox changed so that all mail is forwarded to k.levy@nexacorp.com",
     }),
     severity: "medium",
     expected_verdict: "fp",
     mitre_technique: "T1114.003", mitre_tactic: "Collection",
-    fp_explanation: "A Set-InboxRule that forwards all mail is the kind of mailbox change a forwarding detection should flag. Everything else in the record points the other way: the destination is k.levy@nexacorp.com, an internal NexaCorp mailbox, the change came from the corporate office address, and IT confirms ticket INC-90217, in which p.wright asked for their mail to go to their delegate k.levy during two weeks of leave, approved by their manager. An approved forward to an internal delegate is benign; a forward to an outside or lookalike domain with no ticket would not be.",
+    fp_explanation: "A Set-InboxRule that forwards all mail is the kind of mailbox change a forwarding detection should flag. Everything else in the record points the other way: the destination is k.levy@nexacorp.com, an internal NexaCorp mailbox, the change came from the corporate office address, and IT confirms ticket RITM0090217, in which p.wright asked for their mail to go to their delegate k.levy during two weeks of leave, approved by their manager. An approved forward to an internal delegate is benign; a forward to an outside or lookalike domain with no ticket would not be.",
     it_verify_result: "confirmed",
-    it_verify_message: "IT confirmed: ticket INC-90217, approved by p.wright's manager, asks for p.wright's mail to be forwarded to their delegate k.levy while p.wright is on leave until 24 May. The rule was changed from p.wright's corporate laptop.",
+    it_verify_message: "IT confirmed: ticket RITM0090217, approved by p.wright's manager, asks for p.wright's mail to be forwarded to their delegate k.levy while p.wright is on leave until 24 May. The rule was changed from p.wright's corporate laptop.",
   },
 
   // ── BATCH-2 - expanded benign event pool (80+ events) ─────────────────────

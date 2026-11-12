@@ -63,18 +63,19 @@ function ssoDeviceCodeSolo(): TelemetryEvent[] {
   const s = sso(role, victim.user, key);
   const lure = "aws-access-review.example";
   const bucket = "nexacorp-analytics-curated";
-  const dev = { host: "WS-ENG-2093", ip: "10.10.20.93", user: "t.harris@nexacorp.com" };
+  // The twin is the analyst's own sign-in the day before: same person, same desk (one person, one machine).
+  const dev = victim;
   return withIncident([
-    // The twin: a developer's own `aws sso login` from the office: the same device page, the same kind of session, the same address afterwards.
+    // The twin: the same analyst's own `aws sso login` from the office the day before: the same device page, the same kind of session, the same address afterwards.
     benign(web(dev, {
-      id: "r6ad01", ts: T(-95), url: "https://device.sso.us-east-1.amazonaws.com/?user_code=BFKQ-TXWM", domain: "device.sso.us-east-1.amazonaws.com", dstIp: "198.51.100.43",
+      id: "r6ad01", ts: T(-1440 - 95), url: "https://device.sso.us-east-1.amazonaws.com/?user_code=BFKQ-TXWM", domain: "device.sso.us-east-1.amazonaws.com", dstIp: "198.51.100.43",
       category: "computer-and-internet-info", method: "GET", action: "allow", status: 200, bytesIn: 21_408, bytesOut: 1_212, userAgent: CONSOLE, severity: "informational",
       description: `Firewall URL log: ${dev.host} opened the IAM Identity Center device page with a user code, no referring page.`,
-    }), "A developer's own `aws sso login`: the code page opened straight from the CLI prompt, no referring site, and every API call after it comes from the same office address."),
+    }), "The analyst's own `aws sso login` the day before: the code page opened straight from the CLI prompt, no referring site, and every API call after it comes from the same office address."),
     benign(ct({
-      ...sso("AWSReservedSSO_PlatformEngineer_2a91e07c55d4b3f6", dev.user, "ASIAM2TQ8LR5HEXAMPLE"), id: "r6ad02", ts: T(-93), eventName: "GetCallerIdentity", eventSource: "sts.amazonaws.com", srcIp: OFFICE, userAgent: CLI, readOnly: true, severity: "low",
-      description: "CloudTrail GetCallerIdentity by an Identity Center session (PlatformEngineer) from the office address, AWS CLI.",
-    }), "The developer's CLI checking the new session, from the office address the sign-in came from."),
+      ...sso(role, dev.user, "ASIAM2TQ8LR5HEXAMPLE"), id: "r6ad02", ts: T(-1440 - 93), eventName: "GetCallerIdentity", eventSource: "sts.amazonaws.com", srcIp: OFFICE, userAgent: CLI, readOnly: true, severity: "low",
+      description: "CloudTrail GetCallerIdentity by the analyst's Identity Center session (DataAnalyst) from the office address, AWS CLI.",
+    }), "The analyst's own CLI checking the new session the day before, from the office address the sign-in came from."),
 
     web(victim, {
       id: "r6ad03", ts: T(0), url: `https://${lure}/renew?team=analytics`, domain: lure, dstIp: "192.0.2.102", category: "newly-registered-domain",
