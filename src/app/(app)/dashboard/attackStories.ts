@@ -93,7 +93,7 @@ import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/comp
 import { COMPANY_PROFILES, COMPANY_ASSETS, companyHostOs, withHostOs, type HostOs, type SeatRole } from "@/lib/sim/companyProfilesMeta";
 import { hostOsFromRows } from "@/lib/sim/hostOs";
 import type { AiStoryDef } from "./ai-stories/wave2";
-import { varyAttackerInfra, collectDocIps } from "@/lib/sim/variation";
+import { varyAttackerInfra, varyAttackerDomains, collectDocIps } from "@/lib/sim/variation";
 import { streamOf } from "@/lib/team/variety";
 import { AI_CORE_STORIES } from "./ai-stories/core";
 import { AI_EXTRA_STORIES } from "./ai-stories/extra";
@@ -1522,7 +1522,7 @@ function osFits(s: AttackStory, companyId: string): boolean {
  * storylines of one session so two of them never share an attacker address.
  */
 export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string, rnd: () => number = Math.random,
-  vary: { seed?: string; usedIps?: Set<string> } = {}): AttackStory {
+  vary: { seed?: string; usedIps?: Set<string>; usedDomains?: Set<string> } = {}): AttackStory {
   const targetNs = edrNsOfVendor(companyEdr);
   // R7: a spray / brute-force story carries its failure burst as rows, the sprayed accounts drawn
   // from this company's people (authBursts.ts), before people and hosts are re-homed below.
@@ -1967,7 +1967,8 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // Its own stream: the swap never shifts the draws a Team session makes after this story.
   const vrnd = vary.seed !== undefined ? streamOf(`${vary.seed}:${companyId ?? ""}`, `vary:${s.id}`)
     : rnd === Math.random ? Math.random : streamOf(`fixed:${companyId ?? ""}`, `vary:${s.id}`);
-  return varyAttackerInfra(placed, companyPool, companyId, vrnd, { reserved: catalogIps(), used: vary.usedIps }).story;
+  const withIps = varyAttackerInfra(placed, companyPool, companyId, vrnd, { reserved: catalogIps(), used: vary.usedIps }).story;
+  return varyAttackerDomains(withIps, companyPool, vrnd, { used: vary.usedDomains }).story;
 }
 
 /**

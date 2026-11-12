@@ -5,7 +5,7 @@ import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { docOwnerOfIp } from "@/lib/sim/docAddresses";
-import { varyAttackerInfra, collectDocIps } from "./variation";
+import { varyAttackerInfra, varyAttackerDomains, collectDocIps } from "./variation";
 import type { TelemetryEvent } from "./types";
 
 /*
@@ -76,3 +76,42 @@ describe("variation layer: attacker infrastructure", () => {
     }
   });
 });
+
+describe("variation layer: attacker domains", () => {
+  const withDomains = ATTACK_STORIES.filter(s => Object.keys(varyAttackerDomains(s, [], () => 0.3).domains).length > 0);
+
+  it("two renders name different attacker domains; the same draw replays", () => {
+    expect(withDomains.length).toBeGreaterThan(20);
+    let changed = 0, total = 0;
+    for (const s of withDomains) {
+      const a = varyAttackerDomains(s, [], mulberry(1)).domains, b = varyAttackerDomains(s, [], mulberry(2)).domains, a2 = varyAttackerDomains(s, [], mulberry(1)).domains;
+      expect(a2).toEqual(a);
+      for (const k of Object.keys(a)) { total++; if (a[k] !== b[k]) changed++; }
+    }
+    expect(changed / total).toBeGreaterThan(0.5);
+  });
+
+  it("a lookalike keeps the brand it imitates in front, and real services never change", () => {
+    for (const s of withDomains) for (const [from, to] of Object.entries(varyAttackerDomains(s, [], mulberry(3)).domains)) {
+      if (/docu|putty|ms-|office|support/.test(from)) expect(to.startsWith(from.split(".")[0].split("-")[0]), `${from} -> ${to}`).toBe(true);
+      expect(to.split(".").pop(), `${from} -> ${to}`).toBe(from.split(".").pop());
+      expect(["office365.com", "proton.me", "mega.co", "anydesk.com", "outlook.com"]).not.toContain(from);
+    }
+  });
+
+  it("renames values only: no field name changes, the old domain is gone, and its rows still name the new one", () => {
+    for (const s of withDomains.slice(0, 25)) {
+      const { story: out, domains } = varyAttackerDomains(s, [], mulberry(4));
+      s.events.forEach((e, i) => expect(Object.keys(out.events[i].raw ?? {}), `${s.id} ${e.id}`).toEqual(Object.keys(e.raw ?? {})));
+      const blob = JSON.stringify(out).toLowerCase();
+      for (const [from, to] of Object.entries(domains)) {
+        expect(blob, `${s.id}: ${from} left`).not.toMatch(new RegExp(`(?<![a-z0-9-])${from.replace(/\./g, "\.")}(?![a-z0-9-])`));
+        expect(blob.includes(to), `${s.id}: ${to}`).toBe(true);
+      }
+    }
+  });
+});
+
+function mulberry(a: number): () => number {
+  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}

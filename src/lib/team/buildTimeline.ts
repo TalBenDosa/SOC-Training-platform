@@ -539,6 +539,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const takenVictims = new Set<string>();
   // The attacker addresses this session's storylines drew (variation.ts): two storylines never share one.
   const storyIps = new Set<string>();
+  const storyDomains = new Set<string>();
   // A named organization's incidents are never named after the demo company a story was written for.
   const DEMO_COMPANY = /nexacorp|rocketstack|medcore|globallogis|quantumbank/gi;
   // `themes`: categories the pick must stay out of (the bonus never repeats a planned attack's kind).
@@ -554,7 +555,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         const story = forced ?? pickStory(s => !avoid.includes(s.id) && storyFits(s) && offTheme(s));
         if (!forced && !offTheme(story)) return null;        // none left outside those themes: the caller decides
         if (!forced && avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
-        const events0 = instantiateStory(story, companyPool, edr, companyId, pickRnd, { seed, usedIps: storyIps }).events ?? [];
+        const events0 = instantiateStory(story, companyPool, edr, companyId, pickRnd, { seed, usedIps: storyIps, usedDomains: storyDomains }).events ?? [];
         if (events0.length === 0) return null;
         if ((stacked || env) && !forced && !sessionFit(companyId, stack, env)(events0)) continue;
         const victim = victimOf(events0);
