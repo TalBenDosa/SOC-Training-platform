@@ -312,6 +312,8 @@ export interface TwistGround {
   sprayed: string[]; sprayIp?: string;
   /** The failures were cloud sign-ins (Entra / Okta / VPN), not Windows logons. */
   cloud: boolean;
+  /** Some failures were sign-ins (not only WAF / firewall blocks): a spray can resume. */
+  authFails: boolean;
 }
 const FAIL_ET = /^(auth_failure|account_lockout|vpn_failed|mfa_denied|ssh_failed|db_failed|ids_blocked|net_blocked|waf_block|http_blocked|av_blocked|email_blocked|email_quarantined)$/;
 const EXEC_SRC = new Set(["edr", "sysmon", "av", "linux_audit"]);
@@ -328,7 +330,7 @@ export function twistGround(c: TwistCtx): TwistGround {
     // A host-less story's twist lands on the victim's own device: the account worked somewhere.
     const signin = !exec && !!c.victim && c.host !== dc && !isServer(c.host);
     // A story whose malicious rows sit on the domain controller with no process of its own there: logons that failed.
-    return { exec, logon: exec, signin, failedOnly: !exec && !signin && c.host === dc, sprayed: c.victim ? [c.victim] : [], cloud: false };
+    return { exec, logon: exec, signin, failedOnly: !exec && !signin && c.host === dc, sprayed: c.victim ? [c.victim] : [], cloud: false, authFails: !exec && !signin && c.host === dc };
   }
   const rows = c.story;
   const onHost = rows.filter(r => shortHost(r.hostname) === shortHost(c.host));
@@ -349,6 +351,7 @@ export function twistGround(c: TwistCtx): TwistGround {
     exec, logon, signin, failedOnly: !exec && !logon && !signin && fails.length > 0,
     sprayed: sprayed.length ? sprayed : c.victim ? [c.victim] : [], sprayIp,
     cloud: fails.filter(r => CLOUD_SRC.has(r.source)).length * 2 > fails.length,
+    authFails: fails.some(r => /auth_failure|account_lockout|vpn_failed|ssh_failed|mfa_denied|db_failed/.test(r.event_type)),
   };
 }
 
@@ -401,9 +404,9 @@ function twistProc(c: TwistCtx, o: { id: string; name: string; path: string; cmd
 }
 
 /** Rules about volume or the client, not the input: a returning operator is not "the same request" there. */
-const VOLUME_RULES = new Set(["rate", "login_volumetric", "login_stolen", "size_body", "bad_bot", "custom"]);
+const VOLUME_RULES = new Set(["rate", "login_volumetric", "login_stolen", "size_body", "bad_bot"]);
 /** The request a web story attacked from outside: its site (and origin, when the story shows the server's own log), path, input and rule. */
-function webTarget(c: TwistCtx): { site: WebSite; path: string; query: string; method: "GET" | "POST"; ua: string; rule: WafRuleKey; matched?: string; location?: string; status: number; bytes: number } | null {
+function webTarget(c: TwistCtx): { site: WebSite; path: string; query: string; method: "GET" | "POST"; ua: string; rule: WafRuleKey; ruleName?: string; matched?: string; location?: string; status: number; bytes: number } | null {
   const raw = (e: TelemetryEvent) => (e.raw ?? {}) as Record<string, unknown>;
   const str = (e: TelemetryEvent, k: string) => (typeof raw(e)[k] === "string" ? (raw(e)[k] as string) : undefined);
   // The last outside request a rule matched whose input is in the query string with URL escapes in it (the
@@ -637,14 +640,15 @@ const TWISTS: TwistKind[] = [
       // The same input with every escape escaped once more (%3B -> %253B): the rule reads it once, the application twice.
       const twice = t.query.replace(/%([0-9A-Fa-f]{2})/g, "%25$1");
       const rows: TelemetryEvent[] = [
-        wafRequest(t.site, { ...base, id: "msel_twist_web_1", ts: c.baseTs, query: t.query, action: "block", rule: t.rule, ...(t.matched ? { matched: t.matched } : {}), ...(t.location ? { location: t.location } : {}),
+        wafRequest(t.site, { ...base, id: "msel_twist_web_1", ts: c.baseTs, query: t.query, action: "block", rule: t.rule, ...(t.ruleName ? { ruleName: t.ruleName } : {}), ...(t.matched ? { matched: t.matched } : {}), ...(t.location ? { location: t.location } : {}),
           description: `WAF rule matched a request to ${t.path}` }),
         wafRequest(t.site, { ...base, id: "msel_twist_web_2", ts: c.baseTs, query: twice, action: "allow", status: t.status, bytes: t.bytes, description: `WAF passed a request to ${t.path}` }),
         webAccess(t.site, { ...base, id: "msel_twist_web_3", ts: c.baseTs, query: twice, status: t.status, bytes: t.bytes, description: `Site answered a request to ${t.path}` }),
       ];
       return { rows, vars: { ip, site: t.site.site, path: t.path, server: t.site.host } };
     } },
-  { id: "spray_resumes", fits: (c, g) => g.failedOnly && (g.sprayed.length > 0 || !!c.assets),
+  // Only a story whose failures were sign-ins: a web attack the WAF blocked has no spray to resume (web_return).
+  { id: "spray_resumes", fits: (c, g) => g.failedOnly && g.authFails && (g.sprayed.length > 0 || !!c.assets),
     texts: [
       "Identity team: the password spray is back, now from {ip}, a source the block did not cover. {user} is among the accounts it is trying. Did anything get in?",
       "Heads-up: bad-password attempts for {user} and other accounts started again a few minutes ago, from {ip}. Is your block holding, and did any of them succeed?",

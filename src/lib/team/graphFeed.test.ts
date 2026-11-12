@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest";
 import { buildTeamTimeline, type TimelineEntry } from "./buildTimeline";
 import { teamLoad } from "./load";
-import { CONSOLE_CHOICES, stackForConsole } from "./investigationConsole";
+import { CONSOLE_CHOICES, XDR_PRODUCTS, stackForConsole } from "./investigationConsole";
 import { applyStack, fitsStack, graphAlertFor, nativeView, stackFor, storyFitsStack, withoutDetectionFeed } from "@/lib/logs/native";
 import { feedSourceOf, microsoftProductOf, sanitizeStack, sourceFor, STACK_CHOICES, type Stack } from "@/lib/logs/native/stack";
 import { validateNative } from "@/lib/logs/native/validate";
@@ -30,7 +30,8 @@ const feedOf = (t: TimelineEntry[]) => t.filter(e => e.channel === "feed");
 
 describe("the stack key", () => {
   it("stackForConsole sets it for Sentinel only", () => {
-    expect(stackForConsole({ firewall: "fortigate" }, "sentinel")).toEqual({ firewall: "fortigate", edr: "mde", detection_feed: "ms_graph" });
+    // XDR stands for Microsoft Sentinel only (Tal 2026-11-12): the Microsoft products, the organization's own network devices.
+    expect(stackForConsole({ firewall: "fortigate" }, "sentinel")).toEqual({ firewall: "fortigate", ...XDR_PRODUCTS, detection_feed: "ms_graph" });
     expect(stackForConsole({ edr: "crowdstrike" }, "edr")).toEqual({ edr: "crowdstrike" });
     // A client cannot turn it on for an EDR session.
     expect(stackForConsole({ edr: "crowdstrike", detection_feed: "ms_graph" }, "edr")).toEqual({ edr: "crowdstrike" });
@@ -70,8 +71,9 @@ describe("a Sentinel session", () => {
       const without = withoutDetectionFeed(SENTINEL);
       for (const diff of ["easy", "medium", "hard"] as const) {
         const withFeed = timeline(company, diff, SENTINEL);
-        // Same alert queue, timing, scoring and T1 flow: the payload and the answer key do not change at all.
-        expect(JSON.stringify(withFeed)).toBe(JSON.stringify(timeline(company, diff, without)));
+        // The XDR session (Sentinel data only) replays exactly from its seed; the Graph feed changes only how its
+        // detections render (below), never which rows the session carries.
+        expect(JSON.stringify(withFeed)).toBe(JSON.stringify(timeline(company, diff, SENTINEL)));
         let graph = 0;
         const problems: string[] = [];
         const eff = stackFor(company, SENTINEL);

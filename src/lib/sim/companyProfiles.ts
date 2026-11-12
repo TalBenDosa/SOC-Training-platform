@@ -1872,7 +1872,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "dr.vandijk queried PACS for echocardiogram images (P-19203) on WS-MED-022",
     raw: {
       "s1.eventType": "IP Connect", "action_result": "allowed",
-      "process.name": "SecuraPACSViewer.exe", "process.command_line": "\"C:\\Program Files\\SecuraPACS\\SecuraPACSViewer.exe\" --dicom", "user.name": "MEDCORE\\drvandijk",
+      "process.name": "SecuraPACSViewer.exe", "process.command_line": "\"C:\\Program Files\\SecuraPACS\\SecuraPACSViewer.exe\" --dicom", "user.name": "MEDCORE\\dr.vandijk",
       "destination.domain": "SRV-MEDCORE-PACS01" }
   },
 
@@ -2053,7 +2053,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "process_create", severity: "informational",
     vendor: "Sophos Intercept X", hostname: "WS-LOG-045", src_ip: "10.50.1.45",
     description: "explorer.exe launched SAP.exe on WS-LOG-045 - user opened SAP ERP",
-    process: { name: "SAP.exe", pid: 2200, parent_name: "explorer.exe", parent_pid: 1900, user: "h.muller" },
+    process: { name: "SAP.exe", pid: 2200, parent_name: "explorer.exe", parent_pid: 1900, user: "GL\\h.muller" },
     raw: { "sophos.event_type": "Process", "sophos.detection_name": "none", "action_result": "allowed" }
   },
   {

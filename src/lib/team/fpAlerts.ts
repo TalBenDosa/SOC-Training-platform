@@ -744,7 +744,7 @@ const SCAN_PRODUCTS = [
  */
 export function fpAlerts(assets: CompanyAssets | undefined, companyId: string, count: number, rnd: () => number, ts: string,
   opts: { siem?: boolean; fits?: (e: TelemetryEvent) => boolean; stack?: Stack; platforms?: string[]; seen?: Record<string, number>;
-    avoid?: FpAvoid; force?: string[]; miss?: boolean } = {}): FpOut[] {
+    avoid?: FpAvoid; force?: string[]; miss?: boolean; needHigh?: boolean } = {}): FpOut[] {
   if (!assets || count <= 0) return [];
   const siem = opts.siem ?? true, fits = opts.fits ?? (() => true);
   const avoidUsers = opts.avoid?.users ?? new Set<string>(), avoidHosts = opts.avoid?.hosts ?? new Set<string>();
@@ -809,7 +809,7 @@ export function fpAlerts(assets: CompanyAssets | undefined, companyId: string, c
   // the last unforced one gives its place to a maker whose alert is (a scanner, an admin's remote tool, a DLP hit).
   const high = (o: FpOut) => o.verdict === "fp" && o.rows.some(e => e.severity === "high" || e.severity === "critical");
   const slot = out.map((o, i) => ({ o, i })).reverse().find(x => !forced.some(f => f.id === x.o.makerId))?.i;
-  if (out.length && !out.some(high) && slot !== undefined) {
+  if (opts.needHigh && out.length && !out.some(high) && slot !== undefined) {
     for (const m of order) {
       if (out.some(o => o.makerId === m.id) || [...kinds].some(k => k === m.kind && out[slot].kind !== k)) continue;
       const r = m.make({ ...base, n: slot, miss: false });

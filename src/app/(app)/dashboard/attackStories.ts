@@ -1035,7 +1035,10 @@ const OWN_SERVERS = new Set(["nexacorp-chain-d", "webshell-rce"]);
  * the ones real team exercises already ran (the Sdema sessions' attack plans pinned them), so a saved team
  * plan keeps its storylines. Each story belongs to one engine; these leave the single-player dashboard.
  */
-const TEAM_ASSIGNED = new Set(["nexacorp-chain-d", "ai-rag-chatbot-document-injection", "ai-helpdesk-voice-reset", "tech-support-scam"]);
+const TEAM_ASSIGNED = new Set(["nexacorp-chain-d", "ai-rag-chatbot-document-injection", "ai-helpdesk-voice-reset", "tech-support-scam",
+  // A password spray made only of failed sign-ins: the one storyline the "spray resumes" twist grows from, and a
+  // beginner attack for the thinner Team Training easy pool.
+  "okta-password-burst"]);
 
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,

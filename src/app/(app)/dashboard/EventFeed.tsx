@@ -995,7 +995,7 @@ export function DetailPanelBody({
 
 /** Table-cell wrapper - the feed renders the expanded row as a <tr><td colSpan>. */
 export function DetailPanel(props: DetailPanelProps) {
-  return <td colSpan={9} className="bg-bg-elevated p-0"><DetailPanelBody {...props} /></td>;
+  return <td colSpan={8} className="bg-bg-elevated p-0"><DetailPanelBody {...props} /></td>;
 }
 
 
@@ -1194,7 +1194,7 @@ function SocMethodologyBanner() {
 const EventRow = memo(function EventRow({
   event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, openNonce, wide,
 }: {
-  /** The table has room for the Source IP and MITRE columns (not in the narrow team column). */
+  /** The table has room for the MITRE column (not in the narrow team column). The Source IP column was removed (owner, 2026-11-12): the address is in the row's fields. */
   wide?: boolean;
   /** Team Tier-1 "Take next alert": a new value opens this row and scrolls it into view. */
   openNonce?: number;
@@ -1277,7 +1277,6 @@ const EventRow = memo(function EventRow({
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 truncate">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "-"}</td>
-        {wide && <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-300 truncate" title={event.src_ip ?? undefined}>{event.src_ip ?? "-"}</td>}
         <td className="py-2.5 pr-3 overflow-hidden">
           <LogSourceCard source={event.feed_source ?? event.source} vendor={event.vendor} />
         </td>
@@ -1494,7 +1493,7 @@ export function EventFeed({
   onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, emptyMessage, sortable = true, openEvent,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
-  // Extra columns (Source IP, MITRE) only when the table has the width for them.
+  // The extra MITRE column only when the table has the width for it.
   // A callback ref: the table mounts after the feed's first render, so observe when it appears.
   const [tableEl, tableBox] = useState<HTMLDivElement | null>(null);
   const [wide, setWide] = useState(false);
@@ -1610,7 +1609,6 @@ export function EventFeed({
             <col className="w-6" />
             <col className="w-[76px]" />
             <col className="w-[118px]" />
-            {wide && <col className="w-[112px]" />}
             <col className="w-[116px]" />
             <col />
             <col className="w-[56px]" />
@@ -1624,7 +1622,6 @@ export function EventFeed({
               <th className="w-6 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
-              {wide && <th id="ef-th-srcip" className="py-2 pr-3"><HeaderTip label="Source IP" tip="Where the activity came from." /></th>}
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity - EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
               <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical - act now. High levels still need verifying: false positives fire high rules too." /></th>
@@ -1656,7 +1653,7 @@ export function EventFeed({
             </AnimatePresence>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={wide ? 9 : 7} className="py-8 text-center text-xs text-slate-400">
+                <td colSpan={wide ? 8 : 7} className="py-8 text-center text-xs text-slate-400">
                   {events.length === 0
                     ? (emptyMessage ?? "Press Start to begin your shift.")
                     : "No events match the current filter."}

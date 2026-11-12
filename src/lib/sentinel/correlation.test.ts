@@ -13,7 +13,7 @@ import { parseTenant, TENANT_TEMPLATE, tenantIdentity, type Tenant } from "@/lib
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { hostKeyOf, isOwnHost } from "./directory";
-import { identityColumns } from "./fallback";
+import { identityColumns, inboundCefRow } from "./fallback";
 import { plain } from "./rules";
 import { entityInsights, incidentInsights } from "./insights";
 import { buildWorkspace, type BuildOptions, type SentinelWorkspaceBuild } from "./workspace";
@@ -168,6 +168,8 @@ for (const [name, make] of SESSIONS) {
         }
         if (e.hostname) {
           if (text.includes(short(e.hostname))) tally(s, "events with host matched");
+          // A firewall session from outside to a published server names its addresses, not the server (fallback inboundCefRow).
+          else if (inboundCefRow(table, e)) tally(s, "host not stated: an inbound firewall session names addresses");
           else if (table === "SecurityAlert" || cols?.host) problems.push(`${e.id} ${table}: host ${e.hostname}`);
           else tally(s, `host not stated: table has no host column (${table})`);
         }

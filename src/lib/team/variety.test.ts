@@ -17,6 +17,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { buildTeamTimeline, TEAM_ANSWER_FIELDS, type TimelineEntry, type VarietyOpts } from "./buildTimeline";
 import { teamLoad } from "./load";
+import { loadWithPlan } from "./attackPlan";
 import { FP_MAKERS } from "./fpAlerts";
 import { DECOY_KINDS, TWIST_KINDS, INJECT_TEXT_KEYS } from "./msel";
 import { historyFromConfigs, isDocIp, type VarietyRecord } from "./variety";
@@ -37,7 +38,7 @@ function build(company: string, seed: string, opts: VarietyOpts = {}, stack: Sta
 /** Stories that carry each twist ground: code ran on a workstation, a cloud sign-in worked, a spray never got in. */
 // One story per twist ground: code ran, a sign-in worked, an account logged on, and a spray that never got in.
 // Team Training stories only (the engines share none, Tal 2026-11-12): code ran, a cloud sign-in worked, a spray, a web attack from outside.
-const TWIST_STORIES = ["tech-support-scam", "core-device-code-phish", "nexacorp-chain-d", "web-inj-cmdi-pdfexport"];
+const TWIST_STORIES = ["tech-support-scam", "core-device-code-phish", "nexacorp-chain-d", "okta-password-burst", "web-inj-cmdi-pdfexport"];
 const ans = (e: TimelineEntry) => (e.answer ?? {}) as Record<string, unknown>;
 const origId = (e: TimelineEntry) => String(ans(e).original_id ?? "");
 
@@ -211,6 +212,15 @@ describe("every variant passes the public-payload leak checks and the native log
         for (const story of TWIST_STORIES) {
           if (rec.twist === k) break;
           ({ tl, rec } = build(company, `leak-t-${k}`, { force: { twist: k } }, stack, "medium", story));
+        }
+        // A story with no host of its own (a cloud spray) lends the twist to the session's other attack when there are
+        // two: an exercise of one attack runs it alone.
+        for (const story of TWIST_STORIES) {
+          if (rec.twist === k) break;
+          const one = loadWithPlan(teamLoad("medium", roster), { count: 1, slots: [story], bonus: false });
+          let r: VarietyRecord | null = null;
+          const t = buildTeamTimeline(company, "medium", `leak-t-${k}`, story, one, stack, null, null, { force: { twist: k }, onVariety: x => { r = x; } });
+          if (r) ({ tl, rec } = { tl: t, rec: r });
         }
         if (rec.twist !== k) continue;
         twists.add(k);

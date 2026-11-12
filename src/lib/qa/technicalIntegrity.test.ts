@@ -300,7 +300,10 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
       const noHost = serverSide || winsecDc || ["m365", "google_workspace", "entra", "okta", "aws_cloudtrail", "azure_activity", "gcp_audit", "proofpoint", "defender_o365",
         "paloalto", "fortigate", "checkpoint", "cisco_ftd", "cisco_asa", "zscaler_zia", "anyconnect", "globalprotect", "fortigate_sslvpn", "zscaler_zpa", "cloudflare_access",
         // A Guardium policy alert (IBM's QRadar LEEF template) names the database server by address (dst), not by name.
-        "guardium"].includes(sid ?? "");
+        "guardium",
+        // A MySQL Enterprise Audit JSON record (timestamp, id, class, event, connection_id, account, login ...) has no
+        // server-name field: the file is the server's own, its name is where the collector read it.
+        "mysql_audit"].includes(sid ?? "");
       if (host && !text.includes(host) && !noHost) p.add(`${where} ${authoredOf(e).id}: row host ${e.hostname} missing from the ${v ? v.log.sourceId : "legacy"} record`);
       const user = (e.user_email ?? "").toLowerCase().split("@")[0];
       const asName = user.split(/[._]/).filter(Boolean).join(" ");

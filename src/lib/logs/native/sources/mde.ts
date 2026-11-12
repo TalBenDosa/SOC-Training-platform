@@ -318,7 +318,18 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const p = proc(ctx, scope, f.proc);
   const parent = f.parent.name || f.parent.path ? proc(ctx, scope, f.parent) : null;
   /** An OS image's fixed parent (explorer.exe ← userinit.exe …), for a creator whose own parent the event does not name. */
-  const osParentOf = (c: Proc) => (c.name && OS_PARENT[c.name.toLowerCase()] ? proc(ctx, scope, { name: OS_PARENT[c.name.toLowerCase()] }) : null);
+  // Defender prints the parent of every initiating process: with none recorded it is the one the OS starts such a
+  // program from (a user's program from explorer.exe, a service's from services.exe, a Linux daemon's from systemd),
+  // as the SentinelOne module infers it (inferredParent).
+  const osParentOf = (c: Proc) => {
+    if (!c.name) return null;
+    const known = OS_PARENT[c.name.toLowerCase()];
+    if (known) return proc(ctx, scope, { name: known });
+    const linux = f.os === "Lin" || (c.path ?? "").startsWith("/");
+    const name = linux ? "systemd" : u.system ? "services.exe" : "explorer.exe";
+    if (name.toLowerCase() === c.name.toLowerCase()) return null;
+    return proc(ctx, scope, { name, path: linux ? "/usr/lib/systemd/systemd" : name === "explorer.exe" ? "C:\\Windows\\explorer.exe" : "C:\\Windows\\System32\\services.exe" });
+  };
 
   // A task registration is a DeviceEvents ScheduledTaskCreated row, not a ProcessCreated row of the task's program.
   const task = f.kind === "process" ? taskFacts(ev, f) : null;

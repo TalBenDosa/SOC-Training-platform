@@ -39,8 +39,9 @@ import { buildDecoy, buildTwist, fwFlavour, pickInjectTexts, type InjectText } f
 import { emptyHistory, streamOf, type VarietyHistory, type VarietyRecord } from "./variety";
 import { webNoise } from "./webNoise";
 import { NoiseDeck } from "@/app/(app)/dashboard/noiseDeck";
-import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
-import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
+import { applyStack, authoredOf, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
+import { categoryOf, PRODUCT_LABEL, productSourceFor, type Stack } from "@/lib/logs/native/stack";
+import { isXdrStack, NOT_SENTINEL } from "./investigationConsole";
 import { storyThemes, type StoryCategory } from "./storyCategory";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
@@ -436,18 +437,29 @@ function platformNoise(companyId: string, env: TeamEnv, own: TelemetryEvent[]): 
   return out;
 }
 
+/**
+ * An XDR session stands for Microsoft Sentinel only (owner, 2026-11-12): no row of it, attack or ordinary traffic,
+ * comes from another vendor's world (NOT_SENTINEL). Every row passes in an EDR session.
+ */
+function sentinelRow(companyId: string, stack: Stack): (e: TelemetryEvent) => boolean {
+  if (!isXdrStack(stack)) return () => true;
+  const eff = stackFor(companyId, stack);
+  return e => !NOT_SENTINEL.has(productSourceFor(authoredOf(e), eff) ?? "");
+}
+
 /** The company pool a story is instantiated against for this stack, and the EDR it is relabelled to. */
 function storyBase(companyId: string, stack: Stack, env: TeamEnv | null = null) {
   const ownPool0 = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
-  let ownPool = ownPool0 ? ownPool0.filter(e => fitsStack(e, companyId, stack)) : ownPool0;
-  let basePool = ownPool ?? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack));
+  const sentinel = sentinelRow(companyId, stack);
+  let ownPool = ownPool0 ? ownPool0.filter(e => fitsStack(e, companyId, stack) && sentinel(e)) : ownPool0;
+  let basePool = ownPool ?? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack) && sentinel(e));
   // A named organization's feed carries the platforms it runs — and only those. It also only shows
   // the specialised security tools the instructor opted into: a WAF / DAM / UEBA / NAC / SOAR / proxy
   // log for a product the org never selected surprised analysts in the diagnostic. Baseline sources
   // (endpoint, firewall, VPN, identity, mail, DNS, AD, the SIEM) are always present.
   if (env) {
     const own = (ownPool0 ?? BENIGN_EVENTS).filter(e => envHasPlatforms(env, [e]));
-    basePool = [...basePool.filter(e => envHasPlatforms(env, [e]) && orgRunsSource(e, env, stack, companyId)), ...platformNoise(companyId, env, own).filter(e => fitsStack(e, companyId, stack))];
+    basePool = [...basePool.filter(e => envHasPlatforms(env, [e]) && orgRunsSource(e, env, stack, companyId)), ...platformNoise(companyId, env, own).filter(e => fitsStack(e, companyId, stack) && sentinel(e))];
     if (ownPool) ownPool = basePool;
   }
   // One host, one IP across the noise (normalizeHostIps) — the story is mapped onto it.
@@ -484,10 +496,13 @@ export function teamStoryFilter(companyId: string, stack: Stack = {}, env: TeamE
   // A named organization: every log of the attack comes from a product or platform the admin
   // chose (the same rule its noise follows), so what the admin entered is what the feed shows.
   const chosen = (e: TelemetryEvent) => !env || storyEventChosen(e, env, stack, companyId);
+  // An XDR session stands for Microsoft Sentinel only (owner, 2026-11-12): a story told in another vendor's records
+  // (an nginx-bound site, AWS, Okta, a MySQL audit) is an EDR-console story.
+  const sentinelData = sentinelRow(companyId, stack);
   return story => {
     try {
       const evs = instantiateStory(story, companyPool, edr, companyId).events ?? [];
-      return evs.length > 0 && evs.every(chosen) && fits(evs);
+      return evs.length > 0 && evs.every(chosen) && evs.every(sentinelData) && fits(evs);
     } catch { return false; }
   };
 }
@@ -678,9 +693,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const miss = difficulty !== "easy" && (opts.force?.miss ?? frnd() < 0.35);
   const fpOut: FpOut[] = fpAlerts(assets, companyId, fpN, frnd, new Date(TEAM_TIME_BASE_MS).toISOString(), {
     siem: env ? env.platforms.includes("azure") : (resolved.cloud === "azure_activity" || resolved.idp === "entra"),
-    fits: e => (!env || (storyEventChosen(e, env, stack, companyId) && orgRunsSource(e, env, stack, companyId))) && fitsStack(e, companyId, stack),
+    fits: e => (!env || (storyEventChosen(e, env, stack, companyId) && orgRunsSource(e, env, stack, companyId))) && fitsStack(e, companyId, stack) && sentinelRow(companyId, stack)(e),
     stack: resolved, platforms: env?.platforms ?? [], seen: history.makers, force: opts.force?.makers, miss,
     avoid: { users: new Set([...compromised, ...takenVictims]), hosts: attackHosts, ips: sessionIps },
+    // Severity never gives the answer away (realism R8): a high benign alert is drawn only when no story look-alike is one.
+    needHigh: !planned.some(e => (e.expected_verdict === "fp" || !!e.fp_explanation) && (e.severity === "high" || e.severity === "critical")),
   });
   record.makers = fpOut.map(f => f.makerId);
   const fpRows = fpOut.flatMap(f => f.rows);
@@ -874,11 +891,18 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // The last band opens early enough that its first malicious row (after any baseline rows it
   // leads with, and the ITSM / MSEL rows spliced in later) still lands before mid-shift.
   const lastStart = 0.42;
+  // Where the previous attack's first malicious row lands: the warm-up holds a band's opening back, so a story that
+  // opens with context rows (a ticket, a baseline request) surfaces later than its slot. The next attack keeps a
+  // tenth of the shift after it, so the attacks stay staggered by what the team sees first.
+  let prevFirst = -1;
   bands.forEach((evs, k) => {
     const base = bands.length > 1 ? warmup + ((lastStart - warmup) * k) / (bands.length - 1) : warmup;
     // Attack 1 starts right after the warm-up; the later ones jitter a little around their slot.
-    const startFrac = k === 0 ? warmup : Math.max(warmup + 0.04, base + (rnd() - 0.5) * 0.06);
+    const slot = k === 0 ? warmup : Math.max(warmup + 0.04, base + (rnd() - 0.5) * 0.06);
+    const startFrac = k === 0 ? slot : Math.max(slot, prevFirst + 0.1);
     const len = 0.26 + rnd() * 0.12;
+    const lead = Math.max(0, evs.findIndex(p => isMalicious(p.verdict)));
+    prevFirst = Math.max(startFrac, WARMUP_MIN + (lead / Math.max(1, evs.length - 1)) * len);
     place(evs, startFrac, Math.min(0.94, startFrac + len), true);
   });
   // Standalone pool incidents land at seeded points after the warm-up (a multi-event

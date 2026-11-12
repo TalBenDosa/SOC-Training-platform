@@ -51,9 +51,9 @@ describe("Sentinel's own requirements", () => {
     expect(stackForConsole({ edr: "crowdstrike" }, "edr").edr).toBe("crowdstrike");
   });
 
-  it("an organization on Sentinel has an Azure subscription, and an EDR session is left alone", () => {
+  it("an organization on Sentinel runs Azure (and no other cloud), and an EDR session is left alone", () => {
     const env = { platforms: ["aws" as const], industry: "general" as const };
-    expect(envForConsole(env, "sentinel").platforms).toEqual(["azure", "aws"]);
+    expect(envForConsole(env, "sentinel").platforms).toEqual(["azure"]);
     expect(envForConsole(env, "edr")).toBe(env);
     expect(envForConsole(null, "sentinel")).toBeNull();
   });

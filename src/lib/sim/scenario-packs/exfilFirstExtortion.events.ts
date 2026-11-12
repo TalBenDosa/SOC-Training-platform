@@ -53,7 +53,8 @@ export function exfilFirstExtortionScenarioEvents() {
   const cx = "nexacorp" as const;
   const base = { companyId: cx, host: host.hostname, user: victim.email, srcIp: host.ip, incidentId: INCIDENT } as const;
   const CACHE = "C:\\ProgramData\\Adobe\\ARM\\cache";
-  const ANYDESK = "C:\\ProgramData\\AnyDesk\\AnyDesk.exe";
+  // The remote-support tool installed as a service: Program Files, signed by its vendor, running as SYSTEM.
+  const ANYDESK = "C:\\Program Files (x86)\\AnyDesk\\AnyDesk.exe";
   const SEVEN = `${CACHE}\\7z.exe`;
   const RCLONE = `${CACHE}\\AdobeARMHelper.exe`;
   const userAcct = `NEXACORP\\${victim.sam}`;
@@ -64,16 +65,21 @@ export function exfilFirstExtortionScenarioEvents() {
   const proc = (name: string, pid: number, path: string, cmdline: string, parent: string, parentPid: number, hash?: string) => ({
     name, pid, path, cmdline, parent_name: parent, parent_pid: parentPid, user: userAcct, integrity: "medium" as const, ...(hash ? { hash: { sha256: hash } } : {}),
   });
-  const anydeskProc = proc("AnyDesk.exe", 3612, ANYDESK, `"${ANYDESK}" --service`, "services.exe", 700, anydeskHash);
+  const anydeskProc = { ...proc("AnyDesk.exe", 3612, ANYDESK, `"${ANYDESK}" --service`, "services.exe", 700, anydeskHash), user: "NT AUTHORITY\\SYSTEM", integrity: "system" as const };
+  /** AnyDesk's own Authenticode signature, as Defender reports it on the rows the tool initiates. */
+  const ANYDESK_SIGNED = { "process.code_signature.subject_name": "AnyDesk Software GmbH", "process.code_signature.trusted": true };
   const rcloneProc = proc("AdobeARMHelper.exe", 6301, RCLONE, RCLONE_CMD, "cmd.exe", 5800, rcloneHash);
+  /** A network row with the process it belongs to (and that process's own signature fields, when the story states them). */
+  const withProcess = (ev: TelemetryEvent, p: NonNullable<TelemetryEvent["process"]>, sig: Record<string, string | boolean> = {}): TelemetryEvent =>
+    ({ ...ev, process: p, raw: { ...(ev.raw ?? {}), ...sig } });
 
   const events: TelemetryEvent[] = [
     // 0a. The remote-support tool already on the laptop talks to its relay (DeviceNetworkEvents).
-    { ...mdeNetwork({
+    withProcess(mdeNetwork({
       ...base, id: "evt_efe_00a_remote_tool_net", ts: T(-8 * MIN - 30 * SEC), remoteIp: relay.ip, remotePort: 443, domain: relay.domain,
-      initiatingProcess: "AnyDesk.exe", severity: "medium",
+      initiatingProcess: "AnyDesk.exe", severity: "medium", isDetection: true, mitre: "T1219", tactic: "Command and Control",
       description: "AnyDesk.exe on LT-NX-RDOYLE opened a TCP/443 connection to an AnyDesk relay at 00:56:30.",
-    }), process: anydeskProc },
+    }), anydeskProc, ANYDESK_SIGNED),
     // 0b. The firewall's view of the same session.
     panConnection({
       ...base, id: "evt_efe_fw_remote_tool", ts: T(-8 * MIN - 29 * SEC), domain: relay.domain, dstIp: relay.ip, remotePort: 443,
@@ -84,22 +90,23 @@ export function exfilFirstExtortionScenarioEvents() {
     mdeProcess({
       ...base, id: "evt_efe_00c_shell", ts: T(-6 * MIN - 40 * SEC), processName: "cmd.exe", processPath: "C:\\Windows\\System32\\cmd.exe",
       cmdline: "\"C:\\WINDOWS\\system32\\cmd.exe\"", parentName: "explorer.exe", parentPid: 3908, pid: 5800, sha256: cmdHash, integrity: "Medium", signed: true,
-      severity: "low", description: "cmd.exe was started from explorer.exe in r.doyle's session at 00:58:20, two minutes after the AnyDesk relay session began.",
+      severity: "low", mitre: "T1059.003", tactic: "Execution",
+      description: "cmd.exe was started from explorer.exe in r.doyle's session at 00:58:20, two minutes after the AnyDesk relay session began.",
     }),
     // 0d-0f. Tooling arrives by file transfer inside the remote session (DeviceFileEvents, written by AnyDesk.exe).
     mdeFile({
       ...base, id: "evt_efe_00d_tool_7z", ts: T(-4 * MIN - 50 * SEC), path: SEVEN, sha256: archiveHash, size: 563_712, action: "file_create",
-      initiatingProcess: "AnyDesk.exe", signed: false, severity: "medium",
+      initiatingProcess: "AnyDesk.exe", signed: false, severity: "medium", mitre: "T1105", tactic: "Command and Control",
       description: "AnyDesk.exe wrote 7z.exe into C:\\ProgramData\\Adobe\\ARM\\cache at 01:00:10.",
     }),
     mdeFile({
       ...base, id: "evt_efe_00e_tool_rclone", ts: T(-3 * MIN - 30 * SEC), path: RCLONE, sha256: rcloneHash, size: 63_438_848, action: "file_create",
-      initiatingProcess: "AnyDesk.exe", signed: false, severity: "high",
+      initiatingProcess: "AnyDesk.exe", signed: false, severity: "high", mitre: "T1105", tactic: "Command and Control",
       description: "AnyDesk.exe wrote AdobeARMHelper.exe, 61 MB, into the same folder at 01:01:30.",
     }),
     mdeFile({
       ...base, id: "evt_efe_00f_tool_config", ts: T(-2 * MIN - 45 * SEC), path: `${CACHE}\\rclone.conf`, sha256: null, size: 389, action: "file_create",
-      initiatingProcess: "AnyDesk.exe", severity: "medium",
+      initiatingProcess: "AnyDesk.exe", severity: "medium", mitre: "T1105", tactic: "Command and Control",
       description: "AnyDesk.exe wrote rclone.conf, 389 bytes, into the same folder at 01:02:15.",
     }),
 

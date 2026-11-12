@@ -13,14 +13,17 @@ describe("workload preview: the exercise measured before it starts", () => {
   it("the Sdema overload (three storylines, one Tier-1, 20 minutes) stays flagged: the attacks alone are too much", () => {
     const roster = r("t1", "t2", "mgr");
     const fits = teamStoryFilter("nexacorp", {}, null);
-    const slots = storiesForTier("hard", true).filter(fits).slice(0, 3).map(s => s.id);
+    // Team Training stories only: the Session Builder offers no other (Tal 2026-11-12).
+    const slots = storiesForTier("hard", true).filter(s => s.teamOnly).filter(fits).slice(0, 3).map(s => s.id);
     const plan = { count: 3, slots, bonus: false };
     const load = loadWithPlan(withShiftMinutes(teamLoad("hard", roster), 20), plan);
     const raw = measureWorkload(buildTeamTimeline("nexacorp", "hard", "sdema-like", slots, load, {}), load, roster);
     const fitted = buildFittedTimeline({ companyId: "nexacorp", difficulty: "hard", seed: "sdema-like", slots, load, roster });
     expect(raw.level).toBe("over");
     expect(fitted.workload.level).toBe("over");
-    expect(fitted.workload.tier1.pct!).toBeLessThanOrEqual(raw.tier1.pct!);   // only noise is ever trimmed, the attacks stay
+    // Only noise is ever trimmed: every attack row stays (the fitted build may draw other ordinary rows).
+    expect(fitted.workload.attackRows).toBe(raw.attackRows);
+    expect(fitted.workload.incidents).toBe(raw.incidents);
   });
 
   it("a room with its automatic plan is fitted to the target after building", () => {

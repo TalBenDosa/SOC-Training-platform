@@ -223,12 +223,30 @@ export function suggestOp(input: string): string | null {
   return null;
 }
 
-/** True when a field value is worth a one-click "Decode" (an encoded blob, not a name or a number). */
+/** Share of bytes that are printable text (tab, newline, ASCII 0x20-0x7E, or UTF-8 / UTF-16 text bytes). */
+function textShare(bytes: Uint8Array): number {
+  if (!bytes.length) return 0;
+  let ok = 0;
+  for (const b of bytes) if (b === 9 || b === 10 || b === 13 || (b >= 0x20 && b < 0x7f) || b === 0) ok++;
+  return ok / bytes.length;
+}
+
+/**
+ * True when a field value is worth a one-click "Decode" (an encoded blob, not a name or a number). A hash, a
+ * session or transaction id, a token or a resource path is long and alphanumeric too, but decoding it gives
+ * random bytes: Base64 and hex are offered only when they decode to readable text (owner 2026-11-12: the decode
+ * tag showed on values that need no decoding).
+ */
 export function looksEncoded(value: string): boolean {
   if (value.length < 12) return false;
   // A PowerShell -EncodedCommand / -enc argument inside a command line.
   if (/\s-e(nc(odedcommand)?)?\s+[A-Za-z0-9+/=]{16,}/i.test(value)) return true;
-  return suggestOp(value) !== null && !/^(refang)$/.test(suggestOp(value) ?? "");
+  const op = suggestOp(value);
+  if (!op || op === "refang") return false;
+  const s = value.trim();
+  if (op === "from-hex") { const b = hexToBytes(s); return !!b && textShare(b) >= 0.9; }
+  if (op === "from-base64") { const b = base64ToBytes(s); return !!b && textShare(b) >= 0.9; }
+  return true;
 }
 
 /** The Base64 blob after -enc / -EncodedCommand in a PowerShell command line, if any. */

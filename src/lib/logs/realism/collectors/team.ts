@@ -18,6 +18,8 @@ import { buildWorkspace } from "@/lib/sentinel/workspace";
 import { buildEvidenceView, type FeedRow } from "@/lib/forensics/workbench";
 import { hostKey } from "@/lib/team/format";
 import { ATTACK_STORIES } from "@/app/(app)/dashboard/attackStories";
+import { stackForConsole } from "@/lib/team/investigationConsole";
+import type { Stack } from "@/lib/logs/native/stack";
 import type { Collected, LogRow } from "../types";
 import { renderRow, COMPANIES } from "./live";
 import { parseInstant } from "../util";
@@ -27,9 +29,9 @@ const ROSTER = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, 
 
 export interface TeamSession { company: string; seed: string; events: TelemetryEvent[]; answers: Map<string, Record<string, unknown>>; feed: FeedRow[] }
 
-export function teamSession(company: string): TeamSession {
+export function teamSession(company: string, stack: Stack = {}): TeamSession {
   const seed = `realism-${company}`;
-  const tl = buildTeamTimeline(company, "medium", seed, null, teamLoad("medium", ROSTER), {})
+  const tl = buildTeamTimeline(company, "medium", seed, null, teamLoad("medium", ROSTER), stack)
     .filter(t => t.channel === "feed").sort((a, b) => a.due_offset_ms - b.due_offset_ms);
   const feed: FeedRow[] = tl.map(t => { const at = T0 + t.due_offset_ms; return { ev: withRebasedTime(t.body as unknown as TelemetryEvent, new Date(at).toISOString()), atMs: at }; });
   const answers = new Map(tl.map((t, i) => [feed[i].ev.id, (t.answer ?? {}) as Record<string, unknown>]));
@@ -66,9 +68,22 @@ export function collectTeam(out: Collected, companies = COMPANIES): TeamSession[
   return sessions;
 }
 
-export function collectXdr(out: Collected, sessions: TeamSession[]): void {
+/**
+ * The XDR console exists only in an XDR session, which stands for Microsoft Sentinel (owner, 2026-11-12): its
+ * workspace is built from a session on the XDR products (stackForConsole), not from an EDR session's feed.
+ */
+/** The record kind of a workspace row: the event id of a Windows event table, the device of a CEF table, else the table. */
+function kindOfRow(table: string, row: Record<string, unknown>): string {
+  if (row.EventID !== undefined && (table === "SecurityEvent" || table === "Event")) return `${table}:${row.EventID}`;
+  if (table === "CommonSecurityLog" && row.DeviceVendor) return `${table}:${row.DeviceVendor}/${row.DeviceProduct ?? ""}`;
+  return String(row.Type ?? table);
+}
+
+export function collectXdr(out: Collected, edrSessions: TeamSession[]): void {
+  const XDR = stackForConsole({}, "sentinel");
+  const sessions = edrSessions.map(e => teamSession(e.company, XDR));
   for (const s of sessions) {
-    const ws = buildWorkspace(s.events, { companyId: s.company });
+    const ws = buildWorkspace(s.events, { companyId: s.company, stack: XDR });
     const owner = new Map<object, string>();
     for (const [eid, list] of Object.entries(ws.eventRows)) for (const m of list) owner.set(m.row, eid);
     const evById = new Map(s.events.map(e => [e.id, e]));
@@ -81,7 +96,9 @@ export function collectXdr(out: Collected, sessions: TeamSession[]): void {
         out.rows.push({
           surface: "xdr", company: s.company, storyId: `${s.company}:${s.seed}`,
           rowId: `${s.company}:${table}:${eid ?? `baseline#${i}`}${eid && (ws.eventRows[eid]?.length ?? 0) > 1 ? `#${ws.eventRows[eid].findIndex(m => m.row === row)}` : ""}`,
-          source: table, eventType: String(row.Type ?? table), time, raw: row,
+          // A shared table holds many record kinds: a 5137 directory change and a 4624 logon, a FortiGate and a PAN-OS
+          // CEF line are different shapes, so the kind is the event id / the device (as native records are compared).
+          source: table, eventType: kindOfRow(table, row), time, raw: row,
           isAttack: eid ? attackOf(s.answers.get(eid)) : false, ev,
           meta: { baseline: !eid, eventId: eid },
         });

@@ -338,6 +338,12 @@ export function noteAddress(table: string, row: KqlRow, ip: string): void {
   else if (dyn) row[dyn] = { ...(typeof row[dyn] === "object" ? (row[dyn] as object) : {}), feed: `ip=${ip}` };
 }
 
+/** A firewall session from outside to a company address: its CEF row names addresses, not the server (reconcileRow). */
+export function inboundCefRow(table: string, ev: TelemetryEvent): boolean {
+  return table === "CommonSecurityLog" && ((ev.network as { direction?: string } | undefined)?.direction === "inbound"
+    || (!!ev.src_ip && !PRIVATE_SRC.test(ev.src_ip) && !!ev.dst_ip && PRIVATE_SRC.test(ev.dst_ip)));
+}
+
 export function reconcileRow(table: string, row: KqlRow, ev: TelemetryEvent): void {
   row.TimeGenerated = new Date(ev.ts).toISOString();
   const cols = identityColumns(table);
@@ -353,7 +359,11 @@ export function reconcileRow(table: string, row: KqlRow, ev: TelemetryEvent): vo
   const local = user?.split("@")[0].toLowerCase();
   fill(cols?.user, user, "user", s => !!local && (s.includes(local) || s.includes(local.replace(/\./g, ""))));
   const host = ev.hostname?.split(".")[0].toLowerCase();
-  fill(cols?.host, ev.hostname, "host", s => !!host && s.includes(host));
+  // A connection from outside to a published server: the device logs the public and the translated address, not a
+  // computer name, and the server is never the session's source host. The row keeps what the device logged.
+  const inboundConn = (ev.network as { direction?: string } | undefined)?.direction === "inbound"
+    || (!!ev.src_ip && !PRIVATE_SRC.test(ev.src_ip) && !!ev.dst_ip && PRIVATE_SRC.test(ev.dst_ip));
+  if (!(table === "CommonSecurityLog" && inboundConn)) fill(cols?.host, ev.hostname, "host", s => !!host && s.includes(host));
   for (const ip of [ev.src_ip, ev.dst_ip]) if (ip) fill(cols?.ip, ip, "ip", s => s.includes(ip));
   if (!notes.length) return;
   const note = NOTE_TEXT[table];

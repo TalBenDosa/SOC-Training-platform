@@ -22,6 +22,17 @@ import { teamLoad, SHIFT_CHOICES } from "@/lib/team/load";
 import { MAX_ATTACKS } from "@/lib/team/attackPlan";
 import type { Stack } from "@/lib/logs/native/stack";
 import { CONSOLE_CHOICES, envForConsole, stackForConsole, type InvestigationConsole } from "@/lib/team/investigationConsole";
+
+/** What an XDR session fixes in the product picker, and why (the XDR console is a Microsoft Sentinel workspace). */
+const XDR_LOCKS = {
+  edr: "Fixed by XDR: it reads endpoint activity from Defender for Endpoint.",
+  idp: "Fixed by XDR: sign-ins come from Entra ID.",
+  collab: "Fixed by XDR: mail and files come from Microsoft 365.",
+  email_security: "Fixed by XDR: mail security comes from Defender for Office 365.",
+  dns: "Fixed by XDR: DNS comes from Windows DNS.",
+  waf: "Fixed by XDR: web traffic comes from Azure WAF.",
+  web_server: "Fixed by XDR: the web server is IIS.",
+};
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
@@ -348,10 +359,10 @@ export default function TeamIndexPage() {
                     </label>
                   ))}
                 </div>
-                {investigationConsole === "sentinel" && <p className="mt-2 text-[11px] text-slate-500">XDR reads endpoint activity from Microsoft Defender for Endpoint, so this session uses it as the EDR. The organization also runs Azure, so its cloud activity reaches XDR too.</p>}
+                {investigationConsole === "sentinel" && <p className="mt-2 text-[11px] text-slate-500">This XDR session runs Defender for Endpoint, Entra ID, Microsoft 365, Defender for Office 365, Windows DNS, the Application Gateway WAF and IIS, and only attacks told in those records are offered. The firewall and remote access stay yours. An organization on other products (AWS, Okta, Google Workspace, CrowdStrike, nginx) investigates in the EDR console.</p>}
               </fieldset>
               <StackPicker companyId={company} value={chosenStack} onChange={setStack} idPrefix="team-stack"
-                locked={investigationConsole === "sentinel" ? { edr: "Fixed by XDR: it reads endpoint activity from Defender for Endpoint." } : {}} />
+                locked={investigationConsole === "sentinel" ? XDR_LOCKS : {}} />
             </div>
             {storyNote && <p role="status" className="mt-1.5 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-1.5 text-[11px] text-neon-amber">{storyNote}</p>}
             <p className="mt-1.5 text-[11px] text-slate-500">
