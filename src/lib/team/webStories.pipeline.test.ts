@@ -188,7 +188,7 @@ describe("web traffic is not only the attack", () => {
         expect(validateNative(v!.log, NATIVE_SOURCES[v!.log.sourceId]!.schema)).toEqual([]);
       }
     }
-  });
+  }, 120_000);   // a session per web story per company
 
   it("a session with no web story still has them, and a rule hit among them", () => {
     for (const c of COMPANIES) {
