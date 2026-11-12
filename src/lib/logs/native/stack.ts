@@ -254,7 +254,10 @@ function sysmonRecordsIt(ev: TelemetryEvent): boolean {
 
 /** Does Sophos Central have a record of this endpoint event (card edr-sophos.md: SIEM events, detections, process rows)? */
 function sophosRecordsIt(ev: TelemetryEvent): boolean {
-  return !!ev.is_detection || ALERT_EVENT_TYPES.has(ev.event_type) || ev.event_type.startsWith("av_") || ev.event_type === "process_create";
+  // A detection flag on a network / DNS / file row is the story's alert on that activity: Sophos still keeps no
+  // per-event record of the connection itself (Sysmon does, where the shop runs it).
+  const telemetry = /^(net_connection|dns_query|file_)/.test(ev.event_type);
+  return (!!ev.is_detection && !telemetry) || ALERT_EVENT_TYPES.has(ev.event_type) || ev.event_type.startsWith("av_") || ev.event_type === "process_create";
 }
 
 /** A Purview DLP event that names the matched policy (see sources/_m365-dlp isDlpRuleMatch). */

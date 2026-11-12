@@ -111,6 +111,7 @@ import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJackin
 import { WEB_ENTRY_STORIES } from "./web-stories/entry";
 import { WEB_ADVANCED_STORIES } from "./web-stories/advanced";
 import { WEB_INJECTION_STORIES } from "./web-stories/injection";
+import { POOL_DOC_IPS } from "@/lib/sim/poolDocIps";
 import { lateralMovementPthScenarioEvents }        from "@/lib/sim/scenario-packs/lateralMovementPth.events";
 import { goldenSamlScenarioEvents }                from "@/lib/sim/scenario-packs/goldenSaml.events";
 import { windowsPrivescTokenScenarioEvents }       from "@/lib/sim/scenario-packs/windowsPrivescToken.events";
@@ -1024,7 +1025,9 @@ const TEAM_WIDER: Record<string, string[]> = {
 /** Every documentation address the catalog authors (variation.ts never hands one of them to another storyline). */
 let CATALOG_IPS: Set<string> | null = null;
 function catalogIps(): Set<string> {
-  if (!CATALOG_IPS) { CATALOG_IPS = new Set(); for (const st of ATTACK_STORIES) collectDocIps(st.events, CATALOG_IPS); }
+  // The stories' own addresses, and every address any company's ordinary traffic uses (a scanner, a partner):
+  // each is somebody in the world with one place, never a freshly drawn attacker.
+  if (!CATALOG_IPS) { CATALOG_IPS = new Set(POOL_DOC_IPS); for (const st of ATTACK_STORIES) collectDocIps(st.events, CATALOG_IPS); }
   return CATALOG_IPS;
 }
 
