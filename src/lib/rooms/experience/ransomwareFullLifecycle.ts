@@ -63,6 +63,14 @@ export const RANSOMWARE_FULL_LIFECYCLE: RoomExperience = {
   look: { primary: "#b3ecff", secondary: "#f6c177", warn: "#ff4d6d" },
   scene: "facilitycoldvault",
   layout: "facility",
+  story: {
+    intro: { title: "05:52", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-intro-856e4dac.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-intro-1d791074.jpg" },
+    afterStation: {
+      foothold: { title: "Before Monday", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-ch2-063edf22.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-ch2-1d97c7f2.jpg" },
+      coldaisle: { title: "The Quiet Week", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-ch3-8bf4e470.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-ch3-ce749272.jpg" },
+      note: { title: "The Receipt", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-finale-e436edea.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ransomware-full-lifecycle/coldvault-finale-99034450.jpg" },
+    },
+  },
   stations: [
     {
       id: "foothold",
