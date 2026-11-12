@@ -373,6 +373,8 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
 
   const book = new EntityBook(COMPANY_ASSETS[companyId]?.roster);
   const entries: Entry[] = [];
+  /** Entities that only an analyst's escalation put on a log (its indicators): not what any rule saw. */
+  const analystEntityIds = new Set<string>();
   const eventRows: SentinelWorkspaceBuild["eventRows"] = {};
   const logs: NativeLog[] = [];
   /** logs[i] -> its entry. */
@@ -410,7 +412,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const h = handoffOf.get(ev.id);
     if (h) {
       const ms = Date.parse(ev.ts);
-      for (const i of h.iocs) { const id = book.addIndicator(i.type, i.value, ms); if (id && !entry.entityIds.includes(id)) entry.entityIds.push(id); }
+      for (const i of h.iocs) { const id = book.addIndicator(i.type, i.value, ms); if (id && !entry.entityIds.includes(id)) { entry.entityIds.push(id); analystEntityIds.add(id); } }
     }
     entries.push(entry);
   });
@@ -566,7 +568,12 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const distinctQueries = [...new Set(members.map(a => a.query))];
     // The analysts' reports on the logs behind it, oldest first: the incident opens with them.
     const handoffs = [...eventIds].map(id => handoffOf.get(id)).filter((x): x is Handoff => !!x).sort((a, b) => Date.parse(a.at ?? "") - Date.parse(b.at ?? ""));
-    const detection = members.length === 1 ? members[0].description : `${members.length} alerts from ${products.length} ${products.length === 1 ? "product" : "products"} share ${ents.slice(0, 3).map(e => e.name).join(", ")}.`;
+    // The detection reads as the rules raised it: an analyst's escalation alert (and the indicators it adds) is not one of them.
+    const ruled = members.filter(a => !escalatedAlertIds.has(a.id));
+    const ruledProducts = [...new Set(ruled.map(a => a.product))];
+    const ruledEnts = [...new Set(ruled.flatMap(a => a.entityIds))].filter(id => !analystEntityIds.has(id)).map(id => entities[id]).filter(Boolean);
+    const detection = ruled.length === 0 ? "" : ruled.length === 1 ? ruled[0].description
+      : `${ruled.length} alerts from ${ruledProducts.length} ${ruledProducts.length === 1 ? "product" : "products"} share ${ruledEnts.slice(0, 3).map(e => e.name).join(", ")}.`;
     // Opened by the escalation alone: the analyst's report is the whole description.
     const onlyEscalated = handoffs.length > 0 && members.every(a => escalatedAlertIds.has(a.id));
     const incident: SentinelIncident = {

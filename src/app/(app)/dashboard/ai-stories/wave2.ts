@@ -36,6 +36,10 @@ export interface AiStoryDef {
   companies: string[];
   /** Team Training only: never drawn by the single-player dashboard. */
   teamOnly?: boolean;
+  /** The parametric template this story is a variant of (AttackStory.family): the AI round gives each family one variant per engine. */
+  family?: string;
+  /** AI round on: which engine deals it (solo dashboard or Team Training, never both). Omitted: teamOnly decides. */
+  mode?: "solo" | "team";
   /** The single-player allowlist, when `companies` was widened for Team Training. */
   soloCompanies?: string[];
   /** The job the story's main person must hold (AttackStory.seat). */

@@ -56,10 +56,10 @@ export const AI_ATTACKS_SOC_LLM_RISKS: RoomExperience = {
     {
       id: "toolbelt",
       label: "The Tool Belt",
-      topic: "Excessive Agency and its three root causes · Improper Output Handling",
+      topic: "Excessive Agency and its three root causes · Improper Output Handling · agents and malware that take orders from a model",
       tagline: "What it holds, and who trusts its words",
       building: "control",
-      taskIds: ["aisoc-r12", "aisoc-q8", "aisoc-r13", "aisoc-q9"],
+      taskIds: ["aisoc-r12", "aisoc-q8", "aisoc-r13", "aisoc-q9", "aisoc-r17", "aisoc-q13"],
     },
     {
       id: "meter",
@@ -91,6 +91,7 @@ export const AI_ATTACKS_SOC_LLM_RISKS: RoomExperience = {
     "aisoc-m1": { name: "Anselm Okoro", role: "AI Security Lead", line: "The partners will read these names. Get each one right." },
     "aisoc-q8": { name: "Anselm Okoro", role: "AI Security Lead", line: "Engineering wants one root cause on the ticket. Which is it?" },
     "aisoc-q9": { name: "Anselm Okoro", role: "AI Security Lead", line: "Classify it, and tell me where the defect lives." },
+    "aisoc-q13": { name: "Anselm Okoro", role: "AI Security Lead", line: "Read the parent chain before you name it. Who started the agent?" },
     "aisoc-q10": { name: "Anselm Okoro", role: "AI Security Lead", line: "Finance is asking. What happened, and what do we put in place?" },
     "aisoc-q11": { name: "Anselm Okoro", role: "AI Security Lead", line: "Name the technique, then tell me what the SOC should take from it." },
     "aisoc-q12": { name: "Anselm Okoro", role: "AI Security Lead", line: "Name the technique, and tell me why the classifier stayed quiet." },

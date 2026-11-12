@@ -7773,8 +7773,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Part 2 of 3. The rest of the OWASP Top 10 for LLM Applications in depth: excessive agency when an AI agent holds too much power, improper output handling, unbounded consumption, adversarial evasion of AI models, and jailbreaks: how each turns an injection attempt into real impact, and the controls and detections that stop it.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
-    "estimatedMinutes": 50,
-    "xp": 145,
+    "estimatedMinutes": 58,
+    "xp": 165,
     "icon": "🧠",
     "prerequisites": [
       "ai-attacks-soc-detection"
@@ -7807,6 +7807,16 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "aisoc-q9",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r17",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q13",
         "type": "question",
         "xp": 15
       },

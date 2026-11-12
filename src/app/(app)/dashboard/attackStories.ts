@@ -106,6 +106,7 @@ import { AI_WAVE3_C_STORIES } from "./ai-stories/wave3-c";
 import { AI_WAVE3_D_STORIES } from "./ai-stories/wave3-d";
 import { AI_WAVE4_A_STORIES } from "./ai-stories/wave4-a";
 import { AI_WAVE4_B_STORIES } from "./ai-stories/wave4-b";
+import { AI_ROUND5_STORIES } from "./ai-stories/round5";
 import { CORE_STORIES } from "./core-stories";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import { WEB_ENTRY_STORIES } from "./web-stories/entry";
@@ -959,7 +960,8 @@ const RS_ADVANCED_STORIES: AttackStory[] = [
 /** An AI story: `teamOnly` and `soloCompanies` carry over, so widening a story for Team Training leaves single-player as it was. */
 const aiStory = (d: AiStoryDef): AttackStory => ({
   ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies),
-  ...(d.teamOnly ? { teamOnly: true } : {}),
+  ...(d.teamOnly || d.mode === "team" ? { teamOnly: true } : {}),
+  ...(d.family ? { family: d.family } : {}),
   ...(d.soloCompanies ? { soloCompanies: d.soloCompanies } : {}),
   ...(d.seat ? { seat: d.seat } : {}),
   ...(d.ownServers ? { ownServers: true } : {}),
@@ -977,6 +979,8 @@ const AI_STORIES: AttackStory[] = [
   ...AI_WAVE3_D_STORIES.map(aiStory),
   ...AI_WAVE4_A_STORIES.map(aiStory),
   ...AI_WAVE4_B_STORIES.map(aiStory),
+  // AI round (2026-11-12): six families, each with a single-player variant and a Team Training variant.
+  ...AI_ROUND5_STORIES.map(aiStory),
   story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: aiLlmJackingScenarioEvents().events }, "advanced", ["quantumbank"]),
 ];
 

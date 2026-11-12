@@ -96,7 +96,7 @@ export function procPid(ctx: NativeCtx, s: ProcScope, p: ProcRef): number | unde
   const name = lc(identityName(p));
   // The numbering follows the image itself (an .exe is a Windows process), never the event's OS
   // guess - which varies between events of one host when some carry no platform hint.
-  const windows = name === "system" || name === "registry" || (/\.(exe|com|scr)$/i.test(name) && !(p.path ?? "").startsWith("/"));
+  const windows = name === "system" || name === "registry" || (/\.(exe|com|scr|pif)$/i.test(name) && !(p.path ?? "").startsWith("/"));
   if (windows) {
     if (name === "system") return 4;
     if (name === "registry") return 92;

@@ -625,7 +625,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
   // ── GitHub Audit Log - daily developer activity ───────────────────────────
   {
     id: "rs_gh_001", ts: "2026-05-10T09:05:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    source: "vcs", event_type: "cloud_api_call", severity: "informational",
     vendor: "GitHub Audit Log", user_email: "t.levy@rocketstack.io", src_ip: "198.51.100.220",
     user_title: "Backend Engineer",
     description: "t.levy pushed 3 commits to rocketstack/platform-core main branch",
@@ -638,36 +638,33 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "rs_gh_002", ts: "2026-05-10T10:22:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    source: "vcs", event_type: "cloud_api_call", severity: "informational",
     vendor: "GitHub Audit Log", user_email: "r.cohen@rocketstack.io", src_ip: "198.51.100.220",
     description: "r.cohen merged PR #441 into rocketstack/infra-terraform",
     raw: {
-      "github.action": "pull_request.merged", "github.actor": "r.cohen",
+      "github.action": "pull_request.merge", "github.actor": "r.cohen",
       "github.repo": "rocketstack/infra-terraform", "github.pull_request.number": "441",
-      "github.pull_request.title": "Add VPC peering for staging env",
-      "github.pull_request.merged_by": "r.cohen", "github.visibility": "private",
+      "github.pull_request.title": "Add VPC peering for staging env", "github.visibility": "private",
       "action_result": "allowed" }
   },
   {
     id: "rs_gh_003", ts: "2026-05-10T14:10:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "low",
+    source: "vcs", event_type: "cloud_api_call", severity: "low",
     vendor: "GitHub Audit Log", user_email: "s.amir@rocketstack.io", src_ip: "198.51.100.220",
-    description: "s.amir created branch feature/auth-refactor in rocketstack/platform-core",
+    description: "s.amir pushed the new branch feature/auth-refactor to rocketstack/platform-core",
     raw: {
-      "github.action": "create", "github.actor": "s.amir",
-      "github.repo": "rocketstack/platform-core", "github.ref": "refs/heads/feature/auth-refactor",
-      "github.ref_type": "branch", "action_result": "allowed" }
+      "github.action": "git.push", "github.actor": "s.amir",
+      "github.repo": "rocketstack/platform-core", "github.visibility": "private", "action_result": "allowed" }
   },
   {
     id: "rs_gh_004", ts: "2026-05-10T16:55:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    source: "vcs", event_type: "cloud_api_call", severity: "informational",
     vendor: "GitHub Audit Log", user_email: "d.shapira@rocketstack.io", src_ip: "198.51.100.220",
-    description: "d.shapira opened issue #112: API rate limit hit in prod (rocketstack/platform-core)",
+    description: "d.shapira opened pull request #112 in rocketstack/platform-core: backoff strategy for the prod API rate limit",
     raw: {
-      "github.action": "issues.opened", "github.actor": "d.shapira",
-      "github.repo": "rocketstack/platform-core", "github.issue.number": "112",
-      "github.issue.title": "API rate limit hit in prod - need backoff strategy",
-      "github.issue.labels": "bug,production", "action_result": "allowed" }
+      "github.action": "pull_request.create", "github.actor": "d.shapira",
+      "github.repo": "rocketstack/platform-core", "github.pull_request.number": "112",
+      "github.pull_request.title": "Add backoff strategy for the prod API rate limit", "github.visibility": "private", "action_result": "allowed" }
   },
 
   // ── CI/CD Pipeline - AWS CodePipeline + ECR ──────────────────────────────

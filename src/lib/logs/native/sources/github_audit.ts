@@ -107,7 +107,12 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const git = action.startsWith("git.");
 
   const shortcode = ctx.org;
-  const actor = pick("actor", "github.actor", "github.audit.actor") ?? (ev.user_email ? emuLogin(ev.user_email, shortcode) : undefined);
+  // An employee acts through their Enterprise Managed User account: the login comes from the person's address, so it
+  // follows the person a session draws (an authored login would keep the authoring company's person). A bot, an app
+  // or an outside account with no address keeps the login the event names.
+  const named = pick("actor", "github.actor", "github.audit.actor");
+  const namedBot = !!named && (/\[bot\]$|^github-/.test(named) || bool(r.actor_is_bot) === true);
+  const actor = ev.user_email && !namedBot ? emuLogin(ev.user_email, shortcode) : named;
   if (!actor) return null;
   const repo = pick("repo", "repository", "github.repo", "github.audit.repo", "github.actions.repository");
   if (git && !repo) return null;
@@ -248,7 +253,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "github_audit.branch-protection-override", title: "Branch protection overridden",
-    sourceId: "github_audit", kinds: ["audit"], severity: "high", mitre: ["T1195.002", "T1562"],
+    sourceId: "github_audit", kinds: ["audit"], severity: "high", mitre: ["T1195.002"],
     description: "An administrator pushed or merged past a required review or check. On a branch that deploys, that is code in production nobody reviewed.",
     logic: "// KQL (GitHubAuditLogsV2_CL)\nGitHubAuditLogsV2_CL\n| where Action == \"protected_branch.policy_override\"\n| project TimeGenerated, Actor, Repo, Branch, ActorIp",
     match: { field: "action", op: "eq", value: "protected_branch.policy_override" },
