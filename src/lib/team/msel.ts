@@ -24,6 +24,8 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { COMPANY_ASSETS, type CompanyAssets } from "@/lib/sim/companyProfilesMeta";
 import { mdeProcess, mdeFile } from "@/lib/sim/emitters/mde";
 import { entraSignIn } from "@/lib/sim/emitters/entra";
+import { wafRequest, webAccess, type WebSite } from "@/lib/sim/emitters/web";
+import type { WafRuleKey } from "@/lib/logs/native/sources/_web-common";
 import { winLogon, winFailedLogon, winAccountCreate, winGroupMemberAdd, domainSidFor } from "@/lib/sim/emitters/windowsSecurity";
 import type { Stack } from "@/lib/logs/native/stack";
 import type { TicketSpec } from "./fpAlerts";
@@ -396,6 +398,26 @@ function twistProc(c: TwistCtx, o: { id: string; name: string; path: string; cmd
   return { ...ev, ...(o.eventType ? { event_type: o.eventType } : {}), raw: withoutRawPids(ev.raw ?? {}) } as TelemetryEvent;
 }
 
+/** Rules about volume or the client, not the input: a returning operator is not "the same request" there. */
+const VOLUME_RULES = new Set(["rate", "login_volumetric", "login_stolen", "size_body", "bad_bot", "custom"]);
+/** The request a web story attacked from outside: its site (and origin, when the story shows the server's own log), path, input and rule. */
+function webTarget(c: TwistCtx): { site: WebSite; path: string; query: string; method: "GET" | "POST"; ua: string; rule: WafRuleKey; matched?: string; location?: string; status: number; bytes: number } | null {
+  const raw = (e: TelemetryEvent) => (e.raw ?? {}) as Record<string, unknown>;
+  const str = (e: TelemetryEvent, k: string) => (typeof raw(e)[k] === "string" ? (raw(e)[k] as string) : undefined);
+  // The last outside request a rule matched whose input is in the query string with URL escapes in it (the
+  // returning operator re-encodes them), on a site whose origin log the story shows.
+  const hit = [...(c.story ?? [])].reverse().find(e => e.source === "waf" && !!e.src_ip && !PRIVATE.test(e.src_ip) && !!e.network?.domain
+    && typeof raw(e)["waf.rule.key"] === "string" && !VOLUME_RULES.has(String(raw(e)["waf.rule.key"])) && /%[0-9A-Fa-f]{2}/.test(str(e, "url.query") ?? "")
+    && (c.story ?? []).some(o => o.source === "web_server" && o.network?.domain === e.network?.domain));
+  if (!hit) return null;
+  const domain = hit.network!.domain!, path = str(hit, "url.path") ?? "/";
+  const origins = (c.story ?? []).filter(e => e.source === "web_server" && e.network?.domain === domain);
+  const answer = [...origins].reverse().find(e => str(e, "url.path") === path) ?? origins[origins.length - 1];
+  return { site: { site: domain, host: answer.hostname!, ip: answer.dst_ip! }, path, query: str(hit, "url.query")!, method: str(hit, "http.request.method") === "POST" ? "POST" : "GET",
+    ua: hit.network?.user_agent ?? "python-requests/2.31.0", rule: raw(hit)["waf.rule.key"] as WafRuleKey, matched: str(hit, "waf.matched_data"), location: str(hit, "waf.match_location"),
+    status: answer.network?.status ?? 200, bytes: answer.network?.bytes_in ?? 1840 };
+}
+
 const TWISTS: TwistKind[] = [
   { id: "second_implant", fits: (_c, g) => g.exec,
     texts: [
@@ -596,6 +618,30 @@ const TWISTS: TwistKind[] = [
     } },
   // ── A story made only of failures or blocks never got in: its twist is the attacker trying again from a new
   //    exit node, and (when the story names the accounts it tried) sometimes one of them finally working.
+  // Web injection round (2026-11-12): a web story's operator comes back to the same page from a new exit
+  // node, the request it was blocked on first, then the same input double URL-encoded, which the rule does
+  // not decode and lets through. Only where the session has a WAF and the story attacked a site from outside.
+  { id: "web_return", fits: c => !!c.stack.waf && !!webTarget(c),
+    texts: [
+      "Web team: the {path} page on {site} (server {server}) is being hit again, now from {ip}. The block on the first address held. Same attacker? Did anything get through this time?",
+      "The WAF dashboard shows a new source, {ip}, sending the same kind of requests to {site}{path} on {server} that you saw earlier. Is your containment holding?",
+      "Application owner for {site} ({server}): requests to {path} started again a few minutes ago from {ip}. Should we take the page offline?",
+    ],
+    expected: "Pivot on the site, the path and the shape of the input, not on the address: the operator came back from a new exit node with a new encoding. Block the new source, read the WAF rows that were let through and the origin's answers to them (status, size, time), check the server for anything that ran after them, and ask the owner to fix or disable the page rather than chase addresses.",
+    rows: c => {
+      const t = webTarget(c)!;
+      const ip = attackerIp(c);
+      const base = { srcIp: ip, path: t.path, method: t.method, ua: t.ua, severity: "medium" as const };
+      // The same input with every escape escaped once more (%3B -> %253B): the rule reads it once, the application twice.
+      const twice = t.query.replace(/%([0-9A-Fa-f]{2})/g, "%25$1");
+      const rows: TelemetryEvent[] = [
+        wafRequest(t.site, { ...base, id: "msel_twist_web_1", ts: c.baseTs, query: t.query, action: "block", rule: t.rule, ...(t.matched ? { matched: t.matched } : {}), ...(t.location ? { location: t.location } : {}),
+          description: `WAF rule matched a request to ${t.path}` }),
+        wafRequest(t.site, { ...base, id: "msel_twist_web_2", ts: c.baseTs, query: twice, action: "allow", status: t.status, bytes: t.bytes, description: `WAF passed a request to ${t.path}` }),
+        webAccess(t.site, { ...base, id: "msel_twist_web_3", ts: c.baseTs, query: twice, status: t.status, bytes: t.bytes, description: `Site answered a request to ${t.path}` }),
+      ];
+      return { rows, vars: { ip, site: t.site.site, path: t.path, server: t.site.host } };
+    } },
   { id: "spray_resumes", fits: (c, g) => g.failedOnly && (g.sprayed.length > 0 || !!c.assets),
     texts: [
       "Identity team: the password spray is back, now from {ip}, a source the block did not cover. {user} is among the accounts it is trying. Did anything get in?",

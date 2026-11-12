@@ -23,10 +23,13 @@ import { TWIST_KINDS, buildTwist, twistGround, type TwistCtx } from "./msel";
 import { ATTACK_STORIES } from "@/app/(app)/dashboard/attackStories";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { nativeView } from "@/lib/logs/native";
 
 const impId = ATTACK_STORIES.find(s => s.events.some(e => e.id === "evt_imp_01_baseline"))!.id;
 const EXEC_STORY = "tech-support-scam";
 const SPRAY_STORY = "nexacorp-chain-d";
+// A web injection story attacked from outside: the operator's return (web_return) lands on its own site.
+const WEB_STORY = "web-inj-cmdi-pdfexport";
 const tl = (seed: string, storyId?: string, twist?: string) => buildTeamTimeline("nexacorp", "medium", seed, storyId ?? null, teamLoad("medium", [{ role: "t1" }, { role: "t3" }]), {}, null, null, twist ? { force: { twist } } : {});
 const twistOf = (t: ReturnType<typeof tl>) => ({
   inject: t.find(e => (e.answer as { original_id?: string } | undefined)?.original_id === "msel_twist"),
@@ -98,7 +101,7 @@ describe("the twist", () => {
   it("every kind: rows backing it, one incident, after the inject, text names the ground it lands on", () => {
     const built = new Set<string>();
     for (const kind of TWIST_KINDS) {
-      for (const story of [undefined, EXEC_STORY, impId, SPRAY_STORY]) {
+      for (const story of [undefined, EXEC_STORY, impId, SPRAY_STORY, WEB_STORY]) {
         const t = tl("kinds-1", story, kind);
         const { inject, rows } = twistOf(t);
         if (!inject) continue;   // a kind this incident cannot carry is dropped, never faked
@@ -160,6 +163,30 @@ describe("the twist follows from the story's own rows", () => {
         expect(text).not.toMatch(/\\\\Users\\\\/);
         expect(text).not.toMatch(/CurrentVersion\\\\Run/);
       }
+    }
+  });
+});
+
+describe("a web story's twist: the operator returns", () => {
+  it("from a new address, blocked on the request it used, then let through double-encoded, and every row renders natively", () => {
+    for (const c of ["nexacorp", "rocketstack"]) {
+      const t = buildTeamTimeline(c, "medium", `web-return-${c}`, WEB_STORY, teamLoad("medium", [{ role: "t1" }, { role: "t3" }]), {}, null, null, { force: { twist: "web_return" } });
+      const { inject, rows } = twistOf(t);
+      expect(inject, c).toBeTruthy();
+      const bodies = rows.map(r => r.body as unknown as TelemetryEvent);
+      const own = new Set(ATTACK_STORIES.find(s => s.id === WEB_STORY)!.events.map(e => e.id));
+      const storyRows = t.filter(r => own.has(idOf(r).replace(/__\d+$/, "")));
+      expect(storyRows.length).toBeGreaterThan(5);
+      const storyIps = new Set(storyRows.map(r => (r.body as unknown as TelemetryEvent).src_ip));
+      const ip = bodies[0].src_ip!;
+      expect(storyIps.has(ip), `${c}: ${ip} is the story's own address`).toBe(false);
+      expect(String(inject!.body.text)).toContain(ip);
+      const [blocked, passed, origin] = bodies;
+      expect(blocked.event_type).toBe("waf_block");
+      expect(passed.event_type).toBe("waf_allow");
+      expect(passed.network?.url).toMatch(/%25[0-9A-F]{2}/i);
+      expect(origin.source).toBe("web_server");
+      for (const b of bodies) expect(nativeView(b, c), `${c} ${b.id}`).toBeTruthy();
     }
   });
 });

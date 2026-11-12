@@ -6114,7 +6114,7 @@ export const ROOMS_META: RoomMeta[] = [
     "difficulty": "beginner",
     "category": "Application Security",
     "estimatedMinutes": 60,
-    "xp": 335,
+    "xp": 355,
     "icon": "🌐",
     "prerequisites": [
       "networking-protocols"
@@ -6144,6 +6144,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "webapp-m1",
         "type": "matching",
         "xp": 40
+      },
+      {
+        "id": "webapp-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "webapp-q4",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "webapp-la1",
