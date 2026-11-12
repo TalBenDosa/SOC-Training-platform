@@ -1617,7 +1617,9 @@ export function EventFeed({
             {wide && <col className="w-[190px]" />}
             <col className="w-[84px]" />
           </colgroup>
-          <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
+          {/* Opaque and above the rows: source badges and tooltips in the rows are positioned
+              elements, so without a z-index they painted over the header while scrolling. */}
+          <thead className="sticky top-0 z-20 bg-bg-elevated shadow-[0_1px_0_0_rgba(148,163,184,0.25)]">
             <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
               <th className="w-6 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
