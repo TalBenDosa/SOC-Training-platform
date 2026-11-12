@@ -9,7 +9,8 @@
 // Malware never Delivered, first contact, inbound URL rows).
 import { docOwnerOfIp } from "@/lib/sim/docAddresses";
 import { describe, it, expect } from "vitest";
-import { storiesForCompany, instantiateStory, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { storiesForCompany, instantiateStory, ATTACK_STORIES, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { collectDocIps } from "@/lib/sim/variation";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
@@ -54,8 +55,14 @@ type Rec = Record<string, any>;
 describe("identity consistency across a story (runtime sessions)", { timeout: 300_000 }, () => {
   it("Okta: one client IP is one place, one network owner and one anonymizer flag - in every story", () => {
     const byIp = new Map<string, Map<string, string>>();
+    // An address the catalog or a noise pool authors is one place everywhere. An address the variation layer
+    // drew for one render (src/lib/sim/variation.ts) is one place inside that render: another render may draw
+    // it for another attacker, somewhere else.
+    const authored = new Set<string>();
+    for (const st of ATTACK_STORIES) collectDocIps(st.events, authored);
+    for (const [, pool] of COMPANIES) collectDocIps(pool, authored);
     let n = 0;
-    for (const r of runs()) for (const e of r.events) {
+    for (const [ri, r] of runs().entries()) for (const e of r.events) {
       const v = nativeView(e, r.company, r.stack);
       if (v?.log.sourceId !== "okta") continue;
       const rec = v.log.record as Rec;
@@ -64,7 +71,8 @@ describe("identity consistency across a story (runtime sessions)", { timeout: 30
       n++;
       const g = rec.client.geographicalContext;
       const key = `${g.city}/${g.country}/${rec.securityContext.isp}/AS${rec.securityContext.asNumber}/proxy=${rec.securityContext.isProxy}`;
-      (byIp.get(ip) ?? byIp.set(ip, new Map()).get(ip)!).set(key, tag(r, e));
+      const scope = authored.has(ip) ? ip : `${ip} (render ${ri})`;
+      (byIp.get(scope) ?? byIp.set(scope, new Map()).get(scope)!).set(key, tag(r, e));
     }
     expect(n).toBeGreaterThan(50);
     const split = [...byIp].filter(([, m]) => m.size > 1).map(([ip, m]) => `${ip}: ${[...m].map(([k, w]) => `${k} (${w})`).join(" | ")}`);

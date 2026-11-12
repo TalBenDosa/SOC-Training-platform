@@ -92,6 +92,8 @@ import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/comp
 import { COMPANY_PROFILES, COMPANY_ASSETS, companyHostOs, withHostOs, type HostOs, type SeatRole } from "@/lib/sim/companyProfilesMeta";
 import { hostOsFromRows } from "@/lib/sim/hostOs";
 import type { AiStoryDef } from "./ai-stories/wave2";
+import { varyAttackerInfra, collectDocIps } from "@/lib/sim/variation";
+import { streamOf } from "@/lib/team/variety";
 import { AI_CORE_STORIES } from "./ai-stories/core";
 import { AI_EXTRA_STORIES } from "./ai-stories/extra";
 import { AI_WAVE2_STORIES } from "./ai-stories/wave2";
@@ -1004,6 +1006,13 @@ const TEAM_WIDER: Record<string, string[]> = {
  */
 // webshell-rce runs its own IIS shop (WEB-SHOP-01) and its database (SQL-SHOP-02): mapped onto the company's
 // servers it landed on a file or backup server, which no web shop runs on.
+/** Every documentation address the catalog authors (variation.ts never hands one of them to another storyline). */
+let CATALOG_IPS: Set<string> | null = null;
+function catalogIps(): Set<string> {
+  if (!CATALOG_IPS) { CATALOG_IPS = new Set(); for (const st of ATTACK_STORIES) collectDocIps(st.events, CATALOG_IPS); }
+  return CATALOG_IPS;
+}
+
 const OWN_SERVERS = new Set(["nexacorp-chain-d", "webshell-rce"]);
 
 export const ATTACK_STORIES: AttackStory[] = [
@@ -1509,7 +1518,15 @@ function osFits(s: AttackStory, companyId: string): boolean {
 
 // `rnd` draws the replacement victim: the dashboard's Math.random by default; the team
 // timeline passes its seeded stream so a session seed always replays the same people.
-export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string, rnd: () => number = Math.random): AttackStory {
+/**
+ * `vary`: the variation layer's inputs (variation.ts). `seed` makes this render's attacker infrastructure
+ * deterministic (a Team session passes its own seed, so every member sees one session and two sessions
+ * differ); without one, a live rnd (Math.random) draws fresh addresses every shift, and a seeded rnd (tests,
+ * collectors) gets a fixed draw that never consumes the caller's stream. `usedIps` is shared by the
+ * storylines of one session so two of them never share an attacker address.
+ */
+export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string, rnd: () => number = Math.random,
+  vary: { seed?: string; usedIps?: Set<string> } = {}): AttackStory {
   const targetNs = edrNsOfVendor(companyEdr);
   // R7: a spray / brute-force story carries its failure burst as rows, the sprayed accounts drawn
   // from this company's people (authBursts.ts), before people and hosts are re-homed below.
@@ -1948,8 +1965,13 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     return withHostOs(adapted, companyId);
   });
 
-  // Last: one story → one set of endpoint identities (image path / hash per host, parent facts, writers, SIDs, logon ids).
-  return { ...s, events: threadEndpointStory(threadHostIps(normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents))) };
+  // One story → one set of endpoint identities (image path / hash per host, parent facts, writers, SIDs, logon ids).
+  const placed = { ...s, events: threadEndpointStory(threadHostIps(normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents))) };
+  // Last: this render's attacker infrastructure (variation.ts), so the same storyline never shows the same addresses twice.
+  // Its own stream: the swap never shifts the draws a Team session makes after this story.
+  const vrnd = vary.seed !== undefined ? streamOf(`${vary.seed}:${companyId ?? ""}`, `vary:${s.id}`)
+    : rnd === Math.random ? Math.random : streamOf(`fixed:${companyId ?? ""}`, `vary:${s.id}`);
+  return varyAttackerInfra(placed, companyPool, companyId, vrnd, { reserved: catalogIps(), used: vary.usedIps }).story;
 }
 
 /**

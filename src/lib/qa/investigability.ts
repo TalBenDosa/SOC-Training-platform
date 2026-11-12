@@ -62,9 +62,14 @@ function decodedCommands(cmd: string): string {
 }
 
 /** Attacker public IPs per story (src/dst on attack rows, internal and shared services excluded). */
+/**
+ * The attacker addresses a storyline is AUTHORED with. The reuse rule is authoring hygiene (two storylines
+ * never written with one attacker); a render draws fresh addresses every time (src/lib/sim/variation.ts) and
+ * the storylines of one session never share a drawn one, so rendered addresses are not compared here.
+ */
 function attackerIps(r: StoryRender): Set<string> {
   const ips = new Set<string>();
-  for (const e of r.events) if (isAttackRow(e)) for (const ip of [e.src_ip, e.dst_ip]) if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip) && !PRIVATE.test(ip) && !SHARED_SERVICES.test(ip) && ip !== OFFICE_DOC_EGRESS) ips.add(ip);
+  for (const e of r.story.events) if (isAttackRow(e)) for (const ip of [e.src_ip, e.dst_ip]) if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip) && !PRIVATE.test(ip) && !SHARED_SERVICES.test(ip) && ip !== OFFICE_DOC_EGRESS) ips.add(ip);
   return ips;
 }
 
