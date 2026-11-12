@@ -275,7 +275,9 @@ export type IdAction =
   | "token_create" | "token_revoke" | "token_grant" | "sso" | "session_end"
   | "password_reset" | "password_change" | "ca_policy_update" | "guest_invite" | "risk_change"
   | "rate_limit" | "directory_read"
-  | "sp_signin" | "sp_credential_add";
+  | "sp_signin" | "sp_credential_add"
+  /** A Core Directory change rendered from the authored audit (domain federation, application and user updates). */
+  | "directory_change";
 
 export type FailReason = "bad_password" | "mfa_denied" | "mfa_required" | "mfa_registration" | "ca_block" | "locked" | "disabled" | "no_user" | "expired" | "malicious_ip" | "other";
 export type MfaMethod = "push" | "totp" | "sms" | "voice" | "fido" | "token";
@@ -496,6 +498,14 @@ export function identityFacts(ev: TelemetryEvent): IdFacts | null {
   if (lop === "add member to role") return base("role_grant", ok, { nativeName: "Add member to role", roleName: rawStr(ev, "azure.role.name"),
     targetEmail: rawStr(ev, "azure.target.upn")?.toLowerCase() ?? email, email: rawStr(ev, "azure.actor.upn")?.toLowerCase() ?? email });
   if (lop === "add member to group") return base("group_add", ok, { nativeName: "Add member to group" });
+  // Directory changes whose record is the authored audit itself (target, modified properties): a domain's
+  // federation settings and authentication, an application update (a federated identity credential), a user
+  // update that is not a security-info change (handled above).
+  const dirOp = op.replace(/\.$/, "");
+  if (/^(set federation settings on domain|set domain authentication|update application|update user|update domain)$/i.test(dirOp) && rawStr(ev, "azure.auditlogs.operationName")) {
+    return base("directory_change", ok, { nativeName: dirOp, email: rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.userPrincipalName")?.toLowerCase() ?? email,
+      targetEmail: rawStr(ev, "azure.auditlogs.properties.targetResources[0].userPrincipalName")?.toLowerCase() });
+  }
 
   // 3) Entra-authored sign-ins (signinlogs / UAL logon / shorthand)
   const isSignin = /^(userloggedin|userloginfailed|sign-in activity)$/.test(lop) || rawAny(ev, "azure.signinlogs.resultType", "azure.signinlogs.properties.id", "azure.signinlogs.user_principal_name",

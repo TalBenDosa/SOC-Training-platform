@@ -237,7 +237,9 @@ describe("no answer in the shape", () => {
   it("a ticket nearby does not mark a false positive; attacks open with tickets nearby too; some tickets do not cover", () => {
     // (a covering ticket is always BEFORE its alert, at a varied distance: far tickets are counted by number)
     let fpWithTicketJustBefore = 0, fpAlerts = 0, attackOpeningsWithTicket = 0, openings = 0, misses = 0, farTickets = 0;
-    for (let i = 0; i < 16; i++) {
+    // 32 sessions: a miss needs both the 35% draw and a maker that can author one in the session, so 16 sessions
+    // could pass with none once the story catalog grew (cloud round, 2026-11-13).
+    for (let i = 0; i < 32; i++) {
       const { tl } = build(i % 2 ? "nexacorp" : "medcore", `shape-${i}`, {}, {}, "hard");
       const feed = tl.filter(e => e.channel === "feed");
       const isTicket = (e?: TimelineEntry) => !!e && e.body.source === "soar";

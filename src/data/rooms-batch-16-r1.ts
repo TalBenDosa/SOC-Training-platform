@@ -139,8 +139,8 @@ const azureSecurityRoom = {
     "Learn to investigate Microsoft Azure's cloud infrastructure layer as a SOC analyst, beyond Entra ID sign-ins and M365 mailboxes. Cover Azure's resource model (subscriptions, resource groups, RBAC role assignments, managed identities, service principals), the Azure Activity Log as the control-plane audit trail, Network Security Groups and NSG Flow Logs, Key Vault secret access, Storage Account exposure and SAS token abuse, VM run-command abuse, and Microsoft Defender for Cloud with Azure Monitor/Log Analytics (KQL) as the detection surface. Azure concepts are mapped throughout against the AWS and GCP equivalents you may already know.",
   difficulty: "intermediate" as const,
   category: "Cloud Security",
-  estimatedMinutes: 70,
-  xp: 345,
+  estimatedMinutes: 100,
+  xp: 425,
   icon: "🔷",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [
@@ -348,6 +348,54 @@ const azureSecurityRoom = {
       xp: 20,
     },
 
+    // ── Reading 9: device code phishing ────────────────────────────────────────────
+    {
+      "type": "reading",
+      "id": "azure-r9",
+      "heading": "Device Code Phishing: When the Victim Signs In on the Real Microsoft Page",
+      "content": "Device code phishing abuses the OAuth 2.0 device authorization grant, the sign-in flow built for devices with no keyboard (a TV, a Teams Rooms panel, a command-line tool on a headless server), to make a person approve a sign-in that the attacker started.\nBy the end of this reading you can find a device-code sign-in in the Entra ID sign-in log, tell an attacker's token redemption from the user's own sign-in, and name the legitimate devices that use the same flow.\n\n### How the flow works, and where the attacker sits\n\n1. A client asks Entra ID for a device code for a chosen app (Microsoft Office, Azure CLI, Microsoft Authentication Broker). Entra returns a short user code and polls for approval.\n2. Someone opens the real device login page, types the code, and signs in with password and MFA.\n3. The client that asked for the code (not the browser that approved it) receives the access and refresh tokens.\n\nIn the attack, step 1 is run by the attacker, and the code reaches the victim inside a lure: a meeting invite, a chat message from a fake colleague, a voice call from 'IT'. The victim's sign-in is genuine, on a Microsoft page, from the office, with MFA, so nothing about it looks wrong. The tokens land on the attacker's machine. Microsoft tracked this pattern as Storm-2372 in 2025.\n\n### What the logs show\n\n- **SigninLogs, the victim's interactive sign-in:** `authenticationProtocol` = `deviceCode`, the app the attacker chose in `appDisplayName`, MFA satisfied, the office address. For most users this is the first deviceCode sign-in they have ever had.\n- **AADNonInteractiveUserSignInLogs, the redemption:** seconds later, the same `sessionId` and app from a different address and user agent (python-requests, a Linux Azure CLI, a hosting provider ASN). The refresh token keeps working from there.\n- **What the token reaches** depends on the app picked: Microsoft Office gives SharePoint and Exchange (FileDownloaded, MailItemsAccessed from the new address); Azure CLI gives Azure Resource Manager (listKeys, snapshot beginGetAccess in the Activity Log); the Authentication Broker can register a device and obtain a Primary Refresh Token.\n\n### Legitimate look-alikes\n\nTeams Rooms panels and other shared devices are paired with device code by design, and administrators run `az login --use-device-code` on jump hosts without a browser. Those sign-ins come from managed, compliant devices, from known accounts (room resource accounts, admins), and never have a second address in the same session.\n\n### Detection and response\n\nAlert on a deviceCode sign-in followed within minutes by a sign-in in the same session from another network, and on deviceCode sign-ins by users outside a short allowlist. The strongest control is a Conditional Access policy that blocks the device code flow (the authentication flows condition) for everyone except the devices that need it. On a confirmed case: revoke the user's sessions and refresh tokens, reset the password, remove any device the attacker registered, and review what the token touched from the second address."
+    },
+
+    // ── Question 4 ────────────────────────────────────────────
+    {
+      "type": "question",
+      "id": "azure-q4",
+      "question": "A user's Entra sign-in log shows an interactive sign-in to Microsoft Office from the office address with authenticationProtocol deviceCode and MFA satisfied. Twelve seconds later a non-interactive sign-in with the same sessionId and app comes from a hosting provider with the user agent python-requests, and SharePoint FileDownloaded events follow from that address. What is the most accurate reading?",
+      "options": [
+        "Device code phishing: the user approved a code the attacker requested, and the attacker's client received the tokens",
+        "A password spray that succeeded, since the second sign-in comes from a hosting provider",
+        "Normal refresh-token traffic from the Office desktop app, which often uses a cloud proxy address",
+        "A Teams Rooms panel being re-paired, which always uses the device code flow"
+      ],
+      "answer": 0,
+      "explanation": "The user's own sign-in is genuine (the office, MFA, the real page), and the tokens it produced are being used from a different network and client in the same session seconds later: that split is the signature of a device code the attacker requested. A password spray shows failed sign-ins and no MFA from the user's own network. The Office desktop app refreshes tokens from the device it runs on, not from a hosting provider with python-requests. A Teams Rooms panel signs in with its room resource account on a managed device, not with a person's account followed by downloads.",
+      "xp": 20
+    },
+
+    // ── Reading 10: federation backdoors ────────────────────────────────────────────
+    {
+      "type": "reading",
+      "id": "azure-r10",
+      "heading": "Federation Backdoors: When the Tenant Starts Trusting Someone Else's Tokens",
+      "content": "A federation backdoor is a change to how Entra ID trusts an outside identity provider, so that tokens the attacker signs are accepted as real sign-ins: a domain switched to federated with an attacker's issuer, new token-signing settings on a federated domain, or a federated identity credential added to an app registration.\nBy the end of this reading you can read the directory audit records of these changes, link them to the sign-ins that follow, and tell them from routine certificate rollovers and pipeline migrations.\n\n### Why it is so powerful\n\nWhen a domain is federated, Entra ID does not check the password: it accepts a SAML or WS-Federation token signed by the issuer configured for that domain. An attacker who can set that issuer (Global Administrator or Hybrid Identity Administrator) can mint a token for any user of the domain, with any claim, including the claim that MFA was done. This is the cloud form of Golden SAML, and Microsoft described Storm-0501 adding its own federated domain in 2025 to sign in as any user. A federated identity credential on an app registration does the same for a workload: the app accepts tokens from a named outside issuer (GitHub Actions, another cloud) for a named subject, with no secret to steal or rotate.\n\n### The records to read\n\n- **AuditLogs, `Set federation settings on domain`:** modified property `IssuerUri` (and the signing certificate) on a domain. The new issuer is the key: is it the company's AD FS name or an unknown host?\n- **AuditLogs, `Set domain authentication`:** a domain moved between Managed and Federated (`LiveType`).\n- **AuditLogs, `Update application` with `FederatedIdentityCredentials` in modified properties:** the issuer and the `subject` (for GitHub, `repo:<org>/<repo>:...`). A subject outside the company's own organization is the red flag.\n- **SigninLogs after the change:** `tokenIssuerType` ADFSFederated with the new issuer name, and authentication details saying MFA was satisfied by a claim in the token, often from an address the user never used. For an app: service principal sign-ins with `clientCredentialType` federatedIdentityCredential, then what the app reads (MailItemsAccessed by the app id, for example).\n\n### Legitimate look-alikes\n\nAD FS token-signing certificates roll over every year, which writes `Set federation settings on domain` with the company's own issuer, from the identity team, under a change. Moving a pipeline to workload identity federation adds a credential whose subject is the company's own repository and branch.\n\n### Detection and response\n\nTreat any change to federation settings, domain authentication type or federated identity credentials as high severity until the issuer and subject are confirmed as the company's own. Response: revert the domain to its known issuer (or to managed), remove the credential, review every sign-in that came through the rogue issuer, and review who holds the roles that can make these changes."
+    },
+
+    // ── Question 5 ────────────────────────────────────────────
+    {
+      "type": "question",
+      "id": "azure-q5",
+      "question": "At 23:14 the audit log shows 'Set federation settings on domain' for partners.example.com with IssuerUri set to an unknown host, made by a Global Administrator signed in from a hosting provider. Twenty minutes later a user of that domain signs in to Exchange Online with tokenIssuerType ADFSFederated naming the same unknown issuer, MFA satisfied by a claim in the token. What happened, and what is the first containment step?",
+      "options": [
+        "A federation backdoor: restore the domain's known issuer (or set it to managed) before anything else, then review the sign-ins it allowed",
+        "A token-signing certificate rollover that ran late: confirm the change ticket and close",
+        "Password spraying against the federated domain: reset the user's password first",
+        "An MFA fatigue attack, since MFA was satisfied without a prompt: block the user's phone number"
+      ],
+      "answer": 0,
+      "explanation": "The issuer was changed to a host the company does not run, by an administrator signed in from a hosting provider, and a token signed by that issuer was then accepted with MFA claimed inside it: the tenant now trusts the attacker's tokens for every user of that domain. Resetting a password does nothing against forged tokens, because the password is never checked, so the trust itself must be removed first. A certificate rollover keeps the company's own issuer name. MFA fatigue leaves push prompts and denials in the sign-in log, not an MFA claim from a foreign issuer.",
+      "xp": 20
+    },
+
     // ── Reading 4: NSGs, NSG Flow Logs, Storage exposure, SAS tokens ────────
     {
       type: "reading" as const,
@@ -479,6 +527,54 @@ const azureSecurityRoom = {
       explanation:
         "Broad, read-only enumeration across many unrelated resource types, especially from an identity whose normal behavior is narrow and predictable, is a textbook reconnaissance signature: the cloud equivalent of an attacker who has gained a foothold running 'whoami' and mapping out what they can reach before taking further action. It should not be dismissed just because the individual calls are read-only; the anomaly is in the pattern and deviation from baseline, not any single call.",
       xp: 25,
+    },
+
+    // ── Reading 11: Automation runbook persistence ────────────────────────────────────────────
+    {
+      "type": "reading",
+      "id": "azure-r11",
+      "heading": "Automation Runbooks as Persistence: Code That Runs Itself Later",
+      "content": "Azure Automation runs PowerShell or Python runbooks under the Automation account's managed identity, on a schedule, through a webhook URL, or on demand, and attackers use it to plant code that re-creates their access long after the session that planted it has been cleaned up.\nBy the end of this reading you can list the Activity Log operations that create this kind of persistence, read what a job did through its managed identity, and tell an attacker's runbook from the operations team's routine ones.\n\n### Why attackers like it\n\n- The runbook runs as the account's managed identity, which often holds broad rights (Contributor on a subscription, sometimes an Entra role) because it was built for maintenance.\n- A webhook is a URL with a secret token in it: anyone who holds it can start the runbook from anywhere, with no sign-in at all.\n- A schedule re-runs the code every hour or day, so removing the attacker's account or rule is undone at the next run.\n\n### The Activity Log trail\n\n- `Microsoft.Automation/automationAccounts/runbooks/write` and `runbooks/publish/action`: a new or changed runbook (draft, then published).\n- `webhooks/write`: a webhook created, often with an expiry years away.\n- `schedules/write` and `jobSchedules/write`: a schedule created and linked to a runbook.\n- `jobs/write`: a job started (by a person, a schedule or a webhook).\n- Then the job's effects, made by the managed identity: role assignments, network security rules, `Add service principal credentials` in the Entra audit log, storage keys listed. These carry the managed identity as caller, so the human behind them is in the earlier runbook and webhook writes.\n\n### What to compare against\n\nOperations teams write runbooks too: VM start and stop schedules, log rotation, certificate checks. Theirs are written by named people from the office, under change tickets, with names that match what the code does, and their jobs touch the resources they were built for. The attacker's are written by an identity at an odd hour from an outside address, and the job's effect (a secret on an unrelated app, a firewall rule re-created on the hour after it was deleted) has nothing to do with the runbook's name.\n\n### Response\n\nUnlink the schedule and delete the webhook first, so the code cannot run again, then export the runbook for evidence and delete it. Undo what each job changed (list the managed identity's operations since the runbook was written), and review whether the managed identity needs the rights it has."
+    },
+
+    // ── Question 6 ────────────────────────────────────────────
+    {
+      "type": "question",
+      "id": "azure-q6",
+      "question": "The security team deletes a network rule that allowed RDP from an outside address. At the top of the next hour the Activity Log shows the same rule written again, with the caller being the managed identity of an Automation account. Two days earlier a service principal created a runbook, a schedule named hourly-health and a jobSchedule in that account from a hosting provider. What should be contained first?",
+      "options": [
+        "The schedule and its runbook in the Automation account, because they re-create the rule every hour",
+        "The network rule, by deleting it again and adding a deny rule above it",
+        "The managed identity, by deleting the Automation account's identity outright before looking at the runbook",
+        "Nothing yet: managed identity callers are Azure platform activity and not under the tenant's control"
+      ],
+      "answer": 0,
+      "explanation": "The rule comes back because a scheduled runbook writes it every hour as the account's managed identity, so the persistence lives in the schedule and the runbook, not in the rule. Deleting the rule again only lasts until the next run. Deleting the identity first would also break the account's legitimate runbooks and destroy context before the runbook is exported as evidence; unlinking the schedule stops the loop cleanly. A managed identity acts on behalf of a resource the tenant owns, here a runbook someone wrote, so its calls are very much in scope.",
+      "xp": 20
+    },
+
+    // ── Reading 12: Function App deployment credentials ────────────────────────────────────────────
+    {
+      "type": "reading",
+      "id": "azure-r12",
+      "heading": "Function App Takeover Through Deployment Credentials and Publish Profiles",
+      "content": "An App Service or Function App can be taken over without touching its code repository, by using its deployment credentials: the publish profile (an XML file with the app's deployment user name and password), the basic publishing credentials of its SCM (Kudu) site, or a function key.\nBy the end of this reading you can recognise the control-plane operations that hand out these credentials, link them to the app's managed identity being used from outside Azure, and separate them from a developer's normal deployment work.\n\n### The credentials and the operations that expose them\n\n- `Microsoft.Web/sites/publishxml/action`: downloads the publish profile. Anyone holding it can push code with zip deploy or FTP, as long as basic authentication is allowed on the app.\n- `Microsoft.Web/sites/config/list/action` on `publishingcredentials`: returns the same deployment user name and password.\n- `Microsoft.Web/sites/basicPublishingCredentialsPolicies/write`: turns basic authentication for SCM or FTP back on. Many companies switch it off by policy, so turning it on is itself a signal.\n- `Microsoft.Web/sites/host/functionKeys/write` (or the host keys): a new key that lets an outsider call a function.\n- `Microsoft.Web/sites/config/write` on appsettings (for example WEBSITE_RUN_FROM_PACKAGE pointing to an outside URL), `syncfunctiontriggers/action` after new code is pushed, and `restart/action`.\n\nThe code push itself (zip deploy through Kudu) is not in the Activity Log: it is in the app's own logs (AppServiceAuditLogs records publishing logins). So the Activity Log shows the setup and the restart around it.\n\n### Why the managed identity matters\n\nCode running in the app can ask the app's identity endpoint for a token for Azure Resource Manager, Key Vault or Graph, and send it out. That token then works from anywhere until it expires (about an hour, refreshed as long as the code keeps running). The tell in the Activity Log is a call by the app's managed identity (its principal, with no human caller) from an address outside Azure's ranges: listKeys on a storage account, a role assignment, a key regenerated.\n\n### Legitimate look-alikes\n\nDevelopers download publish profiles to set up deployment tools and slots, from the office, during the working day, for apps they deploy. The app's identity calls Resource Manager all day, but always from the app's own Azure outbound addresses.\n\n### Response\n\nReset the publishing credentials (resetting the publish profile changes the password), switch basic authentication off again, delete unknown function keys, redeploy the app from the trusted pipeline, and review everything the managed identity did from outside Azure: undo role assignments, rotate any storage key it listed."
+    },
+
+    // ── Question 7 ────────────────────────────────────────────
+    {
+      "type": "question",
+      "id": "azure-q7",
+      "question": "An Activity Log shows 'Microsoft.Web/sites/publishxml/action' on a Function App by a marketing user signed in from a hosting provider, then an application settings write and a restart. Twenty minutes later the app's managed identity calls 'listKeys' on a storage account from an address outside Azure. Which statement best explains the second event?",
+      "options": [
+        "Code pushed with the downloaded publish profile took a token from the app's identity endpoint and used it from the attacker's machine",
+        "The managed identity's secret was stored in the publish profile, so the attacker signed in as the identity directly",
+        "Managed identities always call Resource Manager from Microsoft's own addresses, so the outside address must be a logging error",
+        "The restart rotated the identity, and the new identity is listing keys as part of normal start-up"
+      ],
+      "answer": 0,
+      "explanation": "A managed identity has no secret to download: its tokens are handed to code running inside the app through the identity endpoint. The publish profile let the attacker push that code, and the token it obtained was then used from outside Azure, which is why the caller is the identity but the address is not the app's. A publish profile carries deployment credentials only. Managed identity calls normally come from the app's Azure outbound addresses, so an outside address is the evidence, not an error. A restart does not create a new identity, and apps do not list storage keys on start-up.",
+      "xp": 20
     },
 
     // ── Reading 8: Containment actions once identity compromise is confirmed ─

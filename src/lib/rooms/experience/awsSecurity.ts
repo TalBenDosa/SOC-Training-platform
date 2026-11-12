@@ -79,7 +79,7 @@ export const AWS_SECURITY: RoomExperience = {
       topic: "Logging calls · what each one stops · crypto-mining on stolen compute · defensive controls",
       tagline: "Something just went quiet",
       building: "control",
-      taskIds: ["aws-la-stoplogging", "aws-f1", "aws-r6"],
+      taskIds: ["aws-la-stoplogging", "aws-f1", "aws-r6", "aws-r8", "aws-q4"],
     },
     {
       id: "root",
@@ -95,6 +95,7 @@ export const AWS_SECURITY: RoomExperience = {
     "aws-q1": { name: "Eun-ji Falk", role: "Cloud Incident Responder", line: "Legal wants to know what that log can prove. Think before you answer." },
     "aws-q3": { name: "Eun-ji Falk", role: "Cloud Incident Responder", line: "Two versions of one policy. Tell me how you'd log the change." },
     "aws-q2": { name: "Eun-ji Falk", role: "Cloud Incident Responder", line: "The call went through. Say what it did, in plain words." },
+    "aws-q4": { name: "Eun-ji Falk", role: "Cloud Incident Responder", line: "Two calls, two accounts, twenty minutes apart. What did we just lose?" },
     "aws-m1": { name: "Eun-ji Falk", role: "Cloud Incident Responder", line: "A new responder starts Monday. Draw them the map." },
     "aws-la1": { name: "Eun-ji Falk", role: "Cloud Incident Responder", line: "An old case of mine. Take the fields in order." },
     "aws-la2": { name: "Eun-ji Falk", role: "Cloud Incident Responder", line: "Same night, same case. Keep reading." },

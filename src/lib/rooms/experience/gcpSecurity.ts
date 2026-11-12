@@ -92,7 +92,7 @@ export const GCP_SECURITY: RoomExperience = {
       topic: "The triage workflow · who asked for a key · lateral chains · containing a compromised identity",
       tagline: "Go back before the record you started from",
       building: "ticket",
-      taskIds: ["gcp-r5", "gcp-la-sakey", "gcp-f1", "gcp-r6", "gcp-r7"],
+      taskIds: ["gcp-r5", "gcp-la-sakey", "gcp-f1", "gcp-r6", "gcp-r8", "gcp-q4", "gcp-r9", "gcp-q5", "gcp-r7"],
       boss: true,
     },
   ],
@@ -106,6 +106,8 @@ export const GCP_SECURITY: RoomExperience = {
     "gcp-ac1": { name: "Rashid Lundqvist", role: "GCP Security Engineer", line: "Next morning, same desk. Another alert. Your call." },
     "gcp-la-sakey": { name: "Rashid Lundqvist", role: "GCP Security Engineer", line: "NexaCorp found one more entry from that night. Read it." },
     "gcp-f1": { name: "Rashid Lundqvist", role: "GCP Security Engineer", line: "One name, exactly as logged." },
+    "gcp-q4": { name: "Rashid Lundqvist", role: "GCP Security Engineer", line: "No admin role, and still admin power. Explain it to me." },
+    "gcp-q5": { name: "Rashid Lundqvist", role: "GCP Security Engineer", line: "The board wants a list of what was taken. What can you honestly give them?" },
   },
   briefings: {
     // ── Reading 1: the tree, and the service names ──

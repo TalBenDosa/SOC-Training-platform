@@ -197,6 +197,20 @@ function buildNative(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     };
   }
   if (method === "GenerateAccessToken" && saEmail) protoPayload.metadata = { identityDelegationChain: [`projects/-/serviceAccounts/${saEmail}`] };
+  // The authored per-service detail: a SetIamPolicy's binding deltas (serviceData.policyDelta, the grant itself),
+  // the request body (metadata items, a sink or exclusion filter, publicAccessPrevention, the runtime service
+  // account, extract destination URIs) and the service metadata (BigQuery job details).
+  const deltas: Record<string, unknown>[] = [];
+  for (let i = 0; i < 10; i++) {
+    const k = `gcp.audit.service_data.policy_delta.binding_deltas[${i}].`;
+    const role = rs(raw, `${k}role`), member = rs(raw, `${k}member`);
+    if (role || member) deltas.push({ action: rs(raw, `${k}action`) ?? "ADD", role, member });
+  }
+  if (deltas.length) protoPayload.serviceData = { "@type": "type.googleapis.com/google.iam.v1.logging.AuditData", policyDelta: { bindingDeltas: deltas } };
+  const req = nestedFrom(raw, "gcp.audit.request.", ["private_key_type", "scope"]);
+  if (req) protoPayload.request = { ...((protoPayload.request as Record<string, unknown> | undefined) ?? {}), ...req };
+  const meta = nestedFrom(raw, "gcp.audit.metadata.");
+  if (meta) protoPayload.metadata = { ...((protoPayload.metadata as Record<string, unknown> | undefined) ?? {}), ...meta };
 
   const record: Record<string, unknown> = {
     insertId: ctx.hex(ev.id + ":insert", 12),
@@ -208,6 +222,29 @@ function buildNative(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     timestamp: microTs(ev.ts, ctx, ev.id + ":ts", 9),
   };
   return { sourceId: "gcp_audit", kind: "AuditLog", format: "json", record, timeMs: Date.parse(ev.ts) };
+}
+
+/**
+ * The authored keys under one prefix as the nested object the audit log carries: "items[0].key" becomes
+ * { items: [{ key }] }. Null when the event authors none.
+ */
+function nestedFrom(raw: Record<string, unknown> | undefined, prefix: string, skip: string[] = []): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {};
+  let any = false;
+  for (const [k, v] of Object.entries(raw ?? {})) {
+    if (!k.startsWith(prefix) || v === undefined || v === null || v === "") continue;
+    const path = k.slice(prefix.length);
+    if (skip.includes(path)) continue;
+    const parts: (string | number)[] = path.split(".").flatMap(p => { const m = /^([^[]+)\[(\d+)\]$/.exec(p); return m ? [m[1], Number(m[2])] : [p]; });
+    let node: Record<string | number, unknown> = out;
+    parts.forEach((part, i) => {
+      if (i === parts.length - 1) { node[part] = v; return; }
+      if (node[part] === undefined) node[part] = typeof parts[i + 1] === "number" ? [] : {};
+      node = node[part] as Record<string | number, unknown>;
+    });
+    any = true;
+  }
+  return any ? out : null;
 }
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {

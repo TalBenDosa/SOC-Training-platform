@@ -45,11 +45,28 @@ export function buildFittedTimeline(args: {
   load: TeamLoad; stack?: BuildArgs[5]; tenant?: BuildArgs[6]; env?: BuildArgs[7]; opts?: BuildArgs[8];
   roster: { role: string; status?: string }[];
 }): { timeline: Timeline; load: TeamLoad; workload: WorkloadPreview; variety: VarietyRecord | null } {
+  const first = fitOnce(args, args.seed);
+  // 3. An automatic plan (no storyline the admin pinned) whose drawn storyline alone still overloads Tier-1 at the
+  //    noise floor: draw another storyline and keep the first that fits, else the lightest. A chosen storyline is
+  //    never swapped (a chosen attack always happens).
+  const overOf = (w: WorkloadPreview) => (w.tier1.pct ?? 0) > TIER1_TARGET;
+  if (!overOf(first.workload) || lastPinned(args.slots) > 0) return first;
+  let best = first;
+  for (let k = 1; k <= 4; k++) {
+    const next = fitOnce(args, `${args.seed}~fit${k}`);
+    if ((next.workload.tier1.pct ?? 0) < (best.workload.tier1.pct ?? 0)) best = next;
+    if (!overOf(next.workload)) break;
+  }
+  if (best !== first) args.opts?.onVariety?.(best.variety as VarietyRecord);
+  return best;
+}
+
+function fitOnce(args: Parameters<typeof buildFittedTimeline>[0], seed: string): { timeline: Timeline; load: TeamLoad; workload: WorkloadPreview; variety: VarietyRecord | null } {
   let load = args.load;
   // What the LAST build drew (variety.ts): the start route stores it for the organization's memory.
   let variety: VarietyRecord | null = null;
-  const build = (l: TeamLoad) => buildTeamTimeline(args.companyId, args.difficulty, args.seed, args.slots, l, args.stack ?? {}, args.tenant ?? null, args.env ?? null,
-    { ...(args.opts ?? {}), onVariety: r => { variety = r; args.opts?.onVariety?.(r); } });
+  const build = (l: TeamLoad) => buildTeamTimeline(args.companyId, args.difficulty, seed, args.slots, l, args.stack ?? {}, args.tenant ?? null, args.env ?? null,
+    { ...(args.opts ?? {}), onVariety: r => { variety = r; } });
   let timeline = build(load);
   let workload = measureWorkload(timeline, load, args.roster);
   const over = () => (workload.tier1.pct ?? 0) > TIER1_TARGET;

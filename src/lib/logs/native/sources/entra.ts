@@ -455,6 +455,36 @@ function rawModified(ev: TelemetryEvent): Record<string, unknown>[] {
 }
 
 /**
+ * A Core Directory change carried as authored: the activity, its category and service, the target object (a
+ * domain, an application, a user) and the properties it changed. Set federation settings on domain records the
+ * new IssuerUri / signing certificate; Update application a FederatedIdentityCredentials change; Update user a
+ * UserPrincipalName change.
+ */
+const DIR_CHANGE: Record<string, { category: string; operationType: string }> = {
+  "Set federation settings on domain": { category: "DirectoryManagement", operationType: "Update" },
+  "Set domain authentication": { category: "DirectoryManagement", operationType: "Update" },
+  "Update domain": { category: "DirectoryManagement", operationType: "Update" },
+  "Update application": { category: "ApplicationManagement", operationType: "Update" },
+  "Update user": { category: "UserManagement", operationType: "Update" },
+};
+function directoryChangeAudit(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | null {
+  const activity = Object.keys(DIR_CHANGE).find(k => k.toLowerCase() === (f.nativeName ?? "").toLowerCase());
+  const actor = rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.userPrincipalName");
+  if (!activity || !actor) return null;
+  const spec = DIR_CHANGE[activity];
+  const t = "azure.auditlogs.properties.targetResources[0].";
+  const type = rawStr(ev, `${t}type`) ?? (/domain/i.test(activity) ? "Domain" : activity === "Update application" ? "Application" : "User");
+  const upn = rawStr(ev, `${t}userPrincipalName`);
+  const name = rawStr(ev, `${t}displayName`) ?? null;
+  const target = type === "User" && upn ? userTarget(ctx, upn, rawModified(ev), name)
+    : { id: rawStr(ev, `${t}id`) ?? ctx.uuid(`${ctx.companyId}:entra-${type.toLowerCase()}:${name ?? activity}`), displayName: name, type, userPrincipalName: null, groupType: null, modifiedProperties: rawModified(ev) };
+  return renderAudit(ev, ctx, f, {
+    activity, category: rawStr(ev, "azure.auditlogs.properties.category") ?? spec.category, service: "Core Directory", operationType: spec.operationType,
+    initiator: { upn: actor, ip: rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.ipAddress") ?? f.ip }, targets: [target], additional: uaDetail(ev),
+  });
+}
+
+/**
  * Device registration flow: Register device (Device Registration Service), then Add registered owner to
  * device (Core Directory), one correlationId across them. Operation names as read by Elastic's Entra
  * device registration rules; the additional details hold the device facts and the user agent.
@@ -638,6 +668,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     }
     case "sp_signin": return renderSpSignIn(ev, ctx, f);
     case "sp_credential_add": return spCredentialAudit(ev, ctx, f);
+    case "directory_change": return directoryChangeAudit(ev, ctx, f);
     case "token_grant": case "sso": {
       const upn = upnOf(ev, ctx, f);
       return upn ? renderSignIn(ev, ctx, { ...f, mfaUsed: true, mfaMethod: "token" }, upn, { code: 0, interactive: f.action === "sso", appName: f.appName }) : null;

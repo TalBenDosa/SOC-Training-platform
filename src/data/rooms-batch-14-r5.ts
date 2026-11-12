@@ -206,8 +206,8 @@ const gcpRoom = {
     "Learn how to investigate Google Cloud Platform environments as a SOC analyst. Cover GCP's core building blocks (projects, resources, Cloud IAM, service accounts), the essential services (Compute Engine, Cloud Storage, VPC), how Cloud Audit Logs record every action across Admin Activity and Data Access logs, Security Command Center as GCP's built-in threat detector, and the most common real-world GCP attacks: over-privileged service accounts, stolen service-account keys, public Cloud Storage buckets, IAM privilege escalation via SetIamPolicy, metadata-server credential theft, and crypto-mining on Compute Engine. Throughout, GCP concepts are contrasted with their closest AWS equivalents to build on knowledge you may already have.",
   difficulty: "intermediate" as const,
   category: "Cloud Security",
-  estimatedMinutes: 70,
-  xp: 345,
+  estimatedMinutes: 84,
+  xp: 385,
   icon: "🌐",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [
@@ -791,6 +791,116 @@ const gcpRoom = {
         "DIFFERENT service account than the caller = automatic\n" +
         "HIGH/CRITICAL severity, investigate immediately.\n" +
         "=======================================================",
+    },
+
+    // ── Reading 8: Escalation and persistence through the control plane ─────
+    {
+      type: "reading" as const,
+      id: "gcp-r8",
+      heading: "Running Code as Someone Stronger: actAs Deployments, Startup Scripts and Project SSH Keys",
+      content:
+        `GCP's control plane can run code for you, and every way it does so carries an identity: the service account a Cloud Run service or a Cloud Function runs as, and the root account a VM's startup script runs as. This reading teaches you to recognise, in Cloud Audit Logs, when an attacker uses those mechanisms to act with more privilege than the account they stole, or to keep a way back into the VMs.\n\n` +
+        `**1. Deploying as a stronger service account (iam.serviceAccounts.actAs)**\n\n` +
+        `When you deploy a Cloud Run service (methodName google.cloud.run.v2.Services.CreateService, serviceName run.googleapis.com) or a Cloud Function (google.cloud.functions.v2.FunctionService.CreateFunction, serviceName cloudfunctions.googleapis.com), you name the service account it runs as, and GCP checks one permission on that account: iam.serviceAccounts.actAs, granted by the role Service Account User. Whoever holds actAs on an account can deploy code that runs as it. If an engineer, or a release account, holds actAs on a powerful account (an admin used by a pipeline, a warehouse administrator), stealing that engineer's session or the release key is enough to run code with the powerful account's rights. The code reads the account's token from the metadata server, and the token is then used wherever the attacker likes. Because a deployed revision runs as that account, the later calls in the audit log carry the strong account as principalEmail, not the stolen one.\n\n` +
+        `What to read: the CreateService or CreateFunction entry names the runtime account in its request (service.template.service_account for Cloud Run, function.service_config.service_account_email for Functions). Compare it with the account that service has always run as. Then follow the runtime account: a CreateServiceAccountKey on itself, a SetIamPolicy, or Secret Manager and BigQuery reads called from an address outside Google's serving range, minutes after a deployment, mean the token left the service. A short-lived function (created, used, then DeleteFunction within the hour) is the same move with the evidence cleaned up.\n\n` +
+        `**2. Startup scripts (compute.instances.setMetadata)**\n\n` +
+        `A VM runs the metadata key startup-script (or startup-script-url) as root at every boot, through the guest agent's google_metadata_script_runner. The change is one Admin Activity entry: methodName v1.compute.instances.setMetadata, serviceName compute.googleapis.com, permission compute.instances.setMetadata, the instance as the resource and the key name in the request. An attacker who can set metadata usually follows it with v1.compute.instances.reset to run the script now. On the VM, the EDR then shows google_metadata_script_runner as the parent of whatever the script does: a download with curl, a new systemd unit, a binary in /var/tmp. A startup script set by a person from the console or gcloud, on a VM whose scripts the infrastructure repository otherwise manages, is the anomaly; Terraform from the CI runners is the normal case.\n\n` +
+        `**3. Project-wide SSH keys (setCommonInstanceMetadata)**\n\n` +
+        `The project metadata key ssh-keys is copied to every VM that does not enforce OS Login. One entry, v1.compute.projects.setCommonInstanceMetadata with the key ssh-keys, can therefore open SSH to dozens of machines for a user name that exists nowhere else. The tell is that pair: the metadata change in the audit log, and sshd sessions for a new local user on several VMs right after. OS Login (enable-oslogin set to TRUE) ties SSH to IAM identities and makes metadata keys ignored, which is why turning it on is also the fix.\n\n` +
+        `**False positives**\n\n` +
+        `Release pipelines legitimately deploy as their own runtime accounts every day, and configuration management sets startup scripts on new VMs. What separates them is the caller (the CI account from the runners' address, through Terraform or a pipeline's gcloud run deploy), the target identity (the same narrow runtime account as every previous revision) and a change record. A person's session from a hosting address, a runtime account that never ran that service before, or an image from a registry outside the company's projects are what the SOC escalates.`,
+      codeExample:
+        "WHAT TO PULL FROM THE AUDIT LOG\n" +
+        "=======================================================\n" +
+        "Deploy as another account:\n" +
+        "  methodName=google.cloud.run.v2.Services.CreateService\n" +
+        "    request.service.template.service_account = ?\n" +
+        "  methodName=google.cloud.functions.v2.FunctionService.CreateFunction\n" +
+        "    request.function.service_config.service_account_email = ?\n" +
+        "  Then: that account calling CreateServiceAccountKey /\n" +
+        "    SetIamPolicy / AccessSecretVersion from an outside callerIp\n" +
+        "\n" +
+        "Startup script:\n" +
+        "  methodName=v1.compute.instances.setMetadata  (key startup-script)\n" +
+        "  methodName=v1.compute.instances.reset        (run it now)\n" +
+        "  EDR: google_metadata_script_runner -> curl / systemd unit\n" +
+        "\n" +
+        "Project SSH key:\n" +
+        "  methodName=v1.compute.projects.setCommonInstanceMetadata\n" +
+        "    (key ssh-keys)\n" +
+        "  EDR: sshd sessions for a new local user on several VMs\n" +
+        "=======================================================",
+    },
+
+    // ── Question: actAs escalation ──────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "gcp-q4",
+      question:
+        "An engineer's Okta session signs in from a hosting provider. Six minutes later the audit log shows google.cloud.run.v2.Services.CreateService by that engineer for a new service whose request names deploy-admin as its runtime account. Eight minutes after that, deploy-admin calls CreateServiceAccountKey on itself from an address outside Google. The engineer holds no admin role. How did the engineer's account reach admin power?",
+      options: [
+        "The engineer holds iam.serviceAccounts.actAs on deploy-admin, so the new service runs as deploy-admin and its token can be carried out of it",
+        "Cloud Run grants every new service the Owner role on the project for its first hour, so any deployment briefly has admin rights",
+        "CreateService copies the deploying user's own roles into the service, so the key was minted with the engineer's rights",
+        "The hosting-provider sign-in bypassed IAM entirely, so the engineer's calls were not checked against any role",
+      ],
+      answer: 0,
+      explanation:
+        "Deploying a service that runs as an account requires iam.serviceAccounts.actAs on that account (the Service Account User role), and the running code can read that account's access token from the metadata server. With actAs on deploy-admin, the stolen session can run code as deploy-admin and carry its token out, which is why the next calls show deploy-admin as the principal, from outside. Cloud Run grants no temporary Owner role to new services. A deployment does not inherit the deployer's roles: it runs with the named runtime account's roles, which is exactly the problem here. The sign-in location changes nothing about IAM checks; every call was authorised, only for an account the attacker should never have reached.",
+      xp: 20,
+    },
+
+    // ── Reading 9: Data leaving and the SOC going blind ──────────────────────
+    {
+      type: "reading" as const,
+      id: "gcp-r9",
+      heading: "Data Leaving and Logs Going Quiet: Public Buckets, BigQuery Exports, Sinks and Exclusions",
+      content:
+        `Two kinds of Google Cloud change matter more than their size suggests: the ones that move data out of the company's projects without a download anyone logs, and the ones that stop the audit stream reaching the SOC. This reading teaches you which audit entries mark each, and which evidence will not exist at all.\n\n` +
+        `**1. A bucket opened to everyone**\n\n` +
+        `A bucket becomes public through a binding for allUsers (anyone on the internet) or allAuthenticatedUsers (anyone with any Google account, which is just as public). The entry is methodName storage.setIamPermissions, serviceName storage.googleapis.com, resource projects/_/buckets/NAME, with the change in serviceData.policyDelta (action ADD, role roles/storage.objectViewer, member allUsers). Most organisations set public access prevention, which makes such a grant ineffective; turning it off is a separate storage.buckets.update with iamConfiguration.publicAccessPrevention set to inherited. The critical fact for the investigation: Cloud Audit Logs do not record reads of objects that are publicly readable. Once allUsers can read, a download leaves no Data Access entry. So the exposure is measured as a window (from the ADD to the REMOVE) and a list of what was in the bucket during it (storage.objects.list and the objects written before), never as a list of downloads. An open-then-close within the hour by the same principal is the pattern of someone who wanted a download nobody could see.\n\n` +
+        `**2. BigQuery data leaving the projects**\n\n` +
+        `BigQuery writes its Data Access log even when nothing else does, so its trail is rich. A query is google.cloud.bigquery.v2.JobService.InsertJob, with the bytes processed in the job statistics; direct row reads are google.cloud.bigquery.v2.TableDataService.List (permission bigquery.tables.getData). Data leaves in two ways. An extract job (InsertJob with an extract configuration) writes a table to gs:// destination URIs: a bucket in no project of the company is the exfiltration. A dataset share is google.iam.v1.IAMPolicy.SetIamPolicy on projects/P/datasets/D adding roles/bigquery.dataViewer for an outside member; the outside account then queries from its own project, and its jobs still appear in your log because they read your tables. A staging table deleted, or a share removed, minutes later is cleanup, not remediation.\n\n` +
+        `**3. Sinks and exclusions: blinding the SOC**\n\n` +
+        `Cloud Logging routes entries through sinks: _Required (Admin Activity and a few others, which cannot be changed or excluded), _Default (everything else) and any export sink, such as the one feeding the SIEM. Three changes reduce what the SOC sees, all in the Admin Activity log with serviceName logging.googleapis.com: google.logging.v2.ConfigServiceV2.DeleteSink (the export disappears, and the SIEM receives nothing more from the project), UpdateSink with a narrower filter (one service or one principal silently dropped), and CreateExclusion (entries matching a filter are dropped before sinks see them). Because Admin Activity entries cannot be excluded, an attacker who excludes Secret Manager reads still leaves every SetIamPolicy and CreateServiceAccountKey in view. What the SOC needs is the companion detection: an alert on any logging configuration change by a principal that is not the logging pipeline, and a log-source health alert when a project's volume drops to zero. After a deleted sink, the entries for the gap are still in Cloud Logging inside the project and must be read back there.\n\n` +
+        `**False positives**\n\n` +
+        `Website asset buckets are public by design, analysts export query results to the company's own buckets every day, and platform teams add exclusions to cut cost (health checks, debug logs). Check the bucket's purpose, whether the destination bucket belongs to a company project, and whether an exclusion's filter touches security services (secretmanager, iam, cloudresourcemanager) or only noise.`,
+      codeExample:
+        "ENTRIES THAT MATTER\n" +
+        "=======================================================\n" +
+        "Public bucket:\n" +
+        "  storage.setIamPermissions  policyDelta ADD allUsers /\n" +
+        "                             allAuthenticatedUsers\n" +
+        "  storage.buckets.update     publicAccessPrevention -> inherited\n" +
+        "  (no Data Access entry for reads of public objects)\n" +
+        "\n" +
+        "BigQuery leaving:\n" +
+        "  JobService.InsertJob    extract destinationUris gs://<not ours>\n" +
+        "  IAMPolicy.SetIamPolicy  on datasets/D, member user:<outside>\n" +
+        "  TableDataService.List   direct row reads\n" +
+        "\n" +
+        "Blinding:\n" +
+        "  ConfigServiceV2.DeleteSink / UpdateSink / CreateExclusion\n" +
+        "  _Required (Admin Activity) can never be excluded\n" +
+        "=======================================================",
+    },
+
+    // ── Question: public bucket exposure ────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "gcp-q5",
+      question:
+        "An account added allUsers as roles/storage.objectViewer on the bucket holding database exports at 20:39 and removed it at 21:19. Data Access logging is on for Cloud Storage in this project. Your manager asks for the list of files that were downloaded during those forty minutes. What do you answer?",
+      options: [
+        "That list cannot come from Cloud Audit Logs: reads of publicly readable objects are not logged, so the answer is the exposure window and every object in the bucket during it",
+        "Pull storage.objects.get from the Data Access log for the window: with Data Access logging on, every download is recorded with the caller's address",
+        "Pull the downloads from the Admin Activity log, which records every access to a bucket whose IAM policy changed",
+        "Nothing was exposed, because the binding was removed within an hour and Cloud Storage waits an hour before applying public grants",
+      ],
+      answer: 0,
+      explanation:
+        "Cloud Audit Logs do not record access to objects that allUsers or allAuthenticatedUsers can read, even with Data Access logging on, so no list of downloads exists in them. The honest answer is the exposure: the bucket was readable by anyone for forty minutes, and everything it held in that window (from storage.objects.list and the writes before) must be treated as disclosed. Data Access logging covers authorised, non-public reads only. The Admin Activity log records the policy change itself, not the reads that follow. A public grant takes effect immediately, so removing it after forty minutes limits the window but does not undo it.",
+      xp: 20,
     },
 
     // ── Reading 7: Containment actions once compromise is confirmed ─────────

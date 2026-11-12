@@ -3489,8 +3489,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Go from zero AWS knowledge to confidently investigating real AWS attacks. Learn the core services (IAM, S3, EC2, VPC), how CloudTrail logs every API call, how GuardDuty and VPC Flow Logs detect threats, and how to triage the most common AWS incidents: exposed access keys, IAM privilege escalation, public S3 buckets, disabled logging, crypto-mining, and stolen instance credentials.",
     "difficulty": "intermediate",
     "category": "Cloud Security",
-    "estimatedMinutes": 75,
-    "xp": 340,
+    "estimatedMinutes": 85,
+    "xp": 360,
     "icon": "☁️",
     "prerequisites": [
       "cloud-security-monitoring"
@@ -3563,6 +3563,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aws-r6",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "aws-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aws-q4",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "aws-r7",
@@ -3884,8 +3894,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Learn how to investigate Google Cloud Platform environments as a SOC analyst. Cover GCP's core building blocks (projects, resources, Cloud IAM, service accounts), the essential services (Compute Engine, Cloud Storage, VPC), how Cloud Audit Logs record every action across Admin Activity and Data Access logs, Security Command Center as GCP's built-in threat detector, and the most common real-world GCP attacks: over-privileged service accounts, stolen service-account keys, public Cloud Storage buckets, IAM privilege escalation via SetIamPolicy, metadata-server credential theft, and crypto-mining on Compute Engine. Throughout, GCP concepts are contrasted with their closest AWS equivalents to build on knowledge you may already have.",
     "difficulty": "intermediate",
     "category": "Cloud Security",
-    "estimatedMinutes": 70,
-    "xp": 345,
+    "estimatedMinutes": 84,
+    "xp": 385,
     "icon": "🌐",
     "prerequisites": [
       "cloud-security-monitoring"
@@ -3968,6 +3978,26 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "gcp-r6",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "gcp-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gcp-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "gcp-r9",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gcp-q5",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "gcp-r7",
@@ -4133,8 +4163,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Learn to investigate Microsoft Azure's cloud infrastructure layer as a SOC analyst, beyond Entra ID sign-ins and M365 mailboxes. Cover Azure's resource model (subscriptions, resource groups, RBAC role assignments, managed identities, service principals), the Azure Activity Log as the control-plane audit trail, Network Security Groups and NSG Flow Logs, Key Vault secret access, Storage Account exposure and SAS token abuse, VM run-command abuse, and Microsoft Defender for Cloud with Azure Monitor/Log Analytics (KQL) as the detection surface. Azure concepts are mapped throughout against the AWS and GCP equivalents you may already know.",
     "difficulty": "intermediate",
     "category": "Cloud Security",
-    "estimatedMinutes": 70,
-    "xp": 345,
+    "estimatedMinutes": 100,
+    "xp": 425,
     "icon": "🔷",
     "prerequisites": [
       "cloud-security-monitoring"
@@ -4166,6 +4196,26 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "azure-r9",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "azure-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "azure-r10",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "azure-q5",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "azure-r4",
         "type": "reading",
         "xp": 0
@@ -4179,6 +4229,26 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "azure-q3",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "azure-r11",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "azure-q6",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "azure-r12",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "azure-q7",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "azure-r8",

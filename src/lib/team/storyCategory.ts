@@ -75,6 +75,8 @@ export function storyCategory(storyId: string): StoryCategory {
   if (CORE[storyId]) return CORE[storyId];
   if (storyId.startsWith("ai-")) return "ai";
   if (storyId.startsWith("web-")) return "web";
+  // The cloud round (2026-11-12): every family is an AWS, Azure or Google Cloud attack.
+  if (storyId.startsWith("cloud-")) return "cloud";
   return BY_ID[storyId] ?? "other";
 }
 
