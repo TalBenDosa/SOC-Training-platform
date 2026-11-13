@@ -484,9 +484,9 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-f1",
       event: driveDownloadBurstEvent, // the collection event; the consent event is in 'One Click on a Consent Screen'
       prompt:
-        "How long did the attacker take to go from foothold to collection? Using the timestamp of FormFlow Sync's consent grant ('One Click on a Consent Screen') and the timestamp of the Drive download event shown here, how many complete minutes passed between them? Drop any leftover seconds and enter a whole number.",
+        "How long did the attacker take to go from foothold to collection? FormFlow Sync's consent grant ('One Click on a Consent Screen') was recorded at 2026-06-08T14:02:17Z. Using the timestamp of the Drive download event shown here, how many complete minutes passed between the consent grant and this download? Drop any leftover seconds and enter a whole number.",
       answer: "16",
-      hint: "Both events carry a UTC timestamp on the log card. Subtract the earlier one from the later one.",
+      hint: "Read the UTC timestamp on the card and subtract the consent time given in the prompt. Ignore the leftover seconds.",
       xp: 20,
     },
     // ── Question 3 ───────────────────────────────────────────────────────────

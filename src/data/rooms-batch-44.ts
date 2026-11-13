@@ -255,6 +255,7 @@ const rmmAbuseRoom = {
       prompt:
         "A self-hosted ConnectWise ScreenConnect server is running version 23.9.7 and is therefore exposed to the authentication-bypass vulnerability from this room's console case study. According to that case study, which exact version must the administrator upgrade to in order to remediate it? Answer in the exact major.minor.patch format.",
       answer: "23.9.8",
+      event: null,
       hint: "The reading 'Case Study: Attacking the RMM Console Itself' states the affected versions and the single version self-hosted deployments had to patch up to.",
       xp: 15,
     },

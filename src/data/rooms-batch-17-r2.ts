@@ -568,9 +568,9 @@ const dnsDeepDiveRoom = {
       type: "flag" as const,
       id: "dns-f1",
       prompt:
-        "Look at Log Analysis 2, the burst of failed lookups from WKS-OPS22. The domains in that burst that did NOT fail are the ones the attacker actually registered, and they are your pivot list for follow-on C2. How many such domains are there? Enter the number only.",
+        "Look at Log Analysis 2, the burst of failed lookups from WKS-OPS22. The domains in that burst that did NOT fail are the ones the attacker actually registered, and they are your pivot list for follow-on C2. The resolver aggregate for WKS-OPS22 in that 8-minute window showed 340 distinct domains queried, of which 318 returned NXDOMAIN; the card shows one sample failed query. How many domains in the burst did NOT return NXDOMAIN? Enter the number only.",
       answer: "22",
-      hint: "The task context gives how many distinct domains were queried and how many of them returned NXDOMAIN.",
+      hint: "Every queried domain either failed with NXDOMAIN or did not. Subtract the failures from the total.",
       xp: 25,
     },
     // ── Reading 5: fast-flux and sinkholes ────────────────────────────────────

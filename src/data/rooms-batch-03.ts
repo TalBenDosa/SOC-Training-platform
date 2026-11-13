@@ -444,10 +444,11 @@ const activeDirectory: Room = {
       type: "flag",
       id: "ad-flag2",
       prompt:
-        "In the 'Unusual NTLM Network Logon' event above, the victim's own computer also needs checking. It is the machine whose name-resolution request was answered by the poisoner. Enter the IP address of l.harper's real workstation.",
-      answer: "10.20.4.47",
-      hint: "The address the logon arrived from is not her machine. The SIEM's DHCP lookup in the task context tells you where her workstation really is.",
+        "In the 'Unusual NTLM Network Logon' event, the logon claims to come from l.harper's workstation but arrived from a different device. Containment starts with that device. Enter the IP address of the device that forwarded the authentication to SRV-FILE02.",
+      answer: "10.20.4.91",
+      hint: "WorkstationName is whatever the client claims. The address the server actually saw the connection come from is a separate field.",
       xp: 35,
+      logTask: "ad-la2",
     } satisfies FlagTask,
 
     // -------------------------------------------------------------------------

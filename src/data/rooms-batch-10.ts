@@ -830,11 +830,29 @@ const rooms = [
       // ── Flag ──
       {
         type: "flag",
-        id: "fw-flag1", logTask: "fw-la1",
+        id: "fw-flag1",
         prompt:
-          "Go back to the 'Analysing a Blocked Outbound C2 Connection' log (the FortiGate event with data.action = deny, not the later verdict scenario). You have decided to isolate the machine that tried to reach the C2 server. What is that machine's hostname?",
+          "The FortiGate denied an outbound connection from 10.10.22.87 (srcmac 00:1a:2b:3c:4d:5e) to the C2 server. You have decided to isolate that machine, and you pulled the DHCP server's lease record for the address to find out what it is. What is the machine's hostname?",
         answer: "WKSTN-ACCT-087",
-        hint: "Start from the address that opened the connection, then find what the SIEM's enrichment says that address is. The firewall's own name is not the answer.",
+        hint: "The firewall only knows the machine by IP and MAC. Read the client fields of the DHCP lease record; the DHCP server's own name is not the answer.",
+        event: {
+          id: "evt-fw-flag1-dhcp-001",
+          ts: "2026-06-24T08:02:41.000Z",
+          source: "dhcp",
+          event_type: "dhcp_lease",
+          hostname: "dhcp-01.caldersteel.example",
+          src_ip: "10.10.22.87",
+          severity: "informational",
+          vendor: "Windows DHCP Server",
+          raw: {
+            "event.code": "11",
+            "dhcp.event_type": "renew",
+            "dhcp.client_ip": "10.10.22.87",
+            "dhcp.client_hostname": "WKSTN-ACCT-087",
+            "dhcp.mac": "001A2B3C4D5E",
+            "dhcp.lease_duration_hours": "8",
+          },
+        },
         xp: 35,
       },
       // ── Analyst Choice ──
@@ -1090,10 +1108,11 @@ const rooms = [
       {
         type: "flag",
         id: "dns-flag1",
+        logTask: "dns-la1",
         prompt:
-          "Back in the Sysmon Event 22 log for WKSTN-HR-033: using the SIEM's 5-minute correlation counts, how many of the unique domains the process queried in that window actually resolved? This tells you whether the malware has found its C2 yet. Enter a number.",
-        answer: "0",
-        hint: "Compare the count of unique domains with the count of failed (non-existent) lookups for the same window.",
+          "This is one of the Sysmon Event 22 entries from the DGA storm on WKSTN-HR-033. To count how many names failed across the whole window, you need the exact QueryStatus value Sysmon writes when a domain does not exist. Read it from this record and enter it.",
+        answer: "9003",
+        hint: "Look at the QueryName, then at QueryStatus and QueryResults together: a failed lookup has no answer in QueryResults.",
         xp: 35,
       },
       // ── Analyst Choice ──

@@ -242,6 +242,15 @@ export function getRoomExperience(roomId: string, taskIds: readonly string[]): R
   return exp;
 }
 
+/**
+ * Room ids that have an Operation Mode experience configured. A room here whose
+ * station task ids drift from the room's own tasks silently loses Operation Mode
+ * (getRoomExperience returns null), so a test asserts every one still loads.
+ */
+export function registeredExperienceRoomIds(): string[] {
+  return Object.keys(EXPERIENCES);
+}
+
 export function mechanicFor(type: string): MechanicId {
   switch (type) {
     case "reading":        return "intel_briefing";

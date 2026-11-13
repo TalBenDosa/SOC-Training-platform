@@ -60,6 +60,8 @@ interface FlagTask {
   answer: string;
   hint?: string;
   xp: number;
+  event?: TelemetryEvent | null;
+  logTask?: string;
 }
 
 interface AnalystChoiceTask {
@@ -880,10 +882,11 @@ SentinelOne detects Cobalt Strike through:
     {
       type: "flag",
       id: "s1-flag1",
+      logTask: "s1-la1",
       prompt:
-        "For the impact section of the incident report you need the scale of the damage on LAPTOP-JSMITH. From the Deep Visibility count on this detection's storyline, enter the number of files it hit (digits only, no commas).",
-      answer: "15847",
-      hint: "Reading 3 says what ransomware does to the name of each file it locks. The storyline query in the log-analysis context counted that action.",
+        "To pivot from this single detection to the whole attack and every file it touched, you search Deep Visibility by the identifier SentinelOne's Storyline engine stamps on every event in the same attack chain. Read that identifier from the detection shown and enter it.",
+      answer: "0x1A2B3C4D",
+      hint: "The reading calls it the StorylineID. The threat record carries it as one of its fields, a hex value beginning 0x.",
       xp: 40,
     },
 

@@ -599,9 +599,10 @@ const investigateAlertRoom: Room = {
       type: "flag",
       id: "inv7-f1",
       prompt:
-        "Your Step 7 timeline needs the gap between first execution and data staging. Using the timestamps of the two Defender records in this room (the PowerShell launch on WKS-FIN07 and the archive written on FIN-DB02) how many complete minutes passed between them? Drop any leftover seconds and enter a whole number.",
+        "Your Step 7 timeline needs the gap between first execution and data staging. The card shows the archive written on FIN-DB02. The Defender record for the macro-spawned PowerShell launch on WKS-FIN07 (ticket INC-51204) carries the UTC timestamp 2026-04-09T14:12:07Z. How many complete minutes passed between that launch and the archive record on this card? Drop any leftover seconds and enter a whole number.",
       answer: "89",
-      hint: "Both records carry a UTC timestamp on the log card. Subtract the earlier from the later and convert the hours to minutes.",
+      hint: "Read the UTC timestamp on the card, subtract the PowerShell launch time given in the prompt, and convert the hours to minutes.",
+      logTask: "inv7-ac1",
       xp: 25,
     },
   ],

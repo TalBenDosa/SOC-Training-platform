@@ -273,6 +273,7 @@ Security uses three precisely different words for the pieces of that story, and 
       prompt:
         "Three findings arrive in this week's queue. WEB-DEV03: CVSS 9.8, internal lab server holding no real data, no known exploitation. HR-FS02: CVSS 8.1, internal HR file share, no known exploitation. PAY-API01: CVSS 7.2, internet-facing payment API, threat intelligence confirms active exploitation of this CVE against retailers like yours. Applying Threat x Vulnerability x Impact, enter the hostname you would remediate first.",
       answer: "PAY-API01",
+      event: null,
       hint: "Rate each finding on all three components (who is exploiting it, how exposed it is, and what its compromise would cost) instead of sorting by the score.",
       xp: 30,
     } satisfies FlagTask,

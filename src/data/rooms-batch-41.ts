@@ -555,6 +555,7 @@ const mfaSessionTokenAttacksRoom = {
       prompt:
         "This room covered five ATT&CK techniques. Which exact technique ID (format Txxxx) covers an attacker stealing an OAuth access token through a malicious application's illicit consent grant -- the cloud-native cousin of Windows OS token impersonation?",
       answer: "T1528",
+      event: null,
       hint: "Think about where the evidence lives: a tenant-wide identity/consent log, not endpoint telemetry. The room's overview names all five technique IDs.",
       xp: 15,
     },
