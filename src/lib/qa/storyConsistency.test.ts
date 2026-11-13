@@ -130,3 +130,27 @@ describe("the internet reaches an internal address only through NAT", () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe("one name per file server", () => {
+  // QA 2026-11-13: a story that named its file server only inside text (FS-ENG-01 in a description, FS-PROD-03 as a
+  // VM's inventory name) kept that name on every company. A rendered story names the company's own file server.
+  const FILE_SERVER = /\b(?:SRV-[A-Z0-9-]*(?:FILE|FILES|FS)\d*[A-Z0-9-]*|FS-[A-Z]+-\d{2,3})\b/g;
+  for (const c of COMPANIES) {
+    it(`${c}: every file server a story names is the company's own`, () => {
+      const own = COMPANY_ASSETS[c]?.fileServer;
+      const bad = new Set<string>();
+      const seen = new Set<string>();
+      for (const d of ["easy", "medium", "hard"] as const) for (const base of [...storiesForCompany(c, d), ...storiesForCompany(c, d, "team")]) {
+        if (seen.has(base.id)) continue;
+        seen.add(base.id);
+        const out = instantiateStory(base, pool(c), feedCompanyProfile(c).architecture?.edr, c, fixedRnd());
+        for (const s of strings(out.events)) for (const m of s.matchAll(FILE_SERVER)) {
+          const name = m[0];
+          if (/ADFS/i.test(name) || name === own || name.startsWith(`${own}-`)) continue;
+          bad.add(`${base.id}: ${name}`);
+        }
+      }
+      expect([...bad].slice(0, 10)).toEqual([]);
+    }, 300_000);
+  }
+});

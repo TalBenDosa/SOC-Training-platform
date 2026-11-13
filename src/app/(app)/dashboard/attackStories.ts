@@ -1870,9 +1870,12 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   if (assets) {
     const blob = JSON.stringify(s.events);
     const exchange = [...new Set(companyPool.map(e => e.hostname).filter((h): h is string => !!h && /exch/i.test(h)))][0];
-    const roleTarget = (tok: string) => /exch/i.test(tok) ? exchange : /file|fs\d/i.test(tok) ? assets.fileServer : undefined;
-    // Longest first, so SRV-FS-013 is renamed before SRV-FS-01 could match inside it.
-    for (const tok of [...new Set(blob.match(/\bSRV-[A-Z0-9-]*(?:FILE|FILES|FS|EXCH|EXCHANGE)[A-Z0-9-]*\b/g) ?? [])].sort((a, b) => b.length - a.length)) {
+    // An AD FS farm (SRV-ADFS01) is an authentication server, never the file server.
+    const roleTarget = (tok: string) => /adfs/i.test(tok) ? undefined : /exch/i.test(tok) ? exchange : /file|(^|-)fs(-|\d)/i.test(tok) ? assets.fileServer : undefined;
+    // Longest first, so SRV-FS-013 is renamed before SRV-FS-01 could match inside it. A file server also goes by
+    // FS-<role>-NN (FS-ENG-01) or a VM inventory name (FS-PROD-03): the company's own file server either way.
+    const SERVER_TOKEN = /\b(?:SRV-[A-Z0-9-]*(?:FILE|FILES|FS|EXCH|EXCHANGE)[A-Z0-9-]*|FS-[A-Z]+-\d{2,3})\b/g;
+    for (const tok of [...new Set(blob.match(SERVER_TOKEN) ?? [])].sort((a, b) => b.length - a.length)) {
       if (storyHosts.includes(tok) || pairs.some(([f]) => f === tok)) continue;
       const to = hostMap.get(tok) ?? roleTarget(tok);
       if (to && to !== tok) pairs.push([tok, to]);
