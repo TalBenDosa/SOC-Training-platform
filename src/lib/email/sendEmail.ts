@@ -29,6 +29,8 @@ export interface EmailInput {
   text?: string;
   /** Per-message sender (a white-label organization's, see senderFor in src/lib/brand). */
   from?: string;
+  /** Where a reply goes (a demo request: the requester), Resend's reply_to. */
+  replyTo?: string;
 }
 
 
@@ -122,7 +124,7 @@ export async function sendEmail(input: EmailInput): Promise<{ ok: boolean; skipp
   // network failure gets ONE retry. The idempotency key makes that retry safe
   // even if the first attempt was delivered but its answer was lost.
   const idempotencyKey = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-  const body = JSON.stringify({ from, to, subject: input.subject, html: input.html, text: input.text });
+  const body = JSON.stringify({ from, to, subject: input.subject, html: input.html, text: input.text, ...(input.replyTo ? { reply_to: input.replyTo } : {}) });
   let last: { ok: boolean; error?: string } = { ok: false, error: "not sent" };
   for (let attempt = 0; attempt < 2; attempt++) {
     let retryable = false;

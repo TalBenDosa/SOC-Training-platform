@@ -49,6 +49,7 @@ const PUBLIC_PREFIXES = [
   "/join",             // accept an invitation — runs before the account exists
   "/privacy",          // public transparency notice — must be readable by anyone
   "/accessibility",    // public accessibility statement — legal requirement, open to all
+  "/demo",             // book a demo: a visitor who has no account yet
 ];
 
 /** Admin-only. Content authoring — the panel the platform owner edits with. */

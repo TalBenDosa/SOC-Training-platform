@@ -12,8 +12,9 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[800px] bg-cyber-grid" />
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[800px] bg-cyber-glow" />
       {!whiteLabel && (
-        <header className="container mx-auto flex max-w-7xl items-center px-6 py-5">
+        <header className="container mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <HomeLogoLink />
+          <Link href="/demo" className="text-sm font-semibold text-cyber-300 transition hover:text-cyber-200">Book a demo</Link>
         </header>
       )}
       <main id="main-content" className={whiteLabel ? "flex flex-col items-center justify-center gap-8 px-6 pb-12 pt-16" : "flex items-center justify-center px-6 py-12"}>

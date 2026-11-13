@@ -98,9 +98,11 @@ function clientIp(req: NextRequest): string {
  *                       only an org name + validity, keyed by an opaque token
  *  - /api/brand/*     — a white-label organization's logo (sign-in page, favicon,
  *                       emails): shown before anyone signs in
+ *  - /api/demo-request — the public /demo page's booking form (validated, rate-limited,
+ *                       CSRF-checked above; nothing stored, one email to the owner)
  * Everything else is closed by default (see the gate in middleware()).
  */
-const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/", "/api/invitations/", "/api/access-codes/", "/api/brand/"];
+const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/", "/api/invitations/", "/api/access-codes/", "/api/brand/", "/api/demo-request"];
 
 function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIXES.some(p => pathname === p || pathname.startsWith(p));

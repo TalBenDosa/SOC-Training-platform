@@ -132,6 +132,9 @@ export default async function Landing() {
           <Link href="/login" className="hidden text-sm text-slate-300 transition hover:text-cyber-300 sm:block">
             Sign in
           </Link>
+          <Link href="/demo" className={buttonClasses("outline", "md", "hidden sm:inline-flex")}>
+            Book a demo
+          </Link>
           <Link href="/join" className={buttonClasses("primary", "md")}>
             Get access
           </Link>
@@ -187,7 +190,10 @@ export default async function Landing() {
             <Link href="/join" className={buttonClasses("primary", "lg")}>
               Get access <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <Link href="/login" className={buttonClasses("outline", "lg")}>
+            <Link href="/demo" className={buttonClasses("outline", "lg")}>
+              Book a demo
+            </Link>
+            <Link href="/login" className={buttonClasses("ghost", "lg")}>
               Sign in
             </Link>
           </div>
@@ -485,7 +491,8 @@ export default async function Landing() {
               </Link>
               <p className="mt-3 text-center text-xs text-slate-500">
                 Already registered? <Link href="/login" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Sign in</Link>
-                {" · "}Licensing an environment is arranged directly — talk to us first.
+                {" · "}Licensing an environment is arranged directly:{" "}
+                <Link href="/demo" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">book a demo</Link> first.
               </p>
             </div>
           </div>

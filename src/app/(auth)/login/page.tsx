@@ -10,9 +10,12 @@ import { Card } from "@/components/ui/Card";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { useBrand } from "@/lib/brand/BrandContext";
 
 function LoginForm() {
   usePageTitle("Sign in");
+  // Book a demo is HACK THE SOC's own sales page: never offered on a white-label organization's sign-in.
+  const { whiteLabel } = useBrand();
   const router = useRouter();
   const searchParams = useSearchParams();
   // refreshSupabaseSession sets ?next= when it redirects an unauthenticated
@@ -213,6 +216,14 @@ function LoginForm() {
       <p className="mt-5 text-center text-xs text-slate-400">
         New here? <Link href="/signup" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Create an account</Link>
       </p>
+      {!whiteLabel && (
+        <div className="mt-4 border-t border-border pt-4 text-center">
+          <p className="text-xs text-slate-400">Bringing a class or a SOC team?</p>
+          <Link href="/demo" className={buttonClasses("outline", "md", "mt-2 w-full")}>
+            Book a demo
+          </Link>
+        </div>
+      )}
     </Card>
   );
 }
