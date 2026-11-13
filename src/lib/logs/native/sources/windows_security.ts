@@ -63,7 +63,7 @@ const kinds: Record<string, KindSchema> = {
   // Account management
   "4720": k(...ACCT_MGMT),
   "4738": k("Dummy", ...ACCT_MGMT),
-  "4722": k(...ACCT_STATUS), "4723": k(...ACCT_STATUS), "4724": k(...ACCT_STATUS),
+  "4722": k(...ACCT_STATUS), "4723": k(...ACCT_STATUS, "PrivilegeList"), "4724": k(...ACCT_STATUS),
   "4725": k(...ACCT_STATUS), "4726": k(...ACCT_STATUS), "4767": k(...ACCT_STATUS),
   // Group membership (global 4728/4729, local 4732/4733, universal 4756/4757)
   "4728": k(...GROUP_MEMBER), "4729": k(...GROUP_MEMBER), "4732": k(...GROUP_MEMBER),
@@ -463,6 +463,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         SubjectUserName: ed("SubjectUserName") ?? subj,
         SubjectDomainName: ed("SubjectDomainName") ?? netbios,
         SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, subj),
+        // 4723 (a user changing their own password) ends with PrivilegeList; a reset (4724) and
+        // enable / disable / unlock do not carry it.
+        ...(id === "4723" ? { PrivilegeList: ed("PrivilegeList") ?? "-" } : {}),
       };
       break;
     }
