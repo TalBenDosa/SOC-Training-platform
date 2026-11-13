@@ -46,7 +46,7 @@ export default async function PrivacyPage() {
       </Link>
 
       <h1 className="mb-2 text-3xl font-bold text-white">Privacy &amp; Data</h1>
-      <p className="mb-10 text-sm text-slate-400">Last updated: 22 July 2026</p>
+      <p className="mb-10 text-sm text-slate-400">Last updated: 13 November 2026</p>
 
       <div className="space-y-8 leading-relaxed">
         <section>
@@ -82,6 +82,11 @@ export default async function PrivacyPage() {
               <strong className="text-white">Vercel</strong> — hosts and serves the application.
             </li>
             <li>
+              <strong className="text-white">Resend</strong>: delivers the platform&apos;s emails, such as
+              invitations, password resets and progress reminders. It receives the recipient&apos;s
+              email address and the message, and keeps a short delivery log.
+            </li>
+            <li>
               <strong className="text-white">AI grading providers (Anthropic / OpenAI)</strong> —
               when you submit a free-text answer or incident report for AI feedback, the
               <em> text of that answer</em> is sent to the provider to generate the grade. Write
@@ -90,6 +95,25 @@ export default async function PrivacyPage() {
             </li>
           </ul>
         </section>
+
+        {/* Book a demo is the platform operator's own sales form; it is never offered on a white-label domain. */}
+        {!brand.whiteLabel && (
+          <section>
+            <h2 className="mb-2 text-xl font-semibold text-white">Demo requests</h2>
+            <p>
+              If you ask for a demo on the <Link href="/demo" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Book a demo</Link> page,
+              we receive the details you type: your <strong className="text-white">name</strong>,{" "}
+              <strong className="text-white">work email</strong>, <strong className="text-white">organization</strong>, and
+              anything optional you add (role, organization type, number of learners, good times to talk, and your message).
+              We use them only to arrange the demo and follow up on it, never for advertising, and we do not share them.
+            </p>
+            <p className="mt-3">
+              The request is not stored on the platform and does not create an account. It is sent by email (through
+              Resend) to our team&apos;s mailbox, and we keep it there only while we arrange and follow up on the demo.
+              To have it deleted earlier, reply to our email and ask.
+            </p>
+          </section>
+        )}
 
         <section>
           <h2 className="mb-2 text-xl font-semibold text-white">How long we keep it</h2>
