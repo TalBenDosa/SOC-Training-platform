@@ -26,7 +26,7 @@ import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, pickInFamilies, familyOf, familyOfId, type AttackStory } from "@/app/(app)/dashboard/attackStories";
 import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type TeamEnv } from "./environment";
-import { legacyLoad, type TeamLoad } from "./load";
+import { legacyLoad, LOAD_RULES, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { mapTimeString, storyTimeMap, withMappedTime, withRebasedTime, type TimeMap } from "@/lib/sim/rebaseTime";
 import { normalizeAccountSids, normalizeHostIps } from "@/lib/sim/hostIdentity";
@@ -954,6 +954,29 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   });
   for (const { at, p } of itsmInserts.sort((a, b) => b.at - a.at)) ordered.splice(at, 0, p);
 
+  // Keep the feed at a pace the Tier-1 team can actually triage (Tal, 2026-11-14 debrief, fix A).
+  // load.ts already sizes the row count to the shift, but story content and the ITSM/FP inserts can
+  // overflow it; the compress-to-fit below would then tighten the WHOLE feed into a firehose. So
+  // first shed filler (noise, then ITSM context) down to what fits the shift at the difficulty's
+  // pace ceiling. Planned attacks, their support and the FP alerts are never dropped, so attack
+  // coherence and timing are untouched. After shedding, the compress-to-fit barely moves, so the
+  // feed stays readable AND still ends on time (schedule.test invariant: the timeline fits the shift).
+  const shiftMs = load.shiftMin * 60_000;
+  const maxRows = Math.floor((LOAD_RULES.maxLogsPerMin[load.difficulty] * shiftMs * 0.95) / 60_000);
+  if (ordered.length > maxRows) {
+    const DROPPABLE = new Set(["noise", "itsm"]);
+    const dropIdx = ordered.reduce<number[]>((acc, p, i) => (DROPPABLE.has(p.origin) ? (acc.push(i), acc) : acc), []);
+    const excess = Math.min(ordered.length - maxRows, dropIdx.length);
+    // Thin the filler EVENLY across the feed, not from one end: attacks are placed by their fraction
+    // of the feed, so removing only the tail would push them past the "attacks in the first half"
+    // window. An even stride preserves each attack's relative position.
+    const remove = new Set<number>();
+    for (let n = 0; n < excess; n++) remove.add(dropIdx[Math.floor((n + 0.5) * (dropIdx.length / excess))]);
+    const kept = ordered.filter((_, i) => !remove.has(i));
+    ordered.length = 0;
+    ordered.push(...kept);
+  }
+
   // Cadence from the team's load (load.ts): base gap + uniform jitter.
   let t = 2000;
   const timed: { p: Placed; at: number }[] = ordered.map(p => {
@@ -961,11 +984,10 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     t += load.baseGapMs + Math.floor(rnd() * load.jitterMs);
     return entry;
   });
-  // The shift ends when the instructor said it would: story overflow, ITSM records and FP alerts
-  // can run the feed past its budget, so a timeline longer than the shift is compressed onto it
-  // (the pace rises slightly; nothing planned falls after the end). The DB refill keeps the feed
-  // going if the instructor runs the session longer.
-  const shiftMs = load.shiftMin * 60_000;
+  // The shift ends when the instructor said it would: a timeline still longer than the shift (attack
+  // content alone can do it) is compressed onto it. Filler was already shed above, so this is the
+  // irreducible remainder and the compression is small. The DB refill keeps the feed going if the
+  // instructor runs the session longer.
   const rawSpan = timed.length ? timed[timed.length - 1].at : 0;
   if (rawSpan > shiftMs * 0.95) {
     const k = (shiftMs * 0.95) / rawSpan;
