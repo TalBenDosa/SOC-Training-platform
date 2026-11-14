@@ -9,7 +9,6 @@ import { useTeamIsolation } from "@/lib/team/useTeamIsolation";
 import { friendlyActionError } from "@/lib/team/format";
 import { buildWorkspace } from "@/lib/sentinel/workspace";
 import { foldIncidentState } from "@/lib/sentinel/state";
-import { escalatedCases } from "@/lib/team/investigationConsole";
 import { ISOLATION_REQUEST_TYPES, isolationRequests } from "@/lib/team/isolationApproval";
 import type { IncidentState, SentinelActions, SentinelBookmark, SentinelIsolationRequest, SentinelWorkspace } from "@/lib/sentinel/types";
 
@@ -102,12 +101,15 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
   const companyId = session?.company_id;
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
 
-  const escalationKey = useMemo(() => JSON.stringify(escalatedCases(events, nameOf)), [events, nameOf]);
   const workspace = useMemo(() => {
     if (!companyId) return null;
     const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });
-    return buildWorkspace(evs, { companyId, stack: JSON.parse(stackKey) as Stack, identity: domain && netbios ? { domain, netbios } : undefined, orgName: org, escalated: JSON.parse(escalationKey) });
-  }, [feed, companyId, stackKey, domain, netbios, org, escalationKey]);
+    // XDR is detection and hunting only: an escalated case lives in the interface's tier flow
+    // (T1 -> T2 -> T3 -> SOC manager consoles), never as a Sentinel incident, so escalated cases
+    // are not fed to the workspace (Tal, 2026-11-14 debrief). The incidents here are what the
+    // analytics rules raised, for the team to pivot on and hunt.
+    return buildWorkspace(evs, { companyId, stack: JSON.parse(stackKey) as Stack, identity: domain && netbios ? { domain, netbios } : undefined, orgName: org });
+  }, [feed, companyId, stackKey, domain, netbios, org]);
 
   const log = useMemo(() => events.filter(e => e.type.startsWith("sentinel."))
     .map(e => ({ type: e.type, actor_name: nameOf(e.actor_id), payload: e.payload as unknown, occurred_at: e.occurred_at ?? "" })), [events, nameOf]);
@@ -158,11 +160,9 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
         const inc = workspace?.incidents.find(i => i.id === incident_id);
         const eventIds = [...new Set((inc?.alertIds ?? []).flatMap(a => workspace?.alertEventIds[a] ?? []))];
         const err = await send("sentinel.incident_updated", { incident_id, patch, ...(patch.status === "Closed" ? { event_ids: eventIds.slice(0, 200) } : {}) });
-        // Taking up an escalated incident here is taking up the case: Tier-1 sees it acknowledged.
-        if (!err && (me.role === "t2" || me.role === "t3") && (patch.status === "Active" || patch.status === "Closed" || patch.owner)) {
-          const acked = new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: unknown }).event_id)));
-          for (const c of escalatedCases(events)) if (eventIds.includes(c.eventId) && !acked.has(c.eventId)) void send("escalation.acknowledged", { event_id: c.eventId });
-        }
+        // Acknowledging an escalation is a case action and belongs to the interface's tier flow
+        // (T2Console "Take this case"), not to closing a Sentinel incident: a case is never
+        // acknowledged through XDR (Tal, 2026-11-14 debrief).
         return err;
       },
       addComment: (incident_id, text) => send("sentinel.comment_added", { incident_id, text: text.slice(0, 4000) }),
