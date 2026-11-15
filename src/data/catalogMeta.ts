@@ -588,5 +588,10 @@ export const SCENARIOS_META: ScenarioMeta[] = [
     "slug": "bec-wire-fraud",
     "title": "Urgent wire request to Accounts Payable",
     "difficulty": "intermediate"
+  },
+  {
+    "slug": "key-left-behind",
+    "title": "The key left behind",
+    "difficulty": "intermediate"
   }
 ];

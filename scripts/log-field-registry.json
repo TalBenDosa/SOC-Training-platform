@@ -11981,7 +11981,21 @@
         "servicenow.url",
         "servicenow.sys_created_by",
         "servicenow.sys_created_on",
-        "servicenow.response_time"
+        "servicenow.response_time",
+        "servicenow.name",
+        "servicenow.asset_tag",
+        "servicenow.serial_number",
+        "servicenow.manufacturer",
+        "servicenow.model_id",
+        "servicenow.os",
+        "servicenow.os_version",
+        "servicenow.ip_address",
+        "servicenow.department",
+        "servicenow.location",
+        "servicenow.install_status",
+        "servicenow.operational_status",
+        "servicenow.discovery_source",
+        "servicenow.last_discovered"
       ],
       "prefixes": []
     },
@@ -13897,6 +13911,13 @@
       "prefixes": [
         "properties."
       ]
+    },
+    "virustotal": {
+      "label": "VirusTotal",
+      "sourceNote": "VirusTotal API v3 object as returned by GET /api/v3/ip_addresses/{ip} (and /domains, /files): {data: {id, type, links.self, attributes: {...}}}. Field reference: docs.virustotal.com/reference/ip-object.",
+      "aliases": ["VirusTotal", "VT", "VirusTotal Intelligence"],
+      "exactFields": ["data.id", "data.type", "data.links.self"],
+      "prefixes": ["data.attributes."]
     }
   },
   "deniedFields": [

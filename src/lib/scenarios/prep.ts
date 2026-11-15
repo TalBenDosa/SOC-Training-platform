@@ -18,6 +18,7 @@ export const SCENARIO_PREP: Record<string, string[]> = {
   "phishing-to-cloud-exfil":       ["phishing-analysis", "cloud-security-monitoring"],
   "bec-mailbox-rule":              ["email-security", "bec-investigation", "entra-id"],
   "bec-wire-fraud":                ["email-security", "bec-investigation", "phishing-analysis"],
+  "key-left-behind":               ["alert-triage", "entra-id", "mfa-session-token-attacks", "bec-investigation"],
   "gws-phishing-attachment":       ["google-workspace-security", "email-security"],
   "gws-oauth-marketplace":         ["google-workspace-security", "identity-basics"],
   "oauth-consent-grant-phishing":  ["identity-basics", "cloud-security-monitoring", "phishing-analysis"],

@@ -1,4 +1,4 @@
-# ServiceNow — Table API records (incident, change_request, sc_req_item)
+# ServiceNow — Table API records (incident, change_request, sc_req_item, CMDB configuration items)
 
 Category: ITSM / ticketing (context source for investigations). Vendor: ServiceNow. Native format: REST Table API JSON (JSON-native).
 Platform representation: **the Table API response object exactly as returned** — `{"result": {...}}` for a single record (GET by sys_id) or `{"result": [ ... ]}` for a list.
@@ -12,6 +12,7 @@ Platform representation: **the Table API response object exactly as returned** �
 | https://www.servicenow.com/docs/bundle/zurich-api-reference/page/integrate/inbound-rest/concept/c_TableAPI.html | `GET /api/now/table/{tableName}` and `/{sys_id}`; response wrapped in `result`; reference fields returned as `{"link": "<instance>/api/now/table/<table>/<sys_id>", "value": "<sys_id>"}`; `sysparm_display_value` = `false` (default, raw DB values) / `true` (display values) / `all` (both, as `{"display_value": ..., "value": ...}` objects); `sysparm_exclude_reference_link=true` drops `link`; `sysparm_fields`, `sysparm_query`, `sysparm_limit`. |
 | ServiceNow community / docs on change states (https://www.servicenow.com/community/itsm-forum/change-management-states/m-p/2436055) | Change state model New, Assess, Authorize, Scheduled, Implement, Review, Closed, Canceled with integer values -5, -4, -3, -2, -1, 0, 3, 4. |
 | ServiceNow product docs, Incident Management state model | Incident `state` 1 New, 2 In Progress, 3 On Hold, 6 Resolved, 7 Closed, 8 Canceled; `priority` 1 Critical … 5 Planning derived from `impact` × `urgency` (1 High, 2 Medium, 3 Low). |
+| ServiceNow product docs, CMDB classes `cmdb_ci_computer` / `cmdb_ci_ip_firewall` (Configuration Management Database, Hardware and Network Gear class models) | CI columns `name`, `asset_tag`, `serial_number`, `manufacturer` (ref core_company), `model_id` (ref cmdb_model), `os`, `os_version`, `ip_address`, `assigned_to` (ref sys_user), `department` (ref cmn_department), `location` (ref cmn_location), `install_status` (1 Installed, 2 On Order, 3 In Maintenance, 6 In Stock, 7 Retired, 100 Absent), `operational_status` (1 Operational, 2 Non-Operational), `discovery_source`, `last_discovered`. |
 
 ## 2. Native format and delivery
 
@@ -51,6 +52,19 @@ Platform representation: **the Table API response object exactly as returned** �
 
 ### sc_req_item (requested item)
 `request` (ref `sc_request`), `cat_item` (ref `sc_cat_item`), `requested_for` (ref sys_user), `opened_by`, `quantity`, `stage` (`waiting_for_approval`, `request_approved`, `fulfillment`, `complete`, `Request Cancelled`), `state` (`-5` Pending, `1` Open, `2` Work in Progress, `3` Closed Complete, `4` Closed Incomplete, `7` Closed Skipped), `approval`, `due_date`.
+
+### cmdb_ci_* (configuration items: who owns a device, what an address belongs to)
+CIs are not tickets: no `number`, `state` or journal. An analyst reads them to answer "whose laptop is this" and "is this address ours", so the platform renders them the way the CMDB form and the SIEM lookup show them, the Table API with **`sysparm_display_value=true`**: `sys_class_name` and choice fields read as their labels (`"Computer"`, `"Installed"`, `"Operational"`), references as `{"display_value": "<name>", "link": "<instance>/api/now/table/<table>/<sys_id>"}`. This is the one display-mode shape the platform uses; it is never mixed with raw-mode ticket fields in one record.
+
+| Field | Meaning | Values / notes |
+|---|---|---|
+| `name` | CI name (the hostname) | `WS-PRC-3318` |
+| `sys_class_name` | Class label | `Computer`, `IP Firewall`, `Server`, `Windows Server`, `Linux Server` |
+| `assigned_to` | Person the device is issued to (ref sys_user) | `{display_value, link}` |
+| `department`, `location` | Owning department / site (refs) | `{display_value, link}` |
+| `ip_address` | Last discovered address | the internal or VPN-pool address for an endpoint, the public NAT for an edge device |
+| `install_status` / `operational_status` | Lifecycle / health | labels above |
+| `discovery_source`, `last_discovered` | What last confirmed the CI and when (UTC) | `SCCM`, `ServiceNow` (Discovery) |
 
 ## 4. Realistic samples (raw mode, trimmed to the investigation-relevant columns — a real response returns ~80–100 columns)
 
@@ -199,6 +213,35 @@ Platform representation: **the Table API response object exactly as returned** �
   "sys_mod_count": "6"
 }}
 ```
+
+### 4.6 CMDB computer CI (`sysparm_display_value=true`), the ownership check
+```json
+{
+  "result": {
+    "sys_id": "29a8d01c3be91de1b61349996c0b629a",
+    "name": "WS-PRC-3318",
+    "sys_class_name": "Computer",
+    "asset_tag": "NXC-AST-03318",
+    "serial_number": "PF4X2K9L",
+    "manufacturer": { "display_value": "Lenovo", "link": "https://nexacorp.service-now.com/api/now/table/core_company/273a79eb99f21b8f233a5623f573d3b9" },
+    "model_id": { "display_value": "ThinkPad T14 Gen 4", "link": "https://nexacorp.service-now.com/api/now/table/cmdb_model/ec3d38c0631a7ba5b9b35a12914c059f" },
+    "os": "Windows 11 Enterprise",
+    "os_version": "10.0.22631",
+    "ip_address": "10.10.60.23",
+    "assigned_to": { "display_value": "Anna Feldman", "link": "https://nexacorp.service-now.com/api/now/table/sys_user/db964b02e21a96fd1d44fa1704d27f95" },
+    "department": { "display_value": "Procurement", "link": "https://nexacorp.service-now.com/api/now/table/cmn_department/174c0682816d5ad1ac2f2000da23ae84" },
+    "location": { "display_value": "London - Canary Wharf", "link": "https://nexacorp.service-now.com/api/now/table/cmn_location/4ebb4613a432c7510b221a1cc84c8a1c" },
+    "install_status": "Installed",
+    "operational_status": "Operational",
+    "discovery_source": "SCCM",
+    "last_discovered": "2026-11-12 18:02:11",
+    "sys_updated_on": "2026-11-12 18:02:11",
+    "sys_updated_by": "sccm.integration",
+    "sys_mod_count": "53"
+  }
+}
+```
+A CMDB answer proves ownership of the device, not who used an account: a mailbox read by a cloud app never touches the CI.
 
 ## 5. Investigation notes
 

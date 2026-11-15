@@ -395,5 +395,11 @@ export const SCENARIOS_META: ScenarioMeta[] = [
     "title": "Urgent wire request to Accounts Payable",
     "difficulty": "intermediate",
     "summary": "Defender for Office 365 flagged an urgent wire-transfer email to Accounts Payable that presents as the CFO, and Finance reported a phone call chasing the same payment. Decide whether the request is genuine before any money moves."
+  },
+  {
+    "slug": "key-left-behind",
+    "title": "The key left behind",
+    "difficulty": "intermediate",
+    "summary": "Sentinel flagged a night-time mailbox sign-in for a Procurement manager that traces back to her own laptop on the company VPN, and the night shift wants to close it. Decide whether the close is right."
   }
 ];

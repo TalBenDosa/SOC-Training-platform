@@ -8,8 +8,11 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 const ENDPOINT = new Set(["edr", "sysmon", "windows_security", "linux_audit"]);
 // No process tree to walk, on purpose: an ESXi hypervisor runs no EDR sensor, and the
-// help-desk MFA reset is an identity attack with a single benign endpoint line.
-const NO_EDR_CASE = new Set(["esxi-ransomware", "helpdesk-mfa-reset"]);
+// help-desk MFA reset is an identity attack with a single benign endpoint line. The key left
+// behind is the same: a cloud app reads the mailbox, and the one Defender row (Outlook syncing on
+// the laptop) is the benign session the alert joined; an EDR case would put the app's mailbox
+// reads on the laptop's process timeline, the very misattribution the scenario teaches.
+const NO_EDR_CASE = new Set(["esxi-ransomware", "helpdesk-mfa-reset", "key-left-behind"]);
 
 const all = (SCENARIOS as unknown as { slug: string; build: () => { title: string; events: TelemetryEvent[] } }[])
   .map(sc => { const b = sc.build(); return { slug: sc.slug, title: b.title, events: withDefaultIncidents(b.events, sc.slug) }; });

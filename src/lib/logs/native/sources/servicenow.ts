@@ -14,6 +14,12 @@
  * authored value, else the record's time when the state says it was resolved / closed - never
  * later than the record itself.
  *
+ * CMDB configuration items (cmdb_ci_computer, cmdb_ci_ip_firewall, ...) are the one exception to raw
+ * mode: an analyst checking who owns a device reads the CI the way the CMDB form and the SIEM lookup
+ * show it, the Table API with `sysparm_display_value=true`, so choices read as their labels
+ * ("install_status": "Installed") and references as `{display_value, link}` (the person, the
+ * department and the location by name). Without it, "who owns this laptop" would be a sys_id.
+ *
  * Input: `source:"soar"` events whose vendor is ServiceNow - the records produced by
  * src/lib/sim/emitters/servicenow.ts (`serviceNowRecord`, legacy `servicenow.*` raw keys).
  * Stable ids: a ticket's sys_id is derived from its number, a user's sys_user sys_id from
@@ -46,11 +52,28 @@ const kinds: Record<string, KindSchema> = {
   },
 };
 
+// CMDB configuration items (the class label is what sys_class_name reads in display-value mode).
+const CMDB_CLASS: Record<string, string> = {
+  cmdb_ci_computer: "Computer", cmdb_ci_ip_firewall: "IP Firewall", cmdb_ci_server: "Server",
+  cmdb_ci_win_server: "Windows Server", cmdb_ci_linux_server: "Linux Server",
+};
+const CMDB_REQUIRED = P("sys_id", "name", "sys_class_name", "sys_updated_on", "sys_updated_by", "sys_mod_count");
+const CMDB_OPTIONAL = P("asset_tag", "serial_number", "manufacturer", "model_id", "os", "os_version", "ip_address", "assigned_to",
+  "department", "location", "company", "install_status", "operational_status", "discovery_source", "last_discovered", "short_description",
+  "sys_created_on", "sys_created_by");
+for (const table of Object.keys(CMDB_CLASS)) kinds[table] = { required: CMDB_REQUIRED, optional: CMDB_OPTIONAL };
+const CMDB_BY_LABEL = new Map(Object.entries(CMDB_CLASS).map(([t, l]) => [l, t]));
+// install_status / operational_status choice labels (out-of-the-box values).
+const INSTALL_STATUS: Record<string, string> = { "1": "Installed", "2": "On Order", "3": "In Maintenance", "4": "Pending Install", "5": "Pending Repair", "6": "In Stock", "7": "Retired", "100": "Absent" };
+const OPERATIONAL_STATUS: Record<string, string> = { "1": "Operational", "2": "Non-Operational", "3": "Repair in Progress", "4": "DR Standby", "5": "Ready", "6": "Retired" };
+
 export function kindOf(record: Record<string, unknown>): string | null {
   const r = record.result as Record<string, unknown> | undefined;
   if (!r || typeof r !== "object" || Array.isArray(r)) return null;
   // Display-value mode (sysparm_display_value=all) wraps every field in {display_value, value}; not rendered.
-  return typeof r.sys_class_name === "string" && kinds[r.sys_class_name] ? r.sys_class_name : null;
+  if (typeof r.sys_class_name !== "string") return null;
+  if (kinds[r.sys_class_name] && !CMDB_CLASS[r.sys_class_name]) return r.sys_class_name;
+  return CMDB_BY_LABEL.get(r.sys_class_name) ?? null;
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -89,6 +112,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw = ev.raw ?? {};
   const sn = (k: string) => str(raw[`servicenow.${k}`]);
   const table = sn("table");
+  if (table && CMDB_CLASS[table]) return cmdbRecord(ev, ctx, table, sn);
   const number = sn("number");
   if (!table || !kinds[table] || !number) return null;
 
@@ -175,6 +199,41 @@ ${text}` : "";
   result.work_notes = journal("Work notes", sn("work_notes"));
   result.comments = journal("Additional comments", sn("comments"));
 
+  return { sourceId: "servicenow", kind: table, format: "json", record: { result }, timeMs: Date.parse(ev.ts) };
+}
+
+/** One CMDB CI, as GET /api/now/table/<cmdb_ci_*>/<sys_id>?sysparm_display_value=true returns it. */
+function cmdbRecord(ev: TelemetryEvent, ctx: NativeCtx, table: string, sn: (k: string) => string | undefined): NativeLog | null {
+  const name = sn("name");
+  if (!name) return null;
+  const recTime = snowTime(ev.ts);
+  const dref = (refTable: string, key: string | undefined, display?: string) =>
+    key ? { display_value: display ?? key, link: ref(ctx, refTable, key).link } : undefined;
+  const owner = sn("assigned_to");
+  const ownerName = owner ? (owner.includes("@") && ev.user?.email === owner && ev.user?.full_name ? ev.user.full_name : displayName(owner)) : undefined;
+  const result: Record<string, unknown> = { sys_id: sysId(ctx, table, name), name, sys_class_name: CMDB_CLASS[table] };
+  const put = (k: string, v: unknown) => { if (v !== undefined) result[k] = v; };
+  put("short_description", sn("short_description"));
+  put("asset_tag", sn("asset_tag"));
+  put("serial_number", sn("serial_number"));
+  put("manufacturer", dref("core_company", sn("manufacturer")));
+  put("model_id", dref("cmdb_model", sn("model_id")));
+  put("os", sn("os"));
+  put("os_version", sn("os_version"));
+  put("ip_address", sn("ip_address"));
+  put("assigned_to", owner ? { display_value: ownerName, link: ref(ctx, "sys_user", owner).link } : undefined);
+  put("department", dref("cmn_department", sn("department")));
+  put("location", dref("cmn_location", sn("location")));
+  const install = sn("install_status");
+  put("install_status", install ? INSTALL_STATUS[install] ?? install : undefined);
+  const op = sn("operational_status");
+  put("operational_status", op ? OPERATIONAL_STATUS[op] ?? op : undefined);
+  put("discovery_source", sn("discovery_source"));
+  const seen = sn("last_discovered");
+  put("last_discovered", seen ? (snowTime(seen) > recTime ? recTime : snowTime(seen)) : undefined);
+  result.sys_updated_on = seen ? (snowTime(seen) > recTime ? recTime : snowTime(seen)) : recTime;
+  result.sys_updated_by = sn("discovery_source") === "SCCM" ? "sccm.integration" : "discovery";
+  result.sys_mod_count = String(ctx.int(`${ctx.companyId}:cmdb:${name}:mod`, 12, 240));
   return { sourceId: "servicenow", kind: table, format: "json", record: { result }, timeMs: Date.parse(ev.ts) };
 }
 

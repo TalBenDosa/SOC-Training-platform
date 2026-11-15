@@ -53,6 +53,7 @@ import { buildMacosTccPkgScenario }              from "./scenario-packs/macosTcc
 import { buildEmailBombHelpdeskScenario }        from "./scenario-packs/emailBombHelpdesk";
 import { buildOtNetworkAnomalyScenario }         from "./scenario-packs/otNetworkAnomaly";
 import { buildBecWireFraudScenario }             from "./scenario-packs/becWireFraud";
+import { buildKeyLeftBehindScenario }            from "./scenario-packs/keyLeftBehind";
 import {
   phishingToExfilEvents,
   becScenarioEvents,
@@ -1026,6 +1027,13 @@ export const SCENARIOS = [
     difficulty: "intermediate", attack_kind: "bec_wire_fraud",
     threat_actor: "Business email compromise operator (external executive impersonation, no host or mailbox foothold)", build: withAlerts(buildBecWireFraudScenario),
     summary: "Defender for Office 365 flagged an urgent wire-transfer email to Accounts Payable that presents as the CFO, and Finance reported a phone call chasing the same payment. Decide whether the request is genuine before any money moves." },
+
+  // ── Requested scenario (Tal, 2026-11-15): an alert that looks benign because its entities are enrichment ──
+  { slug: "key-left-behind",
+    title: "The key left behind",
+    difficulty: "intermediate", attack_kind: "oauth_consent_phishing",
+    threat_actor: "Consent-phishing operator abusing a multi-tenant OAuth app (cloud identity, no host foothold)", build: withAlerts(buildKeyLeftBehindScenario),
+    summary: "Sentinel flagged a night-time mailbox sign-in for a Procurement manager that traces back to her own laptop on the company VPN, and the night shift wants to close it. Decide whether the close is right." },
 ] as const;
 
 // ─── Impossible Travel, Account Compromise via Stolen Credentials ────────────

@@ -218,6 +218,8 @@ export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | n
   if (ev.source === "dlp") return purviewRuleMatch(ev) ? "m365" : null;
   // Workday is the HR system of record: its activity log renders as Workday in every stack.
   if (ev.source === "hr") return /workday/i.test(ev.vendor ?? "") ? "workday" : null;
+  // A VirusTotal report is the API v3 object as returned, in every stack. Other threat-intel products keep the legacy view.
+  if (ev.source === "threat_intel") return /virustotal/i.test(ev.vendor ?? "") ? "virustotal" : null;
   // Azure OpenAI resource logs are the AI account's own records (AzureDiagnostics), never the Activity Log.
   if (isAzureOpenAi(ev)) return "azure_openai";
   // GitHub is the company's source control in every stack: its audit events are its own records. A webhook

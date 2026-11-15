@@ -52,6 +52,7 @@ import { source as windows_security } from "./sources/windows_security";
 import { source as zscaler_zia } from "./sources/zscaler_zia";
 import { source as zscaler_zpa } from "./sources/zscaler_zpa";
 import { source as workday } from "./sources/workday";
+import { source as virustotal } from "./sources/virustotal";
 import { source as aws_waf } from "./sources/aws_waf";
 import { source as azure_waf } from "./sources/azure_waf";
 import { source as iis } from "./sources/iis";
@@ -71,7 +72,7 @@ export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   cloudflare_access, crowdstrike, defender_o365, entra, fortigate, fortigate_sslvpn, gcp_audit, globalprotect,
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
-  cyberark, windows_security, workday, ms_graph, sentinel_alert, vmware_vsphere, azure_openai, github_audit,
+  cyberark, windows_security, workday, virustotal, ms_graph, sentinel_alert, vmware_vsphere, azure_openai, github_audit,
   aws_waf, azure_waf, iis, nginx,
   mssql_audit, guardium, mysql_audit, exabeam, securonix,
 };

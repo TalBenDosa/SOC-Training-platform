@@ -8,6 +8,7 @@ import { sampleLogs, violationsOf, convertAll, contains, flatSamples } from "./_
 import { helpdeskMfaResetScenarioEvents } from "@/lib/sim/scenario-packs/helpdeskMfaReset.events";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import { buildBackupFalsePositiveScenario } from "@/lib/sim/scenario-packs/backupFalsePositive";
+import { buildKeyLeftBehindScenario } from "@/lib/sim/scenario-packs/keyLeftBehind";
 
 /*
  * Card samples: 4 of 5 validate. SKIPPED: §4.2 - the same change rendered with
@@ -133,5 +134,34 @@ describe("servicenow - use cases", () => {
       expect(hits.length, uc.id).toBeGreaterThan(0);
       if (uc.severity === "high" || uc.severity === "critical") expect(authoredHits / Math.max(1, story.length)).toBeLessThan(0.02);
     }
+  });
+});
+
+describe("servicenow - CMDB configuration items (display-value mode)", () => {
+  const ctx = makeCtx("nexacorp", {});
+  const cis = buildKeyLeftBehindScenario().events.filter(e => String(e.raw?.["servicenow.table"] ?? "").startsWith("cmdb_ci"));
+  const logs = cis.map(e => source.fromTelemetry(e, ctx));
+
+  it("every CI renders as its own kind with zero violations", () => {
+    expect(cis.length).toBe(2);
+    for (const [i, log] of logs.entries()) {
+      expect(log, cis[i].id).not.toBeNull();
+      expect(log!.kind).toBe(cis[i].raw!["servicenow.table"]);
+      expect(violationsOf(log!, source), cis[i].id).toEqual([]);
+      expect(kindOf(log!.record)).toBe(log!.kind);
+    }
+  });
+  it("reads the way the CMDB form does: class and choice labels, references by name with a table link", () => {
+    const laptop = logs[0]!.record.result as Record<string, unknown>;
+    expect(laptop.sys_class_name).toBe("Computer");
+    expect(laptop.install_status).toBe("Installed");
+    expect(laptop.operational_status).toBe("Operational");
+    expect(laptop.assigned_to).toEqual({ display_value: "Anna Feldman", link: expect.stringMatching(/\/api\/now\/table\/sys_user\/[0-9a-f]{32}$/) });
+    expect((laptop.department as { display_value: string }).display_value).toBe("Procurement");
+    expect(laptop.sys_id).toBe(sysId(ctx, "cmdb_ci_computer", "WS-PRC-3318"));
+  });
+  it("the owner's sys_user link is the same record the tickets reference", () => {
+    const laptop = logs[0]!.record.result as { assigned_to: { link: string } };
+    expect(laptop.assigned_to.link.endsWith(sysId(ctx, "sys_user", "a.feldman@nexacorp.com"))).toBe(true);
   });
 });
