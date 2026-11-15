@@ -469,6 +469,32 @@ export type BriefingLab = ({
       lesson: string;
     }
   | {
+      /** Field read (SPEC-field-labs.md): a raw artifact in its source's NATIVE format (log lines,
+       *  a raw request, a header block, a hunting-query result) and objectives answered FROM it, the
+       *  way an analyst works a log: tap the line that shows it, type a value copied out of it, or
+       *  count the lines that match. No clues, no timer, no lives. A wrong line explains what that
+       *  line actually is (`notes`), so a miss still teaches. */
+      kind: "reader";
+      title: string;
+      prompt: string;
+      /** Title bar of the artifact, e.g. "u_ex261103.log · WEB-SDT02 (IIS)". */
+      source: string;
+      /** Lines shown above the rows and never selectable (#Fields, a column header). */
+      header?: string[];
+      lines: string[];
+      /** What a line is, shown when the learner taps it for an objective it does not answer. */
+      notes?: Record<number, string>;
+      objectives: ({ id: string; task: string; hint: string; why: string } & (
+        /** Tap a line: any index in `answer` is right. */
+        | { type: "line"; answer: number[] }
+        /** Type a value: it must appear verbatim (case-insensitive) in the artifact. */
+        | { type: "value"; answer: string[] }
+        /** Count lines: `match` is the case-insensitive regex the integrity test counts with. */
+        | { type: "count"; answer: number; match: string }
+      ))[];
+      lesson: string;
+    }
+  | {
       /** Arcade. Items drop toward what you guard; block or let through before
        *  they land. Wrong calls cost a life. 8 to 12 items; the clock tightens. */
       kind: "intercept";
@@ -615,6 +641,10 @@ export type BriefingLab = ({
    *  that differs from the lab and from the graded tasks. Open by default; `fold` starts
    *  it closed, for advanced rooms where trying first is the better way to learn. */
   primer?: { title: string; points: string[]; example?: { label: string; lines: string[] }; fold?: boolean };
+  /** "Where you will meet this" (SPEC-field-labs.md): one or two lines on the real job, shown once the
+   *  lab is done: which product, table and field this lives in, and what an analyst does next. Required
+   *  on every lab of a room in FIELD_LAB_ROOMS. */
+  fieldNote?: string;
 };
 
 /**

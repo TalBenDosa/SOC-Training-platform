@@ -5,6 +5,7 @@ import { ROOMS } from "@/data/rooms";
 import { buildNetwork, tuneResult } from "@/components/operation/briefing/ArcadeLabs";
 import { getRoomExperience, type BriefingLab } from "./index";
 import { runHunt, type HuntStep } from "./hunt";
+import { FIELD_LAB_ROOMS, FIELD_LAB_KINDS, GAME_LAB_KINDS, GUIDED_LAB_KINDS } from "./fieldLabs";
 
 const ARCADE = ["intercept", "duel", "deduce", "tune", "pathway", "defuse", "outbreak", "codebreak", "rush", "spotdiff", "chat", "portal", "hunt"] as const;
 /** Rooms where typing commands is the skill being taught: one console lab at most. */
@@ -99,6 +100,25 @@ function problems(l: BriefingLab): string[] {
       need(l.steps.length >= 6, "fewer than 6 steps");
       need(!!l.pages[l.home], "home page missing");
       for (const r of rows) if (r.record) need(!!l.records[r.record], `row ${r.id}: no record ${r.record}`);
+      break;
+    }
+    case "reader": {
+      // Every answer is derived from the artifact itself (SPEC-field-labs.md, test 3).
+      const text = [...(l.header ?? []), ...l.lines].join(" | ").toLowerCase();
+      need(l.objectives.length >= 3, "fewer than 3 objectives");
+      need(new Set(l.objectives.map(o => o.id)).size === l.objectives.length, "objective ids repeat");
+      for (const k of Object.keys(l.notes ?? {})) need(Number(k) >= 0 && Number(k) < l.lines.length, `note ${k} is not a line`);
+      for (const o of l.objectives) {
+        if (o.type === "line") {
+          need(o.answer.length > 0, `${o.id}: no answer line`);
+          for (const i of o.answer) need(Number.isInteger(i) && i >= 0 && i < l.lines.length, `${o.id}: line ${i} does not exist`);
+        } else if (o.type === "value") {
+          need(o.answer.some(a => text.includes(a.toLowerCase())), `${o.id}: no accepted value appears in the artifact`);
+        } else {
+          const re = new RegExp(o.match, "i");
+          need(l.lines.filter(x => re.test(x)).length === o.answer, `${o.id}: ${l.lines.filter(x => re.test(x)).length} lines match /${o.match}/, not ${o.answer}`);
+        }
+      }
       break;
     }
     case "hunt": {
@@ -212,12 +232,37 @@ describe("game labs", () => {
     // Practical-mission rooms (SPEC-practical-missions.md, decision 2) replaced their arcade labs with graded missions.
     const missionRooms = new Set(ROOMS.filter(r => r.tasks.some(t => t.type === "mission")).map(r => r.id));
     for (const r of rooms) {
-      if (missionRooms.has(r.id)) continue;
+      if (missionRooms.has(r.id) || FIELD_LAB_ROOMS.has(r.id)) continue;
       const mix = [...new Set(r.labs.map(l => l.kind as string).filter(k => (ARCADE as readonly string[]).includes(k)))].sort().join("+");
       if (mix.split("+").filter(Boolean).length < 2) bad.push(`${r.id}: mix "${mix}"`);
       else if (seen.has(mix)) bad.push(`${r.id} and ${seen.get(mix)} both use ${mix}`);
       seen.set(mix, r.id);
     }
+    expect(bad).toEqual([]);
+  });
+});
+
+// SPEC-field-labs.md (Tal 2026-11-15): a converted intermediate or advanced room is analyst work only.
+describe("field-lab rooms", () => {
+  const field = rooms.filter(r => FIELD_LAB_ROOMS.has(r.id));
+
+  it("every converted room is registered and is not a beginner room", () => {
+    expect(field.map(r => r.id).sort()).toEqual([...FIELD_LAB_ROOMS].sort());
+    for (const r of field) expect(ROOMS.find(x => x.id === r.id)!.difficulty, r.id).not.toBe("beginner");
+  });
+  it("no games, at least 70% field labs, the rest guided reading", () => {
+    const bad: string[] = [];
+    for (const r of field) {
+      const games = r.labs.filter(l => GAME_LAB_KINDS.has(l.kind)).map(l => `${l.kind} "${l.title}"`);
+      if (games.length) bad.push(`${r.id}: games ${games.join(", ")}`);
+      const fieldShare = r.labs.filter(l => FIELD_LAB_KINDS.has(l.kind)).length / Math.max(1, r.labs.length);
+      if (fieldShare < 0.7) bad.push(`${r.id}: ${Math.round(fieldShare * 100)}% field labs`);
+      for (const l of r.labs) if (!FIELD_LAB_KINDS.has(l.kind) && !GUIDED_LAB_KINDS.has(l.kind) && !GAME_LAB_KINDS.has(l.kind)) bad.push(`${r.id}: unclassified kind ${l.kind}`);
+    }
+    expect(bad).toEqual([]);
+  });
+  it("every lab says where the learner will meet it on the job", () => {
+    const bad = field.flatMap(r => r.labs.filter(l => !l.fieldNote || l.fieldNote.length < 60).map(l => `${r.id}: "${l.title}"`));
     expect(bad).toEqual([]);
   });
 });

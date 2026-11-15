@@ -12,6 +12,7 @@ import { EncapLab, QueueLab, TerminalLab, TraceLab, WorksheetLab } from "./Pract
 import { PcapLab } from "./PcapLab";
 import { PortalLab } from "./PortalLab";
 import { HuntLab } from "./HuntLab";
+import { ReaderLab } from "./ReaderLab";
 import { InlineMd } from "@/components/rooms/InlineMd";
 import { ChatLab } from "./ChatLab";
 import { CodebreakLab, DefuseLab, DeduceLab, DuelLab, InterceptLab, OutbreakLab, PathwayLab, RushLab, SpotDiffLab, TuneLab } from "./ArcadeLabs";
@@ -306,6 +307,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "codebreak": return <CodebreakLab lab={lab} onDone={onDone} />;
     case "rush":     return <RushLab lab={lab} onDone={onDone} />;
     case "spotdiff": return <SpotDiffLab lab={lab} onDone={onDone} />;
+    case "reader":   return <ReaderLab lab={lab} onDone={onDone} />;
   }
 }
 
@@ -343,8 +345,20 @@ const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
   queue: { steps: ["Tap an alert in the queue.", "Read its fields and the context beside it.", "Choose what an analyst would do with it."], done: "the queue is empty" },
   pcap: { steps: ["Read the task.", "Type a display filter and press Apply (dns, http, ip.addr==…).", "Tap a packet and read its layers to find the answer."], done: "every task is answered" },
   worksheet: { steps: ["Study the table: every answer is in it.", "Read the first question and find its row or column.", "Type the answer and press Check (tap 'How do I work it out?' if stuck)."], done: "every question is checked" },
+  reader: { steps: ["Read the task: it asks for something the log shows.", "Filter the log, then tap the line or copy the value out of it.", "Press Check. A wrong line tells you what that line really is."], done: "every task is answered from the log" },
   encap: { steps: ["Read the request being sent.", "At each layer, pick the value its header carries.", "Watch the packet grow, then read it as an analyser would."], done: "the packet is fully built" },
 };
+
+/** "Where you will meet this": the lab's line about the real job, once the lab is done. */
+export function FieldNote({ lab }: { lab: BriefingLab }) {
+  if (!lab.fieldNote) return null;
+  return (
+    <div className="mt-4 rounded-xl border border-sky-300/30 bg-sky-500/[0.07] p-3">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-200">Where you will meet this</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-slate-100 [overflow-wrap:anywhere]"><InlineMd text={lab.fieldNote} /></p>
+    </div>
+  );
+}
 
 /** The short teaching card before a lab: just what this lab needs, with one worked example. */
 export function Primer({ lab }: { lab: BriefingLab }) {

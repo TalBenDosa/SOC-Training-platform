@@ -8,14 +8,14 @@ import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedReadingTask } from "@/lib/rooms/sanitize";
 import type { BriefingLab } from "@/lib/rooms/experience";
 import { AlreadyCleared, useMechanic, type MechanicProps } from "../shared";
-import { HowToPlay, Lab, Primer } from "./Labs";
+import { HowToPlay, Lab, Primer, FieldNote } from "./Labs";
 import { useStudyInline } from "../study/StudyGuide";
 
 export const LAB_ICON: Record<BriefingLab["kind"], string> = {
   inspect: "Inspect", sequence: "Sequence", simulate: "Simulate", sort: "Sort", match: "Match",
   reactor: "Route", lineup: "Line-up", hotspot: "Find the flags",
   xray: "X-ray", locks: "Open the locks", tricks: "Trick cards", anatomy: "Decode", evidence: "Real screens", terminal: "Console", chat: "Live chat", trace: "Trace", encap: "Build a packet", queue: "Alert queue", worksheet: "Worksheet", pcap: "Packet capture",
-  portal: "Real console", hunt: "Query ladder", intercept: "Intercept", duel: "Card duel", deduce: "Whodunit", tune: "Tune the rule", pathway: "Route map", defuse: "Defuse", outbreak: "Outbreak", codebreak: "Codebreaker", rush: "Blitz", spotdiff: "Spot the change",
+  portal: "Real console", hunt: "Query ladder", intercept: "Intercept", duel: "Card duel", deduce: "Whodunit", tune: "Tune the rule", pathway: "Route map", defuse: "Defuse", outbreak: "Outbreak", codebreak: "Codebreaker", rush: "Blitz", spotdiff: "Spot the change", reader: "Read the log",
 };
 
 /**
@@ -144,6 +144,7 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
           <Primer lab={labs[step]} />
           <HowToPlay lab={labs[step]} />
           <Lab key={step} lab={labs[step]} onDone={() => markDone(step)} />
+          {doneLabs.has(step) && <FieldNote lab={labs[step]} />}
           {doneLabs.has(step) && (
             <button autoFocus onClick={() => setStep(step + 1)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-5 py-2.5 text-sm font-bold text-bg hover:brightness-110">
               {step + 1 < labs.length ? `Next lab: ${labs[step + 1].title}` : "Key check"} <ChevronRight className="h-4 w-4" />
