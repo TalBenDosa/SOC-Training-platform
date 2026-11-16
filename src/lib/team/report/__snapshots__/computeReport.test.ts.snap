@@ -841,6 +841,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "list": [],
       "totalS": 0,
     },
+    "recompromise": null,
     "selfOpened": 0,
     "shift": null,
     "timeToDetectS": null,

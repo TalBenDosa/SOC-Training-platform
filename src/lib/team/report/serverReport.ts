@@ -26,7 +26,8 @@ export type ServerReport = ReturnType<typeof computeReport> & { answers: AnswerM
 // matched to its supporting telemetry and a help-desk ticket be judged on its decision.
 // All are reveal-safe once the session has ended (the report is only served then).
 // attack_name: the storyline's title, so the report names an attack (review 2026-11: an attack was named by its first log line).
-const FEED_ANSWER_KEYS = ["expected_verdict", "fp_explanation", "incident_id", "supports_inject", "mitre_technique", "mitre_tactic", "attack_name"] as const;
+// recompromise (0114): the host the attacker came back from after an early containment.
+const FEED_ANSWER_KEYS = ["expected_verdict", "fp_explanation", "incident_id", "supports_inject", "mitre_technique", "mitre_tactic", "attack_name", "recompromise"] as const;
 // lead_truth: whether the Tier-3 open lead (stage C) pointed at a compromised host or a clean one.
 const INJECT_ANSWER_KEYS = ["kind", "expected_response", "linked_objective", "original_id", "expected_decision", "lead_truth"] as const;
 // A SOC-Manager decision card's grading (ranks, notes, indicator deltas, critical options) — the

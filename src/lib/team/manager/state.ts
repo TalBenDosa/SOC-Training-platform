@@ -11,6 +11,7 @@ import type { Ev } from "@/lib/team/types";
 import { asStr, hostKey } from "@/lib/team/format";
 import { containmentRequests, escalationStates, isOpenEscalation, latestScope, openLoadByUser, isolationState } from "@/lib/team/projections";
 import { requestPhase } from "./timing";
+import { isolationRequests } from "@/lib/team/isolationApproval";
 import { pausedSpans, type PauseSpan } from "../pauses";
 
 export type Difficulty = "easy" | "medium" | "hard";
@@ -32,7 +33,7 @@ export interface FiredCard {
 }
 
 export interface EscalationView { eid: string; seq: number; atMs: number; by: string | null; byRole: string | null; host: string; summary: string; open: boolean; owner: string | null }
-export interface AdviceView { by: string | null; role: string | null; stance: "support" | "object"; reason: string; atMs: number; via: "advice" | "chat" }
+export interface AdviceView { by: string | null; role: string | null; stance: "support" | "object"; reason: string; atMs: number; via: "advice" | "chat" | "readiness" }
 export interface ContainmentView { seq: number; eid: string; target: string; type: string; criticality: string; owner: string; requester: string | null; requesterRole: string | null; atMs: number; status: string; critical: boolean; reason: string; advice: AdviceView[] }
 /** Two analysts on record with opposite calls on the same log (attack vs benign). */
 export interface VerdictConflict { eid: string; host: string; label: string; attack: { by: string; role: string; how: string }; benign: { by: string; role: string; how: string }; atMs: number }
@@ -71,6 +72,11 @@ export interface MgrState {
   /** The manager's updates to management: SITREPs and stakeholder reports. */
   updateTimes: number[];
   reports: { atMs: number; dataImpact: string; status: string }[];
+  /** Stage D: a pending host isolation that a Tier-3 signed NOT READY after it was asked (the request
+   *  still waits on the manager). Both sides are quoted as written. */
+  isoHolds: { target: string; requester: string | null; requesterRole: string | null; why: string; objector: string | null; objection: string; atMs: number }[];
+  /** Stage D: a Tier-3 promised the next forensic update by `dueMs` and it is 2+ minutes late. */
+  t3Overdue: { by: string | null; dueMs: number } | null;
 }
 
 const ms = (e: Ev) => (e.occurred_at ? Date.parse(e.occurred_at) : NaN);
@@ -137,6 +143,35 @@ export function buildMgrState(input: DirectorInput): MgrState {
       if (c.requester === e.actor_id || !c.target || t < c.atMs || c.advice.some(a => a.by === e.actor_id)) continue;
       if (low.includes(c.target.toLowerCase()) || low.includes(hostKey(c.target))) c.advice.push({ by: e.actor_id, role, stance: "object", reason: text.slice(0, 200), atMs: t, via: "chat" });
     }
+  }
+
+  // Stage D: a Tier-3 "NOT READY" verdict signed after a request is an objection on the record.
+  const verdicts = events.filter(e => e.type === "t3.readiness");
+  for (const v of verdicts) {
+    const p = v.payload as { verdict?: unknown; reason?: unknown };
+    if (p.verdict !== "not_ready") continue;
+    const t = ms(v);
+    for (const c of containments) {
+      if (c.status !== "pending" || c.requester === v.actor_id || t < c.atMs || c.advice.some(a => a.by === v.actor_id)) continue;
+      c.advice.push({ by: v.actor_id, role: "t3", stance: "object", reason: asStr(p.reason).slice(0, 200), atMs: t, via: "readiness" });
+    }
+  }
+  const isoHolds: MgrState["isoHolds"] = [];
+  for (const r of isolationRequests(events)) {
+    if (r.state !== "pending") continue;
+    const reqAt = r.at ? Date.parse(r.at) : NaN;
+    const later = verdicts.filter(v => ms(v) >= reqAt && v.actor_id !== r.requestedBy);
+    const last = later[later.length - 1];
+    if (!last || (last.payload as { verdict?: unknown }).verdict !== "not_ready") continue;
+    isoHolds.push({ target: r.host, requester: r.requestedBy, requesterRole: r.requesterRole, why: r.reason, objector: last.actor_id, objection: asStr((last.payload as { reason?: unknown }).reason), atMs: ms(last) });
+  }
+  let t3Overdue: MgrState["t3Overdue"] = null;
+  const lastReportBy = new Map<string, Ev>();
+  for (const e of events) if (e.type === "forensic.report" && e.actor_id) lastReportBy.set(e.actor_id, e);
+  for (const e of lastReportBy.values()) {
+    const min = Number((e.payload as { next_update_min?: unknown }).next_update_min);
+    const due = ms(e) + min * 60_000;
+    if (Number.isFinite(due) && min > 0 && nowMs > due + 120_000) { t3Overdue = { by: e.actor_id, dueMs: due }; break; }
   }
 
   const isolatedHosts = [...isolationState(events).values()].filter(h => h.isolated).map(h => ({ host: h.host, atMs: h.at ? Date.parse(h.at) : nowMs }));
@@ -230,7 +265,7 @@ export function buildMgrState(input: DirectorInput): MgrState {
   const updateTimes = [...events.filter(e => e.type === "sitrep.sent").map(ms), ...reports.map(r => r.atMs)].sort((a, b) => a - b);
 
   return {
-    verdictConflicts, bounceDisputes, questions, severityChanges, reports, updateTimes,
+    verdictConflicts, bounceDisputes, questions, severityChanges, reports, updateTimes, isoHolds, t3Overdue,
     nowMs, pauses, difficulty, manager, seated, escalations,
     firstEscalationMs: escalations.length ? Math.min(...escalations.map(e => e.atMs)) : null,
     confirmedMs: confirmedAt(events),

@@ -1870,7 +1870,11 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     handoffChains.push({ eid, title: (asStr(sp.summary) || asStr(sp.what) || "escalated case").slice(0, 140), status: closed ? "closed" : !acked ? "dropped" : "open", selfOpened: selfOpened.has(eid), steps });
   }
   handoffChains.sort((a, b) => (a.status === "dropped" ? 0 : 1) - (b.status === "dropped" ? 0 : 1) || b.steps.length - a.steps.length);
-  const teamOut = { ...team, pauses, shift, hotWash, handoffChains: handoffChains.slice(0, 12), ghosts: ghosts.size };
+  // Stage D (0114): containment began while an infected host was missing from the confirmed scope, and
+  // the attacker came back from it. null = it did not happen.
+  const rcEv = feed.find(fe => asStr((fe.payload as { recompromise?: unknown }).recompromise));
+  const recompromise = rcEv ? { host: asStr((rcEv.payload as { hostname?: unknown }).hostname) || asStr((rcEv.payload as { recompromise?: unknown }).recompromise), atS: relS(tsOf(rcEv)) } : null;
+  const teamOut = { ...team, pauses, shift, hotWash, handoffChains: handoffChains.slice(0, 12), ghosts: ghosts.size, recompromise };
 
   // SOC Manager: a separate Command Review (decision quality, stakeholders, reporting), not the analyst card.
   const isolatedAt = new Map<string, number>();

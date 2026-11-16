@@ -1015,6 +1015,15 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
                 <Tip label="Escalation SLA" shown={`Escalated within ${team.escalationSlaMin ?? 15} min`} value={team.incSlaJudged ? `${team.incSlaMet}/${team.incSlaJudged}` : "-"} tone={!team.incSlaJudged ? undefined : team.incSlaMet === team.incSlaJudged ? "good" : "warn"} />
               </div>
             )}
+            {/* Stage D (0114): the consequence of containing before the scope was known. */}
+            {(team as { recompromise?: { host: string; atS: number | null } | null }).recompromise && (() => {
+              const rc = (team as { recompromise: { host: string; atS: number | null } }).recompromise;
+              return (
+                <p className="mt-2 rounded-lg border border-severity-high/50 bg-severity-high/10 px-3 py-2 text-xs text-slate-200">
+                  <strong className="text-severity-high">The attacker came back</strong> from <span className="font-mono">{rc.host}</span>{rc.atS != null ? ` at ${dur(rc.atS)}` : ""}: containment began while that host was neither isolated nor confirmed in the Tier-3 scope. A complete scope before containing blocks this.
+                </p>
+              );
+            })()}
             {typeof team.incidentsCaughtWell === "number" && (
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold uppercase">
                 <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 text-neon-green">{team.incidentsCaughtWell} caught well</span>

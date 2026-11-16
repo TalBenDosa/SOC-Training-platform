@@ -250,6 +250,15 @@ export const CARDS: CardDef[] = [
           why: clip(c.reason || "contain it before it spreads", 140), objection: clip(obj.reason || "wait", 140),
         };
       }
+      // Stage D: a host isolation still waiting, with a Tier-3 NOT READY verdict signed after it.
+      const h = s.isoHolds[0];
+      if (h) {
+        const name = (u: string | null) => s.seated.t2?.concat(s.seated.t3 ?? []).find(m => m.user_id === u)?.name || "a teammate";
+        return {
+          target: h.target, requester: name(h.requester), requesterRole: roleLabel(h.requesterRole), objector: name(h.objector), objectorRole: roleLabel("t3"),
+          why: clip(h.why || "contain it before it spreads", 140), objection: clip(h.objection || "the scope is not known yet", 140),
+        };
+      }
       return null;
     },
     build: ctx => ({
@@ -261,6 +270,27 @@ export const CARDS: CardDef[] = [
         { key: "good", rank: "good", label: `Approve the isolation of ${ctx.target} now and ask ${ctx.objector} to keep scoping in parallel.`, note: "Stops this host fast; the risk is that other footholds stay unknown and the attacker changes tactics." },
         { key: "okay", rank: "okay", label: "Tell them to agree between themselves and come back to you with one recommendation.", note: "The disagreement is exactly why it reached you; the clock keeps running.", delta: { capacity: -1 } },
         { key: "weak", rank: "weak", label: "Isolate the whole network segment immediately, so nothing else can spread from it.", note: "Maximum business impact to settle a disagreement about one host.", delta: { continuity: -2 } },
+      ],
+    }),
+  },
+  {
+    id: "t3_update_overdue", audience: "internal", pillar: "team", minDifficulty: "medium", priority: 55,
+    // Stage D: the Tier-3 promised the next forensic update and missed it by 2+ minutes.
+    when: s => {
+      const o = s.t3Overdue;
+      if (!o) return null;
+      const name = s.seated.t3?.find(m => m.user_id === o.by)?.name || "Tier-3";
+      return { who: name, due: new Date(o.dueMs).toISOString().slice(11, 16) };
+    },
+    build: ctx => ({
+      from: { name: "Your team", role: "Tier-3" }, channel: "in person", deadlineS: 180, objective: "Keep the technical picture current: hold the analysts to the update rhythm they promised",
+      text: `${ctx.who} promised the next forensic update by ${ctx.due} UTC. Nothing has come in, and a containment decision may depend on it.`,
+      timeoutDelta: { capacity: -1 },
+      options: [
+        { key: "best", rank: "great", label: `Ask ${ctx.who} now for a two-line status: what is confirmed, what is still unknown, and when the next update comes.`, note: "Short, structured and time-boxed: the manager keeps the picture current without pulling the analyst off the case." },
+        { key: "good", rank: "good", label: "Read the Tier-3 scope register yourself, then ask only about what is blocking containment.", note: "Uses what is already written down; slower than asking directly, and you may misread a suspect as confirmed." },
+        { key: "okay", rank: "okay", label: `Leave ${ctx.who} alone: they are busy and the update will come when it is ready.`, note: "Protects focus, but decisions above you are now being made on an old picture." },
+        { key: "weak", rank: "weak", label: "Approve the pending containment now without the update, to save time.", note: "Containing on an unknown scope is how the attacker comes back from a host nobody looked at.", delta: { continuity: -1 } },
       ],
     }),
   },

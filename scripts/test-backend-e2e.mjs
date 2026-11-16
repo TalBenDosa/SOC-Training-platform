@@ -446,6 +446,44 @@ group("0113 — Tier-3 own work (consults, closure review)");
   check("0113: 0112 rules unchanged", await ok("t3.scan", "t3", "running") === true && await ok("t3.scan", "t2", "running") === false);
 }
 
+group("0114 — early containment with a missed host brings the attacker back");
+{
+  const mk = async (difficulty) => {
+    const ts = (await one(`insert into public.team_sessions (org_id, company_id, status, difficulty, started_at) values ($1, 'nexacorp', 'running', $2, now() - interval '10 minutes') returning id`, [INTERNAL, difficulty])).id;
+    let seq = 0;
+    const ev = (type, actor, payload) => q(`insert into public.session_events (session_id, seq, actor_id, type, payload) values ($1,$2,$3,$4,$5)`, [ts, ++seq, actor, type, JSON.stringify(payload)]);
+    const inj = (host, verdict, n) => q(`insert into public.session_injects (session_id, due_offset_ms, channel, body, expected_action, status) values ($1, $2, 'feed', $3, $4, 'fired')`,
+      [ts, n * 1000, JSON.stringify({ id: `f${n}`, hostname: host, description: "x" }), JSON.stringify({ expected_verdict: verdict, incident_id: "i1" })]);
+    await inj("WS-1.corp.local", "tp", 1); await inj("WS-2", "tp", 2); await inj("WS-2", "tp", 3); await inj("WS-9", "benign", 4);
+    return { ts, ev };
+  };
+  const rc = async (ts) => (await q(`select body->>'id' id, body->>'hostname' host, expected_action->>'recompromise' rc, status from public.session_injects where session_id = $1 and expected_action ? 'recompromise'`, [ts])).rows;
+
+  const a = await mk("medium");
+  await a.ev("t3.scope.entity", iStu, { entity: "WS-1", state: "confirmed" });
+  await a.ev("edr.host_isolated", null, { host: "WS-1" });
+  const r1 = await rc(a.ts);
+  check("0114: isolating with WS-2 missed queues a return from WS-2", r1.length === 1 && r1[0].rc === "ws-2" && r1[0].status === "pending" && r1[0].host === "WS-2" && r1[0].id.endsWith("-rc"), JSON.stringify(r1));
+  await a.ev("edr.host_isolated", null, { host: "WS-1" });
+  check("0114: at most once per session", (await rc(a.ts)).length === 1);
+
+  const b = await mk("medium");
+  await b.ev("t3.scope.entity", iStu, { entity: "WS-1", state: "confirmed" });
+  await b.ev("forensic.finding", iStu, { kind: "host_status", host: "ws-2", status: "compromised" });
+  await b.ev("edr.host_isolated", null, { host: "WS-1" });
+  check("0114: a complete scope blocks the return", (await rc(b.ts)).length === 0);
+
+  const c = await mk("medium");
+  await c.ev("t3.scope.entity", iStu, { entity: "WS-2", state: "confirmed" });
+  await c.ev("t3.scope.entity", iStu, { entity: "WS-2", state: "cleared" });
+  await c.ev("edr.host_isolated", null, { host: "WS-1" });
+  check("0114: the latest register state counts (cleared is not confirmed)", (await rc(c.ts)).length === 1);
+
+  const d = await mk("easy");
+  await d.ev("edr.host_isolated", null, { host: "WS-1" });
+  check("0114: easy sessions never bring the attacker back", (await rc(d.ts)).length === 0);
+}
+
 group("0111 — studied Lesson Library lessons (Recommended Tracks)");
 {
   const orgA = await makeOrg("Reads A", 10);
