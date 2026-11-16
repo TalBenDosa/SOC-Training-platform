@@ -988,4 +988,22 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/google-secops-siem-for-analysts/es.vtt" },
     ],
   },
+  "attack-categories-and-threat-actors": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/attack-categories-and-threat-actors/attack-categories-and-threat-actors.mp4",
+    caption: "Explainer: Attack Categories & Threat Actors · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/attack-categories-and-threat-actors/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/attack-categories-and-threat-actors/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/attack-categories-and-threat-actors/es.vtt" },
+    ],
+  },
+  "federation-saml-and-sso": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/federation-saml-and-sso/federation-saml-and-sso.mp4",
+    caption: "Explainer: Federation, SAML and SSO · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/federation-saml-and-sso/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/federation-saml-and-sso/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/federation-saml-and-sso/es.vtt" },
+    ],
+  },
 };
