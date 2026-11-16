@@ -13,6 +13,7 @@ import { sanitizeStack } from "@/lib/logs/native/stack";
 import { contactLine } from "@/lib/brand/brand";
 import { brandForOrg, featuresForOrg } from "@/lib/brand/server";
 import { HISTORY_SESSIONS, historyFromConfigs, type VarietyRecord } from "@/lib/team/variety";
+import { pickShiftLead } from "@/lib/team/shiftLead";
 
 /**
  * Start a team session — staff only, own org, LOBBY only (a paused session is
@@ -134,6 +135,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const { error: paceErr } = await admin.from("team_sessions")
       .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs, config }).eq("id", id).eq("status", "lobby");
     if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
+    // Stage C (Tier-3 interface spec): an open lead for the Tier-3 from the first minutes, when the team has one.
+    const lead = pickShiftLead(timeline, { seed: sess.seed, difficulty: sess.difficulty, hasTier3: (members ?? []).some(m => (m as { role?: unknown }).role === "t3") });
+    if (lead) timeline = [...timeline, lead];
     if (timeline.length) {
       const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));
       const { data: n, error: seedErr } = await admin.rpc("team_seed_timeline", { p_session: id, p_rows: rows });

@@ -88,6 +88,7 @@ import { TimelineExplorer, IntelLookup, AttackLookup, ForensicReportModal, Foren
 import { T3CaseTab } from "./_components/T3CaseTab";
 import { T3StatusBar, T3ReadinessCard } from "./_components/T3StatusBar";
 import { T3QueueGate } from "./_components/T3QueueGate";
+import { T3WorkInbox, ConsultAsk } from "./_components/T3WorkInbox";
 import type { NextStep } from "@/lib/team/t3Case";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
@@ -1630,7 +1631,7 @@ export default function TeamRoomPage() {
                         else document.getElementById(st.target === "inbox" ? "t3-inbox" : "t3-readiness")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       };
                       return (<>
-                        <T3StatusBar events={events} meId={me.id} pendingHandoffs={pendingHandoffs} onGo={go} />
+                        <T3StatusBar events={events} feed={feed} meId={me.id} pendingHandoffs={pendingHandoffs} onGo={go} />
                         <nav data-tour="t3-views" aria-label="Tier-3 navigation" className="sticky top-2 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 p-1 backdrop-blur">
                           <div role="tablist" aria-label="Tier-3 tools" className="flex flex-wrap gap-1" onKeyDown={onKey}>
                             {T3_VIEWS.map(([v, label]) => (
@@ -1749,6 +1750,8 @@ export default function TeamRoomPage() {
                     Tier-2, containment waiting for a second opinion). Tier-2's queue is read-only for a
                     Tier-3 when the team has a Tier-2; the hunt and scope forms moved to the Case tab. */}
                 {me.role === "t3" && <div id="t3-readiness"><T3ReadinessCard events={events} nameOf={nameOf} act={act} onReport={() => setT3ReportOpen(true)} /></div>}
+                {me.role === "t3" && phase === "running" && <T3WorkInbox events={events} feed={feed} nameOf={nameOf} act={act} onOpenCase={() => setT3View("case")} />}
+                {me.role === "t2" && phase === "running" && roster.some(m => m.role === "t3" && m.status !== "left") && <ConsultAsk events={events} feed={feed} meId={me.id} nameOf={nameOf} act={act} />}
                 {me.role === "t3" && <div id="t3-inbox" data-tour="hunt-console"><HuntConsole elevationsOnly events={events} sessionId={id} consoleName={consoleName} platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
                 {me.role === "t3" && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
                 {(me.role === "t2" || me.role === "t3") && <T3QueueGate readOnly={me.role === "t3" && roster.some(m => m.role === "t2" && m.status !== "left")}><div data-tour="t2-console"><T2Console events={events} consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase}

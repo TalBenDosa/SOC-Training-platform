@@ -272,7 +272,7 @@ export interface HandoffChain {
   steps: { type: string; who: string | null; atS: number | null; dS: number | null }[];
 }
 
-const ROLE_ACTION_TYPES = new Set(["t3.scan", "t3.scope.entity", "t3.readiness", "forensic.collected", "forensic.finding", "forensic.report", "rtr.action", "inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised", "isolation.requested", "isolation.approved", "isolation.denied"]);
+const ROLE_ACTION_TYPES = new Set(["t3.scan", "t3.scope.entity", "t3.readiness", "consult.asked", "consult.answered", "review.verdict", "forensic.collected", "forensic.finding", "forensic.report", "rtr.action", "inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised", "isolation.requested", "isolation.approved", "isolation.denied"]);
 
 // ── small helpers ──────────────────────────────────────────────────────────────
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown } | null)?.event_id; return v == null ? "" : String(v); };
@@ -436,6 +436,8 @@ interface RubricCtx {
   scopeAcc: number | null; scopeFound: number; scopeAttack: number; scopeRight: number; scopeConfirmedN: number;
   /** 0112 readiness verdicts judged against the hosts the attack had reached when signed. */
   readinessCorrect: number; readinessJudged: number;
+  /** Stage C: the open lead's outcome (null = no lead), and consult / closure-review calls judged against the truth. */
+  leadOutcome: "right" | "wrong" | "open" | null; leadDetail: string; authorityCorrect: number; authorityJudged: number;
   decisionCount: number; decisionRationaleRate: number | null;
   helpdeskPct: number | null; helpdeskDupOnly: boolean; sitrepCount: number; reportQuality: number | null;
   huntToConfirmMin: number | null; caseOwnedMin: number | null; mgmtRespondedRate: number | null;
@@ -550,7 +552,11 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Hunt quality", score: c.huntQuality == null ? null : bandHigh(c.huntQuality, 75, 55, 30), value: c.huntQuality == null ? undefined : `${c.huntQuality}%${c.huntCount > 1 ? ` (avg of ${c.huntCount})` : ""}`, target: "≥ 75%", note: "substance + cited evidence + matching technique (sub-technique/parent ok) + backed conclusion" },
       { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null, value: c.huntCount ? `${c.huntTech} of ${c.huntCount} hunts` : undefined, target: "≥ 90%", note: "hunts tagged with a valid MITRE technique id" },
       { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), value: pctVal(c.elevAnsweredPct), target: "100%", note: "a hunt linked to the elevation, or its host worked in the scope register, answers it" },
-      { label: "Guidance to Tier-2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null, value: c.noteCount ? `${c.noteCount} note${c.noteCount === 1 ? "" : "s"}` : undefined, target: "≥ 3" },
+      ...(c.leadOutcome ? [{ label: "Open lead", score: c.leadOutcome === "right" ? 12 : 0, value: c.leadDetail, target: "resolved correctly", note: "the host the previous shift left: confirmed if it was compromised, cleared with evidence if it was clean" }] : []),
+      // Stage C: judged consults and closure reviews replace the old note count when there are any.
+      c.authorityJudged
+        ? { label: "Professional authority", score: bandHigh(Math.round((100 * c.authorityCorrect) / c.authorityJudged), 85, 65, 40), value: `${c.authorityCorrect} of ${c.authorityJudged} right`, target: "≥ 85%", note: "your consult answers and closure reviews against the truth (reopening a real miss counts; reopening a correct closure does not)" }
+        : { label: "Guidance to Tier-2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null, value: c.noteCount ? `${c.noteCount} note${c.noteCount === 1 ? "" : "s"}` : undefined, target: "≥ 3" },
       isolationCell(c),
       updatesCell(c),
       ...forensicCells(c.forensic),
@@ -1347,6 +1353,29 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       const precision = conf.size ? (100 * scopeRight) / conf.size : 0;
       scopeAcc = Math.round((recall + precision) / 2);
     }
+    // Stage C: the open lead (truth merged after the session ends) and judged consults / closure reviews.
+    let leadOutcome: "right" | "wrong" | "open" | null = null, leadDetail = "";
+    const leadEv = m.role === "t3" ? events.find(e => e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "t3_lead") : undefined;
+    const leadTruth = leadEv ? asStr((leadEv.payload as { lead_truth?: unknown }).lead_truth) : "";
+    if (leadEv && (leadTruth === "compromised" || leadTruth === "clean")) {
+      const lh = hostKey(asStr((leadEv.payload as { host?: unknown }).host));
+      const st = buildRegister(events).find(r => r.kind === "host" && r.key === lh)?.state ?? null;
+      const right = (leadTruth === "compromised" && st === "confirmed") || (leadTruth === "clean" && st === "cleared");
+      leadOutcome = !st || st === "suspected" ? "open" : right ? "right" : "wrong";
+      leadDetail = `${st ? st.replace("_", " ") : "not opened"}; it was ${leadTruth}`;
+    }
+    let authorityCorrect = 0, authorityJudged = 0;
+    const consultEid = new Map(events.filter(e => e.type === "consult.asked").map(e => [e.seq, asStr((e.payload as { event_id?: unknown }).event_id)]));
+    for (const e of mine) {
+      const p = e.payload as Record<string, unknown>;
+      let eid = "", call: boolean | null = null;
+      if (e.type === "consult.answered" && (p.answer === "infected" || p.answer === "not_infected")) { eid = consultEid.get(Number(p.consult_seq)) ?? ""; call = p.answer === "infected"; }
+      else if (e.type === "review.verdict" && (p.decision === "reopen" || p.decision === "agree")) { eid = asStr(p.event_id); call = p.decision === "reopen"; }
+      const t = eid ? truth.get(eid) : undefined;
+      if (call == null || !t) continue;
+      authorityJudged++;
+      if (call === t.isAttack) authorityCorrect++;
+    }
     for (const v of readinessOf(events).filter(r => r.by === m.user_id && r.verdict !== "unknown")) {
       const seen = attackHostsUntil(v.atMs ?? Infinity);
       if (!seen.size) continue;
@@ -1472,6 +1501,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc, isoPct,
       scopeSetDims, scopeConfirmDims, scopeConfirmed: scopeConfirms.length > 0,
       scopeAcc, scopeFound, scopeAttack: allAttackHosts.size, scopeRight, scopeConfirmedN, readinessCorrect, readinessJudged,
+      leadOutcome, leadDetail, authorityCorrect, authorityJudged,
       decisionCount: decisions.length, decisionRationaleRate,
       helpdeskPct, helpdeskDupOnly, sitrepCount, reportQuality,
       huntToConfirmMin, caseOwnedMin, mgmtRespondedRate,
@@ -1617,6 +1647,14 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       if (!tk) return { ...base, scored: true, handled: false, note: "the ticket was never answered" };
       const onTime = at == null || tk.ts == null || runMs(at, tk.ts) <= INJECT_WINDOW;
       return { ...base, scored: true, handled: tk.correct && onTime, note: !tk.correct ? `answered "${tk.decision}" — the wrong call` : onTime ? `answered "${tk.decision}" — the right call` : "answered after the 15-min window" };
+    }
+    if (kind === "t3_lead") {
+      // Stage C: the Tier-3 open lead is handled when its host ends confirmed (compromised) or cleared (clean).
+      const lt = asStr((e.payload as { lead_truth?: unknown }).lead_truth);
+      const st = buildRegister(events).find(r => r.kind === "host" && r.key === hostKey(asStr((e.payload as { host?: unknown }).host)))?.state ?? null;
+      if (lt !== "compromised" && lt !== "clean") return { ...base, scored: false, handled: false, evaluable: false, note: NOT_EVALUABLE };
+      const ok = (lt === "compromised" && st === "confirmed") || (lt === "clean" && st === "cleared");
+      return { ...base, scored: true, handled: ok, note: !st || st === "suspected" ? "the lead was never resolved" : ok ? `resolved correctly (${st})` : `marked ${st.replace("_", " ")}, but the host was ${lt}` };
     }
     if (kind === "mgmt_pressure" && !hasSenior) return { ...base, scored: false, handled: false, evaluable: false, note: "no SOC Manager / senior in the team to own this — skipped" };
     let handled = at != null && responsesTo(e.seq).some(r => r.decision === "status" && r.ts != null && runMs(at, r.ts) <= INJECT_WINDOW);

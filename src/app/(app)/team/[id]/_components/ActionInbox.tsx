@@ -10,12 +10,13 @@ import { actionInbox, UPDATE_DECISIONS, MIN_RESPONSE_CHARS, type InboxItem } fro
 
 // ── Action required: the injects waiting for THIS player's answer, at the top of the console ──
 // 2026-10-18 review: no ticket, decoy or management request was handled in four exercises.
-const TITLE: Record<InboxItem["kind"], string> = { ticket: "Help-desk ticket", update: "Update", mgmt: "Management request", elevation: "Elevation from Tier-2" };
+const TITLE: Record<InboxItem["kind"], string> = { ticket: "Help-desk ticket", update: "Update", mgmt: "Management request", elevation: "Elevation from Tier-2", reopen: "Reopened by Tier-3" };
 const ASK: Record<InboxItem["kind"], string> = {
   elevation: "",
   ticket: "What did you do, how did you verify the caller, and was anything shared?",
   update: "What did you check, and what does it mean for us?",
   mgmt: "Your status update: what we know, what is contained, what happens next.",
+  reopen: "What did you find when you looked again, and what are you doing with it?",
 };
 
 // 2026-11 review: the open answer boxes pushed the console below the fold. Each item now folds to
@@ -54,7 +55,7 @@ export function ActionInbox({ events, me, roster, act, sessionId }: { events: Ev
               <div className="flex flex-wrap items-center gap-1.5">
                 {!it.taken
                   ? <Button size="sm" variant="primary" disabled={busy === it.seq} onClick={() => send(it, "elevation.acknowledged", { event_id: it.eventId })}>Take the hunt</Button>
-                  : <span className="text-[11px] text-slate-400">Taken: log a hunt finding for it.</span>}
+                  : <span className="text-[11px] text-slate-400">Taken: work its host in the Case tab.</span>}
                 <Button size="sm" variant="outline" onClick={() => document.querySelector("[data-tour=hunt-console]")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Threat hunt</Button>
               </div>
             </li>
@@ -86,6 +87,10 @@ export function ActionInbox({ events, me, roster, act, sessionId }: { events: Ev
                   <Button size="sm" variant="primary" disabled={short || busy === it.seq} onClick={() => send(it, "ticket.answered", { ticket_seq: it.seq, decision: "rejected", response: note, details: note })}>Refuse &amp; report to security</Button>
                   <Button size="sm" variant="outline" disabled={short || busy === it.seq} onClick={() => send(it, "ticket.answered", { ticket_seq: it.seq, decision: "handled", response: note, details: note })}>Handle as asked</Button>
                 </>}
+                {it.kind === "reopen" && (
+                  <Button size="sm" variant="primary" disabled={short || busy === it.seq}
+                    onClick={() => send(it, "inject.responded", { inject_seq: it.seq, event_id: it.eventId || undefined, decision: "reopened_case", note })}>Send</Button>
+                )}
                 {it.kind === "update" && UPDATE_DECISIONS.map(d => (
                   <Button key={d.id} size="sm" variant="outline" title={d.hint} disabled={short || busy === it.seq}
                     onClick={() => send(it, "inject.responded", { inject_seq: it.seq, inject_id: it.injectId || undefined, decision: d.id, note })}>{d.label}</Button>

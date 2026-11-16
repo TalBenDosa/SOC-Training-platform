@@ -433,6 +433,19 @@ group("0112 — Tier-3 case work (sweeps, scope register, readiness verdict)");
   check("0112: earlier rules unchanged (forensic.report stays Tier-3, rtr.action Tier-2/3)", await ok("forensic.report", "t3", "running") === true && await ok("rtr.action", "t2", "running") === true && await ok("forensic.report", "t2", "running") === false);
 }
 
+group("0113 — Tier-3 own work (consults, closure review)");
+{
+  const ok = async (t, r, st) => (await one(`select public.session_action_allowed($1,$2,$3) v`, [t, r, st])).v;
+  check("0113: Tier-2 may ask a consult", await ok("consult.asked", "t2", "running") === true);
+  check("0113: Tier-3 may not ask a consult", await ok("consult.asked", "t3", "running") === false);
+  check("0113: Tier-3 answers a consult", await ok("consult.answered", "t3", "running") === true);
+  check("0113: Tier-2 may not answer a consult", await ok("consult.answered", "t2", "running") === false);
+  check("0113: Tier-3 reviews a closed alert", await ok("review.verdict", "t3", "running") === true);
+  check("0113: Tier-1 may not review", await ok("review.verdict", "t1", "running") === false);
+  check("0113: not in the lobby", await ok("review.verdict", "t3", "lobby") === false);
+  check("0113: 0112 rules unchanged", await ok("t3.scan", "t3", "running") === true && await ok("t3.scan", "t2", "running") === false);
+}
+
 group("0111 — studied Lesson Library lessons (Recommended Tracks)");
 {
   const orgA = await makeOrg("Reads A", 10);

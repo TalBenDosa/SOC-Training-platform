@@ -15,7 +15,7 @@
  */
 import type { Ev } from "./types";
 
-export type InboxKind = "ticket" | "update" | "mgmt" | "elevation";
+export type InboxKind = "ticket" | "update" | "mgmt" | "elevation" | "reopen";
 export interface InboxItem { seq: number; injectId: string; kind: InboxKind; text: string;
   /** elevation: the log it is about, and whether this Tier-3 already took it. */
   eventId?: string; taken?: boolean }
@@ -64,6 +64,17 @@ export function actionInbox(events: Ev[], me: { id: string; role: string | null 
       const by = acked.get(eventId);
       if (by && by !== me.id) continue;                                   // a teammate took it
       out.push({ seq: e.seq, injectId: "", kind: "elevation", eventId, taken: by === me.id, text: [str(p.summary), str(p.hunt_ask)].filter(Boolean).join(" · ") || "Tier-2 asked for a deep hunt" });
+    }
+  }
+  // Stage C: an alert Tier-3 reopened from the closure review goes back to the analyst queue
+  // (Tier-2, or Tier-1 when the team has no Tier-2) until someone answers it.
+  if ((role === "t2" || (role === "t1" && !hasT2))) {
+    const answered = new Set(events.filter(e => e.type === "inject.responded").map(e => str((e.payload as { inject_seq?: unknown }).inject_seq)));
+    for (const e of events) {
+      if (e.type !== "review.verdict" || (e.payload as { decision?: unknown }).decision !== "reopen") continue;
+      if (answered.has(String(e.seq))) continue;
+      const p = e.payload as { event_id?: unknown; reason?: unknown };
+      out.push({ seq: e.seq, injectId: "", kind: "reopen", eventId: str(p.event_id), text: `Tier-3 reopened a closed alert: ${str(p.reason)}` });
     }
   }
   for (const e of events) {

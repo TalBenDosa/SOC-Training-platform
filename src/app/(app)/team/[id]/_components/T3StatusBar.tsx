@@ -7,15 +7,19 @@ import type { Ev } from "@/lib/team/types";
 import { useServerNow } from "@/lib/team/clock";
 import { buildRegister, nextStep, PHASE_LABEL, PHASE_ORDER, readinessBlockers, readinessOf, scansOf, updateDueMs, type NextStep, type Verdict } from "@/lib/team/t3Case";
 import { ChoiceGroup } from "./ChoiceGroup";
+import { t3Waiting } from "@/lib/team/t3Work";
 
 /**
  * Tier-3 status bar (T3 interface spec, stage A): where the case stands, the one thing to do
  * next, and how long until the update promised to the SOC Manager is due.
  */
-export function T3StatusBar({ events, meId, pendingHandoffs, onGo }: {
-  events: Ev[]; meId: string; pendingHandoffs: number; onGo: (step: NextStep) => void;
+export function T3StatusBar({ events, feed = [], meId, pendingHandoffs, onGo }: {
+  events: Ev[]; feed?: Ev[]; meId: string; pendingHandoffs: number; onGo: (step: NextStep) => void;
 }) {
-  const step = useMemo(() => nextStep(events, { pendingHandoffs }), [events, pendingHandoffs]);
+  const step = useMemo(() => {
+    const w = t3Waiting(events, feed);
+    return nextStep(events, { pendingHandoffs, leadHost: w.lead?.host ?? null, consults: w.consults, reviews: w.reviews });
+  }, [events, feed, pendingHandoffs]);
   const due = useMemo(() => updateDueMs(events, meId), [events, meId]);
   const now = useServerNow(due ? 5_000 : 30_000);
   const left = due ? Math.round((due - now) / 1000) : null;

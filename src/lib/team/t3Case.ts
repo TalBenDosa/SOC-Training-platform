@@ -199,7 +199,7 @@ export interface NextStep { phase: Phase; text: string; target: "inbox" | "case"
  * The one thing the Tier-3 should do now. `pendingHandoffs` = hand-offs from Tier-2 not taken yet.
  * A verdict signed before the register last changed no longer counts: the case moved on.
  */
-export function nextStep(events: Ev[], opts: { pendingHandoffs?: number } = {}): NextStep {
+export function nextStep(events: Ev[], opts: { pendingHandoffs?: number; leadHost?: string | null; consults?: number; reviews?: number } = {}): NextStep {
   const register = buildRegister(events);
   const scans = scansOf(events);
   const blockers = readinessBlockers(events, register, scans);
@@ -207,9 +207,14 @@ export function nextStep(events: Ev[], opts: { pendingHandoffs?: number } = {}):
   const lastVerdict = verdicts[verdicts.length - 1];
   const lastChange = Math.max(0, ...register.map(r => r.seq), ...scans.map(s => s.seq));
   const signedFresh = !!lastVerdict && lastVerdict.seq > lastChange;
+  const own = (): NextStep | null =>
+    opts.consults ? { phase: "waiting", text: `Answer ${opts.consults} consult${opts.consults === 1 ? "" : "s"} from Tier-2`, target: "inbox" }
+    : opts.reviews ? { phase: "waiting", text: `Review ${opts.reviews} closed alert${opts.reviews === 1 ? "" : "s"}: agree, or reopen a miss`, target: "inbox" }
+    : null;
   if (!register.length) {
     if (opts.pendingHandoffs) return { phase: "waiting", text: `Take the hand-off waiting in your inbox (${opts.pendingHandoffs})`, target: "inbox" };
-    return { phase: "waiting", text: "No case yet: answer your inbox, or sweep an indicator from the feed", target: "case" };
+    if (opts.leadHost) return { phase: "waiting", text: `Open the lead the previous shift left on ${opts.leadHost}`, target: "inbox" };
+    return own() ?? { phase: "waiting", text: "No case yet: answer your inbox, or sweep an indicator from the feed", target: "case" };
   }
   const mem = blockers.find(b => b.id.startsWith("mem:"));
   if (mem) return { phase: "collecting", text: `Collect memory on ${mem.entity} before anyone kills a process`, target: "evidence", host: mem.entity };
@@ -217,6 +222,9 @@ export function nextStep(events: Ev[], opts: { pendingHandoffs?: number } = {}):
   const sus = register.filter(r => r.state === "suspected");
   if (sus.length) return { phase: "scoping", text: `Resolve ${sus.length} suspected ${sus.length === 1 ? "entity" : "entities"}: confirm with evidence or clear`, target: "case" };
   if (!signedFresh) return { phase: "verdict", text: "Sign containment readiness for the SOC Manager", target: "readiness" };
+  if (opts.pendingHandoffs) return { phase: "signed", text: `Take the hand-off waiting in your inbox (${opts.pendingHandoffs})`, target: "inbox" };
+  const mine = own();
+  if (mine) return { ...mine, phase: "signed" };
   return { phase: "signed", text: "Keep the manager updated: report what changed and what is still unknown", target: "report" };
 }
 
