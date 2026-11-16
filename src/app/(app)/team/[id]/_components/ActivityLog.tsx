@@ -26,6 +26,9 @@ export function ActivityLog({ activity, nameOf }: { activity: Ev[]; nameOf: (u: 
       case "escalation.resolved": return "resolved an escalation";
       case "scope.set": return `set the incident scope${inc}`;
       case "scope.confirmed": return `confirmed the final scope${inc}`;
+      case "t3.scan": return `swept ${s("indicator", 60) || "an indicator"} across all hosts (${Array.isArray((p as { hosts?: unknown[] }).hosts) ? (p as { hosts: unknown[] }).hosts.length : 0} hit)`;
+      case "t3.scope.entity": return s("state") === "removed" ? `removed ${s("entity", 60)} from the scope register` : `marked ${s("entity", 60)} ${s("state").replace("_", " ")} in the scope register`;
+      case "t3.readiness": return `signed containment readiness: ${s("verdict") === "ready" ? "READY" : s("verdict") === "not_ready" ? "NOT READY" : "cannot tell"}`;
       case "sitrep.sent": return "sent a SITREP";
       case "staff.inject": return `posted an inject (${asStr((p as { kind?: string }).kind) || "announcement"})`;
       case "ticket.answered": return `answered a help-desk ticket (${asStr((p as { decision?: string }).decision) || "handled"})`;

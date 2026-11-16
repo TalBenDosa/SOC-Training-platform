@@ -422,6 +422,17 @@ group("0097 — Team SOC: a re-escalated case can be resolved; a closed round ta
   check("0097: resolving the same round twice is refused (case_closed)", /case_closed/.test(secondResolve ?? ""), secondResolve ?? "accepted");
 }
 
+group("0112 — Tier-3 case work (sweeps, scope register, readiness verdict)");
+{
+  const ok = async (t, r, st) => (await one(`select public.session_action_allowed($1,$2,$3) v`, [t, r, st])).v;
+  for (const t of ["t3.scan", "t3.scope.entity", "t3.readiness"]) {
+    check(`0112: Tier-3 may send ${t} while running`, await ok(t, "t3", "running") === true);
+    check(`0112: Tier-2 may not send ${t}`, await ok(t, "t2", "running") === false);
+    check(`0112: not in the lobby (${t})`, await ok(t, "t3", "lobby") === false);
+  }
+  check("0112: earlier rules unchanged (forensic.report stays Tier-3, rtr.action Tier-2/3)", await ok("forensic.report", "t3", "running") === true && await ok("rtr.action", "t2", "running") === true && await ok("forensic.report", "t2", "running") === false);
+}
+
 group("0111 — studied Lesson Library lessons (Recommended Tracks)");
 {
   const orgA = await makeOrg("Reads A", 10);

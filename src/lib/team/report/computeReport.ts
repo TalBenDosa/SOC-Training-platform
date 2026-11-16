@@ -5,6 +5,7 @@ import { pausedSpans, activeMs, addActive } from "@/lib/team/pauses";
 import { computeManagerReview } from "./managerReview";
 import { computeForensicReview, type UserForensics } from "./forensicReview";
 import { isolationRequests } from "@/lib/team/isolationApproval";
+import { buildRegister, readinessOf } from "@/lib/team/t3Case";
 
 // ── After-action report — derived entirely from the event log (isomorphic: no React,
 // no server-only imports, so the server computes it once and the client can re-run it).
@@ -271,7 +272,7 @@ export interface HandoffChain {
   steps: { type: string; who: string | null; atS: number | null; dS: number | null }[];
 }
 
-const ROLE_ACTION_TYPES = new Set(["inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised", "isolation.requested", "isolation.approved", "isolation.denied"]);
+const ROLE_ACTION_TYPES = new Set(["t3.scan", "t3.scope.entity", "t3.readiness", "forensic.collected", "forensic.finding", "forensic.report", "rtr.action", "inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised", "isolation.requested", "isolation.approved", "isolation.denied"]);
 
 // ── small helpers ──────────────────────────────────────────────────────────────
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown } | null)?.event_id; return v == null ? "" : String(v); };
@@ -431,6 +432,10 @@ interface RubricCtx {
   intelAttrib: number | null; intelNext: number | null; iocPrecision: number | null;
   contReason: number | null; contQuality: number | null; reportAcc: number | null; isoPct: number | null;
   scopeSetDims: number; scopeConfirmDims: number; scopeConfirmed: boolean;
+  /** 0112 Tier-3 scope register vs the truth: mean of recall and precision on hosts (null = not used / nothing to find). */
+  scopeAcc: number | null; scopeFound: number; scopeAttack: number; scopeRight: number; scopeConfirmedN: number;
+  /** 0112 readiness verdicts judged against the hosts the attack had reached when signed. */
+  readinessCorrect: number; readinessJudged: number;
   decisionCount: number; decisionRationaleRate: number | null;
   helpdeskPct: number | null; helpdeskDupOnly: boolean; sitrepCount: number; reportQuality: number | null;
   huntToConfirmMin: number | null; caseOwnedMin: number | null; mgmtRespondedRate: number | null;
@@ -537,10 +542,14 @@ function roleRubric(c: RubricCtx): RubricCell[] {
     ];
     case "t3": return [
       { label: "Hypothesis to conclusion", score: c.huntToConfirmMin == null ? null : bandLow(c.huntToConfirmMin, 5, 12, 20), value: c.huntToConfirmMin == null ? undefined : `${fmtMin(c.huntToConfirmMin)} (median)`, target: "≤ 5 min", note: "the hunt that led to each scope confirmation → the confirmation (early proactive hunts don't count against you)" },
-      { label: "Confirmed scope", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 3 ? 12 : c.scopeConfirmDims >= 2 ? 8 : c.scopeConfirmDims >= 1 ? 4 : 0) : null, value: c.scopeConfirmed ? `${c.scopeConfirmDims} of 3` : undefined, target: "3 of 3", note: "hosts, users and techniques confirmed" },
+      // 0112: the scope register is graded against the truth; the old field count stays for sessions without it.
+      c.scopeAcc != null
+        ? { label: "Scope accuracy", score: bandHigh(c.scopeAcc, 90, 70, 45), value: `${c.scopeAcc}%: found ${c.scopeFound} of ${c.scopeAttack}, ${c.scopeRight} of ${c.scopeConfirmedN} right`, target: "≥ 90%", note: "hosts confirmed in the scope register vs the hosts the attack really reached (found, and confirmed correctly)" }
+        : { label: "Confirmed scope", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 3 ? 12 : c.scopeConfirmDims >= 2 ? 8 : c.scopeConfirmDims >= 1 ? 4 : 0) : null, value: c.scopeConfirmed ? `${c.scopeConfirmDims} of 3` : undefined, target: "3 of 3", note: "hosts, users and techniques confirmed" },
+      { label: "Readiness verdict", score: c.readinessJudged ? bandHigh(Math.round((100 * c.readinessCorrect) / c.readinessJudged), 100, 66, 33) : null, value: c.readinessJudged ? `${c.readinessCorrect} of ${c.readinessJudged} correct` : undefined, target: "all correct", note: "READY only when every host the attack had reached was confirmed; NOT READY while one was still missing" },
       { label: "Hunt quality", score: c.huntQuality == null ? null : bandHigh(c.huntQuality, 75, 55, 30), value: c.huntQuality == null ? undefined : `${c.huntQuality}%${c.huntCount > 1 ? ` (avg of ${c.huntCount})` : ""}`, target: "≥ 75%", note: "substance + cited evidence + matching technique (sub-technique/parent ok) + backed conclusion" },
       { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null, value: c.huntCount ? `${c.huntTech} of ${c.huntCount} hunts` : undefined, target: "≥ 90%", note: "hunts tagged with a valid MITRE technique id" },
-      { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), value: pctVal(c.elevAnsweredPct), target: "100%", note: "a hunt linked to the elevation (event_id) answers it" },
+      { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), value: pctVal(c.elevAnsweredPct), target: "100%", note: "a hunt linked to the elevation, or its host worked in the scope register, answers it" },
       { label: "Guidance to Tier-2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null, value: c.noteCount ? `${c.noteCount} note${c.noteCount === 1 ? "" : "s"}` : undefined, target: "≥ 3" },
       isolationCell(c),
       updatesCell(c),
@@ -1024,6 +1033,14 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       if (validEid(linked)) { if (elevFirst.has(linked)) set.add(linked); }
       else { const cand = [...(ackedInOrder.get(u) ?? [])].reverse().find(x => !set.has(x)); if (cand) set.add(cand); }
       answeredBy.set(u, set);
+    } else if ((e.type === "t3.scope.entity" && ["confirmed", "cleared", "cannot_check"].includes(String((e.payload as { state?: unknown }).state)) && (e.payload as { entity_kind?: unknown }).entity_kind !== "account")
+      || (e.type === "forensic.finding" && (e.payload as { kind?: unknown }).kind === "host_status")) {
+      // 0112: resolving the elevated log's host in the scope register (confirmed, cleared or cannot check), or a host verdict on it, answers the elevation.
+      const h = hostKey(asStr((e.payload as { entity?: unknown; host?: unknown }).entity) || asStr((e.payload as { host?: unknown }).host));
+      if (!h) continue;
+      const set = answeredBy.get(u) ?? new Set<string>();
+      for (const eid of ackedInOrder.get(u) ?? []) if (!set.has(eid) && hostKey(truth.get(eid)?.host ?? "") === h) set.add(eid);
+      answeredBy.set(u, set);
     }
   }
   const answeredAny = new Set([...answeredBy.values()].flatMap(s => [...s]));
@@ -1316,6 +1333,28 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const scopeConfirms = mine.filter(e => e.type === "scope.confirmed");
     const scopeSetDims = scopeSets.length ? Math.max(...scopeSets.map(dimsOf)) : 0;
     const scopeConfirmDims = scopeConfirms.length ? Math.max(...scopeConfirms.map(dimsOf)) : 0;
+    // 0112: the shared Tier-3 scope register, graded for every Tier-3 who worked it.
+    let scopeAcc: number | null = null, scopeFound = 0, scopeRight = 0, scopeConfirmedN = 0, readinessCorrect = 0, readinessJudged = 0;
+    const attackHostsUntil = (t: number) => new Set([...truth.values()].filter(x => x.isAttack && x.host && (x.ts == null || x.ts <= t)).map(x => hostKey(x.host)));
+    const allAttackHosts = attackHostsUntil(Infinity);
+    const workedRegister = m.role === "t3" && mine.some(e => e.type === "t3.scope.entity" || (e.type === "forensic.finding" && (e.payload as { kind?: unknown }).kind === "host_status"));
+    if (workedRegister && allAttackHosts.size) {
+      const conf = new Set(buildRegister(events).filter(r => r.kind === "host" && r.state === "confirmed").map(r => r.key));
+      scopeConfirmedN = conf.size;
+      scopeFound = [...allAttackHosts].filter(h => conf.has(h)).length;
+      scopeRight = [...conf].filter(h => allAttackHosts.has(h)).length;
+      const recall = (100 * scopeFound) / allAttackHosts.size;
+      const precision = conf.size ? (100 * scopeRight) / conf.size : 0;
+      scopeAcc = Math.round((recall + precision) / 2);
+    }
+    for (const v of readinessOf(events).filter(r => r.by === m.user_id && r.verdict !== "unknown")) {
+      const seen = attackHostsUntil(v.atMs ?? Infinity);
+      if (!seen.size) continue;
+      const confAt = new Set(buildRegister(events.filter(e => e.seq <= v.seq)).filter(r => r.kind === "host" && r.state === "confirmed").map(r => r.key));
+      const covered = [...seen].every(h => confAt.has(h));
+      readinessJudged++;
+      if ((v.verdict === "ready") === covered) readinessCorrect++;
+    }
     const decisions = mine.filter(e => e.type === "decision.logged");
     const decisionRationaleRate = decisions.length ? pct(decisions.filter(e => String((e.payload as { rationale?: string }).rationale ?? "").trim().length >= 5).length, decisions.length) : null;
 
@@ -1432,6 +1471,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
       intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc, isoPct,
       scopeSetDims, scopeConfirmDims, scopeConfirmed: scopeConfirms.length > 0,
+      scopeAcc, scopeFound, scopeAttack: allAttackHosts.size, scopeRight, scopeConfirmedN, readinessCorrect, readinessJudged,
       decisionCount: decisions.length, decisionRationaleRate,
       helpdeskPct, helpdeskDupOnly, sitrepCount, reportQuality,
       huntToConfirmMin, caseOwnedMin, mgmtRespondedRate,

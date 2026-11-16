@@ -85,6 +85,10 @@ import { StakeholderReportModal, ReportsSent, type ReportSeed, type ReportDraft 
 import { ContainmentAdvice } from "./_components/ContainmentAdvice";
 import { ForensicWorkbench, FindingsBoard, forensicHosts } from "./_components/ForensicWorkbench";
 import { TimelineExplorer, IntelLookup, AttackLookup, ForensicReportModal, ForensicReportsCard } from "./_components/T3Toolkit";
+import { T3CaseTab } from "./_components/T3CaseTab";
+import { T3StatusBar, T3ReadinessCard } from "./_components/T3StatusBar";
+import { T3QueueGate } from "./_components/T3QueueGate";
+import type { NextStep } from "@/lib/team/t3Case";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
@@ -189,7 +193,9 @@ export default function TeamRoomPage() {
   const [barH, setBarH] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
   // Tier-3: most of the work is forensics, so the workbench is the default; the live feed is one tab away.
-  const [t3View, setT3View] = useState<"workbench" | "feed" | "timeline" | "intel" | "attack">("workbench");
+  const [t3View, setT3View] = useState<"case" | "workbench" | "feed" | "timeline" | "intel">("case");
+  // The host the Evidence tab opens on when the Case tab or the status bar sends the analyst there.
+  const [t3FocusHost, setT3FocusHost] = useState<string | null>(null);
   const [t3ReportOpen, setT3ReportOpen] = useState(false);
   const [t3Sent, setT3Sent] = useState<string | null>(null);
   useEffect(() => { if (!t3Sent) return; const t = setTimeout(() => setT3Sent(null), 7000); return () => clearTimeout(t); }, [t3Sent]);
@@ -856,7 +862,7 @@ export default function TeamRoomPage() {
       withMedium: queueWithMedium,
     };
   }, [alertQueue, claimByEid, events, escalatedIds, bouncedPending, dispositions, queueWithMedium, nameOf, me?.id, attached]);
-  const activity = useMemo(() => events.filter(e => ["sentinel.incident_updated", "sentinel.bookmark_added", "escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
+  const activity = useMemo(() => events.filter(e => ["sentinel.incident_updated", "sentinel.bookmark_added", "escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "t3.scan", "t3.scope.entity", "t3.readiness", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
   // Live SOC dashboard (rule levels, source badges, raw formatting, threat-intel).
@@ -1607,7 +1613,7 @@ export default function TeamRoomPage() {
                 ) : (
                   <>
                     {me.role === "t3" && (() => {
-                      const T3_VIEWS = [["workbench", "Forensic workbench"], ["feed", "Live feed"], ["timeline", "Timeline"], ["intel", "Intel lookup"], ["attack", "ATT&CK"]] as const;
+                      const T3_VIEWS = [["case", "Case"], ["workbench", "Evidence"], ["timeline", "Timeline"], ["intel", "Intel & ATT&CK"], ["feed", "Live feed"]] as const;
                       const inPlay = forensicHosts(events, feed);
                       const edrChoices = inPlay.filter(h => edrHosts.has(hostKey(h)));
                       const edrPick = edrChoices.includes(t3EdrHost) ? t3EdrHost : edrChoices[0] ?? "";
@@ -1616,7 +1622,15 @@ export default function TeamRoomPage() {
                         const to = e.key === "ArrowRight" ? (i + 1) % T3_VIEWS.length : e.key === "ArrowLeft" ? (i - 1 + T3_VIEWS.length) % T3_VIEWS.length : -1;
                         if (to < 0) return; e.preventDefault(); setT3View(T3_VIEWS[to][0]); requestAnimationFrame(() => document.getElementById(`t3-tab-${T3_VIEWS[to][0]}`)?.focus());
                       };
-                      return (
+                      const pendingHandoffs = elevations.filter(e => !elevAcked.has(String((e.payload as { event_id?: unknown }).event_id))).length;
+                      const go = (st: NextStep) => {
+                        if (st.target === "case") setT3View("case");
+                        else if (st.target === "evidence") { setT3View("workbench"); if (st.host) setT3FocusHost(st.host); }
+                        else if (st.target === "report") setT3ReportOpen(true);
+                        else document.getElementById(st.target === "inbox" ? "t3-inbox" : "t3-readiness")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      };
+                      return (<>
+                        <T3StatusBar events={events} meId={me.id} pendingHandoffs={pendingHandoffs} onGo={go} />
                         <nav data-tour="t3-views" aria-label="Tier-3 navigation" className="sticky top-2 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 p-1 backdrop-blur">
                           <div role="tablist" aria-label="Tier-3 tools" className="flex flex-wrap gap-1" onKeyDown={onKey}>
                             {T3_VIEWS.map(([v, label]) => (
@@ -1636,16 +1650,19 @@ export default function TeamRoomPage() {
                             <button type="button" data-tour="t3-report" onClick={() => setT3ReportOpen(true)} className="rounded-md border border-neon-purple/50 bg-neon-purple/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-neon-purple/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400">Report to SOC Manager</button>
                           </div>
                         </nav>
-                      );
+                      </>);
                     })()}
-                    {me.role === "t3" && t3View === "workbench" ? (
-                      <div data-tour="workbench"><ForensicWorkbench sessionId={id} feed={feed} events={events} meId={me.id} nameOf={nameOf} act={act} onEdr={h => openEdr(undefined, h)} /></div>
+                    {me.role === "t3" && t3View === "case" ? (
+                      <T3CaseTab events={events} feed={feed} meId={me.id} nameOf={nameOf} act={act} onOpenEvidence={h => { setT3FocusHost(h); setT3View("workbench"); }} />
+                    ) : me.role === "t3" && t3View === "workbench" ? (
+                      <div data-tour="workbench"><ForensicWorkbench sessionId={id} feed={feed} events={events} meId={me.id} nameOf={nameOf} act={act} onEdr={h => openEdr(undefined, h)} focusHost={t3FocusHost} /></div>
                     ) : me.role === "t3" && t3View === "timeline" ? (
                       <TimelineExplorer sessionId={id} meId={me.id} feed={feed} events={events} />
                     ) : me.role === "t3" && t3View === "intel" ? (
-                      <IntelLookup feed={feed} events={events} truth={iocTruth} onSeen={eid => onFeedRowOpened(eid, 0)} />
-                    ) : me.role === "t3" && t3View === "attack" ? (
-                      <AttackLookup />
+                      <div className="space-y-3">
+                        <IntelLookup feed={feed} events={events} truth={iocTruth} onSeen={eid => onFeedRowOpened(eid, 0)} />
+                        <AttackLookup />
+                      </div>
                     ) : (<>
                     {(me.role === "lead" || me.role === "mgr") && (
                       <p className="rounded-lg border border-border bg-bg-elevated/40 px-3 py-2 text-[11px] text-slate-400">The raw logs, read-only, so you can back up your analysts and check what they report. Triage and escalation stay with the analysts.</p>
@@ -1728,17 +1745,21 @@ export default function TeamRoomPage() {
                 )}
                 {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} sessionId={id} />}
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
-                {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole events={events} sessionId={id} consoleName={consoleName} platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
-                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console events={events} consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase}
+                {/* T3 interface spec (stages A+B): the readiness verdict, then ONE inbox (hand-offs from
+                    Tier-2, containment waiting for a second opinion). Tier-2's queue is read-only for a
+                    Tier-3 when the team has a Tier-2; the hunt and scope forms moved to the Case tab. */}
+                {me.role === "t3" && <div id="t3-readiness"><T3ReadinessCard events={events} nameOf={nameOf} act={act} onReport={() => setT3ReportOpen(true)} /></div>}
+                {me.role === "t3" && <div id="t3-inbox" data-tour="hunt-console"><HuntConsole elevationsOnly events={events} sessionId={id} consoleName={consoleName} platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
+                {me.role === "t3" && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <T3QueueGate readOnly={me.role === "t3" && roster.some(m => m.role === "t2" && m.status !== "left")}><div data-tour="t2-console"><T2Console events={events} consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase}
                   pinnedIds={pinnedIds} isolation={isoByHost} isoRequests={isoRequestByHost} approverFor={rid => approverNames(roster, rid, online)}
-                  onRequestIsolation={(host, reason, incident, caseId) => requestIsolation(id, { host, reason, incident, case: caseId })} /></div>}
+                  onRequestIsolation={(host, reason, incident, caseId) => requestIsolation(id, { host, reason, incident, case: caseId })} /></div></T3QueueGate>}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
                 {/* Command desk first: declaration, severity and the decision cards the director raises from what is really happening. */}
                 {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} onOpenEscalations={() => setMgrView("escalations")} /></div>}
-                {(me.role === "t2" || me.role === "t3") && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
+                {me.role === "t2" && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
                 {/* The manager's consoles live behind the menu (one view at a time, no visual overload). */}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}

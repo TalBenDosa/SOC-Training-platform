@@ -50,11 +50,17 @@ export function actionInbox(events: Ev[], me: { id: string; role: string | null 
     const acked = new Map<string, string>();
     for (const e of events) if (e.type === "elevation.acknowledged") { const id = str((e.payload as { event_id?: unknown }).event_id); if (!acked.has(id)) acked.set(id, e.actor_id ?? ""); }
     const hunted = new Set(events.filter(e => e.type === "hunt.logged").map(e => str((e.payload as { event_id?: unknown }).event_id)).filter(Boolean));
+    // 0112: a host resolved in the scope register (or given a host verdict) answers its elevation too.
+    const hk = (h: string) => h.trim().toLowerCase().split(".")[0];
+    const worked = new Set(events.filter(e => (e.type === "t3.scope.entity" && ["confirmed", "cleared", "cannot_check"].includes(String((e.payload as { state?: unknown }).state)) && (e.payload as { entity_kind?: unknown }).entity_kind !== "account")
+      || (e.type === "forensic.finding" && (e.payload as { kind?: unknown }).kind === "host_status"))
+      .map(e => hk(str((e.payload as { entity?: unknown }).entity) || str((e.payload as { host?: unknown }).host))).filter(Boolean));
     for (const e of events) {
       if (e.type !== "elevation.requested") continue;
       const p = e.payload as { event_id?: unknown; summary?: unknown; hunt_ask?: unknown };
       const eventId = str(p.event_id);
-      if (!eventId || hunted.has(eventId)) continue;
+      const elevHost = hk(str((p as { hostname?: unknown }).hostname) || str(((p as { snapshot?: { hostname?: unknown } }).snapshot ?? {}).hostname));
+      if (!eventId || hunted.has(eventId) || (elevHost && worked.has(elevHost))) continue;
       const by = acked.get(eventId);
       if (by && by !== me.id) continue;                                   // a teammate took it
       out.push({ seq: e.seq, injectId: "", kind: "elevation", eventId, taken: by === me.id, text: [str(p.summary), str(p.hunt_ask)].filter(Boolean).join(" · ") || "Tier-2 asked for a deep hunt" });

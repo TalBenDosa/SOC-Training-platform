@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { HardDrive, Cpu, Pin, PinOff, FileSearch, ShieldQuestion, Lock, Microscope } from "lucide-react";
@@ -32,15 +32,18 @@ const hhmm = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-digi
 // The hosts in play come from the shared helper (the forensic review reads the same list).
 export { forensicHosts };
 
-export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, onEdr }: {
+export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, onEdr, focusHost }: {
   sessionId: string; feed: Ev[]; events: Ev[]; meId: string; nameOf: (u: string | null) => string;
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (host: string) => void;
+  /** Open on this host (the Case tab's "Evidence" link, the status bar's next step). */
+  focusHost?: string | null;
 }) {
   // A fast clock only while something is being collected (progress bars); otherwise a slow one.
   const collectingSoon = events.some(e => e.type === "forensic.collected" && e.occurred_at && Date.now() - Date.parse(e.occurred_at) < 75_000);
   const now = useServerNow(collectingSoon ? 1_000 : 15_000);
   const hosts = useMemo(() => forensicHosts(events, feed), [events, feed]);
-  const [host, setHost] = useState<string | null>(null);
+  const [host, setHost] = useState<string | null>(focusHost ?? null);
+  useEffect(() => { if (focusHost) setHost(focusHost); }, [focusHost]);
   const cur = host && hosts.some(h => hostKey(h) === hostKey(host)) ? host : hosts[0] ?? null;
   const rows: FeedRow[] = useMemo(() => feed.filter(e => e.occurred_at).map(e => {
     const t = e.payload as unknown as TelemetryEvent;

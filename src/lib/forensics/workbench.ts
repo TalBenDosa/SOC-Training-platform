@@ -277,6 +277,8 @@ export function forensicHosts(events: SessionEv[], feed: SessionEv[]): string[] 
     else if (e.type === "containment.requested") add(str(p.target));
     else if (e.type === "edr.host_isolated" || e.type === "forensic.collected" || e.type === "forensic.finding") add(str(p.host));
     else if (e.type === "scope.set" || e.type === "scope.confirmed") for (const h of (Array.isArray(p.hosts) ? p.hosts : [])) add(str(h));
+    // The Tier-3 scope register (0112): a host added there is a host in play.
+    else if (e.type === "t3.scope.entity" && p.entity_kind !== "account" && p.state !== "removed") add(str(p.entity));
   }
   return [...out.values()].filter(h => !h.includes("@") && !/^\d+\.\d+\.\d+\.\d+$/.test(h));
 }

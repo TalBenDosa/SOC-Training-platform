@@ -15,7 +15,7 @@ import { elevationHandoff } from "@/lib/team/handoff";
 import { HandoffDetail } from "./HandoffDetail";
 
 // ── T3 threat-hunt console ───────────────────────────────────────────────────
-export function HuntConsole({ events, sessionId, consoleName = "EDR", canEdr, scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot, platforms = [] }: {
+export function HuntConsole({ events, sessionId, consoleName = "EDR", canEdr, scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot, platforms = [], elevationsOnly = false }: {
   /** The room's event log: an elevation shows the whole hand-off, with the Tier-1 escalation behind it. */
   events?: Ev[]; sessionId?: string;
   scope: ScopeState; scopes?: Map<string, ScopeSnapshot>; incidents?: string[]; incidentOf?: Map<string, string>;
@@ -27,6 +27,9 @@ export function HuntConsole({ events, sessionId, consoleName = "EDR", canEdr, sc
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   /** Platforms the organization runs: tailors the starter hypotheses. */
   platforms?: string[];
+  /** Tier-3 inbox (T3 interface spec, stage A): only the hand-offs from Tier-2. The hunt and scope
+   *  forms are replaced by the Case tab's sweep and scope register. */
+  elevationsOnly?: boolean;
 }) {
   // event_id = the elevation this hunt answers (T3 playtest: hunts weren't linked to the
   // hand-off); incident = the optional incident label so findings group per incident.
@@ -44,13 +47,14 @@ export function HuntConsole({ events, sessionId, consoleName = "EDR", canEdr, sc
     setBusy(true); const ok = await act("hunt.logged", { ...rest, event_id: event_id || undefined, incident: incident.trim() || undefined }); setBusy(false);
     if (ok) setF(s => ({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed", event_id: s.event_id, incident: s.incident }));
   }
+  if (elevationsOnly && !elevations.length) return null;
   return (
     <div className="space-y-4">
       {/* Routed work handed down from Tier-2 — deep-hunt these specifically */}
       {elevations.length > 0 && (
         <Card className="border-neon-amber/30">
-          <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-neon-amber" /> Elevations for you ({elevations.length})</h3>
-          <p className="mt-1 text-[11px] text-slate-400">Tier-2 handed these down for a deep hunt.</p>
+          <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-neon-amber" /> {elevationsOnly ? `Your inbox: hand-offs from Tier-2 (${elevations.length})` : `Elevations for you (${elevations.length})`}</h3>
+          <p className="mt-1 text-[11px] text-slate-400">{elevationsOnly ? "Tier-2 handed these to you. Take one to open it in your Case tab." : "Tier-2 handed these down for a deep hunt."}</p>
           <div className="mt-2 space-y-2">
             {elevations.slice().reverse().map(e => {
               const p = e.payload as { event_id?: string; summary?: string; severity?: string; hostname?: string; entity?: string; snapshot?: Record<string, unknown>; hunt_ask?: string; t2_verdict?: string; t2_findings?: string; t2_recommendation?: string };
@@ -67,14 +71,24 @@ export function HuntConsole({ events, sessionId, consoleName = "EDR", canEdr, sc
                     </button>
                   )}
                   {snap && isOpen && <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40"><DetailPanelBody event={snap} onThreatQuery={setThreatQuery} onPivot={onPivot} /></div>}
-                  {!done && <Button variant="outline" size="sm" className="mt-2" disabled={b} onClick={async () => { setBusyElev(e.seq + ""); await act("elevation.acknowledged", { event_id: eid }); setBusyElev(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Take the hunt</Button>}
-                  {done && <p className="mt-1 flex items-center gap-2 text-[11px] text-neon-green">✓ taken: record findings below{f.event_id !== eid && <button onClick={() => setF(s => ({ ...s, event_id: eid, incident: s.incident || incidentOf?.get(eid) || "" }))} className="text-cyber-300 underline-offset-2 hover:underline">link my next finding to this →</button>}</p>}
+                  {!done && <Button variant="outline" size="sm" className="mt-2" disabled={b} onClick={async () => {
+                    setBusyElev(e.seq + "");
+                    const ok = await act("elevation.acknowledged", { event_id: eid });
+                    // Stage B: taking a hand-off puts its host in the scope register as a suspect.
+                    const host = p.hostname || asStr((p.snapshot as { hostname?: unknown } | undefined)?.hostname);
+                    if (ok && elevationsOnly && host) await act("t3.scope.entity", { entity: host, entity_kind: "host", state: "suspected", reason: "Hand-off from Tier-2" });
+                    setBusyElev(null);
+                  }}><Check className="mr-1 h-3.5 w-3.5" /> {elevationsOnly ? "Take the case" : "Take the hunt"}</Button>}
+                  {done && (elevationsOnly
+                    ? <p className="mt-1 text-[11px] text-neon-green">✓ taken: work its host in the Case tab (collect, sweep, confirm or clear)</p>
+                    : <p className="mt-1 flex items-center gap-2 text-[11px] text-neon-green">✓ taken: record findings below{f.event_id !== eid && <button onClick={() => setF(s => ({ ...s, event_id: eid, incident: s.incident || incidentOf?.get(eid) || "" }))} className="text-cyber-300 underline-offset-2 hover:underline">link my next finding to this →</button>}</p>)}
                 </div>
               );
             })}
           </div>
         </Card>
       )}
+      {!elevationsOnly && <>
       <Card>
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Threat hunt (Tier-3)</h3>
@@ -115,6 +129,7 @@ export function HuntConsole({ events, sessionId, consoleName = "EDR", canEdr, sc
       </Card>
       {/* G-10: Tier-3 owns the FINAL scope — confirm or amend what Tier-2 proposed */}
       <ScopeConsole scope={scope} scopes={scopes} incidents={incidents} mode="confirm" act={act} />
+      </>}
       {/* A3: live threat-intel enrichment when a hash/IP/domain is checked in a log */}
       {threatQuery && <ThreatIntelDrawer key="t3-threat" query={threatQuery} onClose={() => setThreatQuery(null)} />}
     </div>

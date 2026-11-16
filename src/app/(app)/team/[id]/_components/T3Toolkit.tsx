@@ -11,6 +11,7 @@ import { asStr, hostKey } from "@/lib/team/format";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { useServerNow } from "@/lib/team/clock";
+import { reportDraft } from "@/lib/team/t3Case";
 import { TECHNIQUES, tacticById } from "@/lib/mitre/attack";
 import { ThreatIntelDrawer, type ThreatQuery } from "@/components/threat-intel/ThreatIntelDrawer";
 import { useForensicPins } from "./forensicPins";
@@ -198,6 +199,8 @@ export const REPORT_KINDS = [
 const KIND_LABEL: Record<string, string> = Object.fromEntries(REPORT_KINDS.map(k => [k.v, k.label]));
 
 export function ForensicReportModal({ events, act, onClose, onSent }: { events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onClose: () => void; onSent: (msg: string) => void }) {
+  // Written once in the scope register, not retyped here (T3 interface spec, stage B).
+  const draft = useMemo(() => reportDraft(events), []); // eslint-disable-line react-hooks/exhaustive-deps
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(true, ref, { onEscape: onClose });
   const now = useServerNow(15_000);
@@ -205,9 +208,9 @@ export function ForensicReportModal({ events, act, onClose, onSent }: { events: 
   const status = new Map<string, string>();
   for (const f of findings) { const p = f.payload as Record<string, unknown>; if (p.kind === "host_status") status.set(asStr(p.host), asStr(p.status)); }
   const [kind, setKind] = useState<string>("status");
-  const [summary, setSummary] = useState("");
-  const [ready, setReady] = useState<"ready" | "not_ready" | "unknown" | null>(null);
-  const [why, setWhy] = useState("");
+  const [summary, setSummary] = useState(draft.summary);
+  const [ready, setReady] = useState<"ready" | "not_ready" | "unknown" | null>(draft.ready);
+  const [why, setWhy] = useState(draft.why);
   const [asks, setAsks] = useState("");
   const [next, setNext] = useState<"15" | "30" | "60" | null>(null);
   const [attach, setAttach] = useState<Set<number>>(() => new Set(findings.map(f => f.seq)));
