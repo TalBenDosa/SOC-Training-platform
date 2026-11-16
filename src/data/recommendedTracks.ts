@@ -164,7 +164,7 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
         id: "t1-attacks",
         title: "Identities and how attackers get in",
         goal: "Recognise the common ways in (phishing, fake installers, web flaws, stolen logons) and the malware that follows.",
-        skills: ["Accounts, sessions, MFA and Active Directory", "Malware families and what each wants", "Social engineering and modern initial access", "How web applications break (OWASP Top 10)"],
+        skills: ["Accounts, sessions, MFA and Active Directory", "Malware families and what each wants", "Social engineering and modern initial access", "How web applications break (OWASP Top 10)", "Attack categories and threat actors: APT, DDoS, MITM, zero-day, supply chain"],
         steps: [
           read("topic-lesson-active-directory-and-domain-controllers"),
           room("identity-basics"),
@@ -174,6 +174,7 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
           room("commodity-initial-access"),
           room("web-application-security"),
           read("topic-lesson-owasp-top-10-tour"),
+          read("topic-lesson-attack-categories-threat-actors"),
         ],
       },
       {
@@ -387,7 +388,7 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
         id: "t2-m365",
         title: "Microsoft 365 and cloud identity",
         goal: "Investigate a compromised Microsoft 365 account: risky sign-ins, inbox rules, OAuth consent, device registration, BEC and help-desk social engineering.",
-        skills: ["The Microsoft security stack", "Safe Links and Safe Attachments", "Defender XDR incidents and timelines", "Entra ID, Conditional Access and risky sign-ins", "Inbox rules and mail collection", "OAuth consent abuse", "Vishing and help-desk social engineering", "Okta"],
+        skills: ["The Microsoft security stack", "Safe Links and Safe Attachments", "Defender XDR incidents and timelines", "Entra ID, Conditional Access and risky sign-ins", "Federation, SAML and AD FS", "Inbox rules and mail collection", "OAuth consent abuse", "Vishing and help-desk social engineering", "Okta"],
         steps: [
           read("local-lesson-32"),
           room("microsoft-365-security"),
@@ -397,6 +398,7 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
           read("topic-lesson-defender-xdr-alerts-incidents-timeline"),
           room("entra-id"),
           read("topic-lesson-conditional-access-risky-signins-entra"),
+          read("topic-lesson-federation-saml-sso"),
           read("topic-lesson-impossible-travel-signin-anomalies"),
           room("remote-email-collection"),
           room("device-registration-persistence"),

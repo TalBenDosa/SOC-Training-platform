@@ -1387,5 +1387,23 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "difficulty": "advanced",
     "sectionCount": 9,
     "blurb": "An Active Directory trust is a configured relationship that lets domain controllers in one domain accept and vouch for the identities of another domain or forest. This lesson explains how trusts work, how an attacker who owns one domain uses them to reach a neighbor, and which"
+  },
+  {
+    "id": "topic-lesson-attack-categories-threat-actors",
+    "slug": "attack-categories-and-threat-actors",
+    "title": "Attack Categories and Threat Actors: APTs, DDoS, Man-in-the-Middle, Zero-Days and Supply Chain",
+    "topic": "Threat Intelligence",
+    "difficulty": "beginner",
+    "sectionCount": 9,
+    "blurb": "An attack category is a label for how an attack works and what it is trying to damage, and a threat actor is the person or group behind it. Together they give the analyst a first guess about what an alert means. After this lesson you will be able to name the six categories that"
+  },
+  {
+    "id": "topic-lesson-federation-saml-sso",
+    "slug": "federation-saml-and-sso",
+    "title": "Federation, SAML and Single Sign-On: How an Identity Provider Vouches for a User",
+    "topic": "Identity & Access",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Federation is a trust arrangement in which one system, the identity provider (IdP), authenticates a user and hands a signed statement about that user to another system, the service provider (SP), which accepts it instead of checking a password itself. This lesson teaches how"
   }
 ];

@@ -986,6 +986,7 @@ import { ATTACK_TYPE_LESSONS } from "./attackTypeLessons";
 import { PLAYBOOK_LESSONS } from "./playbookLessons";
 import { NEW_TOPIC_LESSONS } from "./newTopicLessons";
 import { CURRICULUM_EXPANSION_LESSONS } from "./curriculumExpansionLessons";
+import { TRACK_GAP_LESSONS } from "./trackGapLessons";
 import { LESSON_VIDEOS } from "./lessonVideos";
 import { LESSON_SLIDES } from "./lessonSlides";
 
@@ -1069,6 +1070,7 @@ export const BUILTIN_LESSONS = [
   // alongside Splunk and QRadar in NEW_TOPIC_LESSONS.
   pathN[0],
   ...CURRICULUM_EXPANSION_LESSONS,
+  ...TRACK_GAP_LESSONS,
 ];
 
 // Attach self-hosted explainer videos (Supabase Storage) to the first section of
