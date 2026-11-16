@@ -422,6 +422,34 @@ group("0097 — Team SOC: a re-escalated case can be resolved; a closed round ta
   check("0097: resolving the same round twice is refused (case_closed)", /case_closed/.test(secondResolve ?? ""), secondResolve ?? "accepted");
 }
 
+group("0111 — studied Lesson Library lessons (Recommended Tracks)");
+{
+  const orgA = await makeOrg("Reads A", 10);
+  const orgB = await makeOrg("Reads B", 10);
+  const u = await signup("reader1@x.io", HARNESS);
+  const other = await signup("reader2@x.io", HARNESS);
+  const mark = (uid, org, lesson, on) => q(`select public.set_library_read($1,$2,$3,$4)`, [uid, org, lesson, on]);
+  const count = async (uid, org) => (await one(`select count(*)::int n from public.library_reads where user_id=$1 and org_id is not distinct from $2`, [uid, org])).n;
+  await mark(u, orgA, "local-lesson-4", true);
+  await mark(u, orgA, "local-lesson-4", true);
+  check("0111: marking twice keeps one row", await count(u, orgA) === 1);
+  await mark(u, null, "local-lesson-4", true);
+  await mark(u, null, "local-lesson-4", true);
+  check("0111: no-organisation marks are unique too", await count(u, null) === 1);
+  check("0111: another organisation starts empty", await count(u, orgB) === 0);
+  await mark(other, orgA, "local-lesson-5", true);
+  await mark(u, orgA, "local-lesson-4", false);
+  check("0111: unmarking removes only that organisation's row", await count(u, orgA) === 0 && await count(u, null) === 1);
+  const seen = await asUser(other, async () => (await q(`select user_id from public.library_reads`)).rows);
+  check("0111: a learner reads only their own rows (RLS)", seen.length === 1 && seen.every(r => r.user_id === other), `${seen.length} rows`);
+  const direct = await asUser(other, async () => { try { await q(`insert into public.library_reads (user_id, lesson_id) values ($1, 'x')`, [other]); return null; } catch (e) { return e.message; } });
+  check("0111: learners cannot write the table directly", direct !== null, direct ?? "inserted");
+  const rpc = await asUser(other, async () => { try { await q(`select public.set_library_read($1, null, 'x', true)`, [other]); return null; } catch (e) { return e.message; } });
+  check("0111: learners cannot call set_library_read (server only)", rpc !== null, rpc ?? "called");
+  let bad = null; try { await mark(u, orgA, "", true); } catch (e) { bad = e.message; }
+  check("0111: an empty lesson id is refused", /invalid lesson/.test(bad ?? ""), bad ?? "accepted");
+}
+
 console.log(`\n${"═".repeat(64)}`);
 if (fail === 0) console.log(`\x1b[32m✅ BACKEND E2E: ALL ${pass} CHECKS PASSED\x1b[0m`);
 else { console.log(`\x1b[31m❌ BACKEND E2E: ${fail} FAILURE(S), ${pass} passed\x1b[0m`); failures.forEach(f => console.log("   - " + f)); }

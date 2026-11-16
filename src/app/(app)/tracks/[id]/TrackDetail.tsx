@@ -19,7 +19,7 @@ type Step = ResolvedStep & { status: StepStatus };
 export function TrackDetail({ trackId }: { trackId: string }) {
   const track = findTrack(trackId)!;
   const features = useFeatures();
-  const { records, ready, userId } = useLearnerRecords();
+  const { records, ready, userId, orgId } = useLearnerRecords();
   const view = useMemo(() => buildTrackView(track, records, f => features[f]), [track, records, features]);
   const [deck, setDeck] = useState<{ src: string; title: string; pages: number } | null>(null);
 
@@ -107,7 +107,7 @@ export function TrackDetail({ trackId }: { trackId: string }) {
                 open={!!open[st.stage.id]}
                 onToggle={() => toggle(st.stage.id)}
                 onDeck={setDeck}
-                onMark={(id, v) => setReadMark(userId, id, v)}
+                onMark={(id, v) => setReadMark({ userId, orgId }, id, v)}
               />
             ))}
           </ol>

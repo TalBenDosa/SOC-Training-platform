@@ -11,12 +11,14 @@ import {
   getRoomProgress, getQuizProgress, getScenarioHistory, getClearedCompanies, getCompletedLessons,
 } from "@/lib/storage/progress";
 import { EMPTY_RECORDS, type LearnerRecords } from "./progress";
-import { getReadMarks, READ_MARKS_EVENT } from "./readMarks";
+import { useOrgContext } from "@/lib/auth/useOrgContext";
+import { getReadMarks, syncReadMarks, READ_MARKS_EVENT } from "./readMarks";
 
-export function useLearnerRecords(): { records: LearnerRecords; ready: boolean; userId: string | null } {
+export function useLearnerRecords(): { records: LearnerRecords; ready: boolean; userId: string | null; orgId: string | null } {
   const { ready, version } = useProgressSnapshot();
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const { orgId } = useOrgContext();
   const [records, setRecords] = useState<LearnerRecords>(EMPTY_RECORDS);
   const [marksVersion, setMarksVersion] = useState(0);
 
@@ -39,10 +41,15 @@ export function useLearnerRecords(): { records: LearnerRecords; ready: boolean; 
         scenarios: new Set(getScenarioHistory().map(s => s.slug)),
         shifts: new Set(getClearedCompanies()),
         lessons: new Set(getCompletedLessons()),
-        reads: getReadMarks(userId),
+        reads: getReadMarks({ userId, orgId }),
       });
     } catch { /* storage blocked: show the track without progress */ }
-  }, [ready, version, marksVersion, userId]);
+  }, [ready, version, marksVersion, userId, orgId]);
 
-  return { records, ready, userId };
+  // Studied lessons follow the learner across devices (0111): merge the server's copy once.
+  useEffect(() => {
+    if (ready && userId) void syncReadMarks({ userId, orgId });
+  }, [ready, userId, orgId]);
+
+  return { records, ready, userId, orgId };
 }

@@ -16,6 +16,7 @@ import { AssignedChip } from "@/components/plans/AssignedChip";
 import { useAssignedItems } from "@/lib/plans/useAssigned";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { setReadMark } from "@/lib/tracks/readMarks";
+import { useOrgContext } from "@/lib/auth/useOrgContext";
 import type { AssignedInfo } from "@/lib/plans/assigned";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
@@ -402,10 +403,11 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
 
   // Reaching the last page counts the lesson as studied on the learner's Recommended Track.
   const { user } = useAuth();
+  const { orgId } = useOrgContext();
   const reachedEnd = page === totalPages - 1;
   useEffect(() => {
-    if (reachedEnd) setReadMark(user?.id, lesson.id, true);
-  }, [reachedEnd, user?.id, lesson.id]);
+    if (reachedEnd) setReadMark({ userId: user?.id, orgId }, lesson.id, true);
+  }, [reachedEnd, user?.id, orgId, lesson.id]);
 
   const onNext = () => goTo(page + 1);
   const onPrev = () => goTo(page - 1);
