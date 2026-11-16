@@ -6,6 +6,7 @@ export const TRACK_GAP_LESSONS = [
   {
     "id": "topic-lesson-attack-categories-threat-actors",
     "slug": "attack-categories-and-threat-actors",
+    "estimatedMinutes": 47,
     "title": "Attack Categories and Threat Actors: APTs, DDoS, Man-in-the-Middle, Zero-Days and Supply Chain",
     "topic": "Threat Intelligence",
     "difficulty": "beginner",
@@ -197,6 +198,7 @@ export const TRACK_GAP_LESSONS = [
   {
     "id": "topic-lesson-federation-saml-sso",
     "slug": "federation-saml-and-sso",
+    "estimatedMinutes": 47,
     "title": "Federation, SAML and Single Sign-On: How an Identity Provider Vouches for a User",
     "topic": "Identity & Access",
     "difficulty": "intermediate",

@@ -130,4 +130,6 @@ export const LESSON_SLIDES: Record<string, LessonSlidesData> = {
   "osint-social-media-investigation": { src: "/lesson-decks/osint-social-media-investigation.html?v=770d71c5&embed=1", pages: 52 },
   "osint-tools-frameworks-and-reporting": { src: "/lesson-decks/osint-tools-frameworks-and-reporting.html?v=5cdb2689&embed=1", pages: 47 },
   "ad-domain-trusts-and-cross-forest-attacks": { src: "/lesson-decks/ad-domain-trusts-and-cross-forest-attacks.html?v=fb5569c2&embed=1", pages: 51 },
+  "attack-categories-and-threat-actors": { src: "/lesson-decks/attack-categories-and-threat-actors.html?v=8edb0e89&embed=1", pages: 53 },
+  "federation-saml-and-sso": { src: "/lesson-decks/federation-saml-and-sso.html?v=65f399fb&embed=1", pages: 48 },
 };

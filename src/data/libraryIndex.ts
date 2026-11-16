@@ -1394,6 +1394,7 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "title": "Attack Categories and Threat Actors: APTs, DDoS, Man-in-the-Middle, Zero-Days and Supply Chain",
     "topic": "Threat Intelligence",
     "difficulty": "beginner",
+    "estimatedMinutes": 47,
     "sectionCount": 9,
     "blurb": "An attack category is a label for how an attack works and what it is trying to damage, and a threat actor is the person or group behind it. Together they give the analyst a first guess about what an alert means. After this lesson you will be able to name the six categories that"
   },
@@ -1403,6 +1404,7 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "title": "Federation, SAML and Single Sign-On: How an Identity Provider Vouches for a User",
     "topic": "Identity & Access",
     "difficulty": "intermediate",
+    "estimatedMinutes": 47,
     "sectionCount": 9,
     "blurb": "Federation is a trust arrangement in which one system, the identity provider (IdP), authenticates a user and hands a signed statement about that user to another system, the service provider (SP), which accepts it instead of checking a password itself. This lesson teaches how"
   }
