@@ -43,6 +43,10 @@ export const LEARNER_KEYS = {
   /** ISO date[] of lesson completions (JSON) — streak signal. Hydrated from
    *  lesson_progress (server-written by /api/lessons/[slug]/complete). */
   lessonActivity: "soc_lesson_activity",
+  /** string[] of completed Learning Path lesson keys ("{path}--{lesson}") — Recommended
+   *  Tracks progress. Hydrated from lesson_progress; cache-only on the client, never
+   *  persisted by remoteBackend (the complete route is the only writer). */
+  lessonCompleted: "soc_lesson_completed",
 } as const;
 
 /**

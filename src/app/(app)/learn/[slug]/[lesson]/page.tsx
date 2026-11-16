@@ -18,7 +18,7 @@ import { LessonVideo } from "@/components/lessons/LessonVideo";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { shuffleSeeded } from "@/lib/lessons/shuffle";
 import type { ClientLesson, LessonPage, ClientLessonQuizQuestion } from "@/app/api/lessons/[slug]/route";
-import { addTotalXp, setTotalXp, recordLessonActivity } from "@/lib/storage/progress";
+import { addTotalXp, setTotalXp, recordLessonActivity, markLessonCompleted } from "@/lib/storage/progress";
 import { ListenButton } from "@/components/media/ListenButton";
 import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
 
@@ -445,6 +445,7 @@ export default function LessonReader() {
       if (res.ok) {
         // Activity first: setTotalXp's change event is what recomputes the streak.
         if (data.status === "credited") recordLessonActivity(data.completedAt ?? undefined);
+        markLessonCompleted(lessonKey);
         if (typeof data.totalXp === "number") setTotalXp(data.totalXp);
         else if (data.credited > 0) addTotalXp(data.credited);
         setComplete(data.status === "already"
@@ -463,6 +464,7 @@ export default function LessonReader() {
           recordLessonActivity();
           if (credited > 0) addTotalXp(credited);
         }
+        markLessonCompleted(lessonKey);
         setComplete({ status: "guest", credited });
         setCompleted(true);
         flashToast();

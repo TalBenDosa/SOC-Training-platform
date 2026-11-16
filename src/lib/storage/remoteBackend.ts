@@ -334,7 +334,7 @@ export function createRemoteBackend(
       // Streak signal only (XP for these is server-written). A missing table
       // (database without 0070/0074 yet) just yields no dates.
       supabase.from("quiz_progress").select("quiz_slug, best_score_pct, first_completed_at, last_completed_at").eq("user_id", userId),
-      supabase.from("lesson_progress").select("completed_at").eq("user_id", userId),
+      supabase.from("lesson_progress").select("lesson_key, completed_at").eq("user_id", userId),
     ]);
 
     // Optional tables (quiz/lesson — may not exist on an older database) are
@@ -401,6 +401,10 @@ export function createRemoteBackend(
     const lessonDates = ((lessonRes?.data ?? []) as { completed_at?: string | null }[])
       .map(r => r.completed_at).filter((d): d is string => !!d).sort();
     cache.set(LEARNER_KEYS.lessonActivity, JSON.stringify(lessonDates));
+    // Which graded lessons are complete (Recommended Tracks progress).
+    const lessonsDone = ((lessonRes?.data ?? []) as { lesson_key?: string | null; completed_at?: string | null }[])
+      .filter(r => r.completed_at && r.lesson_key).map(r => r.lesson_key as string);
+    cache.set(LEARNER_KEYS.lessonCompleted, JSON.stringify(lessonsDone));
 
     const wasEmpty = xp === 0 && roomMap && Object.keys(roomMap).length === 0
       && sessions.length === 0 && scenarios.length === 0;

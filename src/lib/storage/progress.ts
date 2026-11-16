@@ -258,3 +258,12 @@ export function getLessonActivityDates(): string[] {
 export function recordLessonActivity(iso: string = new Date().toISOString()): void {
   appendActivity(LEARNER_KEYS.lessonActivity, iso);
 }
+/** Completed graded Learning Path lessons ("{path}--{lesson}") — Recommended Tracks progress. */
+export function getCompletedLessons(): string[] {
+  return readJson<string[]>(LEARNER_KEYS.lessonCompleted, []);
+}
+/** Cache the completion right after the complete route accepts it (server stays the authority). */
+export function markLessonCompleted(lessonKey: string): void {
+  const list = getCompletedLessons();
+  if (!list.includes(lessonKey)) writeJson(LEARNER_KEYS.lessonCompleted, [...list, lessonKey]);
+}

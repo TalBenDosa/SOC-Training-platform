@@ -14,6 +14,8 @@ import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { AssignedChip } from "@/components/plans/AssignedChip";
 import { useAssignedItems } from "@/lib/plans/useAssigned";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { setReadMark } from "@/lib/tracks/readMarks";
 import type { AssignedInfo } from "@/lib/plans/assigned";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
@@ -397,6 +399,14 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
   const totalPages = 1 + lesson.sections.length + (hasSummary ? 1 : 0);
 
   const goTo   = useCallback((p: number) => setPage(Math.max(0, Math.min(p, totalPages - 1))), [totalPages]);
+
+  // Reaching the last page counts the lesson as studied on the learner's Recommended Track.
+  const { user } = useAuth();
+  const reachedEnd = page === totalPages - 1;
+  useEffect(() => {
+    if (reachedEnd) setReadMark(user?.id, lesson.id, true);
+  }, [reachedEnd, user?.id, lesson.id]);
+
   const onNext = () => goTo(page + 1);
   const onPrev = () => goTo(page - 1);
 
@@ -774,12 +784,12 @@ export default function LearnPage() {
 
         {/* ── Source-of-truth signpost ──────────────────────────────────
             This page (the Lesson Library) is reference/exploration
-            material with no mastery gate. The graded, sequenced curriculum —
-            the one that scores you, enforces prerequisites, and tracks real
-            competence — is Learning Rooms. Say so plainly so a beginner who
-            lands here first doesn't mistake the reading library for the course. */}
+            material with no mastery gate. The recommended order is a Career
+            Track (/tracks), which sequences these lessons with the graded rooms,
+            quizzes and scenarios. Say so plainly so a beginner who lands here
+            first doesn't mistake the reading library for the course. */}
         <Link
-          href="/rooms"
+          href="/tracks"
           className="group mb-8 flex items-center gap-3 rounded-xl border border-cyber-500/30 bg-cyber-500/5 px-4 py-3 transition-colors hover:border-cyber-500/50 hover:bg-cyber-500/10"
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10 text-cyber-300">
@@ -790,8 +800,9 @@ export default function LearnPage() {
               This is a reference &amp; exploration library — read freely, in any order.
             </p>
             <p className="text-[12px] text-slate-400 leading-relaxed">
-              The graded curriculum that scores you, unlocks by prerequisite, and tracks your progress to analyst is{" "}
-              <span className="font-semibold text-cyber-200">Learning Rooms</span>. Start there for the real path.
+              For the recommended order, follow a{" "}
+              <span className="font-semibold text-cyber-200">Recommended Track</span>: each one puts these lessons and their
+              slide decks together with the rooms, quizzes and scenarios that practise them, stage by stage.
             </p>
           </div>
           <ArrowRight className="h-4 w-4 shrink-0 text-cyber-400 transition-transform group-hover:translate-x-0.5" />

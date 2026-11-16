@@ -12,10 +12,12 @@ import { MyEnvironmentSwitcher } from "./MyEnvironmentSwitcher";
 import { useBrand, useFeatures } from "@/lib/brand/BrandContext";
 import { featureForPath } from "@/lib/brand/features";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users, ChevronsLeft, PanelLeft,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users, ChevronsLeft, PanelLeft, Route,
 } from "lucide-react";
 
 const NAV_ITEMS = [
+  // Our recommended route through everything below, one track per level.
+  { href: "/tracks",       label: "Recommended Tracks",  icon: Route           },
   { href: "/rooms",        label: "Learning Rooms", icon: DoorOpen        },
   { href: "/dashboard",    label: "SOC Dashboard",  icon: LayoutDashboard },
   // NOTE: /edr is deliberately NOT in the nav. The EDR console is only reachable
