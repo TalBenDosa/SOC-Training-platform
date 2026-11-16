@@ -889,13 +889,13 @@ export const AZURE_SECURITY: RoomExperience = {
         kind: "worksheet",
         title: "Decode the Tuple",
         prompt: "Back on the desk at NexaCorp, the next entry on this timeline carries a flow record. Linnea sends four tuples from nsg-outagemap to practise on. Each string is one flow. Read them field by field.",
-        caption: "NSG flow log · nsg-outagemap · flowTuples",
+        caption: "NSG flow log, version 2 · nsg-outagemap · flowTuples",
         columns: ["Tuple", "flowTuples"],
         rows: [
-          ["A", "1794192091,10.30.1.6,198.51.100.84,51910,80,T,O,A,B"],
-          ["B", "1794192104,198.51.100.140,10.30.1.5,55102,22,T,I,D,B"],
-          ["C", "1794192133,10.30.0.4,10.30.1.6,40122,443,T,I,A,B"],
-          ["D", "1794192160,10.30.1.6,10.30.2.9,33514,5432,T,O,A,C"],
+          ["A", "1794192091,10.30.1.6,198.51.100.84,51910,80,T,O,A,B,,,,"],
+          ["B", "1794192104,198.51.100.140,10.30.1.5,55102,22,T,I,D,B,,,,"],
+          ["C", "1794192133,10.30.0.4,10.30.1.6,40122,443,T,I,A,B,,,,"],
+          ["D", "1794192160,10.30.1.6,10.30.2.9,33514,5432,T,O,A,C,14,2318,12,9411"],
         ],
         questions: [
           { id: "den", q: "One flow was refused. What's its source address?", hint: "The eighth field is the decision.", answer: ["198.51.100.140"], why: "Tuple B: decision D, for Deny. A real attempt, stopped by the NSG." },
@@ -905,16 +905,17 @@ export const AZURE_SECURITY: RoomExperience = {
         primer: {
           title: "Inside a flow tuple",
           points: [
-            "Comma-separated, in this order: time, source IP, destination IP, source port, destination port, protocol, direction, decision, flow state.",
+            "Version 2 has 13 comma-separated fields, in this order: time, source IP, destination IP, source port, destination port, protocol, direction, decision, flow state, then packets and bytes sent by the source, then packets and bytes sent by the destination. Version 1 stops after the decision, with 8 fields.",
             "The time is in Unix epoch seconds.",
             "Protocol: `T` TCP, `U` UDP. Direction: `I` inbound, `O` outbound.",
-            "Decision: `A` allowed, `D` denied. Flow state: `B` began, `C` continuing, `E` ended.",
+            "Decision: `A` allowed, `D` denied. Flow state: `B` began, `C` continuing, `E` ended. On a `B` record the four counters are still blank, which is why a new flow ends in four commas.",
+            "NSG flow logs are being retired: no new ones can be created since 30 June 2025, and they stop working on 30 September 2027. Their successor is VNet flow logs, recorded for the whole virtual network, with a tuple layout of their own.",
           ],
           example: {
             label: "A DNS lookup, field by field",
             lines: [
-              "`1762000000,10.1.1.4,10.1.2.8,49822,53,U,O,A,B`",
-              "From 10.1.1.4 port 49822 to 10.1.2.8 port 53, over UDP, outbound, allowed, a new flow.",
+              "`1762000000,10.1.1.4,10.1.2.8,49822,53,U,O,A,B,,,,`",
+              "From 10.1.1.4 port 49822 to 10.1.2.8 port 53, over UDP, outbound, allowed, a new flow, so no packet or byte counts yet.",
             ],
           },
         },

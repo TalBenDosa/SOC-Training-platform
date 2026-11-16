@@ -468,7 +468,7 @@ export const ESXI_VIRTUALIZATION_SECURITY: RoomExperience = {
           { id: "a", text: "A vCenter sign-in from the admin subnet at 09:00", bucket: "ctx", why: "It happens all day. It's useful once you're tracing a session, and useless as an alert." },
           { id: "b", text: "A failed vCenter sign-in", bucket: "ctx", why: "Typos are constant. It only matters alongside something else." },
           { id: "c", text: "esx.audit.net.firewall.config.changed with no change booked", bucket: "alert", why: "Host configuration rarely changes, it names the host, and it arrives before any damage." },
-          { id: "d", text: "esx.audit.account.password.updated for root, with no change booked", bucket: "alert", why: "It's rare, specific and security-relevant, and it comes well ahead of the impact." },
+          { id: "d", text: "hostd: Password was changed for account root, with no change booked", bucket: "alert", why: "It's rare, specific and security-relevant, and it comes well ahead of the impact." },
           { id: "e", text: "Mass rename of disk files seen by the storage array", bucket: "conf", why: "Nearly certain, but it means encryption is already running." },
           { id: "f", text: "The booking site is down and the phones are ringing", bucket: "conf", why: "You can't get surer, and you can't get later. It helps you scope, and it prevents nothing." },
         ],

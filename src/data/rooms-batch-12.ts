@@ -1159,46 +1159,42 @@ const rooms = [
         id: "esc-log-1",
         heading: "Analyzing a Tier 1 to Tier 2 Escalation Event",
         context:
-          "The SIEM has logged an escalation event. A Tier 1 analyst has escalated an active incident to Tier 2. Examine the escalation record carefully. Judge both what it contains and when it was sent, using the timestamps in the Tier 1 actions list.",
+          "Below is the incident record as the SIEM pulls it from ServiceNow, moments after a Tier 1 analyst reassigned it from SOC Tier 1 to SOC Tier 2 (the work notes are newest first, times in UTC). Examine the escalation record carefully. Judge both what it contains and when it was sent, using the times in the work notes.",
         event: {
           id: "evt-esc-001",
+          vendor: "ServiceNow ITSM",
           ts: "2026-06-24T09:45:00.000Z",
           source: "siem",
           event_type: "edr_alert",
-          hostname: "SOAR-PLATFORM-01",
+          hostname: "TICKETING-SYS-01",
           severity: "critical",
           raw: {
-            "escalation.from_tier": 1,
-            "escalation.to_tier": 2,
-            "escalation.incident_id": "INC-2026-4892",
-            "escalation.reason":
-              "Confirmed ransomware encryption on 12 hosts, requires isolation authority. Maze ransomware variant identified by EDR (beacon_x64.dll + maze-ransomware.exe). C2 traffic to 203.0.113.47:443. Tier 1 playbook exhausted.",
-            "escalation.analyst": "r.cohen",
-            "escalation.timestamp": "2026-06-24T09:45:00.000Z",
-            "escalation.severity": "P1",
-            "escalation.affected_hosts_count": 12,
-            "escalation.iocs": [
-              "maze-ransomware.exe",
-              "203.0.113.47",
-              "beacon_x64.dll",
-              "sha256:1cdaef0f9aa0119f255bb61080ca2d875a2847f27ca55bb1d32b2a89334cae40",
-            ],
-            "escalation.actions_taken_by_tier1": [
-              "Alert acknowledged at 09:12 UTC",
-              "IOCs looked up in threat intel: Maze ransomware confirmed at 09:14 UTC",
-              "Ticket INC-2026-4892 created at 09:17 UTC",
-              "Client notification sent at 09:32 UTC (P1 SLA: 15 min from confirmation, 3 min breach)",
-              "Identified 12 affected hosts via SIEM correlation",
-              "Attempted to block C2 IP 203.0.113.47: requires Tier 2 firewall authority",
-            ],
-            "escalation.analyst_notes":
-              "Ransomware appears to have originated from WS-FINANCE-042 (initial execution at 09:08 UTC) and spread laterally via SMB shares. All 12 affected hosts are on the FINANCE VLAN (10.10.5.0/24). Domain controller SRV-DC-01 is NOT yet affected. Recommend immediate VLAN isolation to contain spread before DC is compromised.",
+            "servicenow.table": "incident",
+            "servicenow.number": "INC0004892",
+            "servicenow.state": "2",
+            "servicenow.priority": "1",
+            "servicenow.impact": "1",
+            "servicenow.urgency": "1",
+            "servicenow.category": "Security Incident",
+            "servicenow.subcategory": "Ransomware",
+            "servicenow.contact_type": "monitoring",
+            "servicenow.short_description": "Confirmed Maze ransomware encryption on 12 FINANCE hosts, requires isolation authority",
+            "servicenow.description":
+              "Escalation reason: confirmed ransomware encryption on 12 hosts, requires isolation authority. Maze ransomware variant identified by EDR (beacon_x64.dll + maze-ransomware.exe). C2 traffic to 203.0.113.47:443. Tier 1 playbook exhausted.\nIOCs: maze-ransomware.exe, 203.0.113.47, beacon_x64.dll, sha256:1cdaef0f9aa0119f255bb61080ca2d875a2847f27ca55bb1d32b2a89334cae40\nAnalyst notes: Ransomware appears to have originated from WS-FINANCE-042 (initial execution at 09:08 UTC) and spread laterally via SMB shares. All 12 affected hosts are on the FINANCE VLAN (10.10.5.0/24). Domain controller SRV-DC-01 is NOT yet affected. Recommend immediate VLAN isolation to contain spread before DC is compromised.",
+            "servicenow.cmdb_ci": "WS-FINANCE-042",
+            "servicenow.opened_by": "r.cohen",
+            "servicenow.assignment_group": "SOC Tier 2",
+            "servicenow.opened_at": "2026-06-24 09:17:00",
+            "servicenow.sys_created_on": "2026-06-24 09:17:00",
+            "servicenow.work_notes":
+              "2026-06-24 09:45:00 - r.cohen (Work notes)\nReassigned from SOC Tier 1 to SOC Tier 2, severity P1. Isolation and firewall authority needed.\n\n2026-06-24 09:41:00 - r.cohen (Work notes)\nAttempted to block C2 IP 203.0.113.47: requires Tier 2 firewall authority.\n\n2026-06-24 09:38:00 - r.cohen (Work notes)\nIdentified 12 affected hosts via SIEM correlation.\n\n2026-06-24 09:32:00 - r.cohen (Work notes)\nClient notification sent (P1 SLA: 15 min from confirmation, 3 min breach).\n\n2026-06-24 09:17:00 - r.cohen (Work notes)\nAlert acknowledged at 09:12 UTC. IOCs looked up in threat intel: Maze ransomware confirmed at 09:14 UTC. Ticket opened.",
+            "servicenow.sys_updated_on": "2026-06-24 09:45:00",
           },
         } as TelemetryEvent,
         questions: [
           {
             question:
-              "Compare escalation.timestamp with the times in escalation.actions_taken_by_tier1. By the reading's escalation criteria, what is the main weakness of this escalation?",
+              "Compare the 09:45 reassignment to SOC Tier 2 with the earlier times in the work notes. By the reading's escalation criteria, what is the main weakness of this escalation?",
             options: [
               "It came too early: Tier 1 should have finished blocking the C2 address before handing the case over",
               "It came too late: ransomware was confirmed at 09:14, yet Tier 2 was only engaged at 09:45",

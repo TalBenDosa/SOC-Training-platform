@@ -13,6 +13,7 @@ Category: ENDPOINT / IDENTITY (Windows hosts and Active Directory domain control
 | https://system32.eventsentry.com/security/event/4769 (secondary) | The `Data Name` of every 4769 insertion string, including the new ones, in order: `TargetUserName, TargetDomainName, ServiceName, ServiceSid, TicketOptions, TicketEncryptionType, IpAddress, IpPort, Status, LogonGuid, TransmittedServices, RequestTicketHash, ResponseTicketHash, AccountSupportedEncryptionTypes, AccountAvailableKeys, ServiceSupportedEncryptionTypes, ServiceAvailableKeys, DCSupportedEncryptionTypes, DCAvailableKeys, ClientAdvertizedEncryptionTypes, SessionKeyEncryptionType`. |
 | https://github.com/microsoft/Kerberos-Crypto (`scripts/Get-KerbEncryptionUsage.ps1`, `scripts/List-AccountKeys.ps1`) | Microsoft's own parsers read 4769 `Properties[5]` = ticket etype, `[6]` = IP, `[16]` = service keys, `[20]` = session-key etype; 4768 `[7]` = ticket etype, `[9]` = IP, `[16]` = account keys, `[22]` = session-key etype. This is consistent with the 4769 list above and with a 4768 order of 14 classic fields + `ResponseTicket, AccountSupportedEncryptionTypes, AccountAvailableKeys, ServiceSupportedEncryptionTypes, ServiceAvailableKeys, DCSupportedEncryptionTypes, DCAvailableKeys, ClientAdvertizedEncryptionTypes, SessionKeyEncryptionType, PreAuthEncryptionType`. The 4768 names `ResponseTicket` and `PreAuthEncryptionType` are UNVERIFIED by name (index-consistent only). Etype names used by Microsoft: `RC4` 0x17, `AES128-SHA96` 0x11, `AES256-SHA96` 0x12, `AES128-SHA256` 0x13, `AES256-SHA384` 0x14. |
 | https://learn.microsoft.com/en-us/windows/win32/adschema/r-ds-replication-get-changes , `…/r-ds-replication-get-changes-all`, `…/r-ds-replication-get-changes-in-filtered-set` | Control-access-right GUIDs: `1131f6aa-9c07-11d1-f79f-00c04fc2dcd2` (DS-Replication-Get-Changes), `1131f6ad-9c07-11d1-f79f-00c04fc2dcd2` (DS-Replication-Get-Changes-All), `89e95b76-444d-4c62-991a-0facbeda640c` (DS-Replication-Get-Changes-In-Filtered-Set). `domainDNS` class GUID `19195a5b-6da0-11d0-afd3-00c04fd930c9`. |
+| https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4673 , `…/event-4698`, `…/event-4723`, `…/event-1102` (checked 2026-11-15) | **4673** (Task 13056, Audit Sensitive / Non Sensitive Privilege Use, S and F): `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, ObjectServer, Service, PrivilegeList, ProcessId, ProcessName` (`ProcessId` hex, e.g. `0x1f0`). **4698** (Task 12804, Audit Other Object Access Events): `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, TaskName, TaskContent`, plus on Windows 10 1903+ (event Version 1) `ClientProcessStartKey, ClientProcessId, ParentProcessId, RpcCallClientLocality, FQDN`. **4723** (Task 13824, Audit User Account Management, S and F): `TargetUserName, TargetDomainName, TargetSid, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, PrivilegeList`. **1102**: provider `Microsoft-Windows-Eventlog` (`{fc65ddd8-d6ef-4962-83d5-6e5cfe9ce148}`), Task 104, Level 4, Keywords `0x4020000000000000`, Channel `Security`, data in `UserData/LogFileCleared` (not `EventData`): `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId`. |
 | https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/plan/appendix-l--events-to-monitor | Which IDs Microsoft recommends monitoring (4624/4625/4648/4672/4688/4720/4728/4732/4740/4756/4768/4769/4771/4776/5136/4697 …). |
 | https://research.splunk.com/sources/614dedc8-8a14-4393-ba9b-6f093cbcd293/ and https://www.evtxparser.com/en/blog/service-creation-event-id-7045 (secondary) | System-log 7045 (`Provider Name="Service Control Manager"`, `EventSourceName="Service Control Manager"`), EventData `ServiceName, ImagePath, ServiceType, StartType, AccountName`, values rendered as text (`user mode service`, `demand start`, `LocalSystem`). |
 
@@ -96,11 +97,14 @@ Parsed record keys:
 | **4634** (12545 Logoff) | target host | An account was logged off | `TargetUserSid, TargetUserName, TargetDomainName, TargetLogonId, LogonType` |
 | **4648** (12544) | source host | A logon was attempted using explicit credentials | `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, LogonGuid, TargetUserName, TargetDomainName, TargetLogonGuid, TargetServerName, TargetInfo, ProcessId, ProcessName, IpAddress, IpPort` |
 | **4672** (12548 Special Logon) | target host | Special privileges assigned to new logon | `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, PrivilegeList` (here "Subject" = the user who just logged on) |
+| **4673** (13056 Sensitive Privilege Use) | host | A privileged service was called | `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, ObjectServer, Service, PrivilegeList, ProcessId, ProcessName` (`ObjectServer` = the subsystem, e.g. `NT Local Security Authority / Authentication Service`, `Security Account Manager`, `SC Manager`; `Service` = the function, e.g. `LsaRegisterLogonProcess()`, may be `-`; `ProcessId` is hex. Success **and** failure: a failure means the caller lacked the privilege) |
 | **4688** v2 (13312 Process Creation) | host | A new process has been created | `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, NewProcessId, NewProcessName, TokenElevationType, ProcessId, CommandLine, TargetUserSid, TargetUserName, TargetDomainName, TargetLogonId, ParentProcessName, MandatoryLabel` (`CommandLine` is empty unless "Include command line in process creation events" is enabled) |
 | **4697** (12289 Security System Extension) | host | A service was installed in the system | `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, ServiceName, ServiceFileName, ServiceType, ServiceStartType, ServiceAccount` (newer builds append `ClientProcessStartKey, ClientProcessId, ParentProcessId` — UNVERIFIED) |
+| **4698** v0/v1 (12804 Other Object Access) | host | A scheduled task was created | `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, TaskName, TaskContent`; Version 1 (Windows 10 1903+ and matching Server builds) appends `ClientProcessStartKey, ClientProcessId, ParentProcessId, RpcCallClientLocality, FQDN`. `TaskName` is the Task Scheduler path (`\Microsoft\Windows\…` or root `\Name`); `TaskContent` is the whole task XML as one string (`<Actions><Exec><Command>` holds what runs). Siblings: 4699 deleted, 4700 enabled, 4701 disabled, 4702 updated |
 | **4720** (13824 User Account Mgmt) | DC / host | A user account was created | `TargetUserName, TargetDomainName, TargetSid, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, PrivilegeList, SamAccountName, DisplayName, UserPrincipalName, HomeDirectory, HomePath, ScriptPath, ProfilePath, UserWorkstations, PasswordLastSet, AccountExpires, PrimaryGroupId, AllowedToDelegateTo, OldUacValue, NewUacValue, UserAccountControl, UserParameters, SidHistory, LogonHours` |
 | **4722** (13824) | DC / host | A user account was enabled | `TargetUserName, TargetDomainName, TargetSid, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId` |
-| **4724** (13824) | DC / host | An attempt was made to reset an account's password | same 7 fields as 4722 (4723 = user changed own password) |
+| **4723** (13824) | DC / host | An attempt was made to change an account's password | `TargetUserName, TargetDomainName, TargetSid, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, PrivilegeList` (the 4722 list plus `PrivilegeList`, usually `-`). A **change**: the old password was supplied. Subject and Target are normally the same account. Success and failure: a domain-account failure means the new password broke policy (a wrong old password shows as 4771 / 4776 on the DC instead); a local-account failure can also be a wrong old password |
+| **4724** (13824) | DC / host | An attempt was made to reset an account's password | same 7 fields as 4722. A **reset**: someone with the right sets a new password without knowing the old one, so Subject is normally a different (admin or help-desk) account |
 | **4738** (13824) | DC / host | A user account was changed | `Dummy, TargetUserName, TargetDomainName, TargetSid, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, PrivilegeList, SamAccountName, DisplayName, UserPrincipalName, HomeDirectory, HomePath, ScriptPath, ProfilePath, UserWorkstations, PasswordLastSet, AccountExpires, PrimaryGroupId, AllowedToDelegateTo, OldUacValue, NewUacValue, UserAccountControl, UserParameters, SidHistory, LogonHours` — unchanged attributes are `-` |
 | **4728 / 4732 / 4756** (13826 Security Group Mgmt) | DC (4732 also local SAM) | A member was added to a security-enabled **global** / **local** / **universal** group | `MemberName, MemberSid, TargetUserName, TargetDomainName, TargetSid, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, PrivilegeList` (here `Target*` = the **group**; `MemberName` = DN of the added account, `-` for local SAM adds) |
 | **4740** (13824) | DC (PDC emulator) | A user account was locked out | `TargetUserName, TargetDomainName, TargetSid, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId` — **`TargetDomainName` holds the "Caller Computer Name"** (the host that sent the bad passwords) |
@@ -111,6 +115,7 @@ Parsed record keys:
 | **4662** (14080 Directory Service Access) | DC | An operation was performed on an object | `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, ObjectServer, ObjectType, ObjectName, OperationType, HandleId, AccessList, AccessMask, Properties, AdditionalInfo, AdditionalInfo2` (requires a SACL on the object and "Audit Directory Service Access") |
 | **5136** (14081 Directory Service Changes) | DC | A directory service object was modified | `OpCorrelationID, AppCorrelationID, SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId, DSName, DSType, ObjectDN, ObjectGUID, ObjectClass, AttributeLDAPDisplayName, AttributeSyntaxOID, AttributeValue, OperationType` |
 | **7045** (System log) | host | A service was installed in the system | `ServiceName, ImagePath, ServiceType, StartType, AccountName` |
+| **1102** (Security log, provider `Microsoft-Windows-Eventlog`, Task 104) | host / DC | The audit log was cleared | `UserData/LogFileCleared`: `SubjectUserSid, SubjectUserName, SubjectDomainName, SubjectLogonId`. Written into the freshly cleared log, so it is the **first** record left. Not a Security-Auditing event: different provider, `Level 4`, `Keywords 0x4020000000000000`. The System log's own clear is a separate event (104 in the System channel; not re-checked for this card) |
 
 ### 3.3 LogonType (4624 / 4625 / 4634)
 
@@ -236,6 +241,7 @@ Parsed record keys:
 | `0x8020000000000000` | Audit Success |
 | `0x8010000000000000` | Audit Failure (4625, 4771, failed 4768/4769, failed 4776) |
 | `0x8080000000000000` | Classic System-log keyword used on 7045 (UNVERIFIED exact value) |
+| `0x4020000000000000` | 1102 (provider `Microsoft-Windows-Eventlog`), from Microsoft's 1102 sample |
 
 ---
 
@@ -670,6 +676,98 @@ Shared values (2026-09-30, UTC). Domain SID `S-1-5-21-3623811015-3361044348-3030
 ```
 *`1131f6ad-…` = DS-Replication-Get-Changes-**All**: the right to pull password hashes (including `krbtgt`). A DCSync usually logs a pair of 4662s within a second (`1131f6aa-…` and `1131f6ad-…`, sometimes `89e95b76-…`). Domain controllers (`DC01$`, `DC02$`) and Entra Connect's `MSOL_…` sync account do this legitimately; **any other `SubjectUserName`** is DCSync (Mimikatz `lsadump::dcsync`, Impacket `secretsdump`). `ObjectName` is the GUID of the domain head object (same as `ObjectGUID` in 4.13). Pivot `SubjectLogonId` to the 4624 on DC01 to find the source IP. The exact tab/CRLF padding inside `AccessList` / `Properties` follows Microsoft's documented sample and may vary.*
 
+### 4.15 4698 — a scheduled task created on SQL01 by the stolen service account
+
+```json
+{
+  "EventID": 4698,
+  "Computer": "SQL01.nexacorp.local",
+  "TimeCreated": "2026-09-30T03:19:41.2209174Z",
+  "Channel": "Security",
+  "Provider": "Microsoft-Windows-Security-Auditing",
+  "EventRecordID": 3382466,
+  "Keywords": "0x8020000000000000",
+  "SubjectUserSid": "S-1-5-21-3623811015-3361044348-30300820-1607",
+  "SubjectUserName": "svc_mssql",
+  "SubjectDomainName": "NEXACORP",
+  "SubjectLogonId": "0x8a3f21c",
+  "TaskName": "\\WinSysMonUpdate",
+  "TaskContent": "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n  <RegistrationInfo>\r\n    <Date>2026-09-30T06:19:41</Date>\r\n    <Author>NEXACORP\\svc_mssql</Author>\r\n    <URI>\\WinSysMonUpdate</URI>\r\n  </RegistrationInfo>\r\n  <Triggers>\r\n    <BootTrigger>\r\n      <Enabled>true</Enabled>\r\n    </BootTrigger>\r\n  </Triggers>\r\n  <Principals>\r\n    <Principal id=\"Author\">\r\n      <UserId>S-1-5-18</UserId>\r\n      <RunLevel>HighestAvailable</RunLevel>\r\n    </Principal>\r\n  </Principals>\r\n  <Actions Context=\"Author\">\r\n    <Exec>\r\n      <Command>C:\\Windows\\Temp\\wsysmon.exe</Command>\r\n      <Arguments>-k netsvc</Arguments>\r\n    </Exec>\r\n  </Actions>\r\n</Task>",
+  "ClientProcessStartKey": "3940649673949458",
+  "ClientProcessId": "6120",
+  "ParentProcessId": "4388",
+  "RpcCallClientLocality": "0",
+  "FQDN": "SQL01.nexacorp.local"
+}
+```
+*Persistence that survives the service being removed: a root-level task (`\WinSysMonUpdate`, not under `\Microsoft\Windows\`) that runs a binary from `C:\Windows\Temp` as SYSTEM (`<UserId>S-1-5-18</UserId>`) at every boot, created in the same logon session as the 7045 in 4.10 (`SubjectLogonId 0x8a3f21c`). `ClientProcessId` is the process that called the Task Scheduler (here `schtasks.exe`, found through 4688 or Sysmon 1 with PID 6120). The task XML layout inside `TaskContent` (line breaks, indentation, elements a given tool writes) varies: read `<Command>`, `<Arguments>`, `<UserId>`, `<RunLevel>` and the trigger, not the whitespace. The five Version 1 fields are absent on older builds. `ClientProcessStartKey`, `FQDN` value formats here are illustrative.*
+
+### 4.16 4673 — a user process asks for the Trusted Computing Base privilege and is refused
+
+```json
+{
+  "EventID": 4673,
+  "Computer": "WKS-MKT-12.nexacorp.local",
+  "TimeCreated": "2026-09-30T02:58:07.6610243Z",
+  "Channel": "Security",
+  "Provider": "Microsoft-Windows-Security-Auditing",
+  "EventRecordID": 1190244,
+  "Keywords": "0x8010000000000000",
+  "SubjectUserSid": "S-1-5-21-3623811015-3361044348-30300820-1544",
+  "SubjectUserName": "amit.peretz",
+  "SubjectDomainName": "NEXACORP",
+  "SubjectLogonId": "0x3c1a77",
+  "ObjectServer": "NT Local Security Authority / Authentication Service",
+  "Service": "LsaRegisterLogonProcess()",
+  "PrivilegeList": "SeTcbPrivilege",
+  "ProcessId": "0x1c3c",
+  "ProcessName": "C:\\Users\\Public\\Music\\svchelper.exe"
+}
+```
+*Audit Failure (`0x8010…`): a program in a public folder, running as an ordinary user, tried to register as a logon process, which needs `SeTcbPrivilege` ("Act as part of the operating system"). Microsoft's own sample of the same call is `lsass.exe` as `DC01$` succeeding; a user-writable path asking for it is the anomaly. `ProcessId 0x1c3c` = 7228 decimal: convert before joining to 4688 `NewProcessId` (also hex) or Sysmon `ProcessId` (decimal). 4673 needs "Audit Sensitive Privilege Use", which is noisy and often off: absence of 4673 proves nothing. Which offensive tool makes this exact call is not asserted here.*
+
+### 4.17 4723 — a user changes their own password
+
+Shown as a table, not a JSON block: the platform native renderer (`src/lib/logs/native/sources/windows_security.ts`) models 4723 with the 4722 field list and does not yet accept `PrivilegeList`, which Microsoft documents on 4723. The card test parses JSON blocks only.
+
+| Field | Value |
+|---|---|
+| `EventID` | `4723` |
+| `Computer` | `DC01.nexacorp.local` |
+| `TimeCreated` | `2026-09-30T07:41:15.0937720Z` |
+| `Channel` | `Security` |
+| `Provider` | `Microsoft-Windows-Security-Auditing` |
+| `EventRecordID` | `15751022` |
+| `Keywords` | `0x8020000000000000` |
+| `TargetUserName` | `amit.peretz` |
+| `TargetDomainName` | `NEXACORP` |
+| `TargetSid` | `S-1-5-21-3623811015-3361044348-30300820-1544` |
+| `SubjectUserSid` | `S-1-5-21-3623811015-3361044348-30300820-1544` |
+| `SubjectUserName` | `amit.peretz` |
+| `SubjectDomainName` | `NEXACORP` |
+| `SubjectLogonId` | `0x41be02` |
+| `PrivilegeList` | `-` |
+*Same SID in Subject and Target: the normal shape of a self-service change, which needs the old password. Read it against the case: a change minutes after the account was used from an unknown host is the attacker locking the owner out (or the owner reacting); a burst of 4723 failures is a user fighting the password policy. Compare **4724** (reset by another account, no old password needed) and the 4738 that follows either one (`PasswordLastSet` updated).*
+
+### 4.18 1102 — the Security log is cleared on SQL01
+
+```json
+{
+  "EventID": 1102,
+  "Computer": "SQL01.nexacorp.local",
+  "TimeCreated": "2026-09-30T03:52:30.4471906Z",
+  "Channel": "Security",
+  "Provider": "Microsoft-Windows-Eventlog",
+  "EventRecordID": 3384011,
+  "Keywords": "0x4020000000000000",
+  "SubjectUserSid": "S-1-5-21-3623811015-3361044348-30300820-1823",
+  "SubjectUserName": "svc_backup2",
+  "SubjectDomainName": "NEXACORP",
+  "SubjectLogonId": "0x1d8a0c4"
+}
+```
+*The backdoor account from 4.11 wipes SQL01's Security log (T1070.001). The four Subject fields come from `UserData/LogFileCleared`, flattened the same way as `EventData`. Everything the attacker did on SQL01 before 03:52 is now only in what was forwarded off the host (WEF, SIEM agent) or in other sources (Sysmon, EDR). Whether `EventRecordID` restarts after a clear is not asserted by Microsoft's page (UNVERIFIED); do not build a question on it.*
+
 ---
 
 ## 5. Investigation notes (pivots)
@@ -686,6 +784,10 @@ Shared values (2026-09-30, UTC). Domain SID `S-1-5-21-3623811015-3361044348-3030
 - **Explicit credentials (4648):** on the **source** host, `TargetUserName` + `TargetServerName` show which credentials were typed or injected to reach which server (runas, PsExec with `-u`, scheduled-task creation). Pair with 4624 type 3 on `TargetServerName`.
 - **Privilege use:** 4672 right after 4624 = admin-equivalent logon. Unexpected `SeDebugPrivilege` / `SeTcbPrivilege` holders deserve review.
 - **Persistence:** 7045/4697 with `ImagePath` outside `System32`/`Program Files`, `%COMSPEC%`, `powershell -enc`, `\\127.0.0.1\ADMIN$`, or random names. Correlate with 4624 type 3 from the same source (remote service creation).
+- **Scheduled tasks (4698):** read `TaskContent` for `<Command>`/`<Arguments>` in user-writable paths, `<UserId>S-1-5-18</UserId>` or `HighestAvailable`, boot/logon triggers, and tasks in the root folder. Join `SubjectLogonId` to the logon, and `ClientProcessId` (v1) to the creating process. Remote creation (`schtasks /s`) shows a 4624 type 3 on the target in the same seconds.
+- **Privileged service calls (4673):** alert on `ProcessName` outside `System32`/`Program Files` and on failures for `SeTcbPrivilege` / `SeDebugPrivilege` / `SeLoadDriverPrivilege` by non-admin accounts. `ProcessId` is hex.
+- **Log clearing (1102):** always investigate; nobody needs to clear the Security log in normal operation. The useful questions are who (`SubjectUserName`, `SubjectLogonId` → 4624) and what the forwarded copy shows for the minutes before.
+- **Password change vs reset:** 4723 = change (old password known, normally self), 4724 = reset (by another account). An attacker who knows the password and changes it to lock the owner out produces a 4723 that looks like self-service: judge it by the logon session behind it.
 - **Account manipulation chain:** 4720 → 4722 → 4724 → 4738 → 4728/4732/4756. Alert on any add to a privileged group (RIDs in 4.12) and verify against a change ticket.
 - **DCSync:** 4662 with `AccessMask 0x100` and `Properties` containing `1131f6ad-…` / `1131f6aa-…` / `89e95b76-…` from a `SubjectUserName` that is not a DC computer account or the documented sync account.
 - **AD object tampering:** 5136 — group the `%%14675`/`%%14674` pair by `OpCorrelationID` to get the before/after values (`gPLink`, `servicePrincipalName`, `msDS-AllowedToActOnBehalfOfOtherIdentity`, `userAccountControl`, `member`).
@@ -703,6 +805,10 @@ Shared values (2026-09-30, UTC). Domain SID `S-1-5-21-3623811015-3361044348-3030
 - `SourceWorkstation` on 4776: the field is `Workstation`. 4776 has no IP field at all.
 - 4771 has **no** `TargetDomainName`, `TicketEncryptionType` or `LogonGuid` — don't copy 4768's list.
 - 4740 has no `CallerComputerName` key — the caller name sits in `TargetDomainName`.
+- 1102 is not a `Microsoft-Windows-Security-Auditing` event and has no `EventData`: provider `Microsoft-Windows-Eventlog`, fields under `UserData/LogFileCleared`. No `ObjectName`, `LogName` or `ClientIP` field.
+- 4698 has no `Command`, `TaskPath` or `Author` key: the command and author sit inside the `TaskContent` XML string. The Version 1 extras are `ClientProcessId` / `ParentProcessId` (unlike 4688, which has neither).
+- 4673 uses `ObjectServer` + `Service` (labelled "Server" and "Service Name" in Event Viewer), not `ServiceName`; `PrivilegeList`, not `Privileges`.
+- 4723 is not "password reset" and 4724 is not "password change"; 4723 carries `PrivilegeList`, 4724 does not.
 - 2025 Kerberos fields on events from unpatched or pre-2019 DCs, or on 4771 / 4776 (they exist only on 4768 and 4769).
 
 **Value mistakes:**

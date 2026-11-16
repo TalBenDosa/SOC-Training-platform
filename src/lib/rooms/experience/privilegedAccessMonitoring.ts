@@ -279,7 +279,7 @@ export const PRIVILEGED_ACCESS_MONITORING: RoomExperience = {
         prompt: "Last spring's red team went from one branch login to the whole directory in 18 minutes. Their report's pages came loose on Wanjiru's desk. Put the six steps back in order, and read what each one left behind.",
         items: [
           { id: "s4", text: "Replay a stolen hash against a domain controller", note: "4624 on the DC, LogonType 3, NTLM, with the compromised workstation as source and the admin as TargetUserName." },
-          { id: "s1", text: "Sign in over VPN with a phished password", note: "4624 from an external address. The token has no special rights." },
+          { id: "s1", text: "Sign in over VPN with a phished password", note: "4624 with IpAddress from the VPN pool, not the attacker's external address: that one is only in the VPN gateway log. The token has no special rights." },
           { id: "s6", text: "Plant access that survives a password reset", note: "A new admin identity, or a golden ticket forged with the krbtgt hash." },
           { id: "s3", text: "Read credentials out of LSASS", note: "Sysmon Event 10 on LSASS, and an antivirus alert if nobody disabled it." },
           { id: "s2", text: "Become local admin on the workstation", note: "An unpatched flaw or a misconfigured SYSTEM service. 4672 on that host, and 4688 showing a child of the vulnerable service." },

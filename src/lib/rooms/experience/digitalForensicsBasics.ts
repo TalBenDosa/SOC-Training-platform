@@ -132,7 +132,7 @@ export const DIGITAL_FORENSICS_BASICS: RoomExperience = {
       {
         kind: "sequence",
         title: "Rebuild the Night",
-        prompt: "Artefacts from the bidding-desk laptop's disk image, each with its own timestamp. Tap them into the order they happened to rebuild auction night. Another artefact worth knowing is Prefetch: a .pf file in C:\\Windows\\Prefetch records a program's name, path and its last 8 run times, and it survives after the program is deleted.",
+        prompt: "Artefacts from the bidding-desk laptop's disk image, each with its own timestamp. Tap them into the order they happened to rebuild auction night.",
         items: [
           { id: "lnk", text: "LNK (Recent Items): Lot117_reserve.xlsx opened from \\\\ASH-FS01\\Valuations at 21:31", note: "Opening a file leaves a shortcut with the target's path and times." },
           { id: "evtx", text: "Security 4624: bidding-desk logon by j.mercer, logon type 2, at 21:12", note: "Who sat down at the keyboard, and when." },

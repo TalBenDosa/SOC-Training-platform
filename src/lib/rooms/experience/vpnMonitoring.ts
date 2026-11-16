@@ -6,7 +6,12 @@ import type { RoomExperience } from "./types";
 //
 // Northsea Wind (fictional); the graded tasks use its domain northseawind.example with their own users and IPs. Signature
 // mechanic: a line-up of VPN attack patterns, each round a piece of gateway
-// evidence. Lab data differs from the graded tasks: the anatomy never says
+// evidence. The labs follow the real PAN-OS GLOBALPROTECT log
+// (docs/log-schemas/vpn-globalprotect.md): no byte counts, no MFA, no
+// full/split field. Northsea Wind's VPN signs users in with SAML against
+// Entra ID, so failed passwords and MFA prompts are read in the Entra ID
+// sign-in log, not in GlobalProtect.
+// Lab data differs from the graded tasks: the anatomy never says
 // where a split-tunnel download would show up (q3, r1 checkpoint); the
 // line-up never uses one password across 47 names (q2) or São Paulo and
 // Tokyo (q1); the trail follows a different user, address and pool than the
@@ -91,20 +96,21 @@ export const VPN_MONITORING: RoomExperience = {
       {
         kind: "anatomy",
         title: "Anatomy of a GlobalProtect Log",
-        prompt: "One morning connection from a turbine engineer, as the PAN-OS GlobalProtect log records it. Decode it field by field.",
-        source: "PAN-OS · GlobalProtect · gateway gp-aberdeen-01",
+        prompt: "One morning connection from a turbine engineer, as the PAN-OS GLOBALPROTECT log records it when the tunnel comes up. Northsea Wind's VPN users sign in with SAML against Entra ID. Decode the line field by field, and notice what it does not hold.",
+        source: "PA-3220-ABZ · GLOBALPROTECT · gateway gp-aberdeen-01",
         fields: [
-          { key: "eventid", value: "gateway-connected", label: "What" },
-          { key: "srcuser", value: "NSW\\f.ross", label: "Who", note: "The credentials used, which is not always the person." },
+          { key: "eventid", value: "gateway-connected", label: "What", note: "The tunnel is up. Earlier lines of the same session (portal-auth, gateway-auth, gateway-hip-check) lead here, and gateway-logout closes it." },
+          { key: "srcuser", value: "f.ross@northseawind.example", label: "Who", note: "The user name from the SAML assertion Entra ID returned: the account that signed in, which is not always the person." },
           { key: "public_ip", value: "198.51.100.140", label: "From where", note: "The internet address of the device: the base for geolocation." },
-          { key: "srcregion", value: "GB · Aberdeen", label: "Location" },
+          { key: "srcregion", value: "GB", label: "Location", note: "A country code the firewall derives from public_ip. No city." },
           { key: "private_ip", value: "10.88.12.47", label: "Inside address", note: "The address the gateway hands out. Every internal log after this point shows this, not the public one." },
-          { key: "auth_method", value: "SAML + MFA (push)", label: "How they proved it" },
-          { key: "client_ver", value: "6.2.4 · Windows", label: "Client" },
-          { key: "tunnel_type", value: "full", label: "Tunnel", note: "Full means all of the laptop's traffic goes through the VPN. With a split tunnel only corporate traffic does: a download from a public website then skips the corporate proxy, IDS and DLP, and the evidence is on the laptop itself, in its EDR telemetry." },
-          { key: "duration · bytes", value: "7 h 42 m · 1.9 GB in / 0.3 GB out", label: "Session shape", note: "A working day, mostly downloads: what an engineer pulling turbine data looks like." },
+          { key: "machinename", value: "NSW-LT-0412", label: "Device", note: "With hostid and serialnumber, this is the device fingerprint: a different machine on the same account is worth a question." },
+          { key: "client_ver", value: "6.2.4-28", label: "Client", note: "The GlobalProtect app build. The operating system is a separate field, client_os (Microsoft Windows)." },
+          { key: "tunnel_type", value: "IPSec", label: "Tunnel", note: "IPSec or SSLVPN: the transport the tunnel uses. Whether the tunnel is full or split is a gateway setting and is not written in this log." },
+          { key: "auth_method", value: "(empty)", label: "How they proved it", note: "Empty on this event: the method (SAML) is written on the portal-auth and gateway-auth lines. MFA never appears in this log. With SAML the password check and the MFA prompt happen at Entra ID, so they are in the Entra ID sign-in log." },
+          { key: "login_duration", value: "0", label: "Session length", note: "Always 0 when the tunnel comes up; the gateway-logout line carries the length in seconds. There are no byte counts anywhere in this log: how much moved is in the PAN-OS TRAFFIC log, matched on private_ip." },
         ],
-        summary: "Who, from where, the inside address they were given, how they proved it, and how the session behaved. Keep the inside address: you'll need it to follow anyone past the gateway.",
+        summary: "Who, from where, the inside address they were given, and from which device. How they proved it lives in the Entra ID sign-in log, and how much they moved lives in the TRAFFIC log. Keep the inside address: you'll need it to follow anyone past the gateway.",
       },
     ],
     // ── Reading 2: signature mechanic, the line-up ──
@@ -112,7 +118,7 @@ export const VPN_MONITORING: RoomExperience = {
       {
         kind: "lineup",
         title: "Who's Knocking?",
-        prompt: "Five attack patterns are in the line-up. Each round is a burst of events from the gateway. Pick the pattern that fits the evidence.",
+        prompt: "Five attack patterns are in the line-up. Each round is a burst of events from the gateway and from the Entra ID sign-in log behind it (the VPN signs users in with SAML, so failed passwords land in Entra ID, not in GlobalProtect). Pick the pattern that fits the evidence.",
         suspects: [
           { id: "travel", name: "The Traveller", motive: "Uses stolen working credentials", skill: "Logs in from places the user can't reach in time", target: "One account, two locations" },
           { id: "brute", name: "The Hammer", motive: "Wants one specific account", skill: "Hundreds of passwords against a single username", target: "One account, many passwords" },
@@ -121,9 +127,9 @@ export const VPN_MONITORING: RoomExperience = {
           { id: "odd", name: "The Squatter", motive: "Already in, settling down", skill: "A normal login followed by unusual use", target: "One session, wrong behaviour" },
         ],
         rounds: [
-          { id: "r1", evidence: ["Username: ops.admin", "1,240 failures in 20 minutes", "one source address", "each failure a different password"], suspect: "brute", why: "Everything aimed at one account: the classic brute force." },
+          { id: "r1", evidence: ["Entra ID sign-ins for ops.admin@northseawind.example", "1,240 failures (50126, invalid password) in 20 minutes", "one source address", "then 50053: Smart Lockout locked the account"], suspect: "brute", why: "Everything aimed at one account: the classic brute force. The log never shows the passwords tried; the shape (one name, a flood of failures, a lockout) is what gives it away." },
           { id: "r2", evidence: ["Successful login for m.dunn from Aberdeen at 08:02", "successful login for m.dunn from Lagos at 08:41", "both with valid MFA"], suspect: "travel", why: "Nobody gets from Aberdeen to Lagos in 39 minutes. One of those sessions isn't m.dunn." },
-          { id: "r3", evidence: ["312 usernames, each tried exactly once", "each with a different password", "11 succeed", "addresses rotate every few tries"], suspect: "stuff", why: "One attempt per account with its own password: pairs from a leak, replayed." },
+          { id: "r3", evidence: ["312 usernames, each tried exactly once", "29 of them not in the directory (50034)", "11 succeed", "addresses rotate every few tries"], suspect: "stuff", why: "One attempt per account, names that were never ours, and a success rate no spray reaches: pairs from someone else's leak, replayed. The passwords are not in the log; the success rate is the tell." },
           { id: "r4", evidence: ["k.byrne logs in normally from home at 21:00", "session lasts 9 hours", "4.8 GB out to the internet", "touches 60 internal hosts"], suspect: "odd", why: "The login was fine. What the session did after wasn't." },
         ],
       },
@@ -162,31 +168,42 @@ export const VPN_MONITORING: RoomExperience = {
         lead: "Alert: first login from NL for r.okoye at 02:14, MFA approved.",
         steps: [
           {
-            id: "gw", source: "GlobalProtect · gateway-connected · r.okoye",
+            id: "gw", source: "PA-3220-ABZ · GLOBALPROTECT · eventid gateway-connected · srcuser r.okoye@northseawind.example",
             ask: "Which inside address did the gateway hand to the 02:14 session?",
-            columns: ["time", "public IP", "region", "private IP", "auth"],
-            rows: [["Mon 08:31", "198.51.100.140", "GB · Aberdeen", "10.88.12.91", "SAML + MFA"], ["Wed 02:14", "203.0.113.58", "NL · Amsterdam", "10.88.14.203", "SAML + MFA"]],
+            columns: ["receive_time", "public_ip", "srcregion", "private_ip", "tunnel_type", "machinename"],
+            rows: [["2026/11/09 08:31:07", "198.51.100.140", "GB", "10.88.12.91", "IPSec", "NSW-LT-0377"], ["2026/11/11 02:14:19", "203.0.113.58", "NL", "10.88.14.203", "IPSec", "NSW-LT-0377"]],
             answer: 1,
-            why: "The 02:14 session got 10.88.14.203. From here on, that's the address to follow.",
+            why: "The 02:14 session got 10.88.14.203. From here on, that's the address to follow. Same laptop both times, so if this is theft it is of the account, not the device.",
             learned: "02:14 session = inside address 10.88.14.203",
           },
           {
-            id: "fw", source: "Internal firewall · src 10.88.14.203 · 02:14-03:00",
+            id: "fw", source: "PA-3220-ABZ · TRAFFIC · src 10.88.14.203 · 2026/11/11 02:14-03:00",
             ask: "What did that address reach for?",
-            columns: ["time", "destination", "port", "app", "action"],
-            rows: [["02:16", "10.20.0.15 (intranet)", "443", "web", "allow"], ["02:21", "10.60.1.10 (SCADA historian)", "1433", "mssql", "allow"]],
+            columns: ["receive_time", "src", "dst", "dport", "app", "action"],
+            rows: [["2026/11/11 02:16:40", "10.88.14.203", "10.20.0.15", "443", "ssl", "allow"], ["2026/11/11 02:21:13", "10.88.14.203", "10.60.1.10", "1433", "mssql-db", "allow"]],
             answer: 1,
-            why: "The turbine historian database, at 2 a.m., from a first-time country. r.okoye is in HR: no reason to touch it.",
+            why: "10.60.1.10 is the turbine SCADA historian's database (mssql-db on 1433), at 2 a.m., from a first-time country. 10.20.0.15 is the intranet. r.okoye is in HR: no reason to touch the historian.",
             learned: "02:21 SCADA historian over SQL",
           },
           {
-            id: "push", source: "MFA provider · push log · r.okoye",
-            ask: "How did the MFA get approved?",
-            columns: ["time", "event", "device"],
-            rows: [["02:13", "push sent ×9", "r.okoye iPhone"], ["02:14", "push approved", "r.okoye iPhone"]],
-            answer: 0,
-            why: "Nine pushes in a minute, then one approval: fatigue. The password was stolen and the user tapped yes to make it stop.",
-            learned: "MFA fatigue: 9 pushes, then approved",
+            id: "push", source: "Entra ID sign-in log · r.okoye@northseawind.example · app Palo Alto Networks - GlobalProtect",
+            ask: "The gateway does not record MFA. How did this sign-in get past it? Tap the line that tells the story.",
+            columns: ["createdDateTime", "ipAddress", "status.errorCode", "authenticationStepResultDetail"],
+            rows: [
+              ["2026-11-11T02:11:02Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:11:21Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:11:39Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:11:58Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:12:17Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:12:36Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:12:55Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:13:14Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:13:33Z", "203.0.113.58", "500121", "MFA denied; user declined the authentication"],
+              ["2026-11-11T02:13:52Z", "203.0.113.58", "0", "MFA successfully completed"],
+            ],
+            answer: 9,
+            why: "Nine pushes declined in under three minutes from the same address, then a success: fatigue. The password was right every time (the failure is at the MFA step, 500121), so the password was stolen, and the user finally tapped yes to make it stop. Seconds later the gateway brought the tunnel up.",
+            learned: "MFA fatigue: 9 declined pushes, then approved",
           },
         ],
       },
@@ -228,7 +245,7 @@ export const VPN_MONITORING: RoomExperience = {
             why: "The roster explains the hour and a boat in harbour explains the address, with a small transfer. Disabling would leave a night engineer locked out; check the reason before reacting to the oddness.",
           },
           {
-            id: "d4", state: "Forty usernames were tried with two passwords, spread across six hours from rotating addresses. Three logins succeeded.",
+            id: "d4", state: "The Entra ID sign-in log shows forty usernames failing with 50126 two or three times each, spread across six hours from rotating addresses. Three sign-ins succeeded, and two of them went on to gateway-connected.",
             wires: [
               { id: "ip", label: "Block the last source address" },
               { id: "all", label: "Lock all forty accounts" },

@@ -19,9 +19,9 @@ const dlpUsbEvent: TelemetryEvent = {
     "data.office365.PolicyDetails.PolicyId": "b7e14a2c-9f31-4d88-8e2a-1c3f4a5b6d7e",
     "data.office365.PolicyDetails.Rules.RuleName": "SSN Bulk Copy to Removable Media",
     "data.office365.PolicyDetails.Rules.Actions": "BlockAccess,GenerateAlert",
-    "data.office365.SensitiveInfoType.Name": "U.S. Social Security Number",
-    "data.office365.SensitiveInfoType.Count": "312",
-    "data.office365.SensitiveInfoType.Confidence": "92",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationTypeName": "U.S. Social Security Number",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Count": "312",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Confidence": "92",
     "data.office365.ExfiltrationEventType": "RemovableMediaCopy",
     "data.office365.FileName": "Employee_Master_Records_2024.xlsx",
     "data.office365.FilePath": "C:\\Users\\s.colb\\Documents\\HR\\Employee_Master_Records_2024.xlsx",
@@ -55,10 +55,10 @@ const dlpEmailEvent: TelemetryEvent = {
     "data.office365.PolicyDetails.PolicyId": "e2a9c714-6b58-4a19-9d02-7f8e1b3c4d5f",
     "data.office365.PolicyDetails.Rules.RuleName": "Block CC Numbers to Non-Corp Domain",
     "data.office365.PolicyDetails.Rules.Actions": "BlockAccess,NotifySender",
-    "data.office365.SensitiveInfoType.Name": "Credit Card Number",
-    "data.office365.SensitiveInfoType.Count": "47",
-    "data.office365.SensitiveInfoType.Confidence": "85",
-    "data.office365.SensitiveInfoType.DetectedValues": "****-****-****-4927,****-****-****-1183",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationTypeName": "Credit Card Number",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Count": "47",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Confidence": "85",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationDetections.DetectedValues.Value": "****-****-****-4927,****-****-****-1183",
     "data.office365.ExchangeMetaData.From": "m.reyes@nexacorp.com",
     "data.office365.ExchangeMetaData.To": "m.reyes.personal@gmail.com",
     "data.office365.ExchangeMetaData.Subject": "Q3 Chargeback Report - backup copy",
@@ -91,10 +91,10 @@ const dlpFpEvent: TelemetryEvent = {
     "data.office365.PolicyDetails.PolicyName": "PCI - Credit Card Number - External Send Audit",
     "data.office365.PolicyDetails.Rules.RuleName": "Audit Possible CC Numbers",
     "data.office365.PolicyDetails.Rules.Actions": "GenerateAlert",
-    "data.office365.SensitiveInfoType.Name": "Credit Card Number",
-    "data.office365.SensitiveInfoType.Count": "18",
-    "data.office365.SensitiveInfoType.Confidence": "62",
-    "data.office365.SensitiveInfoType.DetectedValues": "4102-8837-2201-0046,4102-8837-2201-0053",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationTypeName": "Credit Card Number",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Count": "18",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Confidence": "62",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationDetections.DetectedValues.Value": "4102-8837-2201-0046,4102-8837-2201-0053",
     "data.office365.ExchangeMetaData.From": "k.nassar@nexacorp.com",
     "data.office365.ExchangeMetaData.To": "procurement@logisticspartner-co.com",
     "data.office365.ExchangeMetaData.Subject": "Open Purchase Orders - August Reconciliation",
@@ -124,9 +124,9 @@ const dlpDepartingEvent: TelemetryEvent = {
     "data.office365.PolicyDetails.PolicyName": "Customer Data - Cloud Upload Block",
     "data.office365.PolicyDetails.Rules.RuleName": "Bulk Upload to Unsanctioned Cloud App",
     "data.office365.PolicyDetails.Rules.Actions": "GenerateAlert",
-    "data.office365.SensitiveInfoType.Name": "Customer Record (Composite: Name+Email+Phone)",
-    "data.office365.SensitiveInfoType.Count": "8420",
-    "data.office365.SensitiveInfoType.Confidence": "88",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationTypeName": "Customer Record (Composite: Name+Email+Phone)",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Count": "8420",
+    "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Confidence": "88",
     "data.office365.ExfiltrationEventType": "CloudUpload",
     "data.office365.FileName": "CRM_Full_Export_Aug2024.csv",
     "data.office365.FilePath": "C:\\Users\\d.farrow\\Downloads\\CRM_Full_Export_Aug2024.csv",
@@ -255,13 +255,13 @@ const dlpRoom = {
       id: "dlp-r3",
       heading: "Sensitive Data Types: What DLP Is Built to Catch",
       content:
-        "DLP policies are only as good as the sensitive-data types they are configured to detect. Every major DLP platform ships with a library of built-in classifiers for the most commonly regulated data categories, and understanding these categories helps you interpret an alert's actual business risk the moment you see which SensitiveInfoType matched.\n\n" +
+        "DLP policies are only as good as the sensitive-data types they are configured to detect. Every major DLP platform ships with a library of built-in classifiers for the most commonly regulated data categories, and understanding these categories helps you interpret an alert's actual business risk the moment you see which sensitive information type matched.\n\n" +
         "PII (Personally Identifiable Information) is the broadest category: names, addresses, dates of birth, national ID numbers, U.S. Social Security Numbers, passport numbers, driver's license numbers. PII is regulated in nearly every jurisdiction (GDPR in the EU, various U.S. state privacy laws, PIPEDA in Canada) and is the single most common DLP match category in most organizations simply because HR, sales, and support teams handle it constantly as part of normal business.\n\n" +
         "PCI data refers specifically to payment card information regulated under the PCI-DSS standard: primary account numbers (16-digit credit card numbers), CVV codes, and cardholder names in combination with the card number. PCI matches carry heavy compliance weight: a confirmed PCI data leak can trigger mandatory breach notification and card-network fines, which is why PCI policies are very commonly configured to Block rather than merely Audit.\n\n" +
         "PHI (Protected Health Information) covers medical records, diagnosis codes, patient names linked to treatment information, insurance IDs, and prescription data, regulated under HIPAA in the U.S. and equivalent health-privacy laws elsewhere. PHI classifiers often look for a combination of a patient identifier plus a medical term or diagnosis code, since a diagnosis code alone or a name alone is not enough to constitute PHI. DLP engines increasingly require this kind of 'compound evidence' to raise confidence.\n\n" +
         "Source code and intellectual property is a category that is harder to detect with simple pattern matching, because code does not have a fixed format like a credit card number. Detection typically relies on file extension (.py, .java, .cpp, .sql), keyword density (import, function, class, proprietary code comments), or, most reliably, document fingerprinting, where the organization registers specific documents (design documents, templates, or with some vendors actual source files) as a fingerprint baseline and DLP flags any file that substantially reuses that registered content.\n\n" +
         "Secrets and credentials (API keys, private keys, database connection strings, cloud access tokens, passwords in plaintext) are an increasingly important DLP category because a leaked secret can be immediately weaponized by anyone who finds it, unlike a leaked PII record which usually requires further exploitation. Detection uses regex patterns matched to the specific format of well-known key types (AWS access keys begin with AKIA, private key files contain a distinctive -----BEGIN PRIVATE KEY----- header, etc.) combined with file names like .env, .pem, id_rsa, or config files known to store credentials.\n\n" +
-        "A SOC analyst reading an alert should always ask: which category matched, and what does that category imply about downstream risk if this data actually left? A PCI match implies regulatory reporting obligations. A secrets match implies an immediate need to rotate the exposed credential regardless of intent. A source-code match implies competitive/IP risk that may need legal involvement. The SensitiveInfoType field is therefore one of the highest-value fields in any DLP alert.",
+        "A SOC analyst reading an alert should always ask: which category matched, and what does that category imply about downstream risk if this data actually left? A PCI match implies regulatory reporting obligations. A secrets match implies an immediate need to rotate the exposed credential regardless of intent. A source-code match implies competitive/IP risk that may need legal involvement. The sensitive information type field (SensitiveInformationTypeName) is therefore one of the highest-value fields in any DLP alert.",
       codeExample:
         "SENSITIVE DATA TYPE REFERENCE\n" +
         "================================\n\n" +
@@ -303,7 +303,7 @@ const dlpRoom = {
         "Keyword and proximity matching adds context around a regex match to raise or lower confidence. A 9-digit number alone might be a phone extension, a case number, or an SSN. If that number appears near the words 'Social Security', 'SSN', or 'Employee ID' within a defined proximity window, confidence increases significantly. This is why compound sensitive-info-types (like PHI, which typically requires a patient identifier AND a medical term) are more reliable than single-pattern types.\n\n" +
         "Two related but DIFFERENT methods recognize the organization's own content instead of guessing at a pattern. Document fingerprinting builds a hash-based signature from a registered document, in Microsoft Purview, typically a standard form or template such as a blank patent application or HR intake form, and flags outgoing files that reuse that document's text, even after someone fills the form in. Exact Data Match (EDM) works on structured data instead: the organization uploads a table of real sensitive values (for example, the actual customer database), DLP stores only hashes of each row's values, and an outgoing file matches when it contains those exact values (e.g. a real customer's account number together with that same customer's name). Both are precise but operationally expensive to set up. EDM is what lets DLP say 'this file contains OUR customer records' rather than merely 'this file contains something that looks like a customer record'; fingerprinting is what lets it say 'this is one of OUR standard forms.'\n\n" +
         "Machine learning / trainable classifiers are the newest method, used by Microsoft Purview's trainable classifiers and similar features in other platforms. Instead of a human writing a regex, the classifier is trained on hundreds of sample documents that are confirmed sensitive and hundreds that are confirmed not sensitive (e.g., 'resumes' or 'source code' as a document type), and it learns to recognize the pattern statistically. This helps with data types that have no fixed structure at all, like legal contracts or financial statements.\n\n" +
-        "Whichever method is used, the classifier outputs a confidence score (commonly expressed 0-100 in Purview logs via SensitiveInfoType.Confidence), and most organizations configure policies with a minimum confidence threshold and often a minimum match COUNT before an action fires, for example, 'block only if confidence is 85 or higher AND at least 10 instances are found in the same document', which filters out the single stray number that happens to match a pattern by coincidence. As a SOC analyst, always check both the confidence score and the match count together: a single low-confidence match is a strong false-positive candidate, while a high-confidence match with hundreds of instances (like the 312-SSN USB event you will analyze shortly) is a strong true-positive candidate.",
+        "Whichever method is used, the classifier outputs a confidence score (commonly expressed 0-100 in Purview logs via SensitiveInformation.Confidence, under PolicyDetails.Rules.ConditionsMatched), and most organizations configure policies with a minimum confidence threshold and often a minimum match COUNT before an action fires, for example, 'block only if confidence is 85 or higher AND at least 10 instances are found in the same document', which filters out the single stray number that happens to match a pattern by coincidence. As a SOC analyst, always check both the confidence score and the match count together: a single low-confidence match is a strong false-positive candidate, while a high-confidence match with hundreds of instances (like the 312-SSN USB event you will analyze shortly) is a strong true-positive candidate.",
       codeExample:
         "DLP CLASSIFIER CONFIDENCE MODEL\n" +
         "==================================\n\n" +
@@ -328,7 +328,7 @@ const dlpRoom = {
         "  Confidence: 95   Count: 1      -->  High-confidence single match, e.g. a\n" +
         "                                      fingerprinted secret: still worth checking\n\n" +
         "Policy example: \"Block if Confidence >= 85 AND Count >= 10\" -- this threshold\n" +
-        "logic is exactly why the same SensitiveInfoType can be Audit-only in one policy\n" +
+        "logic is exactly why the same sensitive information type can be Audit-only in one policy\n" +
         "and auto-Block in another.",
     },
     // ── Question 2 ────────────────────────────────────────────────────────
@@ -336,7 +336,7 @@ const dlpRoom = {
       type: "question" as const,
       id: "dlp-q2",
       question:
-        "A DLP alert shows SensitiveInfoType.Name = \"Credit Card Number\", Confidence = 58, Count = 1, for an internal email between two corporate employees. What is the MOST LIKELY explanation, and what should you check first?",
+        "A DLP alert shows SensitiveInformationTypeName = \"Credit Card Number\", Confidence = 58, Count = 1, for an internal email between two corporate employees. What is the MOST LIKELY explanation, and what should you check first?",
       options: [
         "A malicious insider staging card data: the match itself indicates intent, so escalate to the insider-threat team before reviewing the document",
         "Likely a false positive: one low-confidence match in internal mail fits a coincidental number such as an order ID; check the detected value and document context first",
@@ -399,7 +399,7 @@ const dlpRoom = {
       heading: "Investigating a DLP Alert: Malicious, Well-Meaning, or False Positive?",
       content:
         "A DLP alert tells you WHAT matched and WHERE it was headed. It does not tell you WHY. Every DLP investigation is ultimately an exercise in reconstructing intent from indirect evidence, and every alert falls into one of three buckets: malicious exfiltration, a well-meaning employee doing their job clumsily, or a false positive where the classifier matched content that is not actually sensitive.\n\n" +
-        "Start with the content match itself. Check the SensitiveInfoType, the Confidence score, and the Count. A low-confidence, single-instance match on a common numeric pattern (an order ID, a tracking number, an internal ticket number) is the classic false-positive shape. This is exactly the order-ID example you will analyze later in this room. A high-confidence match with a large count of a genuinely regulated data type (hundreds of real SSNs, a full customer table) is much more likely to be a genuine sensitive-data event, regardless of intent.\n\n" +
+        "Start with the content match itself. Check the sensitive information type, the Confidence score, and the Count. A low-confidence, single-instance match on a common numeric pattern (an order ID, a tracking number, an internal ticket number) is the classic false-positive shape. This is exactly the order-ID example you will analyze later in this room. A high-confidence match with a large count of a genuinely regulated data type (hundreds of real SSNs, a full customer table) is much more likely to be a genuine sensitive-data event, regardless of intent.\n\n" +
         "Next, check the destination. Internal-to-internal movement (an email between two corporate addresses, a file share to a colleague in the same tenant) is inherently lower risk than movement to an external domain, a personal webmail address, or an unsanctioned cloud app (a personal Dropbox or Gmail account is a much stronger signal than a known business-partner domain). The recipient domain is often the single fastest way to separate 'routine business process' from 'exfiltration.'\n\n" +
         "Then check the user context: role, department, and normal behavior baseline. Does this user's job function plausibly explain handling this data type? An HR employee handling employee SSNs is expected; a warehouse-logistics employee handling SSNs is not. Is the volume and timing consistent with normal work (business hours, typical file sizes for this role) or anomalous (bulk export at 10 PM, far larger than the person's usual file sizes)? This is exactly where DLP overlaps with insider-threat and UEBA tooling: a single DLP event in isolation is rarely enough to prove malicious intent, but a DLP event correlated with HR context (a resignation on file, a performance improvement plan, a recent role change) or behavioral anomalies (off-hours access, unusual data volume, first-time destination) meaningfully raises the suspicion level.\n\n" +
         "Finally, check for a justification or a ticket. If the user was prompted and typed a business justification, read it: a specific, verifiable justification ('Sending signed NDA to vendor per ticket #4471') is reassuring; a vague or absent justification is not. Check whether IT or the business unit has any record of an approved data-sharing agreement with the destination.\n\n" +
@@ -439,7 +439,7 @@ const dlpRoom = {
       questions: [
         {
           question:
-            "The event shows SensitiveInfoType.Count = 312 and SensitiveInfoType.Confidence = 92, for SensitiveInfoType.Name = \"U.S. Social Security Number\". How should you interpret this combination?",
+            "The event shows SensitiveInformation.Count = 312 and SensitiveInformation.Confidence = 92, for SensitiveInformationTypeName = \"U.S. Social Security Number\". How should you interpret this combination?",
           options: [
             "A strong true-positive signal: the file very likely holds a real bulk set of SSNs",
             "A false-positive signal: 312 near-identical hits usually means one ID column repeating",
@@ -624,7 +624,7 @@ const dlpRoom = {
       instructions:
         "A thorough DLP investigation follows the five-step triage flow from the investigation reading, moving from the raw content match to a final verdict. Arrange the steps in order, from first to last.",
       items: [
-        { id: "content", text: "Assess the content match quality: SensitiveInfoType, confidence score and match count" },
+        { id: "content", text: "Assess the content match quality: sensitive information type, confidence score and match count" },
         { id: "destination", text: "Assess the destination risk: internal, known business partner, or personal webmail / unsanctioned cloud app" },
         { id: "user", text: "Assess user and behavioral context: role, timing and volume against normal, and HR red flags such as a resignation" },
         { id: "justification", text: "Check for a justification or approval: the user's stated business reason and any matching ticket or manager sign-off" },

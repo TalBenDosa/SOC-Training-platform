@@ -22,7 +22,8 @@ import type { RoomExperience } from "./types";
 // two-SIEM table on Readings 3 and 4 are a certutil and curl download rule, never bitsadmin, so neither
 // shows the graded rule or its KQL. The phrase worksheet's bitsadmin rows teach switch order only. The
 // YARA labs are Kestrel's rule with $loop and a [2-6] gap, never the calhelper strings, the decode
-// bytes or the graded count and ceiling; the sequence lab names no string or value.
+// bytes or the graded count and ceiling; the sequence lab follows Reading 6's PHP webshell (not the
+// calhelper loader) and names no string or value.
 
 export const SIGMA_YARA_RULE_AUTHORING: RoomExperience = {
   roomId: "sigma-yara-rule-authoring",
@@ -301,17 +302,17 @@ export const SIGMA_YARA_RULE_AUTHORING: RoomExperience = {
       {
         kind: "sequence",
         title: "From Hypothesis to Sign-Off",
-        prompt: "Here's how the Calhelper rule actually got made, shuffled. Put Tatiana's morning back in order.",
+        prompt: "Last spring a PHP webshell turned up on Pelham's customer support portal. Here's how Tatiana's rule for that webshell family got made, shuffled. Put her morning back in order.",
         items: [
-          { id: "e", text: "Ran the draft over the known-bad builds and Pelham's own software", note: "Two sets, because either one alone tells half the story." },
-          { id: "a", text: "Wrote one line: this loader hides its strings and decodes each one with the same short routine", note: "The idea comes first, in plain words, with no syntax yet." },
-          { id: "c", text: "Added two more signals from other parts of the file beside the first string", note: "A second kind of signal, from a different part of the file." },
-          { id: "f", text: "Recorded which real files matched, then set the severity last", note: "Only real results can say what legitimately matches, and how loud the rule should be." },
-          { id: "b", text: "Tried the first string that came to hand, and asked who else has it", note: "An obvious draft is fine, as long as it gets checked in both directions." },
-          { id: "d", text: "Set a size ceiling and limited the rule to Windows executables", note: "Once the signals are in, narrow the scope around them." },
+          { id: "e", text: "Ran the draft over the known webshell samples and over the portal's own PHP code", note: "Two sets, because either one alone tells half the story." },
+          { id: "a", text: "Wrote one line: a webshell takes a command from the web request, decodes it, and hands it to an execution function", note: "The idea comes first, in plain words, with no syntax yet." },
+          { id: "c", text: "Added two more signals beside the decode-and-run call: the PHP open tag, and the request input the command arrives through", note: "Each one is common on its own. All three in one file almost never happens by chance." },
+          { id: "f", text: "Recorded which legitimate files matched, then set the severity last", note: "Only real results can say what legitimately matches, and how loud the rule should be." },
+          { id: "b", text: "Tried the obvious draft first, the decode-and-run call on its own, and asked who else has it", note: "An obvious draft is fine, as long as it gets checked in both directions. Plugins and licence checkers call the same pair." },
+          { id: "d", text: "Set a size ceiling that fits one dropped script, not a whole web application", note: "Once the signals are in, narrow the scope around them." },
         ],
         order: ["a", "b", "c", "d", "e", "f"],
-        doneNote: "The idea, a quick draft, a check in both directions, more signals, a narrower scope, a test on both sets, then notes and severity. Each step uses what the one before produced, and severity goes last because it depends on what testing found.",
+        doneNote: "The idea, a quick draft, a check in both directions, more signals, a narrower scope, a test on the samples and on the portal's own code, then notes and severity. Each step uses what the one before produced, and severity goes last because it depends on what testing found.",
       },
     ],
   },

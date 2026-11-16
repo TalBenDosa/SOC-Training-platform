@@ -423,7 +423,8 @@ const azureSecurityRoom = {
         "  \"priority\": 100                  <- evaluated first\n" +
         "}\n" +
         "=======================================================\n\n" +
-        "NSG FLOW LOG TUPLE FORMAT\n" +
+        "NSG FLOW LOG TUPLE FORMAT (version 1; version 2 adds\n" +
+        "  flowState,packetsOut,bytesOut,packetsIn,bytesIn)\n" +
         "=======================================================\n" +
         "timestamp,srcIP,dstIP,srcPort,dstPort,protocol,\n" +
         "  direction,decision\n" +
@@ -827,7 +828,7 @@ const azureSecurityRoom = {
       id: "azure-la2",
       heading: "Investigating an NSG Rule Change That Exposed RDP to the Internet",
       context:
-        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event (besides Key Vault Secrets User, the identity also holds an over-broad Contributor role on the resource group, which is what lets it edit NSG rules). The rule change is the record below.\n\n**The NSG flow log for that VM, 46 seconds later,** holds this flow tuple under rule allow-rdp-temp: 1781490937,203.0.113.44,10.40.2.15,51422,3389,T,I,A,B",
+        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event (besides Key Vault Secrets User, the identity also holds an over-broad Contributor role on the resource group, which is what lets it edit NSG rules). The rule change is the record below.\n\n**The NSG flow log for that VM, 46 seconds later,** holds this flow tuple (version 2) under rule allow-rdp-temp: 1781490937,203.0.113.44,10.40.2.15,51422,3389,T,I,A,B,,,,",
       event: nsgRdpExposureEvent,
       questions: [
         {
@@ -855,7 +856,7 @@ const azureSecurityRoom = {
           ],
           answer: 1,
           explanation:
-            "The tuple format is timestamp, source IP, destination IP, source port, destination port, protocol, direction, decision (version-2 logs add a flow state; the trailing B means the flow began). So: TCP (T), inbound (I), from 203.0.113.44 port 51422 to 10.40.2.15 port 3389, allowed (A). 203.0.113.44 is the same external IP that read the Key Vault secret: the attacker opened the door and then walked through it. 'Outbound and denied' misreads I and A: I is inbound, and the source is the external IP. 'That a rule exists' is wrong. Flow logs record actual flows. 'A marks an alert' is a misreading: A is the Allow decision (D would be Deny).",
+            "The tuple format is timestamp, source IP, destination IP, source port, destination port, protocol, direction, decision (version 2 adds a flow state and four packet and byte counters; B means the flow began, so the counters are still blank). So: TCP (T), inbound (I), from 203.0.113.44 port 51422 to 10.40.2.15 port 3389, allowed (A). 203.0.113.44 is the same external IP that read the Key Vault secret: the attacker opened the door and then walked through it. 'Outbound and denied' misreads I and A: I is inbound, and the source is the external IP. 'That a rule exists' is wrong. Flow logs record actual flows. 'A marks an alert' is a misreading: A is the Allow decision (D would be Deny).",
           xp: 25,
         },
         {

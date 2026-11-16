@@ -1026,7 +1026,9 @@ Wazuh rules are hierarchical. A parent rule matches the general event type (e.g.
 For example:
 - Parent rule 5700: "sshd authentication event detected" (fires on any SSH-related log)
 - Child rule 5710: "Failed login for non-existent user" (only fires if parent matched AND user does not exist)
-- Child rule 5712: "sshd: brute force trying to get access to the system" (only fires if parent matched AND failures exceed the frequency threshold in the timeframe)`,
+- Grandchild rule 5712: "sshd: brute force trying to get access to the system. Non existent user." (only fires when 5710 has matched 8 times from the same source IP within 120 seconds)
+
+Failed passwords for real accounts take a parallel branch: 5760 ("sshd: authentication failed.") matches a "Failed password" line, and 5763 ("sshd: brute force trying to get access to the system. Authentication failed.") fires when 5760 has matched 8 times from the same source within 120 seconds. Same frequency logic, different parent, so the rule ID alone tells you whether the attacker was guessing usernames or passwords.`,
       checkpoint: {
         question: "A custom rule fires at level 4 on agent 001, but no alert appears on the dashboard. On a fresh lab install of Wazuh, the same rule's level-4 alerts do appear. Which explanation fits best?",
         options: [

@@ -116,7 +116,7 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
             screen: { type: "status", service: "Falcon sensor · BMH-LIS-NA07 (night auditor, Lisbon)", state: "Online · last seen 14 s ago · sensor 7.18", errors: "Prevention policy: Hotels-Standard · RFM: off", series: [40, 42, 39, 44, 41, 43, 120, 135, 128] },
             answer: "health",
             callouts: [
-              { at: "state", text: "Online and checked in seconds ago: the sensor is healthy and still talking to the cloud. That is what makes remote response possible. The sensor lives in the kernel, where an ordinary program cannot simply switch it off. To get at it an attacker has to reach the kernel too, usually by loading a vulnerable driver (BYOVD, bring your own vulnerable driver)." },
+              { at: "state", text: "Online and checked in seconds ago: the sensor is healthy and still talking to the cloud. That is what makes remote response possible. If this host ever stops checking in, the last-seen time on this screen tells you when the cloud last heard from it." },
               { at: "graph", text: "Event volume jumped late in the night. A healthy sensor reporting more, not less, often means the host is busy doing something new." },
             ],
           },

@@ -1,7 +1,7 @@
 # Palo Alto Networks PAN-OS — Traffic / Threat / URL Filtering logs
 
 Category: Network firewall · Vendor: Palo Alto Networks · Product: PAN-OS NGFW (PA-series, VM-series)
-Scope: TRAFFIC, THREAT (incl. subtype `url` = URL Filtering log, `spyware`, `vulnerability`, `virus`, `wildfire`). GlobalProtect is covered in a separate card.
+Scope: TRAFFIC, THREAT (incl. subtype `url` = URL Filtering log, `spyware`, `vulnerability`, `virus`, `wildfire`), and the DECRYPTION log field reference (§3.4). GlobalProtect is covered in a separate card.
 
 ## 1. Official sources
 
@@ -94,6 +94,54 @@ Threat-ID ranges (documented): 8000–8099 scan · 8500–8599 flood · 9999 URL
 
 **Brute-force and reconnaissance signatures (this platform renders PAN-OS's own):** a brute-force threat on a protocol PAN-OS has a parent signature for is printed with that signature, whatever generic name the story used: `MS-RDP Brute Force Attempt(40021)` (child 33020, RDP connect; default trigger 8 in 100 s from one source to one destination), `SSH User Authentication Brute-force Attempt(40015)` (child 31914, 20 in 60 s), `SMB: User Password Brute-force Attempt(40004)`, `FTP: Login Brute-force Attempt(40001)` (names from Threat Vault and LIVEcommunity; the 40001 / 40004 wording is not confirmed against Threat Vault). `thr_category` is `brute-force`; the action is whatever the Vulnerability Protection profile sets (`alert` lets the attempts continue, `block-ip` is Palo Alto's recommendation). Zone Protection reconnaissance is a THREAT with `subtype scan`: `TCP Port Scan(8001)`, `Host Sweep(8002)`, `UDP Port Scan(8003)`, `app not-applicable`, no NAT, `sessionid 0`, `thr_category scan`.
 A published server can be authored with the public address as `dst` and the server in `pan.natdst`: the record keeps `dst` = public VIP and `natdst` = the server.
+
+### 3.4 DECRYPTION log (PAN-OS 10.0+), added 2026-11-15
+
+Source: PAN-OS Admin Guide → *Decryption Log Fields* (https://docs.paloaltonetworks.com/pan-os/11-0/pan-os-admin/monitoring/use-syslog-for-monitoring/syslog-field-descriptions/decryption-log-fields , checked 2026-11-15; the 10.0–12.2 pages exist under the same path). A separate log type: `type` = `DECRYPTION`, and `subtype` (Threat/Content Type) is **not used**. The Format line starts like every PAN-OS log (`FUTURE_USE, Receive Time, Serial Number, Type, Threat/Content Type, Config Version, Generate Time, Source Address …`) and runs to about 130 positions ending with `Cluster Name`. The full positional order was **not** transcribed into this card: render raw CSV lines only through a renderer built from that Format line, never by hand.
+
+| Field (syslog name) | Display name | Meaning / values (per the page) |
+|---|---|---|
+| `policy_name` | Policy Name | The Decryption policy rule that matched (not the Security `rule`) |
+| `proxy_type` | Proxy Type | `Forward`, `Inbound`, `No Decrypt`, `GlobalProtect` (examples) |
+| `sni` | Server Name Indication | Hostname the client asked for in the ClientHello |
+| `tls_version` | TLS Version | Protocol version of the session (value spelling such as `TLS1.3` UNVERIFIED) |
+| `tls_keyxchg` | Key Exchange Algorithm | e.g. ECDHE (spelling UNVERIFIED) |
+| `tls_enc` | Encryption Algorithm | e.g. `AES-128-CBC`, `AES-256-GCM` |
+| `tls_auth` | Hash Algorithm | e.g. `SHA`, `SHA256`, `SHA384` |
+| `ec_curve` | Elliptic Curve | Curve negotiated for ECDHE |
+| `err_index` | Error Index | `Cipher`, `Resource`, `Resume`, `Version`, `Protocol`, `Certificate`, `Feature`, `HSM` |
+| `error` | Error | Text of the error |
+| `root_status` | Root Status | e.g. `trusted`, `untrusted`, `uninspected` |
+| `chain_status` | Chain Status | `Uninspected`, `Untrusted`, `Trusted`, `Incomplete` |
+| `cn`, `issuer_cn`, `root_cn` | Subject / Issuer / Root Common Name | Server certificate names |
+| `notbefore`, `notafter` | Certificate Start / End Date | Validity window |
+| `fingerprint` | Certificate Fingerprint | Hash of the x509 certificate |
+| `cert_serial` | Certificate Serial Number | |
+
+Common head fields (`receive_time`, `serial`, `type`, `src`, `dst`, `from`, `to`, `rule`, `srcuser`, `app`, `sport`, `dport`, `sessionid` …) carry the same names as TRAFFIC. Decryption logging is off by default: only sessions matching a Decryption policy rule with logging enabled (successful handshakes are often not logged, failures are) produce this log, so "no decryption log" is not "not decrypted" (UNVERIFIED exact default per version).
+
+Flat-object sketch (subset of keys; values illustrative; a table, not a JSON block, because the card tests pair every JSON block with a full positional raw line and the native PAN-OS renderer has no DECRYPTION kind):
+
+| Key | Value |
+|---|---|
+| `type` | `DECRYPTION` |
+| `receive_time` | `2026/11/18 10:03:05` |
+| `src` | `10.31.8.77` |
+| `dst` | `198.51.100.90` |
+| `from` | `students` |
+| `to` | `untrust` |
+| `rule` | `Students-Web` |
+| `app` | `ssl` |
+| `policy_name` | `Decrypt-Students-Web` |
+| `proxy_type` | `Forward` |
+| `sni` | `journals.publisher.example` |
+| `tls_version` | `TLS1.3` |
+| `chain_status` | `Untrusted` |
+| `err_index` | `Certificate` |
+| `issuer_cn` | `Example Issuing CA` |
+| `cn` | `journals.publisher.example` |
+
+Console: Monitor → Logs → Decryption. The other Monitor log views show display names, not syslog names: Receive Time, Type, From Zone (`from`), To Zone (`to`), Source (`src`), Destination (`dst`), To Port (`dport`), Application (`app`), Action, Rule. A table built from Monitor columns must use those display names consistently, not a mix with syslog names.
 
 ## 4. Realistic samples
 

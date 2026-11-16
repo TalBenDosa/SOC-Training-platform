@@ -7,10 +7,11 @@ import type { RoomExperience } from "./types";
 // Saltmarsh Brewing Co. (fictional), not the graded tasks' LAPTOP-JSMITH.
 // Signature mechanic: reading a real-looking Threat Center status bar (inspect)
 // before acting. Lab data differs from the graded tasks: the Threat Center
-// never explains how Static AI judges a file (q4) or offers rollback; the
+// never explains how Static AI judges a file (q4), what Detect and Protect
+// modes do (q5), or offers rollback, and its storyline is not la1's; the
 // Remote Shell hunt is a Linux persistence hunt that never isolates a host
-// (q1); and nothing reads the LockBit detection (la1, flag1), mass renames or
-// entropy (q2), Deep Visibility hunting (q3) or Detect versus Protect (q5).
+// (q1); and nothing reads the LAPTOP-JSMITH ransomware detection (la1, flag1),
+// mass renames or entropy (q2), or Deep Visibility hunting (q3).
 export const SENTINEL_ONE: RoomExperience = {
   roomId: "sentinelone",
   codename: "Operation Rollback",
@@ -98,9 +99,9 @@ export const SENTINEL_ONE: RoomExperience = {
           { id: "verdict", text: "Analyst Verdict: Undefined", tag: "Analyst Verdict", tone: "warn", note: "Nobody has looked yet. Mitigated is the agent's work; the verdict is yours. True positive, false positive or suspicious: someone has to decide." },
           { id: "incident", text: "Incident Status: Unresolved", tag: "Incident Status", tone: "warn", note: "Still open. You close it only after you know how the file arrived and whether it ran anywhere else." },
           { id: "origin", text: "Originating process: OUTLOOK.EXE · user k.morgan · attachment 'Keg_Tracker_v3.zip'", tag: "Details", tone: "info", note: "How it got here: an email attachment. That points you at the mailbox next, and at everyone else who got the same mail." },
-          { id: "agent", text: "Agent: 23.4.2 · Policy: Protect · Network: Connected", tag: "Endpoint", tone: "trust", note: "Current agent, protective policy, still reporting. Nothing on the endpoint itself needs fixing. Protect mode blocks and remediates on its own; Detect mode only raises the alert and leaves the action to a human." },
-          { id: "engine", text: "Detected by: Static AI · pre-execution · file hash never seen before", tag: "Engine", tone: "info", note: "Static AI scores a file before it runs from its structural features, not from a signature, so a file with one changed byte and a brand-new hash is still caught. Behavioral AI is the other engine: it judges what a process does once it is running." },
-          { id: "story", text: "Storyline ID: 0x7C41D2E9 · 6 events linked", tag: "Storyline", tone: "info", note: "Storyline tags every event of one attack chain with the same ID, so the mail attachment, the process and the file writes show up as one story instead of six separate alerts." },
+          { id: "agent", text: "Agent: 23.4.2 · Policy: Protect · Network: Connected", tag: "Endpoint", tone: "trust", note: "Current agent, the policy this site runs, still reporting. Nothing on the endpoint itself needs fixing, and because it is connected, any action you send from the console reaches it right away." },
+          { id: "engine", text: "Detected by: Static AI · pre-execution", tag: "Engine", tone: "info", note: "Which engine raised it, and when. Pre-execution means the file was stopped before it could run, so there is no process activity on this PC to clean up. Whether the same file reached other machines is a question for the mailbox and the rest of the fleet." },
+          { id: "story", text: "Storyline: 7C41D2E9B5A3F016 · 6 events linked", tag: "Storyline", tone: "info", note: "Storyline tags every event of one attack chain with the same ID, a 16-character hex string with no 0x in front, so the mail attachment, the process and the file writes show up as one story instead of six separate alerts." },
         ],
       },
     ],

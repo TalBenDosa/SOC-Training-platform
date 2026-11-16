@@ -127,7 +127,7 @@ export const LATERAL_MOVEMENT_PRACTICE: RoomExperience = {
           { id: "e", text: "4672: special privileges assigned to the new logon", bucket: "target", why: "Written on the target, straight after a 4624 for a privileged account." },
           { id: "f", text: "5140: a network share object was accessed, \\\\*\\C$", bucket: "target", why: "The host that owns the share records the access." },
           { id: "g", text: "4688: new process whoami.exe", bucket: "target", why: "What the visitor does after landing is written on the host where it ran." },
-          { id: "h", text: "4769: Kerberos service ticket requested for cifs/cc-fin-02", bucket: "dc", why: "Tickets are issued by the domain controller, so the request is logged there." },
+          { id: "h", text: "4769: a Kerberos service ticket was requested, ServiceName CC-FIN-02$", bucket: "dc", why: "Tickets are issued by the domain controller, so the request is logged there. ServiceName holds the account the ticket is for (the computer account CC-FIN-02$), not the SPN." },
           { id: "i", text: "4776: the computer attempted to validate the credentials for an account", bucket: "dc", why: "For a domain account, NTLM validation is logged on the domain controller." },
         ],
       },

@@ -32,8 +32,18 @@ notes (what an analyst pivots on), and common mistakes / fields that do NOT exis
 | Remote access | [vpn-globalprotect](vpn-globalprotect.md) · [vpn-cisco-anyconnect](vpn-cisco-anyconnect.md) · [vpn-fortigate-sslvpn](vpn-fortigate-sslvpn.md) · [ztna-zscaler-zpa](ztna-zscaler-zpa.md) · [ztna-cloudflare-access](ztna-cloudflare-access.md) |
 | Web tier | [waf-aws](waf-aws.md) · [waf-azure](waf-azure.md) · [web-iis](web-iis.md) · [web-nginx](web-nginx.md) |
 | Proxy / DNS | [proxy-zscaler-zia](proxy-zscaler-zia.md) · [dns-windows](dns-windows.md) · [dns-infoblox](dns-infoblox.md) |
-| Host / ITSM | [host-sysmon](host-sysmon.md) · [host-linux-auditd](host-linux-auditd.md) · [itsm-servicenow](itsm-servicenow.md) |
+| Host / ITSM | [host-sysmon](host-sysmon.md) · [host-linux-auditd](host-linux-auditd.md) · [host-linux-conntrack](host-linux-conntrack.md) · [itsm-servicenow](itsm-servicenow.md) |
+| Email headers | [email-message-headers](email-message-headers.md) (RFC 5322 header block as Exchange Online / EOP stamps it) |
+| Forensics tools (command output) | [forensics-ftk-imager](forensics-ftk-imager.md) · [forensics-libewf](forensics-libewf.md) · [forensics-volatility3](forensics-volatility3.md) · [forensics-plaso](forensics-plaso.md) |
+| Malware triage (command output) | [malware-doc-triage-tools](malware-doc-triage-tools.md) (`file`, olevba, 7-Zip, pdfid, pdf-parser, sha256sum) |
+| Threat intel / sandbox | [ti-urlscan](ti-urlscan.md) |
 | SIEM ingestion | [siem-ms-graph-alerts](siem-ms-graph-alerts.md) · [siem-sentinel-securityalert](siem-sentinel-securityalert.md) |
+
+**Tool-output cards (added 2026-11-15 for the field-lab conversion).** Volatility 3, ewfinfo/ewfverify, FTK Imager logs,
+Plaso psort CSV, conntrack and the attachment-triage tools are command-line or report output, not log streams. They have no
+entry in `scripts/log-field-registry.json`; the card itself is the reference a lab's sample is checked against (exact column
+names, labels, value formats, and what the tool does NOT print). urlscan.io is a JSON API record and does have a registry entry
+(`urlscan-io`).
 
 Items a source did not confirm are marked **UNVERIFIED** inside each card; they must be resolved or
 avoided before an emitter relies on them.

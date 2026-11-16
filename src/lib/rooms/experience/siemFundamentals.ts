@@ -165,7 +165,7 @@ export const SIEM_FUNDAMENTALS: RoomExperience = {
         prompt: "Before the graded alert, read one Wazuh raised on a baggage-system Linux server.",
         source: "Wazuh · alerts.json · agent nx-bag-03",
         fields: [
-          { key: "rule.id", value: "5712", label: "Which rule", note: "Wazuh's built-in SSH brute-force rule." },
+          { key: "rule.id", value: "5763", label: "Which rule", note: "Wazuh's built-in SSH brute-force rule for repeated failed passwords: 8 failures from one source within 120 seconds. Its counterpart 5712 counts attempts on usernames that do not exist." },
           { key: "rule.description", value: "sshd: brute force trying to get access to the system. Authentication failed.", label: "What" },
           { key: "rule.level", value: "10", label: "Severity", note: "Wazuh levels run 0 to 15; 10 or more usually pages someone." },
           { key: "rule.firedtimes", value: "37", label: "How often", note: "How many times this rule has fired for this agent recently: a sense of scale." },

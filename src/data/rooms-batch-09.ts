@@ -759,7 +759,7 @@ Once you have an image, these artefacts yield attacker activity:
 
 **$MFT (Master File Table)**: every file and directory on an NTFS volume has an entry in the $MFT with timestamps (Created, Modified, Accessed, Changed/MFT Entry modified. These four are called MACB timestamps). Even deleted files leave entries until they are overwritten. Analysing $MFT timestamps helps you determine when files were created, modified, or deleted.
 
-**Prefetch files** (C:\\Windows\\Prefetch\\*.pf), Windows records every executable that has ever run on the system in Prefetch files. Even if the attacker deleted their malware, the Prefetch file may still exist, showing you the malware's name, path, and the last 8 times it ran.
+**Prefetch files** (C:\\Windows\\Prefetch\\*.pf), on Windows workstations, the first time a program runs Windows creates a Prefetch file for it, and updates it on later runs. Even if the attacker deleted their malware, the Prefetch file may still exist, showing you the malware's name, path, how many times it ran, and (on Windows 8 and later) the last 8 times it ran. Two limits: Windows 10 and 11 keep at most 1,024 .pf files and drop the oldest when the folder fills, and Prefetch is turned off by default on Windows Server. So a missing .pf file is not proof that a program never ran.
 
 **Amcache** (C:\\Windows\\AppCompat\\Programs\\Amcache.hve): records executables that were present on the system or interacted with (installed, copied, browsed to or run), with path and SHA1 hash. Useful for identifying malware that has since been deleted and for pivoting on its hash. An entry alone is NOT proof that the file executed.
 
@@ -800,7 +800,7 @@ By combining memory forensics (what was running), disk forensics (what files exi
       ],
       answer: 1,
       explanation:
-        "A Prefetch file records the program's name, path and its last 8 run times, and it stays after the executable is deleted. “The $RECYCLE.BIN entry” at best shows what was deleted and when, not when it ran (and self-deleting tools usually bypass the Recycle Bin). “The LNK shortcut” records files a user opened, with the target's timestamps, not execution history. “The $MFT entry” gives the file's MACB timestamps (created, modified and so on), which are not run times. Caveat: Prefetch is turned off by default on Windows Server, so on a server you would need other execution evidence such as 4688 events or EDR telemetry.",
+        "On a Windows 10 workstation, a Prefetch file records the program's name, path and its last 8 run times, and it stays after the executable is deleted (until the 1,024-file cap pushes the oldest entries out).“The $RECYCLE.BIN entry” at best shows what was deleted and when, not when it ran (and self-deleting tools usually bypass the Recycle Bin). “The LNK shortcut” records files a user opened, with the target's timestamps, not execution history. “The $MFT entry” gives the file's MACB timestamps (created, modified and so on), which are not run times. Caveat: Prefetch is turned off by default on Windows Server, so on a server you would need other execution evidence such as 4688 events or EDR telemetry.",
       xp: 30,
     },
 
@@ -964,7 +964,7 @@ Every email contains **headers**: metadata fields that document the email's orig
 
 **Authentication-Results**: added by the receiving mail server, this header contains the results of SPF, DKIM, and DMARC checks. This is the most important header for detecting spoofing.
 
-**Message-ID**: a unique identifier for the email, formatted like \<string@domain\>. The domain in the Message-ID should match the sending domain. If it does not, that is suspicious.
+**Message-ID**: a unique identifier for the email, formatted like \<string@domain\>. The sending software chooses the part after the @, and it is often not the sender's domain: Exchange Online writes its own server name (\<...@...prod.outlook.com\>), on-premises Exchange may write an internal host (\<...@HS-EX01.hollins.local\>), and bulk-mail services write their platform's domain. So a Message-ID domain that differs from the From domain is at most a weak hint, never proof of spoofing on its own. Its real value is as a search key: the same Message-ID in your mail logs finds every copy of that message.
 
 **X-Mailer**: the mail client software used to send the email. Many marketing tools, phishing kits, and legitimate clients populate this field differently.
 

@@ -34,7 +34,9 @@ Platform representation: **flat JSON** = `System` element/attribute names + ever
 
 **Event 12/13/14 RegistryEvent:** `EventType` (`CreateKey`/`SetValue`/`DeleteValue`/`RenameKey`), `TargetObject` (abbreviated path), `Details` (value for 13), `Image`. Run-key persistence etc.
 
-**Event 7 ImageLoad / 8 CreateRemoteThread / 23/26 FileDelete / 15 FileCreateStreamHash:** see field list in §1. Event 15 `Contents`/`Hash` capture the Zone.Identifier "mark of the web".
+**Event 7 ImageLoad / 8 CreateRemoteThread / 23/26 FileDelete:** see field list in §1.
+
+**Event 15 FileCreateStreamHash ("File stream created"):** `RuleName, UtcTime, ProcessGuid, ProcessId, Image, TargetFilename, CreationUtcTime, Hash, Contents, User` (in that order; source: EventSentry's Sysmon 15 insertion-string list, https://system32.eventsentry.com/sysmon/event/15 , checked 2026-11-15). `TargetFilename` ends in the stream name (`…\Bundle_2281.iso:Zone.Identifier`). `Contents` (added in Sysmon 11.10) holds the text of a small stream, so for the Mark of the Web it is the `[ZoneTransfer]` block: `ZoneId=3` (Internet), then `ReferrerUrl=` and `HostUrl=` when the browser wrote them. `Hash` is the hash of the file the stream is attached to (its unnamed main stream), per the Sysmon page's description of event 15; `Contents` is the named stream's text. For HTML smuggling, Chrome, Firefox and Chromium Edge write `HostUrl=about:internet` (the file was built in the page, not fetched from a URL); legacy Edge wrote `HostUrl=blob:<origin>` (source: https://securityjosh.github.io/2021/01/27/Detect-HTML-Smuggling-Sysmon.html , checked 2026-11-15). The rendered message on screen (`Get-WinEvent … -ExpandProperty Message`) starts `File stream created:` and lists the same names as `Name: value` lines; event 1's message starts `Process Create:`.
 
 ## 4. Realistic samples
 
@@ -148,6 +150,22 @@ Signal: `TargetImage` = `lsass.exe`, `GrantedAccess 0x1010` (PROCESS_VM_READ|PRO
  "User": "CORP\\maya.peretz"}
 ```
 
+### 4.7 Mark of the Web on a container built by the browser — Event 15 (FileCreateStreamHash)
+```json
+{"ProviderName": "Microsoft-Windows-Sysmon", "EventID": 15, "Version": 2, "Level": 4, "Task": 15, "Opcode": 0, "Keywords": "0x8000000000000000", "TimeCreated": "2026-10-01T05:31:02.1186540Z", "EventRecordID": 774120244, "ProcessID": 2996, "ThreadID": 3980, "Channel": "Microsoft-Windows-Sysmon/Operational", "Computer": "NXC-WS-1188.corp.nexacorp.local", "UserID": "S-1-5-18",
+ "RuleName": "-",
+ "UtcTime": "2026-10-01 05:31:02.118",
+ "ProcessGuid": "{a1b2c3d4-9e70-6711-4c00-000000002e00}",
+ "ProcessId": "8840",
+ "Image": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+ "TargetFilename": "C:\\Users\\maya.peretz\\Downloads\\Statement_0930.iso:Zone.Identifier",
+ "CreationUtcTime": "2026-10-01 05:31:01.904",
+ "Hash": "SHA256=4F0D1A6C9B2E7735A1C08E4D96B3F2A7C5E19D0B8A6F4C3E2D1B0A9F8E7D6C5B",
+ "Contents": "[ZoneTransfer]  ZoneId=3  HostUrl=about:internet  ",
+ "User": "CORP\\maya.peretz"}
+```
+Signal: a disk image written by the browser whose MOTW says `HostUrl=about:internet` rather than a download URL: the bytes were assembled inside a page (HTML smuggling, T1027.006). `ZoneId=3` is still there, so the ISO carries MOTW; whether files **inside** a mounted ISO inherit it depends on the Windows patch level (the ISO MOTW fix shipped in November 2022, CVE-2022-41091). The line breaks inside `Contents` are rendered as spaces by Sysmon (UNVERIFIED exact whitespace); the `Hash` value format follows the `HashAlgorithms` setting.
+
 ## 5. Investigation notes
 
 - **ProcessGuid is the spine.** It is globally unique (unlike reused PIDs). A child's `ParentProcessGuid` = the parent's `ProcessGuid`; events 3/11/12-14/22 carry the actor's `ProcessGuid`. Reconstruct the whole chain (1 WINWORD -> 1 powershell -> 22 DNS -> 3 connect -> 11 drop -> 1 svchost_update -> 10 LSASS -> 13 Run key) by walking GUIDs.
@@ -166,5 +184,7 @@ Signal: `TargetImage` = `lsass.exe`, `GrantedAccess 0x1010` (PROCESS_VM_READ|PRO
 - Event 3 does not include a hostname of the *source* process's user beyond `User`; `DestinationHostname` is only present if Sysmon resolved it (can be empty).
 - `ProcessId` under `System/Execution` is the Sysmon service PID, not the event's subject — the subject PID is the `EventData` `ProcessId`.
 - `Hashes` content depends on the `HashAlgorithms` config; don't assume all four are present.
+- Event 15 uses `Hash` (singular) and `Contents`; event 1 uses `Hashes` (plural). There is no `ZoneId`, `HostUrl` or `ReferrerUrl` field: those are lines inside `Contents`.
+- `RuleName` is written by the local config (`technique_id=…,technique_name=…` is the sysmon-modular / Olaf Hartong convention); another config writes another tag or `-`. Never treat it as Microsoft's classification.
 - Sysmon has no "alert"/"verdict"/"severity" field — it is raw telemetry; detection is downstream (the `RuleName` only reflects the local config's rule tag).
 - Don't output Elastic `winlog.event_data.*` wrapping or a Wazuh `data.win.*` envelope — show the flat native field names.

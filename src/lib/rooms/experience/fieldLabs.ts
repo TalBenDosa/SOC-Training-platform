@@ -16,6 +16,15 @@ export const FIELD_LAB_KINDS: ReadonlySet<BriefingLab["kind"]> = new Set([
   "reader", "trace", "queue", "portal", "hunt", "pcap", "terminal", "worksheet", "spotdiff", "tune",
 ]);
 
+/**
+ * Variety (Tal, 2026-11-15: "there must be variety in the challenge games"). In a converted room no
+ * single field kind may carry more than this share of the room's field labs (at least 2 are always
+ * allowed), and a room with 4+ field labs uses at least MIN_FIELD_KINDS different kinds. Two labs
+ * in a row in one reading are never the same kind.
+ */
+export const MAX_KIND_SHARE = 0.4;
+export const MIN_FIELD_KINDS = 3;
+
 /** Guided reading: explains a real record, the learner performs no analyst action. Allowed, not counted as field work. */
 export const GUIDED_LAB_KINDS: ReadonlySet<BriefingLab["kind"]> = new Set(["anatomy", "inspect", "hotspot", "evidence", "chat"]);
 

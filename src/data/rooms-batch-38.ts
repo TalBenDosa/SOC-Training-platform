@@ -3,7 +3,7 @@
  *
  * Closes an F-09 external-audit gap: the platform's Google Workspace
  * scenarios (gws-phishing-attachment, gws-oauth-marketplace) require reading
- * gws.* audit fields, but the platform only ever taught Microsoft 365 /
+ * Google Workspace audit records, but the platform only ever taught Microsoft 365 /
  * Exchange Online / SharePoint in depth. This room teaches the Google
  * Workspace audit-log model on its own terms and explicitly contrasts it
  * against the Microsoft 365 suite this platform already teaches.
@@ -33,28 +33,41 @@ const oauthConsentEvent: TelemetryEvent = {
   geo: { country: "United States", city: "Chicago" },
   description:
     "A token audit 'authorize' event recorded k.stensrud@medcorehealth.example granting scopes to a third-party app named FormFlow Sync.",
+  // One Reports API activity (admin#reports#activity), stored by the SIEM under a gws. prefix with
+  // Google's own nesting kept: gws.id.* is id{}, gws.actor.* is actor{}, gws.events is events[].
   raw: {
-    "gws.event.type": "token",
-    "gws.event.name": "authorize",
+    "gws.kind": "admin#reports#activity",
+    "gws.id.time": "2026-06-08T14:02:17.000Z",
+    "gws.id.uniqueQualifier": "-6127459038812736451",
+    "gws.id.applicationName": "token",
+    "gws.id.customerId": "C02mq7vxr",
+    "gws.actor.callerType": "USER",
     "gws.actor.email": "k.stensrud@medcorehealth.example",
-    "gws.token.client_id": "719402883561-q8m3k7n2p9r4t6u1v0w5x8y3z2a7b6c1.apps.googleusercontent.com",
-    "gws.token.app_name": "FormFlow Sync",
-    "gws.token.client_type": "WEB",
-    "gws.token.scope": [
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/drive",
-      "openid",
-      "https://www.googleapis.com/auth/userinfo.email",
+    "gws.actor.profileId": "113862049571830264719",
+    "gws.ownerDomain": "medcorehealth.example",
+    "gws.ipAddress": "198.51.100.61",
+    "gws.networkInfo.regionCode": "US",
+    "gws.networkInfo.subdivisionCode": "US-IL",
+    "gws.events": [
+      {
+        type: "auth",
+        name: "authorize",
+        parameters: [
+          { name: "client_id", value: "719402883561-q8m3k7n2p9r4t6u1v0w5x8y3z2a7b6c1.apps.googleusercontent.com" },
+          { name: "app_name", value: "FormFlow Sync" },
+          { name: "client_type", value: "WEB" },
+          {
+            name: "scope",
+            multiValue: [
+              "https://www.googleapis.com/auth/calendar",
+              "https://www.googleapis.com/auth/drive",
+              "openid",
+              "https://www.googleapis.com/auth/userinfo.email",
+            ],
+          },
+        ],
+      },
     ],
-    "source.ip": "198.51.100.61",
-    "source.geo.country_name": "United States",
-    "source.geo.city_name": "Chicago",
-    "application.name": "FormFlow Sync",
-    "application.id": "719402883561-q8m3k7n2p9r4t6u1v0w5x8y3z2a7b6c1.apps.googleusercontent.com",
-    "application.type": "oauth2_web",
-    "event.action": "authorize",
-    "event.outcome": "success",
-    "user.email": "k.stensrud@medcorehealth.example",
   },
 };
 
@@ -79,24 +92,37 @@ const driveDownloadBurstEvent: TelemetryEvent = {
   description:
     "The Drive audit recorded 340 download operations under k.stensrud's account within eleven minutes.",
   raw: {
-    "gws.event.type": "access",
-    "gws.event.name": "download",
+    "gws.kind": "admin#reports#activity",
+    "gws.id.time": "2026-06-08T14:19:04.000Z",
+    "gws.id.uniqueQualifier": "4408217935561920374",
+    "gws.id.applicationName": "drive",
+    "gws.id.customerId": "C02mq7vxr",
+    "gws.actor.callerType": "USER",
     "gws.actor.email": "k.stensrud@medcorehealth.example",
-    "gws.drive.doc_title": "Patient_Intake_Q2.xlsx",
-    "gws.drive.doc_id": "1Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4J3i2H1g0",
-    "gws.drive.doc_type": "spreadsheet",
-    "gws.drive.owner": "k.stensrud@medcorehealth.example",
-    "gws.drive.visibility": "private",
-    "gws.drive.originating_app_id": "719402883561",
-    "file.name": "Patient_Intake_Q2.xlsx",
-    "file.path": "/Drive/Clinical/Q2/Patient_Intake_Q2.xlsx",
-    "file.size": "5812224",
-    "source.ip": "203.0.113.14",
-    "source.geo.country_name": "Netherlands",
-    "source.geo.city_name": "Amsterdam",
-    "event.action": "download",
-    "event.outcome": "success",
-    "user.email": "k.stensrud@medcorehealth.example",
+    "gws.actor.profileId": "113862049571830264719",
+    "gws.ownerDomain": "medcorehealth.example",
+    "gws.ipAddress": "203.0.113.14",
+    "gws.networkInfo.regionCode": "NL",
+    "gws.networkInfo.subdivisionCode": "NL-NH",
+    "gws.events": [
+      {
+        type: "access",
+        name: "download",
+        parameters: [
+          { name: "primary_event", boolValue: true },
+          { name: "billable", boolValue: true },
+          { name: "owner_is_shared_drive", boolValue: false },
+          { name: "owner", value: "k.stensrud@medcorehealth.example" },
+          { name: "doc_id", value: "1Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4J3i2H1g0" },
+          { name: "doc_type", value: "msexcel" },
+          { name: "is_encrypted", boolValue: false },
+          { name: "doc_title", value: "Patient_Intake_Q2.xlsx" },
+          { name: "visibility", value: "private" },
+          { name: "originating_app_id", value: "719402883561" },
+          { name: "actor_is_collaborator_account", boolValue: false },
+        ],
+      },
+    ],
   },
 };
 
@@ -114,22 +140,30 @@ const benignAllowlistedGrantEvent: TelemetryEvent = {
   description:
     "A token audit 'authorize' event recorded p.duval@medcorehealth.example granting the app DraftLark one Drive scope, with an offline refresh token issued.",
   raw: {
-    "gws.event.type": "token",
-    "gws.event.name": "authorize",
+    "gws.kind": "admin#reports#activity",
+    "gws.id.time": "2026-06-06T09:40:00.000Z",
+    "gws.id.uniqueQualifier": "-2290547168830412965",
+    "gws.id.applicationName": "token",
+    "gws.id.customerId": "C02mq7vxr",
+    "gws.actor.callerType": "USER",
     "gws.actor.email": "p.duval@medcorehealth.example",
-    "gws.token.client_id": "441029581763-h5j2k9l1m3n7o4p6q8r0s2t5u1v9w3x7.apps.googleusercontent.com",
-    "gws.token.app_name": "DraftLark",
-    "gws.token.client_type": "WEB",
-    "gws.token.scope": ["https://www.googleapis.com/auth/drive.file"],
-    "source.ip": "198.51.100.4",
-    "source.geo.country_name": "United States",
-    "source.geo.city_name": "Chicago",
-    "application.name": "DraftLark",
-    "application.id": "441029581763-h5j2k9l1m3n7o4p6q8r0s2t5u1v9w3x7.apps.googleusercontent.com",
-    "application.type": "oauth2_web",
-    "event.action": "authorize",
-    "event.outcome": "success",
-    "user.email": "p.duval@medcorehealth.example",
+    "gws.actor.profileId": "102947730518846203157",
+    "gws.ownerDomain": "medcorehealth.example",
+    "gws.ipAddress": "198.51.100.4",
+    "gws.networkInfo.regionCode": "US",
+    "gws.networkInfo.subdivisionCode": "US-IL",
+    "gws.events": [
+      {
+        type: "auth",
+        name: "authorize",
+        parameters: [
+          { name: "client_id", value: "441029581763-h5j2k9l1m3n7o4p6q8r0s2t5u1v9w3x7.apps.googleusercontent.com" },
+          { name: "app_name", value: "DraftLark" },
+          { name: "client_type", value: "WEB" },
+          { name: "scope", multiValue: ["https://www.googleapis.com/auth/drive.file"] },
+        ],
+      },
+    ],
   },
 };
 
@@ -137,7 +171,7 @@ const googleWorkspaceSecurityRoom = {
   id: "google-workspace-security",
   title: "Google Workspace Security",
   description:
-    "The Google Workspace counterpart to this platform's Microsoft 365, Exchange Online, and SharePoint rooms: the gws.event.type/event.name audit model, Gmail's SPF/DKIM/DMARC fields, the OAuth token audit (scopes, offline vs online access, allowlist and marketplace-verification status), the Drive sharing and download audit, the admin console audit log, and Alert Center. Includes a direct contrast against Microsoft 365 so an analyst who only knows Exchange Online and SharePoint doesn't misread a Google Workspace tenant.",
+    "The Google Workspace counterpart to this platform's Microsoft 365, Exchange Online, and SharePoint rooms: the Reports API activity model (id.applicationName, events[].type, events[].name and typed parameters), Gmail's SPF/DKIM/DMARC fields, the OAuth token audit (scopes, offline vs online access, allowlist and marketplace-verification status), the Drive sharing and download audit, the admin console audit log, and Alert Center. Includes a direct contrast against Microsoft 365 so an analyst who only knows Exchange Online and SharePoint doesn't misread a Google Workspace tenant.",
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 60,
@@ -172,13 +206,15 @@ const googleWorkspaceSecurityRoom = {
     {
       type: "reading" as const,
       id: "gwsf-r2",
-      heading: "The GWS Audit Log Model: gws.event.type and gws.event.name",
+      heading: "The GWS Audit Log Model: id.applicationName and events[].name",
       content:
-        "Google Workspace's audit activity is organised around two fields working together, and understanding the pairing is the foundation for reading everything else in this room.\n\n" +
-        "**gws.event.type: the log category.** This field names which audit log an event came from: login (sign-in activity), admin (console configuration changes), drive (file access and sharing; its events carry the event.type value access), token (OAuth app authorization and API activity), mobile (device management), groups, and several more. Each category corresponds, conceptually, to a distinct audit feed Google exposes through its Admin SDK Reports API: an organisation ingesting Google Workspace logs into a SIEM is typically pulling several of these categories in parallel, not one single unified feed the way Okta's System Log works.\n\n" +
-        "**gws.event.name: the specific action within that category.** Within the token category, authorize records a new OAuth consent grant, and activity records the app actually using an already-issued token to call an API. Within the drive category, download, view, and edit each record a different kind of file interaction, and permission changes get their own event names entirely. Within the admin category, specific actions like CHANGE_PASSWORD or a 2-Step-Verification enforcement change each get their own precise name.\n\n" +
-        "**Why this two-field structure differs from a single Operation field.** An analyst used to Microsoft 365's Unified Audit Log may expect one flat Operation field per event, covering everything from a mailbox rule change to a file share. Google Workspace instead separates 'which log' from 'which action within that log', meaning an analyst has to know which category (event.type) they're even looking at before event.name is fully meaningful, since the same event.name string can theoretically mean different things in different categories.\n\n" +
-        "**actor and target, the same shape as elsewhere.** As in the other identity-flavoured logs this platform teaches, an actor field names who performed the action (gws.actor.email is the most commonly used field), and where relevant, additional fields name what or whom the action affected: a file, another user's account, an application. Reading actor against the affected object is exactly as important here as it was in Okta's System Log: an admin resetting someone else's password is a different finding from an account somehow modifying its own settings unexpectedly.",
+        "Google Workspace's audit activity comes from the Admin SDK Reports API, and every record is one activity resource (kind admin#reports#activity) in the exact shape activities.list returns it. Two parts of that resource work together, and understanding the pairing is the foundation for reading everything else in this room.\n\n" +
+        "**id.applicationName: which log.** Inside the activity's id block sit its time (id.time, UTC with milliseconds), a uniqueQualifier, the customerId and applicationName, which names the audit log the activity came from: login (sign-in activity), admin (console configuration changes), drive (file access and sharing), token (OAuth app authorization and API activity), user_accounts (changes users make to their own account), gmail, mobile (device management), groups, and several more. Each application is a separate feed you request by name from the Reports API: an organisation ingesting Google Workspace logs into a SIEM is typically pulling several of them in parallel, not one single unified feed the way Okta's System Log works.\n\n" +
+        "**events[]: which action.** The activity carries an events array, usually with one element, and each element has a type, a name and a list of parameters. events[].name is the specific action: within the token log, authorize records a new OAuth consent grant, and activity records the app actually using an already-issued token to call an API. events[].type groups the names inside one log: token events have the type auth, drive file interactions (download, view, edit) have the type access, and permission changes (change_user_access, change_document_visibility) have the type acl_change. Within the admin log, specific actions like CHANGE_PASSWORD or TURN_OFF_2_STEP_VERIFICATION each get their own precise name, under types such as USER_SETTINGS.\n\n" +
+        "**parameters[]: the details, each with a typed value.** Everything else about the action (the app, the file, the target user) is a parameter: a name plus exactly one typed value. value holds text, boolValue holds true or false, intValue holds a number (sent as a string), and multiValue holds a list. So a grant's app is the parameter named app_name, its permissions are the parameter named scope as a multiValue list, and a download's file is the parameter named doc_title. Admin parameter names are upper case (USER_EMAIL); login, drive and token parameter names are lower case.\n\n" +
+        "**Why this structure differs from a single Operation field.** An analyst used to Microsoft 365's Unified Audit Log may expect one flat Operation field per event, covering everything from a mailbox rule change to a file share. Google Workspace instead separates 'which log' (id.applicationName) from 'which action within that log' (events[].name), so an analyst has to know which log they're looking at before an event name is fully meaningful.\n\n" +
+        "**How a SIEM stores it.** Many SIEM pipelines flatten these records and rename the parts, which is exactly where analysts lose track of what Google actually sent. This room's SIEM keeps Google's own structure and only adds a gws. prefix: gws.id.applicationName is id.applicationName, gws.actor.email is actor.email, gws.ipAddress is ipAddress, and gws.events is the events array exactly as the API returned it, parameters included.\n\n" +
+        "**actor and target, the same shape as elsewhere.** As in the other identity-flavoured logs this platform teaches, actor.email names who performed the action and the top-level ipAddress says from where, and where relevant, parameters name what or whom the action affected: a file (doc_title), another user's account (USER_EMAIL, target_user), an application (app_name, client_id). Reading actor against the affected object is exactly as important here as it was in Okta's System Log: an admin resetting someone else's password is a different finding from an account somehow modifying its own settings unexpectedly.",
     },
     // ── Reading 3: SPF/DKIM/DMARC the GWS way ─────────────────────────────────
     {
@@ -187,17 +223,17 @@ const googleWorkspaceSecurityRoom = {
       heading: "Email Authentication in Gmail: SPF, DKIM and DMARC, in Google's Own Fields",
       content:
         "The underlying concepts of SPF, DKIM and DMARC are universal. This platform's Email Security room already covers what each one actually verifies. This reading is specifically about where Gmail records the result of each check, and the one behavioural trap that catches analysts on any platform, Gmail included.\n\n" +
-        "**Where the results live.** A delivered message in the Google Workspace audit carries gws.spf_result, gws.dkim_result (with a companion gws.dkim_domain naming which domain the DKIM signature actually validated against), and gws.dmarc_result, alongside gws.dmarc_policy (the sending domain's own published DMARC enforcement level: none, quarantine, or reject). A message's ultimate placement (inbox, spam, or quarantined) is recorded in gws.classification.\n\n" +
+        "**Where the results live.** Gmail's log events (the gmail application in the Reports API, and the same records exported to BigQuery) describe each message in a message_info block, and the authentication results sit in its connection_info part: spf_pass, dkim_pass and dmarc_pass, each true or false. A companion list, authenticated_domain, names which domain each mechanism actually validated (type 1 is SPF, type 2 is DKIM), so you can see whether a passing DKIM signature belongs to the sender's own domain or to a bulk mailer's. What the log does not carry is the sending domain's published DMARC enforcement level (none, quarantine, or reject): you read that from the domain's own _dmarc DNS record. A message's spam verdict is recorded in message_info.spam_info.disposition (1 not spam, 2 spam, 3 phishing, 4 suspicious, 5 malware), with is_spam as a simple true or false.\n\n" +
         "**What a PASS on all three actually proves, and what it doesn't.** All three mechanisms together answer one specific question: did the domain that appears to have sent this message actually authorise it to be sent. They say nothing about the content of the message, and critically, nothing about whether the sending mailbox itself has been compromised. A message sent from a genuinely compromised mailbox at a real, trusted domain will pass SPF, DKIM and DMARC every single time, because it really was sent through that domain's own infrastructure by whoever currently controls the account: the authentication check is answering the question correctly; the question just isn't 'is this message safe.'\n\n" +
         "**Why this matters more, not less, in a Workspace-to-Workspace or Workspace-to-Exchange world.** Attackers increasingly favour hijacking a real vendor or partner mailbox and replying inside an existing, legitimate email thread, rather than spoofing a domain outright: exactly because spoofing is what SPF/DKIM/DMARC are built to catch, while a hijacked mailbox sails through untouched. An analyst reviewing a suspicious Gmail message should treat a clean SPF/DKIM/DMARC result as confirmation of sender infrastructure, and look instead at sender history (has this address ever sent this kind of attachment before), thread context (is this really a reply inside a conversation the recipient started), and the attachment or link itself for the actual verdict.\n\n" +
-        "**gws.spam_score, as a secondary signal.** Google's own spam-scoring model contributes a numeric score, but a low score on a message from a currently-compromised legitimate sender is expected, not reassuring: the message genuinely resembles the sender's normal traffic, because it came from their real infrastructure.",
+        "**spam_info.disposition, as a secondary signal.** Google's own spam classification contributes a verdict, but a not-spam disposition on a message from a currently-compromised legitimate sender is expected, not reassuring: the message genuinely resembles the sender's normal traffic, because it came from their real infrastructure.",
     },
     // ── Question 1 ───────────────────────────────────────────────────────────
     {
       type: "question" as const,
       id: "gwsf-q1",
       question:
-        "A Gmail message shows gws.spf_result PASS, gws.dkim_result PASS, and gws.dmarc_result PASS, and it arrived as a reply inside a real, ongoing invoice thread with a genuine long-term supplier. What is the most accurate interpretation?",
+        "A Gmail log event shows spf_pass, dkim_pass and dmarc_pass all true under message_info.connection_info, and the message arrived as a reply inside a real, ongoing invoice thread with a genuine long-term supplier. What is the most accurate interpretation?",
       options: [
         "The sending domain did authorise the message -- which a compromised mailbox at that same real domain would also produce, so these three fields alone cannot establish that it is safe",
         "The message is very likely legitimate since all three mechanisms passed, so the only remaining risk is a lookalike display name, to be checked before the thread is trusted",
@@ -217,12 +253,12 @@ const googleWorkspaceSecurityRoom = {
       content:
         "Third-party OAuth applications are one of the highest-impact, most under-appreciated attack surfaces in any cloud-identity environment, and Google Workspace's token audit is where an analyst reads exactly what was granted.\n\n" +
         "**The consent flow, briefly.** A user visiting a third-party app's website is redirected to a genuine Google consent screen, listing the specific permissions (scopes) the app is requesting, and clicks Allow. Nothing about this flow requires a password to be re-entered, and no malware needs to run on the user's device, the entire transaction happens between the user's browser and Google's own servers, which is exactly why this vector bypasses endpoint detection entirely and, just as importantly, bypasses MFA: there is no interactive login for a second factor to challenge, because delegation, not authentication, is what's happening.\n\n" +
-        "**Reading the token audit event.** A gws.event.type token, gws.event.name authorize event names the acting user (gws.actor.email), the app (gws.token.app_name and the durable gws.token.client_id, which stays constant across every future use of the grant), and, most importantly, gws.token.scope, an array listing exactly what was requested. A scope like https://mail.google.com/ grants full read/write/delete access to the entire mailbox. A scope like https://www.googleapis.com/auth/drive grants the same breadth over the entire Drive. Compare that to a narrow scope like drive.file, which only grants access to files the app itself created or the user explicitly opened with it: a dramatically smaller blast radius for the exact same 'a user authorized an app' shape.\n\n" +
+        "**Reading the token audit event.** An activity from the token log (id.applicationName token) whose event is type auth, name authorize names the acting user in actor.email, and carries the rest as parameters: the app (app_name, and the durable client_id, which stays constant across every future use of the grant) and, most importantly, scope, a multiValue list of exactly what was requested. A scope like https://mail.google.com/ grants full read/write/delete access to the entire mailbox. A scope like https://www.googleapis.com/auth/drive grants the same breadth over the entire Drive. Compare that to a narrow scope like drive.file, which only grants access to files the app itself created or the user explicitly opened with it: a dramatically smaller blast radius for the exact same 'a user authorized an app' shape.\n\n" +
         "**Online vs offline access, and why it matters enormously.** An app chooses between two kinds of access in its consent request, through a parameter called access_type. An online grant gives it a short-lived access token: the token works until it expires, and once the user is gone the app cannot get a new one. An offline grant also issues a refresh token: a durable credential the app's own servers can use to obtain fresh access whenever they want, indefinitely, without the user present at all. Google's token log does not record this choice. You confirm it in the Admin console, where the user's connected-apps entry shows whether the app holds a refresh token, and in behaviour: activity events for the same client_id that keep arriving long after the user has left. This is the persistence mechanism in an OAuth-abuse case: the grant itself, not any later action, is what keeps working. Be precise about what a password reset does here. Google documents that a refresh token stops working when the user changes their password AND the token contains Gmail scopes (such as https://mail.google.com/). A refresh token holding only other scopes (Drive, Calendar, Contacts) is not tied to the password and keeps working after a reset. So a reset may happen to cut off a Gmail grant, but it is never a reliable way to contain OAuth abuse: the specific grant must be explicitly revoked.\n\n" +
         "**Governance facts: app access setting, verification, publisher.** Google Workspace admins can restrict which third-party apps are allowed to request access at all, and the Admin console's API controls page (Security, API controls, App access control) shows each app's access setting and whether Google has verified it. The token event carries none of this, so you look it up there for the client_id in the event rather than reading it from the log. The access setting shows whether a given app was explicitly approved (Trusted), restricted (Limited or Blocked), or never reviewed at all (Unconfigured, so only the default user-consent policy applies). The verification status and the publisher named on the consent screen show whether Google has reviewed the app and whether it names a real, identifiable company. None of these facts is about what the user did. They're about the app's own governance status, and they are the fastest way to separate a sanctioned integration from an opportunistic one requesting the exact same kind of grant. A sanctioned app still produces a real authorize event, so a rule watching that event will fire on it. When a detection fires on something that really happened but is authorised, analysts call it a benign true positive and close it citing the authorisation. A false positive is different: the rule matched something it was never meant to catch, so the behaviour it describes did not occur.",
       diagram:
         "flowchart LR\n" +
-        "  U[User clicks Allow on Google's own consent screen] --> T[Token audit: event.name authorize]\n" +
+        "  U[User clicks Allow on Google's own consent screen] --> T[Token log: events name authorize]\n" +
         "  T --> S{scope breadth}\n" +
         "  S -->|narrow, e.g. drive.file| N[Limited blast radius]\n" +
         "  S -->|broad, e.g. full Gmail + full Drive| B[Large blast radius]\n" +
@@ -254,7 +290,7 @@ const googleWorkspaceSecurityRoom = {
       questions: [
         {
           question:
-            "gws.token.scope lists https://www.googleapis.com/auth/calendar and https://www.googleapis.com/auth/drive, and the Admin console shows the app holds offline access. What did this single grant actually give FormFlow Sync?",
+            "The scope parameter (a multiValue list) includes https://www.googleapis.com/auth/calendar and https://www.googleapis.com/auth/drive, and the Admin console shows the app holds offline access. What did this single grant actually give FormFlow Sync?",
           options: [
             "Lasting read/write access to all of Calendar and Drive, via a refresh token",
             "Access only to Drive files the user creates or opens with FormFlow Sync",
@@ -303,10 +339,10 @@ const googleWorkspaceSecurityRoom = {
       heading: "Drive Sharing and the Drive Audit Log",
       content:
         "Google Drive is where most of an organisation's working files live in a Workspace environment, and its audit log is where both sharing risk and exfiltration activity show up.\n\n" +
-        "**The core fields.** A drive-category event names the affected document through gws.drive.doc_title and a stable gws.drive.doc_id, the file's gws.drive.owner, and its gws.drive.visibility (private, or shared at some broader level: within the organisation, or, most permissively, anyone with the link). gws.event.name distinguishes the kind of interaction: view, edit, download, or a permission change specifically (adding a collaborator, or changing a file's visibility level).\n\n" +
+        "**The core fields.** An activity from the drive log (id.applicationName drive) names the affected document through parameters: doc_title and a stable doc_id, the file's owner, and its visibility (private, or shared at some broader level: shared_internally or people_within_domain_with_link inside the organisation, or, most permissively, people_with_link, anyone with the link). events[].name distinguishes the kind of interaction: view, edit and download (type access), or a permission change specifically (type acl_change: change_user_access when a collaborator is added, change_document_visibility when the file's visibility level changes).\n\n" +
         "**Sharing risk.** A file moving from private or organisation-only visibility to anyone-with-the-link is one of the highest-value events to alert on in any Drive environment. It means the access control protecting that file's content no longer depends on who the recipient is at all, only on whether they have the link, which can itself be forwarded, guessed, or leaked. This is conceptually identical to an external-sharing alert in SharePoint or OneDrive; only the field names differ.\n\n" +
-        "**Download volume as a collection signal.** A single download event is unremarkable. Every normal workday produces many. What matters is volume and pattern. Google logs each download as its own event, so the volume is something you measure with a query (count gws.event.name download per actor over a short window), and hundreds of downloads in a short window, especially attributed to an OAuth app's token rather than an interactive user session, is the Drive equivalent of a mass-download insider-threat or exfiltration signal this platform already teaches for SharePoint and OneDrive.\n\n" +
-        "**gws.drive.originating_app_id: the field that ties collection back to a grant.** This native Drive field holds the Google Cloud project number of the application that performed the action, the direct link between an earlier token authorize event and everything that app subsequently does. The project number is the same set of digits that opens the app's OAuth client_id (the part before the first hyphen), so you match the two by eye or with a lookup. An analyst investigating a suspicious download burst should always check this field and the source address: activity attributed to an app token, from an app's own infrastructure IP rather than the user's normal device, is a fundamentally different finding than the same volume of downloads from the user's own browser session.",
+        "**Download volume as a collection signal.** A single download event is unremarkable. Every normal workday produces many. What matters is volume and pattern. Google logs each download as its own event, so the volume is something you measure with a query (count events[].name download per actor.email over a short window, counting only records whose primary_event parameter is true), and hundreds of downloads in a short window, especially attributed to an OAuth app's token rather than an interactive user session, is the Drive equivalent of a mass-download insider-threat or exfiltration signal this platform already teaches for SharePoint and OneDrive.\n\n" +
+        "**originating_app_id: the parameter that ties collection back to a grant.** This native Drive parameter holds the Google Cloud project number of the application that performed the action, the direct link between an earlier token authorize event and everything that app subsequently does. The project number is the same set of digits that opens the app's OAuth client_id (the part before the first hyphen), so you match the two by eye or with a lookup. An analyst investigating a suspicious download burst should always check this parameter and the activity's ipAddress: activity attributed to an app token, from an app's own infrastructure IP rather than the user's normal device, is a fundamentally different finding than the same volume of downloads from the user's own browser session.",
     },
     // ── Log Analysis 2: Drive download burst ─────────────────────────────────
     {
@@ -319,7 +355,7 @@ const googleWorkspaceSecurityRoom = {
       questions: [
         {
           question:
-            "Read gws.drive.originating_app_id and source.ip in this event, and compare them with the consent event's client_id and address. What does that combination establish?",
+            "Read the originating_app_id parameter and the ipAddress in this event, and compare them with the consent event's client_id and address. What does that combination establish?",
           options: [
             "The app's servers used the grant's token; her own browser was not involved",
             "She was travelling and downloaded the files herself from a hotel network",
@@ -328,7 +364,7 @@ const googleWorkspaceSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "originating_app_id is the project number of the app that acted, the same digits that open the consent grant's client_id, and the source is an Amsterdam address rather than the Chicago one she consented from: the app's backend is using its token. If she had downloaded the files herself while travelling, the events would not point at a third-party app. A stolen session cookie replays her browser session, which would not point at one either. And Google-side caching is not logged as hundreds of downloads by a third-party app.",
+            "originating_app_id is the project number of the app that acted, the same digits that open the consent grant's client_id, and the source is an Amsterdam address (networkInfo.regionCode NL) rather than the Chicago one she consented from (US): the app's backend is using its token. If she had downloaded the files herself while travelling, the events would not point at a third-party app. A stolen session cookie replays her browser session, which would not point at one either. And Google-side caching is not logged as hundreds of downloads by a third-party app.",
           xp: 25,
         },
         {
@@ -368,9 +404,9 @@ const googleWorkspaceSecurityRoom = {
       heading: "The Admin Audit Log: Console Actions That Change the Whole Tenant",
       content:
         "Beyond mail and files, the Google Workspace Admin console audit log records changes an administrator makes to the organisation itself, and these events matter for two distinct reasons: they scope an incident, and they verify whether a remediation step actually worked.\n\n" +
-        "**Common admin-category actions.** CHANGE_PASSWORD (an admin resetting a user's password), suspending or restoring a user account, changing 2-Step-Verification enforcement policy, and managing the organisation's third-party app allowlist are all recorded here, each carrying gws.actor.email (the admin who acted) and a target user or object field.\n\n" +
+        "**Common admin-category actions.** CHANGE_PASSWORD (an admin resetting a user's password), suspending or restoring a user account, changing 2-Step-Verification enforcement policy, and managing the organisation's third-party app allowlist are all recorded here (id.applicationName admin), each carrying actor.email (the admin who acted) and a parameter naming the target, such as USER_EMAIL for a user account.\n\n" +
         "**Why this log matters for scoping.** If an account is suspected compromised, the admin log shows exactly what administrative changes have already been made around it, useful both for reconstructing a timeline and for confirming that a response action assumed to have happened actually did.\n\n" +
-        "**The specific verification trap this room keeps returning to.** Google's CHANGE_PASSWORD record names the user and nothing else, so it cannot tell you what happened to the account's OAuth grants, and, per Reading 4, a plain password reset does not revoke grants by default (only Gmail-scoped refresh tokens stop working after a password change; Drive, Calendar and other grants carry on). A grant that really was removed leaves its own trace: REVOKE_3LO_TOKEN in this log when an admin removes it, or a revoke event in the token log, and after that no further activity events for that client_id. This room's SIEM export condenses that check into one computed enrichment field, gws.admin.oauth_tokens_revoked, which is not a Google field. Reading the record of what a containment action actually did, rather than assuming what it probably did, is the single most reliable way to confirm an OAuth-abuse case has actually been closed rather than just appearing to be.\n\n" +
+        "**The specific verification trap this room keeps returning to.** Google's CHANGE_PASSWORD record names the user and nothing else, so it cannot tell you what happened to the account's OAuth grants, and, per Reading 4, a plain password reset does not revoke grants by default (only Gmail-scoped refresh tokens stop working after a password change; Drive, Calendar and other grants carry on). A grant that really was removed leaves its own trace: REVOKE_3LO_TOKEN in this log when an admin removes it, or a revoke event in the token log, and after that no further activity events for that client_id. Reading the record of what a containment action actually did, rather than assuming what it probably did, is the single most reliable way to confirm an OAuth-abuse case has actually been closed rather than just appearing to be.\n\n" +
         "**Third-party app allowlist management.** When an admin adds an app to the organisation's allowlist or removes one, that action is itself logged here, meaning the blocklisting step of an OAuth-abuse response (stopping a malicious client_id from being authorized again) leaves its own audit trail, useful for confirming a specific incident's remediation was actually completed and documented.\n\n" +
         "**The order of an OAuth-abuse response.** Containment comes before scoping: while a grant is live the app can keep pulling data, and cutting its access erases nothing from the audit logs, so the full review of what it touched can safely follow. Revoke the grant first, then blocklist the client_id so it cannot be authorized again, and confirm both in the admin log before you start that review, because the list of what the app touched is only complete once it can no longer grow. Leave wider policy changes until the incident is closed.",
     },
@@ -398,7 +434,7 @@ const googleWorkspaceSecurityRoom = {
       heading: "Alert Center: Google's Built-In Correlation Layer",
       content:
         "Google Workspace ships its own pre-built correlation and alerting layer, called Alert Center, and knowing what it is (and, just as importantly, what it isn't) saves an analyst real time.\n\n" +
-        "**What it does.** Alert Center watches the same underlying audit streams this room has covered and raises a small number of specific, named alert types when a recognisable risky pattern occurs: a suspicious sign-in, a leaked-password match against a known breach corpus, a spike in suspicious email activity, and several more. There is no built-in alert for a third-party app being granted sensitive scopes, but admins can build one: an activity rule is a set of conditions and actions an administrator defines over audit-log events, and when it fires its alert lands here too. Each alert carries a gws.alert.center.type field naming which pattern fired, and a unique gws.alert.center.id for tracking.\n\n" +
+        "**What it does.** Alert Center watches the same underlying audit streams this room has covered and raises a small number of specific, named alert types when a recognisable risky pattern occurs: a suspicious sign-in, a leaked-password match against a known breach corpus, a spike in suspicious email activity, and several more. There is no built-in alert for a third-party app being granted sensitive scopes, but admins can build one: an activity rule is a set of conditions and actions an administrator defines over audit-log events, and when it fires its alert lands here too. Each alert, as the Alert Center API returns it, carries a type naming which pattern fired (for example Suspicious login, or Activity Rule for an admin-built rule), a source naming the Google feature that raised it, a createTime, and a unique alertId for tracking.\n\n" +
         "**Why this is genuinely useful, not just noise.** Alert Center's whole value is pre-correlation: instead of an analyst needing to notice a broad-scope OAuth grant by scanning the raw token audit themselves, Alert Center surfaces it directly, once that rule exists, as a named, actionable item. This is directly comparable in role (though, as with everything in this room, not in specific mechanism or field names) to how Microsoft Defender's own alerts sit on top of the raw Azure AD sign-in and audit logs this platform already teaches: a pre-built detection layer over the same underlying telemetry.\n\n" +
         "**Why an analyst still pivots to the raw logs.** An Alert Center notification tells you what pattern fired and roughly why, but it does not replace reading the underlying token, drive, or admin audit events directly. Those raw events carry the specific scope list, the specific client_id, the specific source IP, and the specific timeline needed to actually scope and remediate an incident. Alert Center is where an investigation typically starts; the audit logs are where it's actually worked.",
     },
@@ -409,12 +445,12 @@ const googleWorkspaceSecurityRoom = {
       heading: "Google Workspace vs Microsoft 365: Where the Concepts Rhyme, and Where They Don't",
       content:
         "This reading exists specifically because this platform teaches Microsoft 365, Exchange Online, and SharePoint in depth, and the biggest real risk for an analyst moving between the two suites is assuming more carries over than actually does.\n\n" +
-        "**Mail.** Gmail and Exchange Online do the same job: hosted, cloud-based email with anti-spam and anti-phishing controls, and both support SPF/DKIM/DMARC identically at the protocol level. Where they diverge is the audit field structure: Gmail records gws.spf_result / gws.dkim_result / gws.dmarc_result in its own Gmail log events (Email Log Search / the Gmail logs exported to BigQuery), not in the login audit, while Exchange Online records comparable information inside the Unified Audit Log's message-tracking and mail-flow fields under a single Operation-centric model.\n\n" +
-        "**Files.** Drive and SharePoint/OneDrive are the direct equivalents for file storage and sharing, and both support the same core risk pattern this platform already teaches: a file's visibility being widened beyond what it should be, and abnormal download volume as an exfiltration signal. Drive uses gws.drive.visibility and gws.event.name (download/edit/view); SharePoint and OneDrive express the same ideas through their own SharingCapability and Operation fields.\n\n" +
+        "**Mail.** Gmail and Exchange Online do the same job: hosted, cloud-based email with anti-spam and anti-phishing controls, and both support SPF/DKIM/DMARC identically at the protocol level. Where they diverge is the audit field structure: Gmail records spf_pass / dkim_pass / dmarc_pass under message_info.connection_info in its own Gmail log events (Email Log Search / the Gmail logs exported to BigQuery), not in the login audit, while Exchange Online records comparable information inside the Unified Audit Log's message-tracking and mail-flow fields under a single Operation-centric model.\n\n" +
+        "**Files.** Drive and SharePoint/OneDrive are the direct equivalents for file storage and sharing, and both support the same core risk pattern this platform already teaches: a file's visibility being widened beyond what it should be, and abnormal download volume as an exfiltration signal. Drive uses the visibility parameter and events[].name (download, edit, view, change_document_visibility); SharePoint and OneDrive express the same ideas through their own SharingCapability and Operation fields.\n\n" +
         "**Administration.** Google's Admin console and Microsoft's combination of the Microsoft 365 admin center plus Entra ID split responsibility differently. Microsoft separates identity administration (Entra) from productivity-suite administration (the M365 admin center) into genuinely different consoles and, largely, different logs, while Google Workspace's Admin console is the single place both identity-adjacent settings (like 2-Step-Verification enforcement) and productivity-suite settings are managed and logged together.\n\n" +
         "**OAuth.** Both platforms support third-party app consent with the exact same underlying risk (broad scope plus unverified publisher plus offline/refresh access), but Google's scope strings (like https://www.googleapis.com/auth/drive) and Microsoft's Graph API permission names (like Mail.ReadWrite) are entirely different vocabularies naming conceptually similar levels of access: an analyst has to learn each platform's own scope/permission naming to judge breadth correctly, rather than pattern-matching one vendor's strings against the other's.\n\n" +
         "**Pre-built alerting.** Alert Center is Google's analogue to Microsoft Defender's own alerting layered over Entra ID and M365 telemetry: same role, same reason to still check the raw logs behind it, different specific alert catalogue and field names.\n\n" +
-        "**The one habit this reading is trying to build.** Before running a single query against an unfamiliar tenant, confirm which productivity suite actually issues its logs. If it's Google Workspace, expect gws.event.type/gws.event.name and Google's own scope strings. If it's Microsoft 365, expect the Unified Audit Log's Operation field and Microsoft Graph permission names. Treating the two as interchangeable is the single most avoidable mistake this room can prevent.",
+        "**The one habit this reading is trying to build.** Before running a single query against an unfamiliar tenant, confirm which productivity suite actually issues its logs. If it's Google Workspace, expect one Reports API activity per action, with id.applicationName naming the log, events[].type and events[].name naming the action, typed parameters, and Google's own scope strings. If it's Microsoft 365, expect the Unified Audit Log's Operation field and Microsoft Graph permission names. Treating the two as interchangeable is the single most avoidable mistake this room can prevent.",
       checkpoint: {
         question: "An analyst who knows Microsoft Graph permissions sees a Workspace grant with the scope https://www.googleapis.com/auth/drive and needs to judge how broad it is. What is the right approach?",
         options: [
@@ -438,7 +474,7 @@ const googleWorkspaceSecurityRoom = {
       event: benignAllowlistedGrantEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "The shape is identical to the FormFlow Sync incident -- a user consenting to a third-party OAuth app -- but every discriminator points the other way. gws.token.scope lists only drive.file, a narrow scope limited to files the app itself created or the user explicitly opened with it, nowhere near the breadth of full Calendar plus full Drive. The Admin console lists it as Trusted (the org's admins have explicitly approved this app) with a verified consent screen naming a real, identifiable publisher. It does hold offline access, a refresh token -- the one signal it shares with FormFlow Sync. On its own that is not suspicious: sanctioned add-ons often need to work while the user is away. What decides it is what that refresh token can reach (only drive.file) and who holds it (an approved, verified publisher). None of the governance red flags from Reading 4 are present here. This is a benign true positive: the rule fired correctly on a real OAuth authorize event, and the Trusted access setting plus the verified publisher are the justification for closing it; it is not a false positive, because the rule did exactly its job and calling it a misfire would invite weakening the alert that caught FormFlow Sync.",
+        "The shape is identical to the FormFlow Sync incident -- a user consenting to a third-party OAuth app -- but every discriminator points the other way. The scope parameter lists only drive.file, a narrow scope limited to files the app itself created or the user explicitly opened with it, nowhere near the breadth of full Calendar plus full Drive. The Admin console lists it as Trusted (the org's admins have explicitly approved this app) with a verified consent screen naming a real, identifiable publisher. It does hold offline access, a refresh token -- the one signal it shares with FormFlow Sync. On its own that is not suspicious: sanctioned add-ons often need to work while the user is away. What decides it is what that refresh token can reach (only drive.file) and who holds it (an approved, verified publisher). None of the governance red flags from Reading 4 are present here. This is a benign true positive: the rule fired correctly on a real OAuth authorize event, and the Trusted access setting plus the verified publisher are the justification for closing it; it is not a false positive, because the rule did exactly its job and calling it a misfire would invite weakening the alert that caught FormFlow Sync.",
       fp_trap:
         "A token 'authorize' event is precisely the shape this room has taught you to scrutinize closely, since it's exactly how the FormFlow Sync compromise began. But real, legitimate productivity add-ons authorize this way constantly, requesting narrow, purpose-specific scopes and carrying real publisher verification. Escalating every OAuth consent event on shape alone -- or on the offline token alone -- without weighing scope breadth, the app's access setting and its publisher together, trains a team to drown in noise on the one pattern that most needs real scrutiny when it's genuinely malicious.",
       xp: 30,
@@ -454,7 +490,7 @@ const googleWorkspaceSecurityRoom = {
         { id: "drive", left: "Google Drive", right: "SharePoint / OneDrive -- hosted file storage and sharing" },
         { id: "admin", left: "Admin console", right: "Microsoft 365 admin center + Entra ID -- tenant-wide configuration and identity administration" },
         { id: "alertcenter", left: "Alert Center", right: "Microsoft Defender's own alerting layer -- a pre-correlated view over the same underlying raw audit telemetry" },
-        { id: "tokenaudit", left: "Token audit (gws.event.type token)", right: "Azure AD / Entra sign-in and audit logs recording OAuth app consent and Microsoft Graph API activity" },
+        { id: "tokenaudit", left: "Token audit (id.applicationName token)", right: "Azure AD / Entra sign-in and audit logs recording OAuth app consent and Microsoft Graph API activity" },
       ],
       explanation:
         "Every pairing here plays the same SOC role across both suites -- but reaches for a different field name and, for OAuth specifically, an entirely different permission-string vocabulary to express it, which is exactly why Reading 8's habit of confirming which suite you're looking at matters.",
@@ -494,7 +530,7 @@ const googleWorkspaceSecurityRoom = {
       type: "question" as const,
       id: "gwsf-q3",
       question:
-        "A Drive file's gws.drive.visibility changes from 'private' to 'anyone with the link', and shortly afterward the same file shows up as viewed from an unfamiliar external IP address. Which statement best matches how this platform teaches the same pattern in SharePoint/OneDrive?",
+        "A Drive change_document_visibility event shows a file's visibility going from 'private' to 'people_with_link' (anyone with the link), and shortly afterward the same file shows up as viewed from an unfamiliar external IP address. Which statement best matches how this platform teaches the same pattern in SharePoint/OneDrive?",
       options: [
         "A Google-specific risk with no Microsoft 365 counterpart, since Drive links can be publicly indexed whereas SharePoint links require the recipient to sign in",
         "The same risk as sharing a SharePoint/OneDrive file with anyone-with-the-link: access depends on holding the link, not on who the recipient is",
@@ -503,7 +539,7 @@ const googleWorkspaceSecurityRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 8's contrastive framing applies directly here: this is the same universal file-sharing risk this platform already teaches for SharePoint/OneDrive, expressed through Google's own gws.drive.visibility field rather than Microsoft's SharingCapability. It is not Google-specific -- SharePoint and OneDrive have anyone-with-the-link sharing too -- it is not something to treat as benign by default just because a classification label is absent, and visibility genuinely does govern who can open the file without further permission checks, so it is not a search-discoverability setting only.",
+        "Reading 8's contrastive framing applies directly here: this is the same universal file-sharing risk this platform already teaches for SharePoint/OneDrive, expressed through Google's own visibility parameter rather than Microsoft's SharingCapability. It is not Google-specific -- SharePoint and OneDrive have anyone-with-the-link sharing too -- it is not something to treat as benign by default just because a classification label is absent, and visibility genuinely does govern who can open the file without further permission checks, so it is not a search-discoverability setting only.",
       xp: 25,
     },
     // ── Question 4: synthesis ──────────────────────────────────────────────────

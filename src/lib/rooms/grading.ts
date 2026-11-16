@@ -55,8 +55,9 @@ const FLAG_ALIASES: Record<string, string[]> = {
   // The task teaches "exception list" and its hint names "allow list" / "whitelist" as
   // synonyms, so every standard spelling of those must grade as correct.
   "detection-rules-tuning:det-rules-flag1": ["exceptions list", "exception", "exceptions", "allow list", "allowlist", "allow-list", "whitelist", "white list", "white-list"],
-  // s1.storylineId is logged as 0x1A2B3C4D; accept the value without the 0x prefix too.
-  "sentinelone:s1-flag1": ["1A2B3C4D"],
+  // s1.storylineId was 0x1A2B3C4D before Wave 0 (a real storyline is 16 hex with no 0x,
+  // now 9F2C6A1E4B7D3058); the old value, with or without 0x, still grades as correct.
+  "sentinelone:s1-flag1": ["0x1A2B3C4D", "1A2B3C4D"],
 };
 
 function fail(error: string, status = 400): GradeResult {

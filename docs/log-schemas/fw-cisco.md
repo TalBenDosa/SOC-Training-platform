@@ -1,7 +1,7 @@
 # Cisco Secure Firewall — FTD security events (430001–430005) and ASA core messages
 
 Category: Network firewall · Vendor: Cisco · Products: Secure Firewall Threat Defense (FTD, formerly Firepower) 7.x, managed by FMC/cdFMC/FDM; Cisco ASA (and FTD's LINA engine, which emits the same ASA-style messages with an `%FTD-` prefix)
-Scope: FTD connection events (430002 start / 430003 end), intrusion events (430001), file/malware (430004/430005, brief); ASA 106023 (ACL deny), 302013 (built TCP), 302014 (teardown TCP).
+Scope: FTD connection events (430002 start / 430003 end), intrusion events (430001), file/malware (430004/430005, brief); ASA 106023 (ACL deny), 302013 (built TCP), 302014 (teardown TCP). Also Cisco IOS router ACL logs (%SEC-6-IPACCESSLOG*), sample CISCO-7.
 
 ## 1. Official sources
 
@@ -390,6 +390,26 @@ Sep 30 2026 11:39:02 ASA-EDGE-01 : %ASA-6-302014: Teardown TCP connection 917733
 
 Positional meaning (for teaching only - from the Cisco message guide variable names, NOT emitted keys): 302013 = `Built {inbound|outbound} TCP connection <connection_id> for <interface>:<real_address>/<real_port> (<mapped_address>/<mapped_port>) to <interface>:<real_address>/<real_port> (<mapped_address>/<mapped_port>)`. For an *outbound* build the first socket is the outside (responder) side. 302014 = `... duration <hh:mm:ss> bytes <bytes> <reason> [from <teardown_initiator>]`.
 
+### CISCO-7 - Cisco IOS / IOS XE router ACL log (%SEC-6-IPACCESSLOGP), a packet filter, not a firewall session
+
+Added 2026-11-15. Source: Cisco PSIRT "Identify Incidents Using Syslog" (https://sec.cloudapps.cisco.com/security/center/resources/identify_incidents_via_syslog , checked 2026-11-15): message names `%SEC-6-IPACCESSLOGP` (TCP/UDP), `%SEC-6-IPACCESSLOGDP` (ICMP), `%SEC-6-IPACCESSLOGNP` (other IP protocols), `%SEC-6-IPACCESSLOGRL` (log messages were rate-limited and some were missed); an ACE logs only with the `log` or `log-input` keyword; `log-input` adds the ingress interface and source MAC in parentheses. Cisco's examples:
+
+```text
+002092: Mar 30 2010 11:41:48.681 EDT: %SEC-6-IPACCESSLOGP: list 185 denied tcp 172.16.1.92(59078) -> 192.168.2.1(417), 1 packet
+002095: Mar 30 2010 11:41:56.985 EDT: %SEC-6-IPACCESSLOGP: list 185 denied tcp 172.16.1.219(14872) (FastEthernet0/1 0007.8580.9edd) -> 192.168.2.1(500), 1 packet
+```
+
+Platform sample (documentation addresses):
+
+```text
+Nov 18 10:02:11: %SEC-6-IPACCESSLOGP: list EDGE-IN denied tcp 203.0.113.40(51514) -> 10.30.2.10(23), 1 packet
+```
+
+Shape: `[seq:] timestamp: %SEC-6-IPACCESSLOGP: list <acl name or number> <permitted|denied> <tcp|udp> <src>(<sport>) [(<interface> <mac>)] -> <dst>(<dport>), <n> packet[s]`. The leading sequence number and the timestamp format (with or without year, milliseconds, time zone) depend on the router's `service sequence-numbers` and `service timestamps log datetime …` settings. Like the ASA, the body has **no key names**: render it as `Message_text` (plus `timestamp`, `device_id` from syslog), never as `src_ip=…`.
+
+What it can and cannot say: the router evaluated one packet against an access list. There is no session, no state, no bytes, no duration, no application, no user, no NAT. `permitted` here is not "a connection was established". The packet count is a running tally: IOS logs the first matching packet and then periodic summaries, so `1 packet` does not mean only one packet was ever sent (the exact interval is not in the Cisco page above; it is commonly cited as five minutes: UNVERIFIED). A port of `0` can appear for fragments.
+
+
 
 ## 5. Investigation notes
 
@@ -411,3 +431,4 @@ Positional meaning (for teaching only - from the Cisco message guide variable na
 - 430003 for a blocked connection does not exist (blocked = 430002 only); `ConnectionDuration` never appears on 430002.
 - Do not mix ASA free text and FTD key/value in one message (e.g. `%FTD-1-430003: Built outbound TCP …`).
 - Don't wrap in `cisco.ftd.*`, `event.*`, `data.*` — SIEM normalisation.
+- IOS ACL logs (`%SEC-6-IPACCESSLOG*`) are router messages, not ASA/FTD: no connection id, no `Built`/`Teardown`, no byte count, no rule name beyond the ACL name/number. The verbs are `permitted` / `denied` (past tense, lower case), not `Deny` / `Allow`.

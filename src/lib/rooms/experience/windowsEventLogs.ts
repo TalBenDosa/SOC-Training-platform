@@ -10,8 +10,9 @@ import type { RoomExperience } from "./types";
 // shows types 3, 4, 5, 7, 9, 10 and 11 as data, asks about 9 and 11, and never
 // asks about 3 from a workstation (q1) or which type is RDP (q4); the 4688 drill is a web shell
 // under w3wp.exe, not Word spawning encoded PowerShell (q3); and the spray
-// trace follows 198.51.100.200 to a lateral 4648, never la1's 203.0.113.45 or
-// a Domain Admins change (flag1).
+// trace follows 198.51.100.200 to a lateral 4648, never la1's 203.0.113.45, and
+// its group step is a 4732 on a Builtin local group: no 4728, no global group
+// and no Domain Admins change (flag1).
 export const WINDOWS_EVENT_LOGS: RoomExperience = {
   roomId: "windows-event-logs",
   codename: "Operation Flight Recorder",
@@ -197,13 +198,17 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
             learned: "02:41: k.lindgren's credentials used toward MB-FS-03: lateral movement",
           },
           {
-            id: "group", source: "Group-membership events · MB-DC-02 · 02:50-03:10",
-            ask: "The intruder then adds a member to Finance-Auditors, a domain-wide global group used for reporting access. Which row is that change?",
-            columns: ["EventID", "Meaning", "Group scope", "Example group"],
-            rows: [["4732", "Member added to a security-enabled local group", "Local to one machine or domain-local", "Backup Operators, Remote Desktop Users"], ["4728", "Member added to a security-enabled global group", "Global, domain-wide", "Finance-Auditors, HR-Payroll"], ["4720", "A user account was created", "Not a group event", "None"]],
+            id: "group", source: "Security log · MB-DC-02 · group-membership events · 02:50-03:10",
+            ask: "Three group changes landed on the DC in the same window. Which one is the intruder's?",
+            columns: ["time", "EventID", "SubjectUserName", "TargetUserName", "TargetDomainName", "MemberName"],
+            rows: [
+              ["02:52:40", "4756", "svc-idm", "Branch-Readers-U", "MORROWBANK", "CN=Jo Amari,OU=Staff,DC=morrowbank,DC=local"],
+              ["02:58:13", "4732", "k.lindgren", "Backup Operators", "Builtin", "CN=Kai Lindgren,OU=Staff,DC=morrowbank,DC=local"],
+              ["03:04:55", "4733", "a.osei", "Remote Desktop Users", "Builtin", "CN=Lena Varga,OU=Staff,DC=morrowbank,DC=local"],
+            ],
             answer: 1,
-            why: "Finance-Auditors is a global group, so adding a member is 4728. The same change to a machine-local group such as Backup Operators is 4732. 4720 creates an account and touches no group.",
-            learned: "Global group member added is 4728; local group member added is 4732",
+            why: "SubjectUserName is who made the change and MemberName is who was added. k.lindgren, the account that fell to the spray, put itself into Backup Operators, a Builtin domain-local group whose members may back up any file on a DC, the AD database included. That add is 4732. svc-idm's 4756 is the identity system filling a universal group, and a.osei's 4733 removes a member, the opposite of a grab.",
+            learned: "02:58: k.lindgren added itself to Backup Operators (4732, a Builtin local group)",
           },
         ],
       },

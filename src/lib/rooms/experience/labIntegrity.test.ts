@@ -5,7 +5,7 @@ import { ROOMS } from "@/data/rooms";
 import { buildNetwork, tuneResult } from "@/components/operation/briefing/ArcadeLabs";
 import { getRoomExperience, type BriefingLab } from "./index";
 import { runHunt, type HuntStep } from "./hunt";
-import { FIELD_LAB_ROOMS, FIELD_LAB_KINDS, GAME_LAB_KINDS, GUIDED_LAB_KINDS } from "./fieldLabs";
+import { FIELD_LAB_ROOMS, FIELD_LAB_KINDS, GAME_LAB_KINDS, GUIDED_LAB_KINDS, MAX_KIND_SHARE, MIN_FIELD_KINDS } from "./fieldLabs";
 
 const ARCADE = ["intercept", "duel", "deduce", "tune", "pathway", "defuse", "outbreak", "codebreak", "rush", "spotdiff", "chat", "portal", "hunt"] as const;
 /** Rooms where typing commands is the skill being taught: one console lab at most. */
@@ -258,6 +258,22 @@ describe("field-lab rooms", () => {
       const fieldShare = r.labs.filter(l => FIELD_LAB_KINDS.has(l.kind)).length / Math.max(1, r.labs.length);
       if (fieldShare < 0.7) bad.push(`${r.id}: ${Math.round(fieldShare * 100)}% field labs`);
       for (const l of r.labs) if (!FIELD_LAB_KINDS.has(l.kind) && !GUIDED_LAB_KINDS.has(l.kind) && !GAME_LAB_KINDS.has(l.kind)) bad.push(`${r.id}: unclassified kind ${l.kind}`);
+    }
+    expect(bad).toEqual([]);
+  });
+  it("variety: no kind dominates a room, several kinds per room, never the same kind twice in a row", () => {
+    const bad: string[] = [];
+    for (const r of field) {
+      const fieldLabs = r.labs.filter(l => FIELD_LAB_KINDS.has(l.kind));
+      const counts = new Map<string, number>();
+      for (const l of fieldLabs) counts.set(l.kind, (counts.get(l.kind) ?? 0) + 1);
+      const cap = Math.max(2, Math.ceil(fieldLabs.length * MAX_KIND_SHARE));
+      for (const [k, n] of counts) if (n > cap) bad.push(`${r.id}: ${n} ${k} labs (cap ${cap} of ${fieldLabs.length})`);
+      if (fieldLabs.length >= 4 && counts.size < MIN_FIELD_KINDS) bad.push(`${r.id}: only ${counts.size} field kinds`);
+      const exp = getRoomExperience(r.id, ROOMS.find(x => x.id === r.id)!.tasks.map(t => t.id))!;
+      for (const [task, labs] of Object.entries(exp.briefings ?? {})) {
+        for (let i = 1; i < labs.length; i++) if (labs[i].kind === labs[i - 1].kind) bad.push(`${r.id}/${task}: two ${labs[i].kind} labs in a row`);
+      }
     }
     expect(bad).toEqual([]);
   });

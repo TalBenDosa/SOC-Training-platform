@@ -588,7 +588,7 @@ SentinelOne doesn't rely on a single detection method. Two AI engines run simult
 
 The most distinctive feature of SentinelOne is **Storyline**. Every security product generates alerts, sometimes hundreds per hour. The problem is that a single attack might generate 47 separate alerts (one for the Word document that ran a macro, one for the PowerShell command, one for the network connection, one for each file encrypted by ransomware...). Without connecting them, a SOC analyst sees 47 separate problems instead of one attack.
 
-SentinelOne's Storyline engine automatically links all related events into a single, connected narrative: the **attack story**. Every event in an attack chain gets tagged with the same **StorylineID** (a unique identifier like 0x1A2B3C4D). When you open a threat in the SentinelOne console, you don't see 47 alerts. You see *one story* with a complete timeline: what triggered first, what spawned next, what files were created, what network connections were made, from beginning to end.
+SentinelOne's Storyline engine automatically links all related events into a single, connected narrative: the **attack story**. Every event in an attack chain gets tagged with the same **StorylineID**: a 16-character hexadecimal string with no 0x in front, such as 3B9D5E07C2A41F68 (some newer agents write it in UUID form instead). The threat record carries it as \`threatInfo.storyline\`, and Deep Visibility telemetry as \`src.process.storyline.id\`, so the same value takes you from the threat to the raw events. When you open a threat in the SentinelOne console, you don't see 47 alerts. You see *one story* with a complete timeline: what triggered first, what spawned next, what files were created, what network connections were made, from beginning to end.
 
 Think of it as the difference between receiving 47 separate puzzle pieces in different boxes versus receiving a completed puzzle with all the pieces already assembled and labelled.`,
       checkpoint: {
@@ -632,7 +632,7 @@ The home screen shows a threat summary for your environment: total threats detec
 **Threats Page**
 
 This is the core of a SOC analyst's daily work in SentinelOne. Every detected threat appears here as a card. Each threat card shows:
-- **Threat Name:** e.g., "Trojan.Ransom.LockBit3" (the malware family name)
+- **Threat Name:** e.g., "invoice_viewer.exe". Usually the name of the file that was detected, not the malware family: the family, when known, comes from the classification and the indicators
 - **Risk Level:** Critical, High, Medium, Low: SentinelOne's severity score
 - **Classification:** The threat type: e.g., Ransomware, Trojan, Infostealer, Malware, or PUA (Potentially Unwanted Application)
 - **Confidence Level:** A category, not a percentage: **Malicious** (the engines are confident it is a threat) or **Suspicious** (needs analyst review)
@@ -780,7 +780,7 @@ SentinelOne detects Cobalt Strike through:
       id: "s1-la1",
       heading: "SentinelOne Alert: Ransomware Encryption Cascade",
       context:
-        "It is 09:14 AM on a Monday morning. A Critical severity detection fires in your SentinelOne console. The threat name is 'Trojan.Ransom.LockBit3' and the affected machine belongs to a finance department employee. Files are actively being encrypted right now. Every minute of delay means more files locked.\n\n**What Deep Visibility tells you:** a query on this detection's storyline counts 15,847 File Rename events by chrome_update.exe in the last 9 minutes, each new name ending in .lockbit. The threat record itself does not carry that count.\n\nAnalyse the detection and answer the questions.",
+        "It is 09:14 AM on a Monday morning. A Critical severity detection fires in your SentinelOne console. The threat name is 'chrome_update.exe', the classification is Ransomware, and the affected machine belongs to a finance department employee. Files are actively being encrypted right now. Every minute of delay means more files locked.\n\n**What Deep Visibility tells you:** a query on this detection's storyline counts 15,847 File Rename events by chrome_update.exe in the last 9 minutes, each new name ending in .lockbit. The threat record itself does not carry that count.\n\nAnalyse the detection and answer the questions.",
       event: {
         id: "s1-evt-ransomware-001",
         ts: "2025-06-16T09:14:22.000Z",
@@ -793,7 +793,7 @@ SentinelOne detects Cobalt Strike through:
         mitre_technique: "T1486",
         mitre_tactic: "Impact",
         description:
-          "SentinelOne detected LockBit 3 ransomware actively encrypting files on LAPTOP-JSMITH.",
+          "SentinelOne detected ransomware actively encrypting files on LAPTOP-JSMITH.",
         process: {
           name: "chrome_update.exe",
           pid: 7291,
@@ -817,7 +817,7 @@ SentinelOne detects Cobalt Strike through:
           extension: ".exe",
         },
         raw: {
-          "s1.threatName": "Trojan.Ransom.LockBit3",
+          "s1.threatName": "chrome_update.exe",
           "s1.classification": "Ransomware",
           "s1.confidenceLevel": "malicious",
           "s1.processName": "chrome_update.exe",
@@ -825,7 +825,7 @@ SentinelOne detects Cobalt Strike through:
             "C:\\Users\\j.smith\\AppData\\Local\\Temp\\chrome_update.exe",
           "s1.sha256":
             "a9d6850fd4a3c9d16b93129250a8d61de131cd7a9551e768ca1426d4766f859b",
-          "s1.storylineId": "0x1A2B3C4D",
+          "s1.storylineId": "9F2C6A1E4B7D3058",
           "s1.agentComputerName": "LAPTOP-JSMITH",
           "s1.userName": "j.smith",
           "s1.action": "Quarantine",
@@ -865,14 +865,14 @@ SentinelOne detects Cobalt Strike through:
           question:
             "You need to see how chrome_update.exe got onto the laptop and everything it did afterwards. Which value from this detection do you pivot on?",
           options: [
-            "s1.threatName = Trojan.Ransom.LockBit3",
-            "s1.storylineId = 0x1A2B3C4D",
+            "s1.threatName = chrome_update.exe",
+            "s1.storylineId = 9F2C6A1E4B7D3058",
             "s1.userName = j.smith",
             "s1.sha256 = a9d6850fd4a3c9d1...",
           ],
           answer: 1,
           explanation:
-            "s1.storylineId is the tag SentinelOne puts on every related event in one attack chain (the parent that launched the dropper, the file writes, network connections and renames) so pivoting on 0x1A2B3C4D gives you the whole story in one timeline. The threat name is shared by every LockBit3 detection across the fleet, so it mixes in unrelated incidents. The username returns everything j.smith did all day, attack or not. The SHA-256 finds events involving that one file, but not the steps before it existed on disk or the other processes in the chain.",
+            "s1.storylineId is the tag SentinelOne puts on every related event in one attack chain (the parent that launched the dropper, the file writes, network connections and renames) so pivoting on 9F2C6A1E4B7D3058 gives you the whole story in one timeline. The threat name is only the detected file's name, so searching it returns any file called chrome_update.exe anywhere in the fleet and none of the steps taken by the other processes in the chain. The username returns everything j.smith did all day, attack or not. The SHA-256 finds events involving that one file, but not the steps before it existed on disk or the other processes in the chain.",
           xp: 50,
         },
       ],
@@ -885,8 +885,8 @@ SentinelOne detects Cobalt Strike through:
       logTask: "s1-la1",
       prompt:
         "To pivot from this single detection to the whole attack and every file it touched, you search Deep Visibility by the identifier SentinelOne's Storyline engine stamps on every event in the same attack chain. Read that identifier from the detection shown and enter it.",
-      answer: "0x1A2B3C4D",
-      hint: "The reading calls it the StorylineID. The threat record carries it as one of its fields, a hex value beginning 0x.",
+      answer: "9F2C6A1E4B7D3058",
+      hint: "The reading calls it the StorylineID. The threat record carries it as one of its fields, a 16-character hex value.",
       xp: 40,
     },
 
