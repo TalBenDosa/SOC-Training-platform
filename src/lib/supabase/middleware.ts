@@ -50,6 +50,7 @@ const PUBLIC_PREFIXES = [
   "/privacy",          // public transparency notice — must be readable by anyone
   "/accessibility",    // public accessibility statement — legal requirement, open to all
   "/demo",             // book a demo: a visitor who has no account yet
+  "/legal",            // the commercial agreement PDF linked from price quotes
 ];
 
 /** Admin-only. Content authoring — the panel the platform owner edits with. */
