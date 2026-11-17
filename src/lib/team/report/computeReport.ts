@@ -6,6 +6,9 @@ import { computeManagerReview } from "./managerReview";
 import { computeForensicReview, type UserForensics } from "./forensicReview";
 import { isolationRequests } from "@/lib/team/isolationApproval";
 import { buildRegister, readinessOf } from "@/lib/team/t3Case";
+import { closeoutsOf, vectorOfTechnique, PERSISTENCE_TECH } from "@/lib/team/t3Closeout";
+import { eventMatchesSearch } from "@/app/(app)/dashboard/eventSearch";
+import type { LiveEvent } from "@/app/(app)/dashboard/useLiveEvents";
 
 // ── After-action report — derived entirely from the event log (isomorphic: no React,
 // no server-only imports, so the server computes it once and the client can re-run it).
@@ -272,7 +275,7 @@ export interface HandoffChain {
   steps: { type: string; who: string | null; atS: number | null; dS: number | null }[];
 }
 
-const ROLE_ACTION_TYPES = new Set(["t3.scan", "t3.scope.entity", "t3.readiness", "consult.asked", "consult.answered", "review.verdict", "forensic.collected", "forensic.finding", "forensic.report", "rtr.action", "inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised", "isolation.requested", "isolation.approved", "isolation.denied"]);
+const ROLE_ACTION_TYPES = new Set(["t3.closeout", "t3.scan", "t3.scope.entity", "t3.readiness", "consult.asked", "consult.answered", "review.verdict", "forensic.collected", "forensic.finding", "forensic.report", "rtr.action", "inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised", "isolation.requested", "isolation.approved", "isolation.denied"]);
 
 // ── small helpers ──────────────────────────────────────────────────────────────
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown } | null)?.event_id; return v == null ? "" : String(v); };
@@ -438,6 +441,8 @@ interface RubricCtx {
   readinessCorrect: number; readinessJudged: number;
   /** Stage C: the open lead's outcome (null = no lead), and consult / closure-review calls judged against the truth. */
   leadOutcome: "right" | "wrong" | "open" | null; leadDetail: string; authorityCorrect: number; authorityJudged: number;
+  /** Stage E: the close-out graded item by item against the story (null = none sent). */
+  closeoutPct: number | null; closeoutDetail: string;
   decisionCount: number; decisionRationaleRate: number | null;
   helpdeskPct: number | null; helpdeskDupOnly: boolean; sitrepCount: number; reportQuality: number | null;
   huntToConfirmMin: number | null; caseOwnedMin: number | null; mgmtRespondedRate: number | null;
@@ -552,6 +557,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Hunt quality", score: c.huntQuality == null ? null : bandHigh(c.huntQuality, 75, 55, 30), value: c.huntQuality == null ? undefined : `${c.huntQuality}%${c.huntCount > 1 ? ` (avg of ${c.huntCount})` : ""}`, target: "≥ 75%", note: "substance + cited evidence + matching technique (sub-technique/parent ok) + backed conclusion" },
       { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null, value: c.huntCount ? `${c.huntTech} of ${c.huntCount} hunts` : undefined, target: "≥ 90%", note: "hunts tagged with a valid MITRE technique id" },
       { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), value: pctVal(c.elevAnsweredPct), target: "100%", note: "a hunt linked to the elevation, or its host worked in the scope register, answers it" },
+      ...(c.closeoutPct != null ? [{ label: "Root cause & eradication", score: bandHigh(c.closeoutPct, 80, 60, 35), value: `${c.closeoutPct}%`, target: "≥ 80%", note: c.closeoutDetail }] : []),
       ...(c.leadOutcome ? [{ label: "Open lead", score: c.leadOutcome === "right" ? 12 : 0, value: c.leadDetail, target: "resolved correctly", note: "the host the previous shift left: confirmed if it was compromised, cleared with evidence if it was clean" }] : []),
       // Stage C: judged consults and closure reviews replace the old note count when there are any.
       c.authorityJudged
@@ -1364,6 +1370,51 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       leadOutcome = !st || st === "suspected" ? "open" : right ? "right" : "wrong";
       leadDetail = `${st ? st.replace("_", " ") : "not opened"}; it was ${leadTruth}`;
     }
+    // Stage E: the latest close-out by this Tier-3, item by item against the story.
+    let closeoutPct: number | null = null, closeoutDetail = "";
+    const co = m.role === "t3" ? closeoutsOf(events).filter(x => x.by === m.user_id).pop() : undefined;
+    const attackTruth = [...truth.entries()].filter(([, t]) => t.isAttack).sort((a, b) => (a[1].ts ?? Infinity) - (b[1].ts ?? Infinity));
+    if (co && attackTruth.length) {
+      const items: [string, number][] = [];
+      const pz = attackTruth[0][1];
+      const primary = attackTruth.filter(([, t]) => t.incident === pz.incident);
+      const ia = primary.find(([, t]) => /initial.?access/i.test(t.tactic)) ?? primary[0];
+      const vTruth = vectorOfTechnique(ia[1].technique);
+      if (vTruth && co.vector !== "cannot_determine") items.push(["entry vector", co.vector === vTruth ? 1 : 0]);
+      if (pz.host && co.vector !== "cannot_determine") items.push(["first host", hostKey(co.firstHost) === hostKey(pz.host) ? 1 : 0]);
+      const payloadOf = new Map(feed.map(fe => [fid(fe), fe.payload as Record<string, unknown>]));
+      const attackText = primary.map(([eid]) => { try { return JSON.stringify(payloadOf.get(eid) ?? {}).toLowerCase(); } catch { return ""; } });
+      const accountsTruth = new Set<string>();
+      for (const [eid] of primary) {
+        const p = payloadOf.get(eid) ?? {}; const u = (p.user ?? {}) as Record<string, unknown>; const pr = (p.process ?? {}) as Record<string, unknown>;
+        for (const v of [p.user_email, u.email, u.name, pr.user]) { const s2 = asStr(v).toLowerCase().trim(); if (s2.length >= 3 && !/^(system|nt authority|local service|network service)/.test(s2)) accountsTruth.add(s2); }
+      }
+      const hitAcct = (a: string) => { const k = a.toLowerCase().trim(); return k.length >= 3 && [...accountsTruth].some(t => t.includes(k) || k.includes(t)); };
+      if (co.reset.length || accountsTruth.size) {
+        const right = co.reset.filter(hitAcct).length;
+        const precision = co.reset.length ? right / co.reset.length : 0;
+        const recall = accountsTruth.size ? Math.min(1, right / accountsTruth.size) : (co.reset.length ? 0 : 1);
+        items.push(["accounts to reset", (precision + recall) / 2]);
+      }
+      if (co.block.length) items.push(["indicators to block", co.block.filter(b => b.length >= 3 && attackText.some(t => t.includes(b.toLowerCase()))).length / co.block.length]);
+      if (primary.some(([, t]) => PERSISTENCE_TECH.test(t.technique))) {
+        const removed = events.filter(e => co.remove.includes(e.seq) && e.type === "forensic.finding");
+        const attackHosts = new Set(primary.map(([, t]) => hostKey(t.host)).filter(Boolean));
+        items.push(["persistence removed", removed.length && removed.every(e => attackHosts.has(hostKey(asStr((e.payload as { host?: unknown }).host)))) ? 1 : 0]);
+      }
+      if (co.detection.trim().length >= 3) {
+        let atk = 0, ben = 0;
+        for (const fe of feed) {
+          if (!eventMatchesSearch(fe.payload as unknown as LiveEvent, co.detection)) continue;
+          if (truth.get(fid(fe))?.isAttack) atk++; else ben++;
+        }
+        items.push(["detection", atk === 0 ? 0 : ben === 0 ? 1 : ben <= atk ? 0.5 : 0]);
+      }
+      if (items.length) {
+        closeoutPct = Math.round((100 * items.reduce((a, [, v]) => a + v, 0)) / items.length);
+        closeoutDetail = items.map(([k, v]) => `${k} ${v >= 1 ? "right" : v > 0 ? "partly right" : "wrong"}`).join(", ");
+      }
+    }
     let authorityCorrect = 0, authorityJudged = 0;
     const consultEid = new Map(events.filter(e => e.type === "consult.asked").map(e => [e.seq, asStr((e.payload as { event_id?: unknown }).event_id)]));
     for (const e of mine) {
@@ -1501,7 +1552,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc, isoPct,
       scopeSetDims, scopeConfirmDims, scopeConfirmed: scopeConfirms.length > 0,
       scopeAcc, scopeFound, scopeAttack: allAttackHosts.size, scopeRight, scopeConfirmedN, readinessCorrect, readinessJudged,
-      leadOutcome, leadDetail, authorityCorrect, authorityJudged,
+      leadOutcome, leadDetail, authorityCorrect, authorityJudged, closeoutPct, closeoutDetail,
       decisionCount: decisions.length, decisionRationaleRate,
       helpdeskPct, helpdeskDupOnly, sitrepCount, reportQuality,
       huntToConfirmMin, caseOwnedMin, mgmtRespondedRate,

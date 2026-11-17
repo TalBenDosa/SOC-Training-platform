@@ -193,7 +193,7 @@ export const PHASE_LABEL: Record<Phase, string> = {
 };
 export const PHASE_ORDER: Phase[] = ["collecting", "scoping", "verdict", "signed"];
 
-export interface NextStep { phase: Phase; text: string; target: "inbox" | "case" | "evidence" | "readiness" | "report" | null; host?: string }
+export interface NextStep { phase: Phase; text: string; target: "inbox" | "case" | "evidence" | "readiness" | "report" | "closeout" | null; host?: string }
 
 /**
  * The one thing the Tier-3 should do now. `pendingHandoffs` = hand-offs from Tier-2 not taken yet.
@@ -223,6 +223,9 @@ export function nextStep(events: Ev[], opts: { pendingHandoffs?: number; leadHos
   if (sus.length) return { phase: "scoping", text: `Resolve ${sus.length} suspected ${sus.length === 1 ? "entity" : "entities"}: confirm with evidence or clear`, target: "case" };
   if (!signedFresh) return { phase: "verdict", text: "Sign containment readiness for the SOC Manager", target: "readiness" };
   if (opts.pendingHandoffs) return { phase: "signed", text: `Take the hand-off waiting in your inbox (${opts.pendingHandoffs})`, target: "inbox" };
+  // Stage E: once containment started, write the root cause, eradication and one detection.
+  const contained = events.some(e => e.type === "edr.host_isolated" || e.type === "containment.executed");
+  if (contained && !events.some(e => e.type === "t3.closeout")) return { phase: "signed", text: "Write the close-out: how they got in, what to remove, one detection", target: "closeout" };
   const mine = own();
   if (mine) return { ...mine, phase: "signed" };
   return { phase: "signed", text: "Keep the manager updated: report what changed and what is still unknown", target: "report" };

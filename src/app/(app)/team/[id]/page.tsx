@@ -89,6 +89,7 @@ import { T3CaseTab } from "./_components/T3CaseTab";
 import { T3StatusBar, T3ReadinessCard } from "./_components/T3StatusBar";
 import { T3QueueGate } from "./_components/T3QueueGate";
 import { T3WorkInbox, ConsultAsk } from "./_components/T3WorkInbox";
+import { T3CloseoutTab } from "./_components/T3CloseoutTab";
 import type { NextStep } from "@/lib/team/t3Case";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
@@ -194,7 +195,7 @@ export default function TeamRoomPage() {
   const [barH, setBarH] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
   // Tier-3: most of the work is forensics, so the workbench is the default; the live feed is one tab away.
-  const [t3View, setT3View] = useState<"case" | "workbench" | "feed" | "timeline" | "intel">("case");
+  const [t3View, setT3View] = useState<"case" | "workbench" | "feed" | "timeline" | "intel" | "closeout">("case");
   // The host the Evidence tab opens on when the Case tab or the status bar sends the analyst there.
   const [t3FocusHost, setT3FocusHost] = useState<string | null>(null);
   const [t3ReportOpen, setT3ReportOpen] = useState(false);
@@ -863,7 +864,7 @@ export default function TeamRoomPage() {
       withMedium: queueWithMedium,
     };
   }, [alertQueue, claimByEid, events, escalatedIds, bouncedPending, dispositions, queueWithMedium, nameOf, me?.id, attached]);
-  const activity = useMemo(() => events.filter(e => ["sentinel.incident_updated", "sentinel.bookmark_added", "escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "t3.scan", "t3.scope.entity", "t3.readiness", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
+  const activity = useMemo(() => events.filter(e => ["sentinel.incident_updated", "sentinel.bookmark_added", "escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "t3.scan", "t3.scope.entity", "t3.readiness", "t3.closeout", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
   // Live SOC dashboard (rule levels, source badges, raw formatting, threat-intel).
@@ -1614,7 +1615,7 @@ export default function TeamRoomPage() {
                 ) : (
                   <>
                     {me.role === "t3" && (() => {
-                      const T3_VIEWS = [["case", "Case"], ["workbench", "Evidence"], ["timeline", "Timeline"], ["intel", "Intel & ATT&CK"], ["feed", "Live feed"]] as const;
+                      const T3_VIEWS = [["case", "Case"], ["workbench", "Evidence"], ["timeline", "Timeline"], ["intel", "Intel & ATT&CK"], ["closeout", "Close-out"], ["feed", "Live feed"]] as const;
                       const inPlay = forensicHosts(events, feed);
                       const edrChoices = inPlay.filter(h => edrHosts.has(hostKey(h)));
                       const edrPick = edrChoices.includes(t3EdrHost) ? t3EdrHost : edrChoices[0] ?? "";
@@ -1626,6 +1627,7 @@ export default function TeamRoomPage() {
                       const pendingHandoffs = elevations.filter(e => !elevAcked.has(String((e.payload as { event_id?: unknown }).event_id))).length;
                       const go = (st: NextStep) => {
                         if (st.target === "case") setT3View("case");
+                        else if (st.target === "closeout") setT3View("closeout");
                         else if (st.target === "evidence") { setT3View("workbench"); if (st.host) setT3FocusHost(st.host); }
                         else if (st.target === "report") setT3ReportOpen(true);
                         else document.getElementById(st.target === "inbox" ? "t3-inbox" : "t3-readiness")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1659,6 +1661,8 @@ export default function TeamRoomPage() {
                       <div data-tour="workbench"><ForensicWorkbench sessionId={id} feed={feed} events={events} meId={me.id} nameOf={nameOf} act={act} onEdr={h => openEdr(undefined, h)} focusHost={t3FocusHost} /></div>
                     ) : me.role === "t3" && t3View === "timeline" ? (
                       <TimelineExplorer sessionId={id} meId={me.id} feed={feed} events={events} />
+                    ) : me.role === "t3" && t3View === "closeout" ? (
+                      <T3CloseoutTab events={events} feed={feed} nameOf={nameOf} act={act} />
                     ) : me.role === "t3" && t3View === "intel" ? (
                       <div className="space-y-3">
                         <IntelLookup feed={feed} events={events} truth={iocTruth} onSeen={eid => onFeedRowOpened(eid, 0)} />

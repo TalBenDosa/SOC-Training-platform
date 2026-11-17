@@ -484,6 +484,15 @@ group("0114 — early containment with a missed host brings the attacker back");
   check("0114: easy sessions never bring the attacker back", (await rc(d.ts)).length === 0);
 }
 
+group("0115 — Tier-3 close-out");
+{
+  const ok = async (t, r, st) => (await one(`select public.session_action_allowed($1,$2,$3) v`, [t, r, st])).v;
+  check("0115: Tier-3 sends a close-out while running", await ok("t3.closeout", "t3", "running") === true);
+  check("0115: Tier-2 may not", await ok("t3.closeout", "t2", "running") === false);
+  check("0115: not in the lobby", await ok("t3.closeout", "t3", "lobby") === false);
+  check("0115: 0113 rules unchanged", await ok("consult.asked", "t2", "running") === true && await ok("review.verdict", "t3", "running") === true);
+}
+
 group("0111 — studied Lesson Library lessons (Recommended Tracks)");
 {
   const orgA = await makeOrg("Reads A", 10);
