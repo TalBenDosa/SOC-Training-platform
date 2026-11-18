@@ -43,7 +43,7 @@ import { companyFeedPool, feedCompanyProfile, feedStoryEvents } from "./feedPool
 import { mergeRecent } from "./recentStories";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
-  BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
+  BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Info, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
@@ -572,6 +572,15 @@ export default function DashboardPage() {
   const reportDraftRef = useRef<{ key: string; draft: ReportDraft } | null>(null);
   /** The page reloaded during a training, which ended it (F4): say so above the feed until the next start. */
   const [reloadNotice, setReloadNotice] = useState(false);
+  /**
+   * Stage B1: the server-side training (dashboard_shifts). The server dealt its stories and keeps their
+   * answers; reports carry its id and are graded against them, and its end writes the session row.
+   * Null for a guest, or when the server could not be reached (then the training is practice only).
+   */
+  const serverShiftRef = useRef<string | null>(null);
+  const [serverShiftId, setServerShiftId] = useState<string | null>(null);
+  /** A signed-in training (or part of one) the server could not record: said above the feed. */
+  const [unrecorded, setUnrecorded] = useState(false);
   // Story completion no longer auto-arms the next attack - that let a second
   // incident pile on while the student was still working the first. An uncaught
   // story simply ends (no popup, no halt - the feed keeps streaming); a caught
@@ -710,6 +719,16 @@ export default function DashboardPage() {
 
   const live = useLiveEvents({
     eventPool,
+    // Stage B1: a saved shift closes its server training, which writes the session row from its own counts.
+    onSessionEnd: rec => {
+      const id = serverShiftRef.current;
+      if (!id) return;
+      serverShiftRef.current = null;
+      void fetch(`/api/dashboard/shift/${id}/end`, {
+        method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fnCount: rec.fnCount, eventsOpenedCount: rec.eventsOpenedCount, avgCatchMs: rec.avgCatchMs, durationMs: rec.durationMs }),
+      }).catch(() => { /* the shift stays open on the server and is never counted */ });
+    },
     // Ordinary noise per level: Hard's "heavy noise" is a busier feed than Easy's readable pace (QA 2026-11-12:
     // Hard showed fewer rows than Easy with one interval for all levels).
     intervalMs: sessionDifficulty === "hard" ? 35_000 : sessionDifficulty === "medium" ? 55_000 : 90_000,
@@ -1072,6 +1091,29 @@ export default function DashboardPage() {
   };
 
   // ── Start training ─────────────────────────────────────────────────────────────
+  /** POST to a /api/dashboard/shift route; null on any failure (the caller falls back to an unrecorded story). */
+  const postShift = async <T,>(url: string, body: Record<string, unknown>): Promise<T | null> => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 10_000);
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: ctl.signal, cache: "no-store" });
+      return res.ok ? (await res.json() as T) : null;
+    } catch { return null; }
+    finally { clearTimeout(timer); }
+  };
+
+  /** The training's next attack: from the server when it runs this training (Stage B1), else dealt here. */
+  const dealNextStory = async (): Promise<AttackStory> => {
+    const id = serverShiftRef.current;
+    if (id) {
+      const r = await postShift<{ story?: AttackStory }>(`/api/dashboard/shift/${id}/next`, {});
+      if (r?.story?.events?.length) return r.story;
+      setUnrecorded(true);
+    }
+    const s = await ensureSim();
+    return stackedStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined, stackRef.current, await ensureNative().catch(() => null));
+  };
+
   const handleStartTraining = async (difficulty: Difficulty, companyOverride?: string, stackOverride?: Stack, resumeStartedAt?: number) => {
     // `companyOverride` is set only by the on-refresh resume (see the mount effect
     // below); normal starts use the currently-selected company.
@@ -1105,7 +1147,22 @@ export default function DashboardPage() {
     stackRef.current = stack;
     setSessionStack(stack);
     const nm = await ensureNative().catch(() => null);
-    const story = stackedStory(s, orgMap, company, difficulty, stack, nm);
+    // Stage B1: a signed-in learner's training is dealt by the server, which keeps the answer.
+    serverShiftRef.current = null;
+    setServerShiftId(null);
+    setUnrecorded(false);
+    let story: AttackStory | null = null;
+    if (authUser) {
+      const r = await postShift<{ shiftId?: string; story?: AttackStory }>("/api/dashboard/shift", { companyId: company, difficulty });
+      if (r?.shiftId && r.story?.events?.length) {
+        serverShiftRef.current = r.shiftId;
+        setServerShiftId(r.shiftId);
+        story = r.story;
+      } else {
+        setUnrecorded(true);
+      }
+    }
+    if (!story) story = stackedStory(s, orgMap, company, difficulty, stack, nm);
     setSessionStory(story);
     setInjectedStories([story]);
     const startedAt = resumeStartedAt ?? Date.now();
@@ -1192,8 +1249,7 @@ export default function DashboardPage() {
     live.dismissIncident();
     if (!armedNextRef.current) {
       armedNextRef.current = true;
-      const s = await ensureSim();
-      const nextStory = stackedStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined, stackRef.current, await ensureNative().catch(() => null));
+      const nextStory = await dealNextStory();
       setSessionStory(nextStory);
       setInjectedStories(prev => [...prev, nextStory]);
       live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min breather
@@ -1582,6 +1638,13 @@ export default function DashboardPage() {
             >
               Start a new training
             </button>
+          </div>
+        )}
+
+        {unrecorded && sessionStartedAt !== null && (
+          <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-panel px-5 py-3">
+            <Info className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+            <p className="text-sm text-slate-300">The training server could not be reached, so this training runs as practice: your reports are graded but not saved to your progress.</p>
           </div>
         )}
 
@@ -2028,6 +2091,7 @@ export default function DashboardPage() {
             // not yet credited; otherwise the modal says so instead of "unlocked".
             creditsIncident={!!live.activeIncident && !countedIncidentIdsRef.current.has(live.activeIncident.id)}
             incidentContext={live.incidentContext}
+            shiftId={serverShiftId}
             onClose={closeReport}
             onReconstructChain={live.lastAttackChain ? () => setShowChainBoard(true) : undefined}
             draft={reportDraftRef.current?.key === `${trainingIdRef.current}:${live.activeIncident?.id ?? "none"}` ? reportDraftRef.current.draft : null}
@@ -2100,8 +2164,7 @@ export default function DashboardPage() {
               // after a short breather so the student is never juggling two.
               if (!armedNextRef.current) {
                 armedNextRef.current = true;
-                const s = await ensureSim();
-                const nextStory = stackedStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined, stackRef.current, await ensureNative().catch(() => null));
+                const nextStory = await dealNextStory();
                 setSessionStory(nextStory);
                 setInjectedStories(prev => [...prev, nextStory]);
                 live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min

@@ -1211,7 +1211,25 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
   const all = storiesForCompany(companyId, difficulty, true);
   const fitting = accept ? all.filter(accept) : all;
   const candidates = fitting.length ? fitting : all;
-  const recent = readRecent();
+  const picked = pickSoloStory(candidates, readRecent(), Math.random);
+  pushRecent(picked.id);
+  if (process.env.NODE_ENV !== "production") {
+    const sources = companySources(companyId);
+    const missing = Array.from(new Set(picked.events.map(e => e.source)))
+      .filter(src => !sourceAvailable(src, sources));
+    if (missing.length > 0) {
+      console.warn(`[attackStories] story "${picked.id}" uses sources missing at ${companyId}:`, missing);
+    }
+  }
+  return picked;
+}
+
+/**
+ * The single-player draw over a company's candidates, given the learner's recent story ids (newest first):
+ * no story or family met recently, and never the kind of attack of the last shift. Pure: the browser passes
+ * its own memory, the server (Stage B1, /api/dashboard/shift) the learner's recorded history and a seeded rnd.
+ */
+export function pickSoloStory(candidates: AttackStory[], recent: string[], rnd: () => number): AttackStory {
   const seenFamilies = new Set(recent.map(familyOfId));
   let pool = candidates.filter(s => !recent.includes(s.id) && !seenFamilies.has(familyOf(s)));
   if (pool.length === 0) pool = candidates.filter(s => !recent.includes(s.id));
@@ -1224,17 +1242,7 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
   const away = (avoid: Set<string>) => pool.filter(s => !storyThemes(s.id).some(t => avoid.has(t)));
   const rotated = away(lastThree).length ? away(lastThree) : away(last);
   if (rotated.length) pool = rotated;
-  const picked = pickInFamilies(pool, Math.random);
-  pushRecent(picked.id);
-  if (process.env.NODE_ENV !== "production") {
-    const sources = companySources(companyId);
-    const missing = Array.from(new Set(picked.events.map(e => e.source)))
-      .filter(src => !sourceAvailable(src, sources));
-    if (missing.length > 0) {
-      console.warn(`[attackStories] story "${picked.id}" uses sources missing at ${companyId}:`, missing);
-    }
-  }
-  return picked;
+  return pickInFamilies(pool, rnd);
 }
 
 // ── Victim variation ──────────────────────────────────────────────────────────

@@ -239,6 +239,11 @@ interface UseLiveEventsOptions {
    * the student presses Start Training. Defaults to true (legacy auto-start).
    */
   autoStart?: boolean;
+  /**
+   * Called once per saved shift with the record endSession() built (Stage B1): the page closes the
+   * server-side training with it, which writes the session row from the server's own counts.
+   */
+  onSessionEnd?: (record: DashboardSessionRecord) => void;
 }
 
 export interface LiveEventsApi {
@@ -325,7 +330,10 @@ export function useLiveEvents({
   intervalMs = 40000,
   maxVisible = 100,
   autoStart = true,
+  onSessionEnd,
 }: UseLiveEventsOptions): LiveEventsApi {
+  const onSessionEndRef = useRef(onSessionEnd);
+  onSessionEndRef.current = onSessionEnd;
   // Start empty - populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [isStreaming, setIsStreaming]       = useState(autoStart);
@@ -897,6 +905,7 @@ export function useLiveEvents({
     // so a slice cap would silently drop DB inserts past it (persistence-migration
     // Stage 2). The backend is SSR-safe, so no window guard is needed.
     appendDashboardSession(record, Number.MAX_SAFE_INTEGER);
+    onSessionEndRef.current?.(record);
     return record;
   }, []);
 

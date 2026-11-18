@@ -6,8 +6,8 @@
  *
  * The distinction under test is the important one:
  *   · user_progress is an UPSERT → safe to replay automatically on reconnect.
- *   · dashboard_sessions is an append-only INSERT → replaying a write that
- *     actually committed duplicates the row. It must NOT auto-replay.
+ *   · dashboard_sessions is never written by the browser any more (Stage B1,
+ *     0116): POST /api/dashboard/shift/[id]/end writes it from the server's record.
  *   · scenario_history and room_progress are never written by the browser any
  *     more — server routes are their only writers (#30 / 0078, client XP
  *     self-granting).
@@ -82,45 +82,19 @@ describe("remoteBackend failed-write handling", () => {
     expect(getSyncState()).toEqual({ retrying: 0, needsRetry: 0 });
   });
 
-  it("does NOT auto-replay an append-only insert on reconnect", async () => {
+  it("never writes dashboard_sessions from the client: the server writes the row when a training ends (Stage B1, 0116)", async () => {
     const sb = makeSupabase();
     const { backend } = createRemoteBackend(sb.client, "user-1", "org-1");
 
-    sb.setFailing(true);
     backend.set(LEARNER_KEYS.dashboardSessions, JSON.stringify([
-      { type: "dashboard", date: "2026-08-07T00:00:00Z", xpEarned: 50, detectRate: 80, avgCatchMs: null },
+      { type: "dashboard", date: "2026-08-07T00:00:00Z", xpEarned: 99999, detectRate: 100, avgCatchMs: null },
     ]));
     await flushMicrotasks();
 
-    expect(getSyncState().needsRetry).toBe(1);
-    expect(sb.countFor("dashboard_sessions")).toBe(1);
-
-    // Reconnect alone must not resend it — a duplicate would double-count XP.
-    sb.setFailing(false);
-    window.dispatchEvent(new Event("online"));
-    await flushMicrotasks();
-
-    expect(sb.countFor("dashboard_sessions")).toBe(1);
-    expect(getSyncState().needsRetry).toBe(1);
-  });
-
-  it("replays an append-only insert only when the user explicitly retries", async () => {
-    const sb = makeSupabase();
-    const { backend } = createRemoteBackend(sb.client, "user-1", "org-1");
-
-    sb.setFailing(true);
-    backend.set(LEARNER_KEYS.dashboardSessions, JSON.stringify([
-      { type: "dashboard", date: "2026-08-07T00:00:00Z", xpEarned: 50, detectRate: 80, avgCatchMs: null },
-    ]));
-    await flushMicrotasks();
-    expect(getSyncState().needsRetry).toBe(1);
-
-    sb.setFailing(false);
-    window.dispatchEvent(new CustomEvent("soc:sync-retry"));
-    await flushMicrotasks();
-
-    expect(sb.countFor("dashboard_sessions")).toBe(2);
+    expect(sb.countFor("dashboard_sessions")).toBe(0);
     expect(getSyncState()).toEqual({ retrying: 0, needsRetry: 0 });
+    // The record still serves the page's own list.
+    expect(JSON.parse(backend.get(LEARNER_KEYS.dashboardSessions) ?? "[]")).toHaveLength(1);
   });
 
   it("never writes scenario_history from the client — cache only, total re-read from the server", async () => {

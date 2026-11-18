@@ -19,7 +19,7 @@ function client(error: unknown): SupabaseClient {
     }),
   } as unknown as SupabaseClient;
 }
-const session = JSON.stringify([{ type: "dashboard", date: "2026-10-01T00:00:00Z", xpEarned: 50, detectRate: 80, avgCatchMs: null }]);
+const cleared = JSON.stringify(["nexacorp"]);   // an upsert (user_progress): the browser's remaining writes
 
 describe("isPermanentWriteError", () => {
   it.each([
@@ -37,15 +37,15 @@ describe("isPermanentWriteError", () => {
 describe("remote writes", () => {
   it("a database refusal is not held for retry", async () => {
     const { backend } = createRemoteBackend(client({ code: "P0001", message: "invalid_session: out of range" }), "u1", "org1");
-    backend.set(LEARNER_KEYS.dashboardSessions, session);
+    backend.set(LEARNER_KEYS.clearedCompanies, cleared);
     await flush();
     expect(getSyncState()).toEqual({ retrying: 0, needsRetry: 0 });
   });
 
   it("a network failure still is", async () => {
     const { backend } = createRemoteBackend(client({ code: "", message: "TypeError: Failed to fetch" }), "u2", "org1");
-    backend.set(LEARNER_KEYS.dashboardSessions, session);
+    backend.set(LEARNER_KEYS.clearedCompanies, cleared);
     await flush();
-    expect(getSyncState().needsRetry).toBe(1);
+    expect(getSyncState().retrying).toBe(1);
   });
 });

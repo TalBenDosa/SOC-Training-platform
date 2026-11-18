@@ -9,7 +9,7 @@
  * Pure (no React), so it is unit-tested directly.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
+import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/lib/edr/iocIntel";
 
 /**
  * Is this story event part of the attack itself? Baseline / "what normal looked

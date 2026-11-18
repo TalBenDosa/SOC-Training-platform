@@ -24,6 +24,12 @@ import { analyseIndicators } from "@/lib/dashboard/indicatorAnalysis";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { recordIncident } from "@/lib/progress/record";
 import { ENGLISH_ONLY_MESSAGE, isEnglishOnly } from "@/lib/dashboard/reportLanguage";
+import { namesTheStory } from "@/lib/dashboard/reportIdentification";
+import { loadShift, saveStories, type ShiftRow } from "@/lib/dashboard/shiftStore";
+import { storyHasOpened } from "@/lib/dashboard/soloShift";
+import { storyThemes } from "@/lib/team/storyCategory";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AuthedUser } from "@/lib/auth/apiGuard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -46,6 +52,19 @@ export interface IncidentReportRequest {
   /** Live-feed context of the incident (story, severity, the response timestamps). Stored
    *  with the graded report for the learner's own Progress page; never affects the grade. */
   incident?: Record<string, unknown>;
+  /**
+   * Stage B1: the server-dealt training (POST /api/dashboard/shift) and the story the report is about.
+   * With both, a signed-in report is graded against the answer the server kept, and the title,
+   * techniques and indicators above are ignored. Without them the report is graded on what the
+   * browser sent but never recorded or credited.
+   */
+  shiftId?: string;
+  storyId?: string;
+}
+
+/** The grader's input: the request, plus the story's kinds of attack when the server knows the story. */
+interface GradeInput extends IncidentReportRequest {
+  themes?: string[];
 }
 
 export interface IncidentReportResponse {
@@ -60,6 +79,10 @@ export interface IncidentReportResponse {
   graded_by: "ai" | "deterministic";
   /** The three rubric components behind `score`: identification /40, evidence /30, action and impact /30. */
   subScores?: { attack: number; ioc: number; action: number };
+  /** True when the server graded against its own answer and kept the result (Stage B1). */
+  recorded?: boolean;
+  /** True when no attack of the training could be in the feed yet: nothing to report. */
+  noIncident?: boolean;
 }
 
 // Fabrication / citation analysis lives in a pure, unit-tested module
@@ -67,8 +90,8 @@ export interface IncidentReportResponse {
 
 // ── Heuristic fallback ────────────────────────────────────────────────────────
 
-function heuristicGrade(req: IncidentReportRequest, note?: string, deterministicOnly = false): IncidentReportResponse {
-  const { summary: rawSummary, attackTitle, realIndicators = [], evidenceText = "", attackMitreTechniques = [] } = req;
+function heuristicGrade(req: GradeInput, note?: string, deterministicOnly = false): IncidentReportResponse {
+  const { summary: rawSummary, attackTitle, realIndicators = [], evidenceText = "", attackMitreTechniques = [], themes = [] } = req;
   // QA-DASH-1: the guided form joins its field LABELS into the text ("Business
   // impact:", "Recommended action:" ...). Graded with the labels in, the impact
   // keyword always matched. Score the student's own words only.
@@ -96,11 +119,19 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
   if (specificWords.test(summary))       attackScore = 30;
   else if (categoryWords.test(summary))  attackScore = 20;
   else if (genericWords.test(summary))   attackScore = 10;
+  // Stage B1: the story is named by its title, its techniques' names or its kind of attack
+  // (reportIdentification.ts), so a correct report of a narratively titled story is not "wrong".
+  const hasTruth = titleKeywords.length > 0 || attackMitreTechniques.length > 0 || themes.length > 0;
+  const namesStory = hasTruth && namesTheStory(summary, { title: attackTitle, mitre: attackMitreTechniques, themes });
+  // The right kind of attack in the analyst's own words is a category-level identification.
+  if (namesStory && attackScore < 20) attackScore = 20;
   if (matchesTitle) attackScore = Math.min(40, attackScore + 5);
   if (hasMitre)     attackScore = Math.min(40, attackScore + 5);
   // Named a specific attack but it does NOT match the real story → likely wrong type
-  const wrongType = attackScore >= 20 && titleKeywords.length > 0 && !matchesTitle && !hasMitre;
+  const wrongType = attackScore >= 20 && hasTruth && !namesStory && !hasMitre;
   if (wrongType) attackScore = Math.min(attackScore, 20);
+  // A pass needs the attack identified (Stage B1): its kind named and not another attack's.
+  const identified = attackScore >= 20 && !wrongType;
 
   // ── Component 2 — Evidence (0-30), verified against ground truth ──────────
   const { cited, fabricated } = analyseIndicators(summary, realIndicators, evidenceText);
@@ -125,7 +156,7 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
   // QA-DASH-1: a report must quote at least one real indicator from the logs to
   // pass (when ground truth exists). Keywords alone are not an investigation.
   const evidenced = realIndicators.length === 0 || cited.length > 0;
-  const passed = score >= 60 && evidenced && !hasFabrication;
+  const passed = score >= 60 && evidenced && !hasFabrication && identified;
 
   const strengths: string[] = [];
   const gaps: string[] = [];
@@ -169,6 +200,8 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
 
   const base = passed
     ? `Report passed — score ${score}/100. You identified the attack and backed it with real evidence.`
+    : score >= 60 && !identified
+      ? `Report scored ${score}/100 but cannot pass until it names the attack that happened. ${gaps[0] ?? ""}`.trim()
     : score >= 60 && !evidenced
       ? `Report scored ${score}/100 but cannot pass without evidence. ${gaps.find(g => g.startsWith("Missing: quote")) ?? ""}`.trim()
     : hasFabrication
@@ -249,39 +282,84 @@ Write feedback explaining the computed result above. If the trainee named the wr
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
+/** A report graded against the server's own answer: the training and the story it is about. */
+interface Verified { admin: SupabaseClient; user: AuthedUser; shift: ShiftRow; storyId: string }
+
 /**
- * Grades, then keeps the graded report for the signed-in learner's own history
- * (dashboard_incidents, 0101): the incident, the three sub-scores, the feedback and the
- * response timestamps. Best effort, after the grade is final: storage can never change or
- * delay a result beyond the insert itself.
+ * Grades, then, for a report graded against the server's own answer (Stage B1), keeps it:
+ * the story's best score and catch in dashboard_shifts, and the graded report in the learner's
+ * history (dashboard_incidents, 0101) under the server's title and techniques. A report the
+ * server could not verify (a guest, no server training, an unknown story) is graded and shown
+ * but never recorded or credited.
  */
 export async function POST(req: Request) {
-  const captured: { body?: IncidentReportRequest } = {};
+  const captured: { body?: GradeInput; verified?: Verified } = {};
   const res = await grade(req, captured);
   const body = captured.body;
   if (!res.ok || !body?.summary?.trim()) return res;
-  const user = await getAuthedUser();
-  const admin = user ? getSupabaseAdminClient() : null;
-  if (user && admin) {
-    try {
-      const data = await res.clone().json() as IncidentReportResponse;
-      if (typeof data.score === "number") {
-        await recordIncident(admin, {
-          userId: user.id, orgId: user.orgId, outcome: data.passed ? "passed" : "failed",
-          incident: body.incident, company: body.company, title: body.attackTitle, mitre: body.attackMitreTechniques,
-          summary: body.summary, score: data.score, subScores: data.subScores ?? null, gradedBy: data.graded_by,
-          feedback: data.feedback, strengths: data.strengths, gaps: data.gaps,
-        });
-      }
-    } catch (e) {
-      console.error("[incident-report] record failed:", e instanceof Error ? e.message : e);
-    }
+  let data: IncidentReportResponse;
+  try { data = await res.clone().json() as IncidentReportResponse; } catch { return res; }
+  const v = captured.verified;
+  if (!v || typeof data.score !== "number" || data.noIncident) return NextResponse.json({ ...data, recorded: false });
+  let recorded = false;
+  try {
+    const now = new Date().toISOString();
+    const stories = v.shift.stories.map(s => s.storyId !== v.storyId ? s : {
+      ...s,
+      bestScore: Math.max(s.bestScore ?? 0, data.score),
+      caughtAt: s.caughtAt ?? (data.passed ? now : null),
+    });
+    await saveStories(v.admin, v.shift.id, stories);
+    const ctx = { ...(body.incident ?? {}), storyId: v.storyId };
+    recorded = await recordIncident(v.admin, {
+      userId: v.user.id, orgId: v.user.orgId, outcome: data.passed ? "passed" : "failed",
+      incident: ctx, company: body.company, title: body.attackTitle, mitre: body.attackMitreTechniques,
+      summary: body.summary, score: data.score, subScores: data.subScores ?? null, gradedBy: data.graded_by,
+      feedback: data.feedback, strengths: data.strengths, gaps: data.gaps,
+    });
+  } catch (e) {
+    console.error("[incident-report] record failed:", e instanceof Error ? e.message : e);
   }
-  return res;
+  return NextResponse.json({ ...data, recorded });
 }
 
-async function grade(req: Request, captured: { body?: IncidentReportRequest }): Promise<NextResponse> {
-  let body: IncidentReportRequest;
+/** Nothing of the training can be on screen yet, so there is no incident to report. */
+const NO_INCIDENT: IncidentReportResponse = {
+  score: 0,
+  passed: false,
+  feedback: "There is no attack in the feed yet, so there is nothing to report. Keep monitoring: when an alert or an odd run of logs appears, investigate it and report that.",
+  strengths: [],
+  gaps: ["No incident yet: a report describes an attack you found in the logs."],
+  graded_by: "deterministic",
+  noIncident: true,
+};
+
+/**
+ * Stage B1: the answer for a signed-in learner's report. With a running server training and a story
+ * of it whose attack can be on screen, the server's title, techniques and indicators replace whatever
+ * the browser sent. Returns "no-incident" when nothing of the training can be in the feed yet.
+ */
+async function serverTruth(body: GradeInput): Promise<{ verified: Verified; body: GradeInput } | "no-incident" | null> {
+  if (!body.shiftId) return null;
+  const user = await getAuthedUser();
+  const admin = user ? getSupabaseAdminClient() : null;
+  if (!user || !admin) return null;
+  let shift: ShiftRow | null;
+  try { shift = await loadShift(admin, body.shiftId, user.id); } catch { return null; }
+  if (!shift || shift.ended_at) return null;
+  const now = Date.now();
+  if (!body.storyId) return "no-incident";
+  const st = shift.stories.find(s => s.storyId === body.storyId);
+  if (!st) return null;
+  if (!storyHasOpened(st, now)) return "no-incident";
+  return {
+    verified: { admin, user, shift, storyId: st.storyId },
+    body: { ...body, attackTitle: st.title, attackMitreTechniques: st.mitre, realIndicators: st.indicators, themes: storyThemes(st.storyId) },
+  };
+}
+
+async function grade(req: Request, captured: { body?: GradeInput; verified?: Verified }): Promise<NextResponse> {
+  let body: GradeInput;
   try {
     body = asObject(await req.json());
   } catch {
@@ -303,7 +381,12 @@ async function grade(req: Request, captured: { body?: IncidentReportRequest }): 
     realIndicators: strList(body?.realIndicators, 100, 300),
     evidenceText: String(body?.evidenceText ?? "").slice(0, 500_000),
     incident: body?.incident && typeof body.incident === "object" && !Array.isArray(body.incident) ? body.incident : undefined,
+    shiftId: typeof body?.shiftId === "string" ? body.shiftId.slice(0, 64) : undefined,
+    storyId: typeof body?.storyId === "string" ? body.storyId.slice(0, 120) : undefined,
+    themes: undefined,   // never from the browser
   };
+  // The story's kinds of attack name it as the analyst would (reportIdentification.ts).
+  if (body.storyId) body.themes = storyThemes(body.storyId);
   captured.body = body;
 
   if (!body.summary?.trim()) {
@@ -321,6 +404,15 @@ async function grade(req: Request, captured: { body?: IncidentReportRequest }): 
   // recorded (the form already holds Submit; this is the server-side backstop).
   if (!isEnglishOnly(body.summary)) {
     return NextResponse.json({ error: ENGLISH_ONLY_MESSAGE }, { status: 422 });
+  }
+
+  // Stage B1: a signed-in report of a server-dealt training is graded against the server's answer only.
+  const truth = await serverTruth(body);
+  if (truth === "no-incident") return NextResponse.json(NO_INCIDENT);
+  if (truth) {
+    body = truth.body;
+    captured.body = body;
+    captured.verified = truth.verified;
   }
 
   // score/passed are ALWAYS the deterministic rubric result — see the security

@@ -231,28 +231,11 @@ export function createRemoteBackend(
         return;
       }
       case LEARNER_KEYS.dashboardSessions: {
-        const list = safeParse<DashboardSessionRecord[]>(value, []);
-        const prev = safeParse<DashboardSessionRecord[]>(cache.get(key), []);
-        // Append-only in practice (progress.ts only ever appends+caps) — insert
-        // just the newly-appended tail rather than re-inserting everything.
-        const fresh = list.slice(Math.max(0, prev.length));
-        if (fresh.length === 0) return;
-        const sessionRows = fresh.map(s => ({
-          user_id: userId,
-          ...org,
-          played_at: s.date,
-          xp_earned: s.xpEarned,
-          detect_rate: s.detectRate,
-          fn_count: s.fnCount ?? 0,
-          avg_catch_ms: s.avgCatchMs,
-          attacks_caught_count: s.attacksCaughtCount,
-          attacks_presented_count: s.attacksPresentedCount,
-          events_opened_count: s.eventsOpenedCount ?? 0,
-          duration_ms: s.durationMs ?? 0,
-        }));
-        // Append-only insert — replaying one that actually committed would
-        // duplicate the session, so this waits for an explicit retry.
-        run("dashboardSessions", false, () => supabase.from("dashboard_sessions").insert(sessionRows));
+        // CACHE-ONLY since Stage B1 (0116, dashboard review 2026-11), as scenario_history became in
+        // the team-exercise round: the browser inserted its own dashboard_sessions row (caught,
+        // presented, XP), so any signed-in user could write any numbers. The server now writes the
+        // row from its own record of the training (POST /api/dashboard/shift/[id]/end; client
+        // inserts are revoked), so here the new record only updates the in-memory list for the UI.
         return;
       }
       case LEARNER_KEYS.scenarioHistory: {

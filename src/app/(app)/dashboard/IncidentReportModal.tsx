@@ -85,6 +85,8 @@ interface Props {
   /** The active incident's context for the learner's Progress page (story, severity,
    *  response timestamps). Sent with the report; it never affects the grade. */
   incidentContext?: () => Record<string, unknown> | null;
+  /** The server-dealt training (Stage B1): with it the report is graded against the answer the server kept. */
+  shiftId?: string | null;
   onClose: () => void;
   onPassed: (score: number) => void;
   /** Every graded attempt, passed or not (the end-of-training report collects them). */
@@ -113,6 +115,7 @@ export function IncidentReportModal({
   responseTargetSeconds = 900,
   creditsIncident = true,
   incidentContext,
+  shiftId = null,
   onClose,
   onPassed,
   onGraded,
@@ -236,6 +239,9 @@ export function IncidentReportModal({
             const ctx = incidentContext?.();
             return ctx ? { ...ctx, reportOpenedAt: openedAtRef.current } : undefined;
           })(),
+          // Stage B1: which training and which of its attacks the report is about.
+          storyId: (incidentContext?.()?.storyId as string | null | undefined) ?? undefined,
+          ...(shiftId ? { shiftId } : {}),
         }),
       });
 
@@ -454,6 +460,12 @@ export function IncidentReportModal({
                     here.
                   </p>
                 </div>
+              )}
+              {/* Stage B1: a report the server could not match to its own record is graded but not kept. */}
+              {shiftId && result.recorded === false && !result.noIncident && (
+                <p className="rounded-lg border border-border bg-bg-panel px-4 py-2 text-[11px] text-slate-400">
+                  This report was graded but not recorded: it could not be matched to an attack of this training.
+                </p>
               )}
               {/* Score + pass/fail header */}
               <div ref={resultRef} tabIndex={-1} className={cn(
