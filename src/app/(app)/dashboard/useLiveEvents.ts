@@ -58,6 +58,15 @@ export function benignTimes(sources: string[], now: number): number[] {
 }
 
 /**
+ * Clean start: how many ordinary rows open a fresh shift, and their pace. The first lands within
+ * 2-4 s, the rest 4-9 s apart, so roughly a minute of normal traffic builds up before the first
+ * attack phase (2-3 min) and the attack still blends into a baseline.
+ */
+export const WARMUP_ROWS = 12;
+export const warmupFirst = () => 2_000 + Math.floor(Math.random() * 2_000);
+export const warmupGap = () => 4_000 + Math.floor(Math.random() * 5_000);
+
+/**
  * Backfill times for the k-th most recent of n rows on a fresh shift: an
  * irregular (never a fixed 60s grid) cumulative offset plus a few seconds of
  * random jitter. Gaps are >= 20s and jitter < 5s, so order is preserved.
@@ -451,6 +460,16 @@ export function useLiveEvents({
   const noiseDeckRef       = useRef<NoiseDeck | null>(null);
   /** The active story's one monotone time map (storyFeed.ts, R4). */
   const storyClockRef      = useRef<StoryClock>(newStoryClock());
+  /**
+   * The shift's opening: ordinary rows still to arrive one by one (clean start, like Team training).
+   * A fresh shift starts with an EMPTY feed; these trickle in a few seconds apart, so a baseline of
+   * normal traffic builds up before the first attack phase instead of 15 back-dated rows appearing
+   * at once. Paused with the feed; reset() refills it.
+   */
+  const warmupRef          = useRef<TelemetryEvent[]>([]);
+  /** True until the shift's first opening row has landed (it comes within seconds). */
+  const warmupFirstRef     = useRef(false);
+  const [warmupGen, setWarmupGen] = useState(0);
   /** Ordinary rows shown since the last story phase, and when that phase landed (R8 noise quota). */
   const noiseSinceRef      = useRef(0);
   const lastPhaseAtRef     = useRef<number | null>(null);
@@ -532,6 +551,30 @@ export function useLiveEvents({
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- interval keyed intentionally; enrichWithFidelity/scheduleDebriefCheck are useCallback-stable and read live values via refs, so recreating the interval on their identity would only churn it
   }, [isStreaming, intervalMs, maxVisible]);
+
+  // ── Opening warm-up: the clean start's first rows, one at a time ───────────
+  useEffect(() => {
+    if (!isStreaming || warmupRef.current.length === 0) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const step = () => {
+      const next = warmupRef.current.shift();
+      if (!next) return;
+      warmupFirstRef.current = false;
+      const now = Date.now();
+      const [t] = benignTimes([next.source], now);
+      const en = enrichWithFidelity({ ...withRebasedTime(next, new Date(t).toISOString()), id: `${next.id}_w${now}` }, globalIdx.current++);
+      const m = siemMirror(en, globalIdx.current++);
+      const rows = m ? [en, m] : [en];
+      setNewIds(new Set(rows.map(r => r.id)));
+      setEvents(prev => mergeByTime(rows, prev, maxVisible));
+      setTimeout(() => setNewIds(new Set()), 1500);
+      if (warmupRef.current.length > 0) timer = setTimeout(step, warmupGap());
+    };
+    // The very first row of a shift lands within seconds ("the first events will appear in a few seconds").
+    timer = setTimeout(step, warmupFirstRef.current ? warmupFirst() : warmupGap());
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- same contract as the noise tick: helpers are ref-stable
+  }, [isStreaming, warmupGen, maxVisible]);
 
   // ── Attack injection - Story Scheduler ───────────────────────────────────────
   // The session story's events are injected IN ORDER in small phases (2-3 events)
@@ -784,21 +827,22 @@ export function useLiveEvents({
     if (st) {
       armPhase(120_000 + Math.floor(Math.random() * 60_000));
     }
-    globalIdx.current = 15;
+    globalIdx.current = 0;
     activeIncidentRef.current = null;
     caughtRef.current = false;
     storyClockRef.current = newStoryClock();
     noiseSinceRef.current = 0;
     lastPhaseAtRef.current = null;
-    // A fresh deck for the (new) pool: once-only and one-off rows reset per shift; the first 15
-    // rows are drawn from a shuffle of the whole pool so they cover diverse sources.
+    // A fresh deck for the (new) pool: once-only and one-off rows reset per shift; the opening rows
+    // are drawn from a shuffle of the whole pool so they cover diverse sources.
     noiseDeckRef.current = new NoiseDeck(pool ?? poolRef.current);
-    // QA-DASH-7: irregular, jittered backfill (was an exact 60s grid).
-    const backfill = noiseDeckRef.current.backfill(15);
-    const bf = backfillTimes(backfill.length, Date.now());
-    setEvents(backfill.map((e, i) =>
-      enrichWithFidelity(withRebasedTime(e, new Date(bf[i]).toISOString()), i)
-    ).reverse());
+    // Clean start (2026-11-18, like Team training): the feed opens EMPTY and the opening rows arrive
+    // live, one at a time (the warm-up effect above), instead of 15 back-dated rows shown at once.
+    setEvents([]);
+    setNewIds(new Set());
+    warmupRef.current = noiseDeckRef.current.backfill(WARMUP_ROWS);
+    warmupFirstRef.current = true;
+    setWarmupGen(g => g + 1);
     // New shift: fresh counters (refs + state) and a new shift id for endSession.
     shiftIdRef.current += 1;
     xpRef.current = 0; fnRef.current = 0; openedRef.current = 0;

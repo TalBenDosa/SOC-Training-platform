@@ -69,6 +69,22 @@ describe("live shift lifecycle", () => {
     vi.useRealTimers();
   });
 
+  it("a fresh shift starts with an EMPTY feed and the opening rows arrive one at a time (clean start)", () => {
+    // Source rows only (an EDR row may bring its SIEM mirror, id `…__siem`, along with it).
+    const rows = () => latest!.events.filter(e => !e.id.endsWith("__siem") && !e.id.startsWith("atk_"));
+    expect(latest!.events).toHaveLength(0);              // nothing back-dated on screen at start
+    act(() => { vi.advanceTimersByTime(3_100); });        // first row within seconds (2-4 s)
+    expect(rows()).toHaveLength(1);
+    act(() => { vi.advanceTimersByTime(6_600); });        // then one more every 4-9 s
+    expect(rows()).toHaveLength(2);
+    act(() => { latest!.pause(); });
+    act(() => { vi.advanceTimersByTime(60_000); });
+    expect(rows()).toHaveLength(2);                      // paused feed: the opening waits too
+    act(() => { latest!.resume(); });
+    act(() => { vi.advanceTimersByTime(PHASE1); });
+    expect(rows().length).toBeGreaterThanOrEqual(3);
+  });
+
   it("opens the incident on the first attack row, never on warm-up baseline rows", () => {
     act(() => { vi.advanceTimersByTime(PHASE1); });
     expect(latest!.activeIncident).toBeNull();          // baseline-only phase: no incident, no clock
