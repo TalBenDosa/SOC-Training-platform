@@ -1,6 +1,6 @@
 "use client";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
-import { lsGet, lsSet, lsRemove } from "@/lib/storage/safeStorage";
+import { lsGet, lsSet } from "@/lib/storage/safeStorage";
 import { useState, useEffect, useRef } from "react";
 import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -91,7 +91,14 @@ interface Props {
   onGraded?: (result: IncidentReportResponse) => void;
   /** Opens the attack-chain board for the incident just caught (F6: on request, never over the grade). */
   onReconstructChain?: () => void;
+  /** The text written so far for THIS training's open incident (memory only), or null for an empty form. */
+  draft?: ReportDraft | null;
+  /** Every change of the text; null once the report is submitted (the next one starts empty). */
+  onDraftChange?: (d: ReportDraft | null) => void;
 }
+
+/** What the analyst has typed into the report form (kept in memory only, never in browser storage). */
+export interface ReportDraft { guided: boolean; gWhat: string; gIocs: string; gAction: string; gImpact: string; summary: string }
 
 export function IncidentReportModal({
   companyName,
@@ -110,36 +117,22 @@ export function IncidentReportModal({
   onPassed,
   onGraded,
   onReconstructChain,
+  draft = null,
+  onDraftChange,
 }: Props) {
-  // Draft persistence - this modal unmounts entirely when closed (X / Cancel /
-  // Escape), which used to wipe whatever the student had typed. Everything the
-  // student writes is now saved to localStorage per company and restored the
-  // next time they open the report, so closing to go re-check the feed never
-  // loses their work. Cleared only once a report actually passes.
-  // Every report starts clean (Tal, 2026-10-28): the draft is kept per incident, so
-  // closing the drawer to re-check the feed keeps it, while a new incident, a new shift
-  // or a page load opens an empty form. Drafts of other incidents are removed.
-  const draftKey = `soc_report_draft_${companyId}_${incidentId}`;
+  // Every training and every report stands alone (Tal, 2026-11-18). The text lives only in memory, held by
+  // the page for THIS training's open incident, so closing the drawer to re-check the feed keeps it. It is
+  // never written to the browser's storage, and it is gone once a report is submitted (pass or fail) or the
+  // training ends: the next report always opens an empty template.
+  void companyId; void incidentId;
   useEffect(() => {
+    // Drafts the earlier versions saved in the browser are removed (no trace of an old report).
     try {
       for (const k of Object.keys(localStorage)) {
-        if ((k.startsWith("soc_report_draft_") || k.startsWith("soc_report_timeline_")) && k !== draftKey) localStorage.removeItem(k);
+        if (k.startsWith("soc_report_draft_") || k.startsWith("soc_report_timeline_")) localStorage.removeItem(k);
       }
     } catch { /* storage blocked: nothing was saved there either */ }
-  }, [draftKey]);
-  const loadDraft = (): { guided: boolean; gWhat: string; gIocs: string; gAction: string; gImpact: string; summary: string } | null => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = lsGet(draftKey);
-      const d: unknown = raw ? JSON.parse(raw) : null;
-      // E-22: a hand-edited / older draft must not put non-strings into the form.
-      if (!d || typeof d !== "object") return null;
-      const o = d as Record<string, unknown>;
-      const s = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : "");
-      return { guided: o.guided !== false, gWhat: s("gWhat"), gIocs: s("gIocs"), gAction: s("gAction"), gImpact: s("gImpact"), summary: s("summary") };
-    } catch { return null; }
-  };
-  const draft = loadDraft();
+  }, []);
 
   const [phase,   setPhase]   = useState<Phase>("form");
   // When the report was opened: "time to write the report" on the Progress page.
@@ -169,11 +162,12 @@ export function IncidentReportModal({
     if (typeof window !== "undefined") lsSet("soc_report_mode_v1", g ? "guided" : "free");
   };
 
-  // Persist the draft on every change so closing the modal never loses text.
+  // Hand the text to the page (memory only) on every change, until this report is submitted.
+  const submittedRef = useRef(false);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    lsSet(draftKey, JSON.stringify({ guided, gWhat, gIocs, gAction, gImpact, summary }));
-  }, [draftKey, guided, gWhat, gIocs, gAction, gImpact, summary]);
+    if (submittedRef.current) return;
+    onDraftChange?.({ guided, gWhat, gIocs, gAction, gImpact, summary });
+  }, [guided, gWhat, gIocs, gAction, gImpact, summary]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // F-11: only the top layer reacts. A window above the drawer (Decoder, a dialog) that handled
@@ -251,7 +245,10 @@ export function IncidentReportModal({
       onGraded?.(data);
       setPassed(data.passed);
       setCredited(data.passed && willCredit);
-      if (data.passed) { onPassed(data.score); lsRemove(draftKey); }
+      // Submitted: this report is done, so its text is dropped (the next report opens empty).
+      submittedRef.current = true;
+      onDraftChange?.(null);
+      if (data.passed) onPassed(data.score);
       setPhase("result");
     } catch (e) {
       // NEVER fail-open. A network/grader failure must not award a pass - that
@@ -320,7 +317,7 @@ export function IncidentReportModal({
                 <div className="flex items-center gap-2">
                   <p id="ir-summary-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Incident Summary</p>
                   {(gWhat || gIocs || gAction || gImpact || summary) && (
-                    <span className="text-[9px] text-slate-400">· draft saved, safe to close and come back</span>
+                    <span className="text-[9px] text-slate-400">· kept while you check the feed, until you submit or the training ends</span>
                   )}
                 </div>
                 <div className="flex rounded border border-border/60 overflow-hidden" role="group" aria-label="Report mode">

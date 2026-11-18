@@ -20,7 +20,7 @@ import { HintPanel } from "./HintPanel";
 import { SavedSearches, type FilterSnapshot } from "./SavedSearches";
 import { SiemStats } from "./SiemStats";
 import { CompanySelector } from "./CompanySelector";
-import { IncidentReportModal } from "./IncidentReportModal";
+import { IncidentReportModal, type ReportDraft } from "./IncidentReportModal";
 import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
@@ -566,6 +566,10 @@ export default function DashboardPage() {
   const armedNextRef = useRef(false);
   /** The passing report that secures the company: closing that report secures it (F1). */
   const advancePendingRef = useRef(false);
+  /** Every training and every report stands alone (Tal, 2026-11-18): the report text is held in memory for
+   *  this training's open incident only; a submit or the end of the training drops it. */
+  const trainingIdRef  = useRef(0);
+  const reportDraftRef = useRef<{ key: string; draft: ReportDraft } | null>(null);
   /** The page reloaded during a training, which ended it (F4): say so above the feed until the next start. */
   const [reloadNotice, setReloadNotice] = useState(false);
   // Story completion no longer auto-arms the next attack - that let a second
@@ -890,6 +894,7 @@ export default function DashboardPage() {
     // Switching company ends the running shift: report it and save it first (QA-DASH-8; once per
     // shift, so the save already made by an auto-advance is not repeated).
     const shiftReport = sessionStartedAt !== null ? collectReport("manual") : null;
+    reportDraftRef.current = null;
     live.endSession();
     setSelectedCompanyId(id);
     lsSet(COMPANY_KEY, id);
@@ -999,6 +1004,7 @@ export default function DashboardPage() {
   /** End the training now (time is up, or the analyst ends it) and show its report. */
   const finishTraining = (endedBy: SessionEnd) => {
     advancePendingRef.current = false;
+    reportDraftRef.current = null;     // the training ended: its report text goes with it
     const r = collectReport(endedBy);
     live.endSession();
     live.pause();
@@ -1054,6 +1060,7 @@ export default function DashboardPage() {
     setTrainingActive(false);   // lock the EDR console again
     closeShiftWindows();
     // F1: nothing of the shift stays open behind Mission Complete (report drawer, its pause, the chain).
+    reportDraftRef.current = null;
     setShowReportModal(false);
     setPausedForReport(false);
     live.clearLastAttackChain();
@@ -1104,6 +1111,8 @@ export default function DashboardPage() {
     const startedAt = resumeStartedAt ?? Date.now();
     setReloadNotice(false);
     advancePendingRef.current = false;
+    trainingIdRef.current += 1;        // a new training: no report text carries over
+    reportDraftRef.current = null;
     setSessionStartedAt(startedAt);
     setSessionDifficulty(difficulty);
     setSessionElapsed(Math.floor((Date.now() - startedAt) / 1000));
@@ -2021,6 +2030,11 @@ export default function DashboardPage() {
             incidentContext={live.incidentContext}
             onClose={closeReport}
             onReconstructChain={live.lastAttackChain ? () => setShowChainBoard(true) : undefined}
+            draft={reportDraftRef.current?.key === `${trainingIdRef.current}:${live.activeIncident?.id ?? "none"}` ? reportDraftRef.current.draft : null}
+            onDraftChange={(d) => {
+              const key = `${trainingIdRef.current}:${live.activeIncident?.id ?? "none"}`;
+              reportDraftRef.current = d ? { key, draft: d } : null;
+            }}
             onGraded={(res) => {
               const ctx = live.incidentContext() as { incidentKey?: string; injectedAt?: number; firstOpenedAt?: number | null } | null;
               gradedRef.current.push({
