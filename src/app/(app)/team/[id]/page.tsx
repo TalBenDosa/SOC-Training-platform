@@ -100,6 +100,7 @@ import type { QueueStats } from "./_components/QueueBoard";
 import { TeamIntel } from "./_components/TeamIntel";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { teamRoomGate } from "../_lib/gating";
+import { TEAM_ENGLISH_ONLY_MESSAGE, payloadHasNonEnglish } from "@/lib/dashboard/reportLanguage";
 
 const OPEN_CASE_COPY = { title: "Open a case on this log", hint: "You found it: start the case yourself and own it" };
 
@@ -470,6 +471,8 @@ export default function TeamRoomPage() {
     const sb = getSupabaseBrowserClient();
     const quiet = type === "event.opened";               // click telemetry never raises a banner
     if (!sb) { if (!quiet) showError("Not connected: reload the page."); return { ok: false, code: null }; }
+    // Written work is English only, as in the solo report (reportLanguage.ts); team chat stays free.
+    if (payloadHasNonEnglish(type, payload)) { showError(TEAM_ENGLISH_ONLY_MESSAGE); return { ok: false, code: null, message: TEAM_ENGLISH_ONLY_MESSAGE }; }
     const sig = `${type}:${hashString(JSON.stringify(payload ?? {}))}`;
     const now = Date.now();
     const last = lastIntentRef.current;

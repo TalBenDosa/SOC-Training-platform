@@ -7,6 +7,7 @@ import { withoutDetectionFeed, type Stack } from "@/lib/logs/native/stack";
 import type { Ev, Me, RosterMember, SessionMeta } from "@/lib/team/types";
 import { useTeamIsolation } from "@/lib/team/useTeamIsolation";
 import { friendlyActionError } from "@/lib/team/format";
+import { TEAM_ENGLISH_ONLY_MESSAGE, payloadHasNonEnglish } from "@/lib/dashboard/reportLanguage";
 import { buildWorkspace } from "@/lib/sentinel/workspace";
 import { foldIncidentState } from "@/lib/sentinel/state";
 import { ISOLATION_REQUEST_TYPES, isolationRequests } from "@/lib/team/isolationApproval";
@@ -123,7 +124,8 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
   const send = useCallback(async (type: string, payload: Record<string, unknown>): Promise<string | null> => {
     const sb = getSupabaseBrowserClient();
     if (!sessionId || !sb) return "Not connected. Reload the page.";
-    const idem = `${type}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    if (payloadHasNonEnglish(type, payload)) return TEAM_ENGLISH_ONLY_MESSAGE;   // written work is English only
+    const idem =`${type}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     const { error: e } = await sb.rpc("apply_session_action", { p_session: sessionId, p_type: type, p_payload: payload, p_idempotency_key: idem });
     void pull();
     return e ? friendlyActionError(e.message) : null;

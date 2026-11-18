@@ -337,14 +337,16 @@ async function grade(req: Request, captured: { body?: IncidentReportRequest }): 
     // chronic outage (missing prod key) is distinguishable from an unauthenticated
     // direct-API call. This is a preliminary, prose-unread score — flagged as such.
     console.warn(`[incident-report] deterministic fallback: ${!apiKey ? "ANTHROPIC_API_KEY not set" : "no authenticated user"}`);
-    return NextResponse.json(heuristicGrade(body,
-      "Note: this is a basic automatic score from deterministic checks only (real vs. invented indicators, presence of a response action). It does not read your reasoning — full AI analyst feedback is available when signed in on a deployment with AI grading configured.", true));
+    // No note appended: the result screen's "Automated check" banner (graded_by "deterministic")
+    // already says what this score checks. A cause in the learner's feedback ("temporarily
+    // unavailable") was misleading when the real cause is chronic (no key, no credit).
+    return NextResponse.json(heuristicGrade(body, undefined, true));
   }
   // Spend ceiling (migration 0024). Over budget → the same heuristic grade a
   // guest gets: still a real score, just not model-written.
   if (!(await checkAiBudget(reportUser.orgId)).allowed) {
-    return NextResponse.json(heuristicGrade(body,
-      "Note: this is a basic automatic score from deterministic checks only — detailed AI feedback is briefly unavailable.", true));
+    console.warn("[incident-report] deterministic fallback: org AI budget reached");
+    return NextResponse.json(heuristicGrade(body, undefined, true));
   }
 
   try {
@@ -388,8 +390,9 @@ async function grade(req: Request, captured: { body?: IncidentReportRequest }): 
     });
     return NextResponse.json(result);
   } catch (err) {
-    console.error("[incident-report]", err);
-    return NextResponse.json(heuristicGrade(body,
-      "Note: the AI grader was temporarily unavailable, so this is a basic automatic score from deterministic checks only (it does not read your reasoning).", true));
+    // The real cause (e.g. "credit balance is too low", a retired model) goes to the server log,
+    // never to the learner as "temporarily unavailable" (it was chronic, Tal 2026-11-18).
+    console.error("[incident-report] AI feedback failed, deterministic fallback:", err instanceof Error ? err.message : err);
+    return NextResponse.json(heuristicGrade(body, undefined, true));
   }
 }

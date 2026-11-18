@@ -4,6 +4,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Ev, RosterMember } from "@/lib/team/types";
 import { EDR_ISOLATION_TYPES } from "@/lib/team/projections";
 import { friendlyActionError } from "@/lib/team/format";
+import { TEAM_ENGLISH_ONLY_MESSAGE, payloadHasNonEnglish } from "@/lib/dashboard/reportLanguage";
 import {
   ISOLATION_REASON_MAX, ISOLATION_REQUEST_TYPES, NO_APPROVER, SELF_APPROVER, SELF_APPROVER_ADMIN, approverLabel, isolationApprovers, isolationRequests,
   type ApproverMember, type IsolationRequest,
@@ -21,6 +22,7 @@ const idem = (type: string, key: string) => `${type}:${key.toLowerCase()}:${Date
 async function apply(sessionId: string, type: string, payload: Record<string, unknown>, key: string): Promise<string | null> {
   const sb = getSupabaseBrowserClient();
   if (!sb) return "Not connected. Reload the page.";
+  if (payloadHasNonEnglish(type, payload)) return TEAM_ENGLISH_ONLY_MESSAGE;   // written work is English only
   const { error } = await sb.rpc("apply_session_action", { p_session: sessionId, p_type: type, p_payload: payload, p_idempotency_key: idem(type, key) });
   return error ? isolationError(error.message) : null;
 }

@@ -4,6 +4,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Ev } from "@/lib/team/types";
 import { EDR_ISOLATION_TYPES, isolationState, type HostIsolation } from "@/lib/team/projections";
 import { friendlyActionError } from "@/lib/team/format";
+import { TEAM_ENGLISH_ONLY_MESSAGE, payloadHasNonEnglish } from "@/lib/dashboard/reportLanguage";
 import { ISOLATION_REQUEST_TYPES, type IsolationRequest } from "@/lib/team/isolationApproval";
 import { approverNames, useIsolationRequest } from "@/lib/team/useIsolationRequest";
 
@@ -72,6 +73,7 @@ export function useTeamIsolation(sessionId: string | null, role: string | null =
     const idem = `${type}:${host.toLowerCase()}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     const payload: Record<string, unknown> = { host };
     if (caseTitle) payload.case = caseTitle.slice(0, 200);
+    if (payloadHasNonEnglish(type, payload)) return TEAM_ENGLISH_ONLY_MESSAGE;   // written work is English only
     const { error } = await sb.rpc("apply_session_action", { p_session: sessionId, p_type: type, p_payload: payload, p_idempotency_key: idem });
     await refresh();   // a refusal ("already isolated" by a teammate) still brings the true state
     return error ? friendlyActionError(error.message) : null;

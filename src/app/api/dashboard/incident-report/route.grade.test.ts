@@ -25,6 +25,11 @@ const grade = async (summary: string) => {
 };
 
 describe("incident-report grader", () => {
+  it("the automatic grade's feedback carries no misleading cause note (the result banner explains it)", async () => {
+    const r = await grade("ClickFix on WS-SALES-1876: a.kaplan@nexacorp.com ran PowerShell to 185.222.58.14. Isolate the host; data at risk.");
+    expect(r.feedback).not.toMatch(/temporarily|briefly unavailable|Note:/i);
+  });
+
   it("refuses a report that is not in English (422, not graded), Hebrew gibberish included", async () => {
     for (const summary of [
       "מתקפת ClickFix על WS-SALES-1876: המשתמש a.kaplan@nexacorp.com הריץ PowerShell שהתחבר ל-185.222.58.14. לבודד את המחשב.",
