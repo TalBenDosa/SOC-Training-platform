@@ -25,6 +25,18 @@ const grade = async (summary: string) => {
 };
 
 describe("incident-report grader", () => {
+  it("refuses a report that is not in English (422, not graded), Hebrew gibberish included", async () => {
+    for (const summary of [
+      "מתקפת ClickFix על WS-SALES-1876: המשתמש a.kaplan@nexacorp.com הריץ PowerShell שהתחבר ל-185.222.58.14. לבודד את המחשב.",
+      "דגכשדגכדגכ שדגשדגשדגשדגשדגש דכדגכדגכדגכ",
+      "ClickFix on WS-SALES-1876 by a.kaplan@nexacorp.com to 185.222.58.14, לבודד the host.",
+    ]) {
+      const res = await POST(new Request("https://x/api/dashboard/incident-report", { method: "POST", body: JSON.stringify({ ...story, summary }) }));
+      expect(res.status, summary).toBe(422);
+      expect((await res.json()).error).toMatch(/English only/);
+    }
+  });
+
   it("fails a wrong-attack report with no evidence even when it says MITRE and 'laptop'", async () => {
     for (const s of [
       "Kerberos golden ticket on the laptop, per MITRE. Isolate it, data at risk.",

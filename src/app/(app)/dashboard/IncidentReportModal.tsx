@@ -6,6 +6,7 @@ import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2 } from "lucid
 import { cn } from "@/lib/utils";
 import { Term } from "@/components/ui/Term";
 import type { IncidentReportResponse } from "@/app/api/dashboard/incident-report/route";
+import { ENGLISH_ONLY_MESSAGE, isEnglishOnly } from "@/lib/dashboard/reportLanguage";
 
 type Phase = "form" | "grading" | "result";
 
@@ -202,10 +203,12 @@ export function IncidentReportModal({
   // (identification, evidence, action, impact), and the grader docks points for a
   // missing action or impact, so the form must not let them be skipped. This keeps
   // the form and the score saying the same thing (L-10).
-  const canSubmit = guided
+  // Reports are English only (reportLanguage.ts): the form says so on the field and holds Submit.
+  const englishOk = isEnglishOnly(guided ? [gWhat, gIocs, gAction, gImpact].join(" ") : summary);
+  const canSubmit = englishOk && (guided
     ? gWhat.trim().length >= 10 && gIocs.trim().length >= 3 &&
       gAction.trim().length >= 5 && gImpact.trim().length >= 5
-    : summary.trim().length >= 30;
+    : summary.trim().length >= 30);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -356,9 +359,15 @@ export function IncidentReportModal({
                         value={f.value}
                         onChange={e => f.set(e.target.value)}
                         autoFocus={i === 0}
-                        className="w-full resize-none rounded border border-border/60 bg-bg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                        aria-invalid={!isEnglishOnly(f.value) || undefined}
+                        aria-describedby={!isEnglishOnly(f.value) ? `ir-guided-lang-${i}` : undefined}
+                        className={cn("w-full resize-none rounded border bg-bg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none leading-relaxed",
+                          isEnglishOnly(f.value) ? "border-border/60 focus:border-cyber-500/40" : "border-neon-amber/60")}
                         placeholder={f.ph}
                       />
+                      {!isEnglishOnly(f.value) && (
+                        <p id={`ir-guided-lang-${i}`} className="mt-1 text-[11px] text-neon-amber">{ENGLISH_ONLY_MESSAGE}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -372,15 +381,20 @@ export function IncidentReportModal({
                   </div>
                   <textarea
                     aria-labelledby="ir-summary-label"
-                    aria-describedby="ir-summary-count"
+                    aria-describedby={isEnglishOnly(summary) ? "ir-summary-count" : "ir-summary-count ir-summary-lang"}
+                    aria-invalid={!isEnglishOnly(summary) || undefined}
                     aria-required
                     rows={6}
                     value={summary}
                     onChange={e => setSummary(e.target.value)}
                     autoFocus
-                    className="w-full resize-none rounded border border-border/60 bg-bg px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                    className={cn("w-full resize-none rounded border bg-bg px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none leading-relaxed",
+                      isEnglishOnly(summary) ? "border-border/60 focus:border-cyber-500/40" : "border-neon-amber/60")}
                     placeholder="Example: I detected a password spray attack targeting multiple accounts from IP 91.108.4.154. The attacker tried over 40 failed logins before succeeding with r.patel's credentials. I collected the source IP and compromised username as IOCs. Recommended action: block the IP at the firewall, reset r.patel's password, and review all successful logins from that IP."
                   />
+                  {!isEnglishOnly(summary) && (
+                    <p id="ir-summary-lang" className="mt-1 text-[11px] text-neon-amber">{ENGLISH_ONLY_MESSAGE}</p>
+                  )}
                 </div>
               )}
 

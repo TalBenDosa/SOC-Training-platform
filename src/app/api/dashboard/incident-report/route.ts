@@ -23,6 +23,7 @@ import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { analyseIndicators } from "@/lib/dashboard/indicatorAnalysis";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { recordIncident } from "@/lib/progress/record";
+import { ENGLISH_ONLY_MESSAGE, isEnglishOnly } from "@/lib/dashboard/reportLanguage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -314,6 +315,12 @@ async function grade(req: Request, captured: { body?: IncidentReportRequest }): 
       gaps: ["The report field was empty — write your analysis before submitting."],
       graded_by: "deterministic",
     } satisfies IncidentReportResponse);
+  }
+
+  // English only (reportLanguage.ts): a report in another language is refused, not graded or
+  // recorded (the form already holds Submit; this is the server-side backstop).
+  if (!isEnglishOnly(body.summary)) {
+    return NextResponse.json({ error: ENGLISH_ONLY_MESSAGE }, { status: 422 });
   }
 
   // score/passed are ALWAYS the deterministic rubric result — see the security
