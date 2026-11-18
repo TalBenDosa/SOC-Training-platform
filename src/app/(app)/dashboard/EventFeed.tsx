@@ -170,8 +170,8 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
               ))}
             </div>
           </div>
-          <div className="rounded border border-severity-high/30 bg-severity-high/5 px-2 py-1.5">
-            <p className="text-[9px] font-semibold text-severity-high mb-0.5">🔍 Red flag</p>
+          <div className="rounded border border-cyber-500/30 bg-cyber-500/5 px-2 py-1.5">
+            <p className="text-[9px] font-semibold text-cyber-300 mb-0.5">Worth checking</p>
             <p className="text-[9px] text-slate-300">{guide.redFlag}</p>
           </div>
         </div>
@@ -674,7 +674,8 @@ export function DetailPanelBody({
     : null;
 
   const actionColor = actionOutcome
-    ? actionOutcome.status === "detected" ? "text-severity-critical"
+    // Neutral like every other detail row (F-05): a red "DETECTED" line flagged the attack's rows.
+    ? actionOutcome.status === "detected" ? "text-slate-300"
     : actionOutcome.status === "allowed"  ? "text-slate-400"
     : "text-neon-green"
     : undefined;
@@ -1174,7 +1175,7 @@ function SocMethodologyBanner() {
     { num: "2", label: "Actors", detail: "Who is the user? What machine? What process? What started it?" },
     { num: "3", label: "Behavior", detail: "Is this normal for this context? Would a legitimate user do exactly this?" },
     { num: "4", label: "Pattern", detail: "Does this match a known attack? Expand the row to see its MITRE ATT&CK mapping." },
-    { num: "5", label: "Classify", detail: "Benign = expected normal activity. Suspicious = unusual but inconclusive. Malicious = clear attack indicator." },
+    { num: "5", label: "Decide", detail: "What happened, and what would you do? Normal activity needs no action; an attack goes into your Incident Report." },
   ];
 
   return (
@@ -1312,11 +1313,8 @@ const EventRow = memo(function EventRow({
             {(() => {
               const ft = Number(event.raw?.["firedtimes"] ?? 0);
               if (ft <= 1) return null;
-              const color = ft >= 50
-                ? "border-severity-critical/60 bg-severity-critical/15 text-severity-critical"
-                : ft >= 15
-                  ? "border-severity-high/60 bg-severity-high/15 text-severity-high"
-                  : "border-neon-amber/50 bg-neon-amber/10 text-neon-amber";
+              // One neutral tone for any count (F-05): red at 50+ marked the brute-force bursts.
+              const color = "border-slate-500/50 bg-slate-500/10 text-slate-300";
               return (
                 <span className={cn("shrink-0 inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums", color)}
                   title={`Rule fired ${ft} times`}>
@@ -1651,7 +1649,7 @@ export function EventFeed({
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity - EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
-              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical - act now. High levels still need verifying: false positives fire high rules too." /></th>
+              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: low. 7-9: medium. 10-12: high. 13-15: critical. A starting point, not a verdict: false positives fire high rules too, and real attacks often show at low levels." /></th>
               {wide && <th id="ef-th-mitre" className="py-2 pr-3"><HeaderTip icon label="MITRE" tip="ATT&CK technique. Click a badge for details." /></th>}
               <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event." /></th>
             </tr>

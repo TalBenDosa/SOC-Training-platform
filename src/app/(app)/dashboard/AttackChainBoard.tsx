@@ -170,7 +170,6 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
           {/* Instructions */}
           <p className="text-[10px] text-slate-400 leading-relaxed">
             Drag each event below into its correct Kill-Chain phase - or click an event to select it, then click a phase slot to drop it there. Benign events should be left unassigned.
-            <span className="text-neon-purple"> +5 XP per correct slot, +50 XP bonus for a perfect chain.</span>
           </p>
 
           {/* Kill-chain slots */}
@@ -321,10 +320,9 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                   score.correct === score.total ? "text-neon-green" : "text-neon-amber"
                 )}>
                   {score.correct === score.total
-                    ? "Perfect kill chain! 🏆"
+                    ? "Perfect kill chain!"
                     : `${score.correct} / ${score.total} slots correct`}
                 </p>
-                <p className="font-mono text-sm font-bold text-neon-green">+{score.xp} XP</p>
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 {score.correct === score.total

@@ -6,8 +6,8 @@ import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Storage keys (bump version when steps change) ────────────────────────────
-const DASHBOARD_TOUR_KEY = "soc-dashboard-tour-v8-done";
-const LOG_TOUR_KEY       = "soc-log-tour-v8-done";
+const DASHBOARD_TOUR_KEY = "soc-dashboard-tour-v9-done";   // v9: corrected copy (Stage A, 2026-11-18)
+const LOG_TOUR_KEY       = "soc-log-tour-v9-done";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface TourStep {
@@ -25,7 +25,7 @@ const DASHBOARD_STEPS: TourStep[] = [
     title: "Welcome to your SIEM",
     icon: "🛡️",
     content:
-      "This is a Security Information and Event Management system - the command center of a real SOC. Security events from across the company flow in here in real time. Your job: read them, spot the threats, classify them.",
+      "This is a Security Information and Event Management system - the command center of a real SOC. Security events from across the company flow in here in real time. Your job: read them, find the real attack hidden among normal activity, and report it.",
   },
   {
     title: "Every row = one security event",
@@ -55,22 +55,22 @@ const DASHBOARD_STEPS: TourStep[] = [
     icon: "🔍",
     content:
       "Different tools see different layers of activity. EDR sees processes and files. Firewall sees network traffic. Active Directory sees logins. Knowing the source tells you what type of activity to look for in the raw fields.",
-    example: "EDR      → process.name, process.parent.name\nFirewall → source.ip, destination.ip, action\nAD       → user.name, event.code, logon.type",
+    example: "EDR      → process image, parent process, command line\nFirewall → source and destination IP, port, action\nAD       → account name, event ID, logon type",
     targetId: "ef-th-source",
   },
   {
     title: "RULE LEVEL - How serious?",
     icon: "⚡",
     content:
-      "A severity score from 1 to 10, calculated automatically from the event fields. Start every shift by scanning for level 7+ events first - those are the ones that need immediate attention.",
-    example: "1  → DNS query for slack.com (routine)\n5  → Inbound SSH blocked (investigate)\n9  → PowerShell with encoded command\n10 → LSASS credential dump detected",
+      "The detection rule's level, 3 to 15: 3-6 low, 7-9 medium, 10-15 high. It is where to start reading, not a verdict: false positives fire high rules too, and real attacks often show at low levels. Read the fields, then decide.",
+    example: "3  → DNS query for slack.com\n7  → Inbound SSH blocked at the firewall\n12 → A rule on encoded PowerShell fired (true or false positive?)",
     targetId: "ef-th-level",
   },
   {
     title: "RULE ID & MITRE Techniques",
     icon: "🎯",
     content:
-      "The Rule ID is the detection rule that fired. When you see a purple badge like T1059.001 - that's a MITRE ATT&CK technique ID. Click it to learn exactly what this attacker technique does, what to look for in logs, and how to detect it.",
+      "The Rule ID is the detection rule that fired. Some rows also carry a MITRE ATT&CK technique ID like T1059.001 (in the MITRE column or inside the opened log). Click it to learn what the technique does, what to look for in logs, and how to detect it.",
     example: "HTS-92400    → generic process creation\nT1059.001     → PowerShell execution\nT1003.001     → LSASS credential dump",
     targetId: "ef-th-ruleid",
   },
@@ -78,7 +78,7 @@ const DASHBOARD_STEPS: TourStep[] = [
     title: "Filters - focus your investigation",
     icon: "🔎",
     content:
-      "Filters narrow the event feed without deleting anything. Investigating one machine? Press '+ More filters' for HOST, USER, IP and MITRE filters. Too much noise? Set LEVEL to 10-15 HIGH. Filters stack - you can combine them.",
+      "Filters narrow the event feed without deleting anything. Investigating one machine? Press '+ More filters' for HOST, USER, IP and MITRE filters. Filters stack - you can combine them, and the feed keeps every row behind them.",
     targetId: "ef-filter-row",
   },
   {
@@ -115,8 +115,8 @@ const LOG_STEPS: TourStep[] = [
     title: "Detailed Log Data - the raw fields",
     icon: "🔬",
     content:
-      "All original fields from the security tool in ECS (Elastic Common Schema) format - the same standard used by Splunk, Microsoft Sentinel, and CrowdStrike. For process events, find process.name and process.parent.name first - that relationship reveals most attacks.",
-    example: "process.name         → what ran\nprocess.parent.name  → what launched it\nprocess.command_line → exact command\nsource.ip / dest.ip  → network context",
+      "All original fields, in the security tool's own native format (Sysmon, Defender, Falcon and so on each name their fields differently). For process events, find the process image and its parent first - that relationship reveals most attacks.",
+    example: "Image / FileName         → what ran\nParentImage              → what launched it\nCommandLine              → exact command\nSourceIp / DestinationIp → network context",
     targetId: "ef-detail-log-data",
   },
 ];

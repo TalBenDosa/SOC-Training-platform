@@ -34,7 +34,7 @@ const ENDED: Record<SessionReport["facts"]["endedBy"], string> = {
 /** The end-of-training report: success metrics against their targets and where to improve. */
 export function SessionReportModal({ report, companyName, onClose, onNewTraining }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(true, dialogRef);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });   // F-11: Escape closes it, like every other dialog
   const band = BAND[report.band];
   const f = report.facts;
   const date = new Date(f.endedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });

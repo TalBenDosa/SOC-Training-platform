@@ -75,10 +75,16 @@ function DecoderDrawer({ seed, onClose }: { seed: { value: string; n: number } |
   }, [input, recipe]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
+    // Capture phase + preventDefault (F-11): the Decoder sits on top, so Escape closes only it and
+    // the report drawer underneath (which ignores a defaultPrevented Escape) stays open.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
     panel.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
 
   const next = suggestOp(output);

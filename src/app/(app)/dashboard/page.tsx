@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { lsGet, lsSet, lsRemove, ssGet, ssSet, ssRemove } from "@/lib/storage/safeStorage";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { parseStoredReport, setDashboardOwner } from "@/lib/dashboard/learnerStorage";
 import { EDR_ACK_KEY, readAckedAlerts, unacknowledged } from "@/lib/edr/alerts";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
@@ -48,11 +50,10 @@ import {
 const COMPANY_KEY       = "soc_selected_company_v1";  // device-local UI preference (which company is open)
 const COMPANY_ORDER     = ["nexacorp", "rocketstack", "medcore", "globallogis", "quantumbank"];
 
-// Auto-advance rule: catch this many attacks within this rolling window and the
+// Auto-advance rule: this many passing reports in one training and the
 // company is secured AUTOMATICALLY and the next one unlocks - this replaces the
 // manual "End Session → Secure This Company" gate.
 const ADVANCE_CATCHES   = 2;
-const ADVANCE_WINDOW_MS = 30 * 60_000; // 30 minutes
 const MISSION_BONUS_XP  = 250;         // session-XP reward for completing the mission
 /** The last end-of-training report, reopened from the idle header (device-local copy). */
 const LAST_REPORT_KEY   = "soc_last_training_report_v1";
@@ -94,10 +95,10 @@ const WELCOME_KEY = "soc_welcome_seen_v1";
  * appeared at once (two stacked dark overlays, 13 screens before the analyst
  * could touch anything), which is what made onboarding feel cluttered.
  */
-function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeTour: () => void }) {
-  // a11y: modal dialog - focus trapped inside, Escape = "Start my shift" (dismiss).
+function SOCWelcomeModal({ onStart, onTakeTour, onDismiss }: { onStart: () => void; onTakeTour: () => void; onDismiss: () => void }) {
+  // a11y: modal dialog - focus trapped inside, Escape dismisses it.
   const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(true, dialogRef, { onEscape: onStart });
+  useFocusTrap(true, dialogRef, { onEscape: onDismiss });
   return (
     // Overlay is fixed and scrollable so the card never pushes the page (no jump).
     // data-blocks-announcements: the plan-announcement popup waits until this closes.
@@ -123,11 +124,11 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
 
           {/* Mission - the one thing that must land */}
           <p className="mt-5 text-[13px] leading-relaxed text-slate-300">
-            Security events are streaming in below. <span className="font-semibold text-white">Most are normal.</span> A real
+            Once you start, security events stream in one by one. <span className="font-semibold text-white">Most are normal.</span> A real
             attack is hidden among them - <span className="font-semibold text-white">find it and report it.</span>
           </p>
 
-          {/* 3 steps - flat list, no nested boxes, scannable at a glance */}
+          {/* 4 steps - flat list, no nested boxes, scannable at a glance */}
           <ol className="mt-5 space-y-3.5">
             {[
               { n: "1", title: "Watch the feed", body: "Click any row to open its full raw log." },
@@ -151,15 +152,17 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border/50 bg-bg/50 px-4 py-3">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Severity</span>
             {[
-              { v: "4", label: "3–6 routine",    cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
-              { v: "8", label: "7–9 look closer", cls: "border-severity-medium/80 bg-severity-medium/70 text-white" },
-              { v: "12", label: "10–15 act now",  cls: "border-severity-critical bg-severity-critical text-white" },
+              // The scale only (F-05): severity is where to start reading, never a verdict.
+              { v: "4", label: "3-6 low",     cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
+              { v: "8", label: "7-9 medium",  cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
+              { v: "12", label: "10-15 high", cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
             ].map(({ v, label, cls }) => (
               <span key={v} className="flex items-center gap-1.5 text-[12px] text-slate-300">
                 <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded border font-mono text-[10px] font-bold", cls)}>{v}</span>
                 {label}
               </span>
             ))}
+            <span className="w-full text-[11px] text-slate-400">A starting point, not a verdict: real attacks often hide in low-level rows.</span>
           </div>
 
           {/* CTAs - start now, or take the guided tour first */}
@@ -194,23 +197,31 @@ export type { Difficulty };
 // Difficulty describes only the CHALLENGE - never which attack is coming.
 // The attack type is chosen at random and kept hidden; the analyst must find it.
 const DIFFICULTIES: { id: Difficulty; label: string; blurb: string; accent: string }[] = [
-  { id: "easy",   label: "Easy",   blurb: "A calmer feed with a clearer attack and a generous window to spot it.", accent: "text-neon-green" },
+  // What the levels really change (F7): the noise volume and how subtle the attack is. Timing is the same.
+  { id: "easy",   label: "Easy",   blurb: "A calmer feed and a simpler, single-host attack. The right first training.", accent: "text-neon-green" },
   { id: "medium", label: "Medium", blurb: "A busier feed. The attack blends into normal activity - read carefully.", accent: "text-severity-medium" },
-  { id: "hard",   label: "Hard",   blurb: "Heavy noise, a subtle attack, and a tight window. For confident analysts.", accent: "text-severity-critical" },
+  { id: "hard",   label: "Hard",   blurb: "Heavy noise and a subtle, multi-step attack. For confident analysts.", accent: "text-severity-critical" },
 ];
 
 function StartTrainingModal({
   onStart,
   onClose,
   initial = "easy",
+  companies,
+  companyId,
 }: {
-  onStart: (difficulty: Difficulty) => void;
+  onStart: (difficulty: Difficulty, companyId: string) => void;
   onClose: () => void;
   /** The level the dialog opens on: the analyst's last level, else Easy (foundation-tier single-host attacks
    *  are the right first practical). The analyst still picks before the training starts. */
   initial?: Difficulty;
+  /** The organisations open to this analyst. With more than one, the dialog asks which (Stage A, 2026-11-18:
+   *  one setup screen instead of a separate selector before the first shift). */
+  companies: { id: string; name: string }[];
+  companyId: string;
 }) {
   const [selected, setSelected] = useState<Difficulty>(initial);
+  const [company, setCompany] = useState(companyId);
   // a11y: modal dialog - focus trapped inside, Escape closes, focus returns to the trigger.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
@@ -230,6 +241,20 @@ function StartTrainingModal({
           Pick a difficulty. A fresh session begins with normal activity - and somewhere in it, an attack.
           You won&apos;t be told what it is: watch the feed, spot it, and report it.
         </p>
+
+        {companies.length > 1 && (
+          <label className="mt-5 block">
+            <span className="text-xs font-semibold text-slate-300">Organisation</span>
+            <select
+              id="start-training-company"
+              value={company}
+              onChange={e => setCompany(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 focus:border-cyber-500/60 focus:outline-none"
+            >
+              {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+        )}
 
         <div className="mt-5 space-y-3" role="group" aria-label="Difficulty">
           {DIFFICULTIES.map((d) => (
@@ -253,7 +278,7 @@ function StartTrainingModal({
 
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={() => { onStart(selected); onClose(); }}>
+          <Button variant="primary" size="sm" onClick={() => { onStart(selected, company); onClose(); }}>
             <Zap className="h-4 w-4" /> Start Session
           </Button>
         </div>
@@ -424,9 +449,14 @@ export default function DashboardPage() {
   const gradedRef            = useRef<GradedReport[]>([]);
   const missedRef            = useRef<MissedAttack[]>([]);
   const edrIncidentsRef      = useRef<Set<string>>(new Set());
+  // F15: the last report belongs to the learner signed in now. Read it once auth has resolved (after the
+  // owner check, so a previous learner's copy on a shared PC is already gone), and never trust its shape.
+  const { user: authUser, loading: authLoading } = useAuth();
   useEffect(() => {
-    try { const raw = lsGet(LAST_REPORT_KEY); if (raw) setLastReport(JSON.parse(raw) as SessionReport); } catch { /* ignore */ }
-  }, []);
+    if (authLoading) return;
+    setDashboardOwner(authUser?.id ?? null);
+    setLastReport(parseStoredReport(lsGet(LAST_REPORT_KEY)));
+  }, [authLoading, authUser?.id]);
 
   // ─── Company progression ──────────────────────────────────────────────────
   // Cleared companies persist through the storage facade → DB (user_progress.
@@ -509,7 +539,6 @@ export default function DashboardPage() {
   const [caughtInWindow, setCaughtInWindow] = useState(0);
   // Time left (ms) to catch the next attack before the oldest catch rolls out of
   // the 30-min window - null when there are no catches in the window yet.
-  const [, setWindowRemainingMs] = useState<number | null>(null);
 
   // Filters
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
@@ -535,6 +564,10 @@ export default function DashboardPage() {
   // time: the next attack is armed only when the student files a passing report
   // (handleReportPassed), never automatically when a story finishes injecting.
   const armedNextRef = useRef(false);
+  /** The passing report that secures the company: closing that report secures it (F1). */
+  const advancePendingRef = useRef(false);
+  /** The page reloaded during a training, which ended it (F4): say so above the feed until the next start. */
+  const [reloadNotice, setReloadNotice] = useState(false);
   // Story completion no longer auto-arms the next attack - that let a second
   // incident pile on while the student was still working the first. An uncaught
   // story simply ends (no popup, no halt - the feed keeps streaming); a caught
@@ -820,20 +853,22 @@ export default function DashboardPage() {
       lsRemove("soc_edr_investigated");
     } catch { /* ignore */ }
 
-    if (!seenWelcome) {
-      setShowWelcome(true);
-    } else if (!saved) {
-      setShowCompanySelector(true);
-    }
+    // First visit: the briefing. Its "Start my shift" opens the setup dialog (organisation + level) and
+    // that dialog's Start begins the shift: two clicks to the first log, no separate company selector.
+    if (!seenWelcome) setShowWelcome(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);   // intentionally runs once on mount only
 
   // ── Handlers ─────────────────────────────────────────────────────────────
+  /** The one way to set up a training: organisation (when more than one is open) + level, then Start. */
+  const openSetup = () => { loadSimData().catch(() => {}); setShowTrainingModal(true); };
   const handleCloseWelcome = () => {
     lsSet(WELCOME_KEY, "1");
     setShowWelcome(false);
-    if (!lsGet(COMPANY_KEY)) setShowCompanySelector(true);
+    openSetup();
   };
+  /** Escape on the briefing dismisses it without opening the setup (the analyst may want to look around). */
+  const dismissWelcome = () => { lsSet(WELCOME_KEY, "1"); setShowWelcome(false); };
 
   /** Briefing → guided tour. Dismiss the modal FIRST so the two never overlap. */
   const handleTakeTour = () => {
@@ -864,7 +899,6 @@ export default function DashboardPage() {
     caughtTimesRef.current = [];
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
-    setWindowRemainingMs(null);
     // Picking a company does NOT start the feed - it waits for Start Training.
     // If a shift was running, end it so nothing streams for the new company
     // until the student explicitly starts again.
@@ -909,15 +943,8 @@ export default function DashboardPage() {
     }
   };
 
-  // ── Dynamic KPIs ─────────────────────────────────────────────────────────────
-  const threatLevel = useMemo(() => {
-    const recent = live.events.slice(0, 20);
-    const highCount = recent.filter(e => e.ruleLevel >= 10).length;
-    const medCount  = recent.filter(e => e.ruleLevel >= 7 && e.ruleLevel < 10).length;
-    if (highCount / recent.length > 0.4) return "High";
-    if ((highCount + medCount) / recent.length > 0.3) return "Medium";
-    return "Low";
-  }, [live.events]);
+  // No "Threat Level" KPI (F-05, Stage A): it rose when the attack's rows landed, a gauge of
+  // "is the attack here now" that the no-hints design does not allow.
 
   // Dynamic filter options - populated from whatever is currently in the feed
   const filterOptions = useMemo(() => {
@@ -927,11 +954,6 @@ export default function DashboardPage() {
     const mitres = Array.from(new Set(live.events.map(e => e.mitre_technique).filter(Boolean))) as string[];
     return { users, hosts, ips, mitres };
   }, [live.events]);
-
-  const threatLevelColor =
-    threatLevel === "High"   ? "text-severity-critical" :
-    threatLevel === "Medium" ? "text-severity-medium" :
-                               "text-neon-green";
 
   // ── Company progression helpers ───────────────────────────────────────────
   const nextCompanyId = COMPANY_ORDER[COMPANY_ORDER.indexOf(selectedCompanyId) + 1] ?? null;
@@ -976,6 +998,7 @@ export default function DashboardPage() {
   };
   /** End the training now (time is up, or the analyst ends it) and show its report. */
   const finishTraining = (endedBy: SessionEnd) => {
+    advancePendingRef.current = false;
     const r = collectReport(endedBy);
     live.endSession();
     live.pause();
@@ -988,7 +1011,6 @@ export default function DashboardPage() {
     caughtTimesRef.current = [];
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
-    setWindowRemainingMs(null);
     timeUpRef.current = false;
     setTimeUp(false);
     try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
@@ -1004,22 +1026,20 @@ export default function DashboardPage() {
     setTrainingReport(null);
     if (advanceAfterReportRef.current) {
       advanceAfterReportRef.current = false;
-      if (nextCompanyId) handleSelectCompany(nextCompanyId);
+      // F12: Mission Complete said "Start <next>": after its report, the next organisation's setup opens.
+      if (nextCompanyId) { handleSelectCompany(nextCompanyId); openSetup(); }
     }
   };
   const newTrainingFromReport = () => {
-    const d = trainingReport?.facts.difficulty;
     const next = advanceAfterReportRef.current ? nextCompanyId : null;
     advanceAfterReportRef.current = false;
     setTrainingReport(null);
     if (next) handleSelectCompany(next);
     // A new training starts from the level choice, never silently on the last level (QA 2026-11-12).
-    void d;
-    loadSimData().catch(() => {});
-    setShowTrainingModal(true);
+    openSetup();
   };
 
-  /** The student caught ADVANCE_CATCHES attacks within ADVANCE_WINDOW_MS - end the
+  /** The student caught ADVANCE_CATCHES attacks in this training - end the
    *  shift and secure the company AUTOMATICALLY. This is the sole progression path
    *  now that "End Session" is gone: performance advances you, not a button. */
   const autoAdvanceCompany = () => {
@@ -1033,10 +1053,13 @@ export default function DashboardPage() {
     setSessionDifficulty(null);
     setTrainingActive(false);   // lock the EDR console again
     closeShiftWindows();
+    // F1: nothing of the shift stays open behind Mission Complete (report drawer, its pause, the chain).
+    setShowReportModal(false);
+    setPausedForReport(false);
+    live.clearLastAttackChain();
     caughtTimesRef.current = [];
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
-    setWindowRemainingMs(null);
     try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
     handleClearCompany();       // secure → Company-Secured modal → unlock next
   };
@@ -1078,8 +1101,9 @@ export default function DashboardPage() {
     const story = stackedStory(s, orgMap, company, difficulty, stack, nm);
     setSessionStory(story);
     setInjectedStories([story]);
-    // A refresh resumes the same 30-minute training: its clock keeps the original start.
     const startedAt = resumeStartedAt ?? Date.now();
+    setReloadNotice(false);
+    advancePendingRef.current = false;
     setSessionStartedAt(startedAt);
     setSessionDifficulty(difficulty);
     setSessionElapsed(Math.floor((Date.now() - startedAt) / 1000));
@@ -1095,7 +1119,6 @@ export default function DashboardPage() {
     caughtTimesRef.current = [];    // fresh catch window for the auto-advance rule
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
-    setWindowRemainingMs(null);
     // Clean per-shift page state (QA-DASH-5): a Reset mid-shift must not keep the
     // previous shift's report / chain board / EDR pause around.
     setReportPassed(false);
@@ -1118,15 +1141,6 @@ export default function DashboardPage() {
     try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty, st: stack, t: startedAt })); } catch { /* ignore */ }
   };
 
-  /** Reset = a new training: it opens the same level choice as Start Training (Tal, 2026-11-13: starting a
-   *  training always offers the level). Starting from the dialog saves the running shift first (QA-DASH-5 /
-   *  QA-DASH-8); cancelling it leaves the running shift as it was. */
-  const handleResetShift = () => {
-    if (!sessionDifficulty) return;
-    loadSimData().catch(() => {});
-    setShowTrainingModal(true);
-  };
-
   // QA-DASH-8: a shift with activity is saved when the tab is hidden for good or
   // the dashboard unmounts (navigating away). endSession saves each shift once.
   useEffect(() => {
@@ -1137,25 +1151,23 @@ export default function DashboardPage() {
     return () => { window.removeEventListener("pagehide", save); save(); };
   }, []);
 
-  // L-09: on a page refresh mid-shift, resume the session instead of dropping the
-  // analyst back to an idle 0-event feed. Runs once on mount; the marker is written
-  // by handleStartTraining and cleared when a shift is secured.
+  // F4 (Stage A, 2026-11-18): a page refresh mid-shift ENDS that training honestly. The old "resume" kept
+  // the 30-minute clock but rolled a new attack and zeroed the catches, reports and counters (and let a
+  // refresh re-roll a hard attack). The interrupted shift was already saved on pagehide; the analyst is
+  // told so and starts a new training in one click. A true resume needs the server-side shift record (Stage B).
   const resumedRef = useRef(false);
   useEffect(() => {
     if (resumedRef.current) return;
     resumedRef.current = true;
-    let saved: { c?: string; d?: Difficulty; st?: Stack; t?: number } | null = null;
+    let saved: { c?: string; d?: Difficulty; t?: number } | null = null;
     try {
       const raw = ssGet("soc_dash_session");
       if (raw) saved = JSON.parse(raw);
     } catch { saved = null; }
-    // A training whose 30 minutes ran out while the page was away is over: it is not resumed.
-    if (typeof saved?.t === "number" && Date.now() - saved.t >= SESSION_LIMIT_MS) {
-      try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
-      saved = null;
-    }
-    if (saved?.c && (saved.d === "easy" || saved.d === "medium" || saved.d === "hard")) {
-      void handleStartTraining(saved.d, saved.c, saved.st, typeof saved.t === "number" ? saved.t : undefined);
+    try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
+    if (saved && typeof saved.c === "string" && (saved.d === "easy" || saved.d === "medium" || saved.d === "hard")) {
+      if (saved.c !== selectedCompanyId) setSelectedCompanyId(saved.c);
+      setReloadNotice(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1189,11 +1201,19 @@ export default function DashboardPage() {
   /** Close the report - if we paused the feed for it, ask before resuming. */
   const closeReport = () => {
     setShowReportModal(false);
+    setShowChainBoard(false);
+    // The report that secured the company: closing it secures it (F1, one window at a time).
+    if (advancePendingRef.current) { advancePendingRef.current = false; autoAdvanceCompany(); return; }
     // Time ran out while the report was open: closing it ends the training.
     if (timeUpRef.current) { finishTraining("time"); return; }
+    // No training running (F1): nothing to resume.
+    if (sessionStartedAt === null) { setPausedForReport(false); return; }
     if (pausedForReport) setShowResumePrompt(true);
   };
-  const resumeShift = () => { live.resume(); setPausedForReport(false); setShowResumePrompt(false); };
+  const resumeShift = () => {
+    setPausedForReport(false); setShowResumePrompt(false);
+    if (sessionStartedAt !== null) live.resume();   // never restart a feed with no training (F1)
+  };
   const stayPaused  = () => { setPausedForReport(false); setShowResumePrompt(false); };
 
   // The training report's inputs that the hook does not count: each missed attack, and each
@@ -1209,10 +1229,7 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edrInvestigated]);
 
-  // Tick the session clock once a second while a session is running. The same
-  // tick maintains the auto-advance window: it rolls off catches older than
-  // ADVANCE_WINDOW_MS (so the count can drop on its own) and computes the time
-  // left to reach the next catch before the oldest one expires.
+  // Tick the session clock once a second while a session is running.
   useEffect(() => {
     if (sessionStartedAt === null) return;
     const id = setInterval(() => {
@@ -1231,12 +1248,6 @@ export default function DashboardPage() {
       }
       setSessionElapsed(Math.min(Math.floor((now - sessionStartedAt) / 1000), SESSION_LIMIT_MS / 1000));
       if (now - sessionStartedAt >= SESSION_LIMIT_MS && !timeUpRef.current) { timeUpRef.current = true; onTimeUpRef.current(); }
-      const kept = caughtTimesRef.current.filter(t => now - t <= ADVANCE_WINDOW_MS);
-      if (kept.length !== caughtTimesRef.current.length) {
-        caughtTimesRef.current = kept;
-        setCaughtInWindow(kept.length);
-      }
-      setWindowRemainingMs(kept.length > 0 ? Math.max(0, kept[0] + ADVANCE_WINDOW_MS - now) : null);
     }, 1000);
     return () => clearInterval(id);
   }, [sessionStartedAt]);
@@ -1324,13 +1335,14 @@ export default function DashboardPage() {
     >
       <LiveAnnouncer events={live.events} isStreaming={live.isStreaming} sessionXp={live.sessionXp} />
 
-      {showWelcome && <SOCWelcomeModal onStart={handleCloseWelcome} onTakeTour={handleTakeTour} />}
+      {showWelcome && <SOCWelcomeModal onStart={handleCloseWelcome} onTakeTour={handleTakeTour} onDismiss={dismissWelcome} />}
 
       {showCompanySelector && (
         <CompanySelector
           currentId={selectedCompanyId}
           onSelect={handleSelectCompany}
-          onClose={lsGet(COMPANY_KEY) ? () => setShowCompanySelector(false) : undefined}
+          onClose={() => setShowCompanySelector(false)}
+          sessionActive={sessionStartedAt !== null}
           unlockedIds={[...unlockedCompanies, ...orgCompanyProfiles.map(c => c.id)]}
           clearedIds={clearedCompanies}
           extraCompanies={orgCompanyProfiles}
@@ -1339,7 +1351,12 @@ export default function DashboardPage() {
 
       {showTrainingModal && (
         <StartTrainingModal
-          onStart={(d) => handleStartTraining(d)}
+          companies={[...COMPANY_PROFILES.filter(c => unlockedCompanies.includes(c.id)), ...orgCompanyProfiles].map(c => ({ id: c.id, name: c.name }))}
+          companyId={selectedCompanyId}
+          onStart={(d, c) => {
+            if (c !== selectedCompanyId) { lsSet(COMPANY_KEY, c); setSourceFilter("all"); }
+            void handleStartTraining(d, c);
+          }}
           initial={(() => { const d = sessionDifficulty ?? lastReport?.facts.difficulty; return d === "medium" || d === "hard" ? d : "easy"; })()}
           onClose={() => setShowTrainingModal(false)}
         />
@@ -1416,11 +1433,14 @@ export default function DashboardPage() {
             {/* Report Incident - the key action, and the only place the analyst
                 is graded. Solid CTA throughout; no pulse/hint tied to whether
                 they've "caught" anything - that would leak the answer. */}
+            {/* F13: there is nothing to report before a training starts (an idle report used to "pass" on nothing). */}
             <button
               id="report-incident-btn"
               onClick={openReport}
+              disabled={sessionStartedAt === null && !showReportModal}
+              title={sessionStartedAt === null ? "Start a training first" : undefined}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-3.5 py-2 text-xs font-bold shadow transition",
+                "flex items-center gap-1.5 rounded-md px-3.5 py-2 text-xs font-bold shadow transition disabled:cursor-not-allowed disabled:opacity-50",
                 reportPassed
                   ? "bg-neon-green text-bg hover:bg-neon-green/90"
                   : "bg-neon-purple text-white hover:brightness-110",
@@ -1429,9 +1449,13 @@ export default function DashboardPage() {
               <FileText className="h-4 w-4" />
               {reportPassed ? "Report Submitted ✓" : "Report Incident"}
             </button>
-            <Button variant="primary" size="sm" onClick={() => { loadSimData().catch(() => {}); setShowTrainingModal(true); }}>
-              <Target className="h-4 w-4" /> Start Training
-            </Button>
+            {/* One control (F5 / F-04): Start Training while idle; during a training, "End & report" in the
+                status bar ends it first, so a running training is never silently replaced. */}
+            {sessionStartedAt === null && (
+              <Button variant="primary" size="sm" onClick={openSetup}>
+                <Target className="h-4 w-4" /> Start Training
+              </Button>
+            )}
           </div>
         }
       />
@@ -1472,10 +1496,6 @@ export default function DashboardPage() {
             <span className="font-mono text-sm font-bold text-cyber-300">{live.sessionXp}</span>
           </span>
           <span className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="font-semibold text-white">Threat Level</span>
-            <span className={cn("font-mono text-sm font-bold", threatLevelColor)}>{threatLevel}</span>
-          </span>
-          <span className="flex items-center gap-2 text-xs text-slate-400">
             <BookOpen className="h-3.5 w-3.5 text-slate-400" />
             <span className="font-semibold text-white">Companies</span>
             <span className="font-mono text-sm font-bold text-neon-purple">{clearedCompanies.length}/{COMPANY_ORDER.length}</span>
@@ -1506,21 +1526,19 @@ export default function DashboardPage() {
                   {sessionDifficulty}
                 </span>
               )}
-              <span className={cn("font-mono text-xs font-bold tabular-nums", timeLow ? "text-neon-amber" : "text-white")} title="Time left in this 30-minute training">
-                {sessionClock} left
+              {/* The one value to watch: larger than the rest, and the last five minutes say so in words too (F20). */}
+              <span className={cn("font-mono text-sm font-bold tabular-nums", timeLow ? "text-neon-amber" : "text-white")} title="Time left in this 30-minute training">
+                {sessionClock} left{timeLow && remainingSec > 0 ? " - file your report" : ""}
               </span>
-              {/* Progress toward the auto-advance rule: catch 2 attacks in a
-                  rolling 30-min window. Framed as positive progress, not time
-                  pressure - if the window lapses the count just resets, no penalty
-                  (consistent with the no-fail debrief philosophy elsewhere). */}
+              {/* Progress toward securing the company: 2 passing reports in this training. Framed as
+                  positive progress (consistent with the no-fail debrief philosophy elsewhere). */}
               <span
                 className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-cyber-300"
                 title={`Catch ${ADVANCE_CATCHES} attacks in this 30-minute training to secure the company and unlock the next one`}
               >
                 Caught {Math.min(caughtInWindow, ADVANCE_CATCHES)}/{ADVANCE_CATCHES}
               </span>
-              {/* Explicit, calm status: how many more and how long left in the
-                  current rolling window. Neutral cyber tone (not alarming amber). */}
+              {/* The one control while a training runs (Start Training is idle-only): end it and see the report. */}
               <button
                 type="button"
                 onClick={() => finishTraining("manual")}
@@ -1543,6 +1561,20 @@ export default function DashboardPage() {
             </span>
           )}
         </div>
+
+        {reloadNotice && sessionStartedAt === null && (
+          <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-cyber-500/40 bg-cyber-500/5 px-5 py-3">
+            <RefreshCw className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden="true" />
+            <p className="text-sm text-slate-200">The page reloaded, so your training ended. What you did in it was saved to your progress.</p>
+            <button
+              type="button"
+              onClick={() => { setReloadNotice(false); openSetup(); }}
+              className="ml-auto rounded-md bg-cyber-500 px-3 py-1.5 text-xs font-bold text-on-accent transition hover:bg-cyber-400"
+            >
+              Start a new training
+            </button>
+          </div>
+        )}
 
         {timeUp && (
           <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-neon-amber/50 bg-neon-amber/10 px-5 py-3">
@@ -1738,9 +1770,7 @@ export default function DashboardPage() {
                   button reads "Start" and opens the same Start Training dialog the empty feed
                   points to (a user report: "Press Start Training" next to a "Resume" button). */}
               <button
-                onClick={sessionStartedAt === null
-                  ? () => { loadSimData().catch(() => {}); setShowTrainingModal(true); }
-                  : live.isStreaming ? live.pause : live.resume}
+                onClick={sessionStartedAt === null ? openSetup : live.isStreaming ? live.pause : live.resume}
                 className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover"
               >
                 {sessionStartedAt === null
@@ -1749,20 +1779,8 @@ export default function DashboardPage() {
                     ? <><Pause className="h-3.5 w-3.5" /> Pause</>
                     : <><Play  className="h-3.5 w-3.5 text-neon-green" /> Resume</>}
               </button>
-
-              {/* Reset */}
-              {/* Disabled before a shift exists: a reset used to start streaming the feed
-                  without the Start Training dialog (the control still read "Start"). */}
-              <button
-                type="button"
-                onClick={handleResetShift}
-                disabled={sessionStartedAt === null}
-                className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-bg"
-                title={sessionStartedAt === null ? "Start a shift first" : "Clear and restart"}
-                aria-label="Clear and restart the feed"
-              >
-                <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
-              </button>
+              {/* No "clear and restart" icon (F5): it silently replaced a running training and dropped its report.
+                  A new training starts from "End & report", then "New training". */}
             </div>
           </div>
 
@@ -1780,11 +1798,9 @@ export default function DashboardPage() {
                   onClick={() => setSeverityFilter(lv)}
                   className={cn(
                     "rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition",
+                    // One neutral "selected" tone for every level (F-05): a red "High" invited "only read the red ones".
                     severityFilter === lv
-                      ? lv === "high"   ? "border-severity-critical/60 bg-severity-critical/15 text-severity-critical" :
-                        lv === "medium" ? "border-severity-medium/60 bg-severity-medium/15 text-severity-medium" :
-                        lv === "low"    ? "border-slate-500/60 bg-slate-500/15 text-slate-300" :
-                                          "border-cyber-500/60 bg-cyber-500/15 text-cyber-300"
+                      ? "border-cyber-500/60 bg-cyber-500/15 text-cyber-300"
                       : "border-border text-slate-400 hover:border-border-strong hover:text-slate-300"
                   )}
                 >
@@ -2004,6 +2020,7 @@ export default function DashboardPage() {
             creditsIncident={!!live.activeIncident && !countedIncidentIdsRef.current.has(live.activeIncident.id)}
             incidentContext={live.incidentContext}
             onClose={closeReport}
+            onReconstructChain={live.lastAttackChain ? () => setShowChainBoard(true) : undefined}
             onGraded={(res) => {
               const ctx = live.incidentContext() as { incidentKey?: string; injectedAt?: number; firstOpenedAt?: number | null } | null;
               gradedRef.current.push({
@@ -2048,15 +2065,17 @@ export default function DashboardPage() {
 
               // Auto-advance rule: only a real incident counts. Record this catch's
               // time, keep only those inside the rolling window, and if the student
-              // has now caught ADVANCE_CATCHES within ADVANCE_WINDOW_MS, secure the
+              // has now caught ADVANCE_CATCHES in this training, secure the
               // company automatically and stop.
+              // F8: the rule is simply ADVANCE_CATCHES passing reports in this training (the training is
+              // already capped at 30 minutes; a wall-clock window counted report-writing pauses against it).
               if (incidentId) {
-                const now = Date.now();
-                caughtTimesRef.current = [...caughtTimesRef.current, now].filter(t => now - t <= ADVANCE_WINDOW_MS);
+                caughtTimesRef.current = [...caughtTimesRef.current, Date.now()];
                 setCaughtInWindow(caughtTimesRef.current.length);
-                setWindowRemainingMs(caughtTimesRef.current.length > 0 ? Math.max(0, caughtTimesRef.current[0] + ADVANCE_WINDOW_MS - now) : null);
                 if (caughtTimesRef.current.length >= ADVANCE_CATCHES && !clearedCompanies.includes(selectedCompanyId)) {
-                  autoAdvanceCompany();
+                  // F1: the company is secured when the analyst CLOSES this report, so the grade is read first
+                  // and the windows follow one at a time (Mission Complete, then the training report), never stacked.
+                  advancePendingRef.current = true;
                   return; // advancing - don't arm another attack for this (now secured) company
                 }
               }
@@ -2079,10 +2098,11 @@ export default function DashboardPage() {
       })()}
 
       {/* ── Attack Chain Board (LO-3 / Upgrade 5) ───────────────────── */}
-      {(showChainBoard || live.lastAttackChain) && live.lastAttackChain && (
+      {/* F6: opt-in from the passed report ("Reconstruct the attack chain"), never popped over the grade. */}
+      {showChainBoard && live.lastAttackChain && (
         <AttackChainBoard
           events={live.lastAttackChain}
-          onClose={() => { setShowChainBoard(false); live.clearLastAttackChain(); }}
+          onClose={() => setShowChainBoard(false)}
           onXpAward={handleXpAward}
         />
       )}

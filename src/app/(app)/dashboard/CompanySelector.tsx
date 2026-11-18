@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
@@ -25,10 +25,19 @@ interface Props {
   clearedIds?: string[];
   /** Per-org authored companies (migration 0044), appended after the built-ins. */
   extraCompanies?: CompanyProfile[];
+  /** A training is running: switching ends it, so the selector says so and asks for a second click (F-10). */
+  sessionActive?: boolean;
 }
 
-export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, clearedIds, extraCompanies }: Props) {
+export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, clearedIds, extraCompanies, sessionActive }: Props) {
   const companies    = [...COMPANY_PROFILES, ...(extraCompanies ?? [])];
+  /** The card clicked once during a training: the second click switches (and ends the training). */
+  const [pending, setPending] = useState<string | null>(null);
+  const choose = (id: string) => {
+    if (id === currentId) { onClose?.(); return; }          // the open organisation: nothing to switch
+    if (sessionActive && pending !== id) { setPending(id); return; }
+    onSelect(id);
+  };
   const clearedCount = clearedIds?.length ?? 0;
   const totalCount   = companies.length;
   // a11y: modal dialog. Escape closes only when closing is allowed (first visit
@@ -55,6 +64,11 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
             <p className="mt-1 text-sm text-slate-400">
               Each organisation runs a distinct security stack.
             </p>
+            {sessionActive && (
+              <p role="note" className="mt-2 text-sm font-semibold text-neon-amber">
+                Switching ends your current training and shows its report.
+              </p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2">
             {onClose && (
@@ -100,7 +114,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
               <button
                 key={c.id}
                 type="button"
-                onClick={() => !isLocked && onSelect(c.id)}
+                onClick={() => !isLocked && choose(c.id)}
                 disabled={isLocked}
                 aria-current={isActive ? "true" : undefined}
                 className={cn(
@@ -129,9 +143,15 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
                   </span>
                 )}
 
-                {/* Lock overlay */}
+                {pending === c.id && (
+                  <span className="absolute inset-x-3 bottom-3 z-10 rounded-md border border-neon-amber/50 bg-bg-elevated px-2 py-1.5 text-center text-[11px] font-semibold text-neon-amber">
+                    Click again to switch and end the training
+                  </span>
+                )}
+
+                {/* Lock overlay: an opaque panel, so its text never prints over the stack rows */}
                 {isLocked && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl px-4 text-center">
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 rounded-xl bg-bg-elevated/90 px-4 text-center">
                     <Lock className="h-7 w-7 text-slate-400" />
                     {prevCompany && (
                       <p className="text-[10px] font-medium text-slate-300">
@@ -185,7 +205,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
         {/* Footer */}
         <div className="border-t border-border/60 bg-bg/40 px-8 py-3 text-[10px] text-slate-400">
-          Identify the attack and submit an escalation ticket to secure a company and unlock the next one.
+          File 2 passing incident reports in one 30-minute training to secure an organisation and unlock the next one.
         </div>
       </div>
     </div>

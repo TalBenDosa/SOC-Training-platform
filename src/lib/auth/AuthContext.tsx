@@ -11,6 +11,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { clearReviewStore, setReviewOwner } from "@/components/rooms/reviewStore";
+import { clearDashboardLearnerStore, setDashboardOwner } from "@/lib/dashboard/learnerStorage";
 
 interface AuthState {
   user: User | null;
@@ -40,14 +41,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     supabase.auth.getSession().then(({ data }) => {
       setReviewOwner(data.session?.user.id ?? null);
+      setDashboardOwner(data.session?.user.id ?? null);
       setSession(data.session);
       setLoading(false);
     });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, next) => {
       // Room review records carry answer keys — never leave them for the next user.
-      if (event === "SIGNED_OUT") clearReviewStore();
+      // So does the Dashboard's learner data (last training report, drafts, saved searches, F15).
+      if (event === "SIGNED_OUT") { clearReviewStore(); clearDashboardLearnerStore(); }
       setReviewOwner(next?.user.id ?? null);
+      setDashboardOwner(next?.user.id ?? null);
       setSession(next);
     });
 

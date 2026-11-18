@@ -89,6 +89,8 @@ interface Props {
   onPassed: (score: number) => void;
   /** Every graded attempt, passed or not (the end-of-training report collects them). */
   onGraded?: (result: IncidentReportResponse) => void;
+  /** Opens the attack-chain board for the incident just caught (F6: on request, never over the grade). */
+  onReconstructChain?: () => void;
 }
 
 export function IncidentReportModal({
@@ -107,6 +109,7 @@ export function IncidentReportModal({
   onClose,
   onPassed,
   onGraded,
+  onReconstructChain,
 }: Props) {
   // Draft persistence - this modal unmounts entirely when closed (X / Cancel /
   // Escape), which used to wipe whatever the student had typed. Everything the
@@ -173,7 +176,14 @@ export function IncidentReportModal({
   }, [draftKey, guided, gWhat, gIocs, gAction, gImpact, summary]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    // F-11: only the top layer reacts. A window above the drawer (Decoder, a dialog) that handled
+    // Escape marks it defaultPrevented, and Escape inside another dialog is that dialog's own.
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.("[role='dialog'][aria-modal='true']")) return;
+      onClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -340,13 +350,14 @@ export function IncidentReportModal({
                 <div className="space-y-2.5">
                   {[
                     { label: "What happened?", req: true, value: gWhat, set: setGWhat, rows: 2,
-                      ph: "Name the specific attack - e.g. \"A password spray attack against multiple accounts, followed by an account takeover of r.patel.\"" },
+                      // Structure, not a model answer (F-05): a concrete example attack biased every report toward it.
+                      ph: "Name the specific attack technique and the stage you saw it reach." },
                     { label: "Evidence - which IOCs prove it?", req: true, value: gIocs, set: setGIocs, rows: 2,
-                      ph: "Quote the values you collected - e.g. \"Source IP 91.108.4.154 (40+ failed logins), compromised user r.patel@nexacorp.com.\"" },
+                      ph: "Quote the exact values from the logs: IPs, users, hosts, processes, domains or hashes." },
                     { label: "Recommended action", req: true, value: gAction, set: setGAction, rows: 2,
-                      ph: "e.g. \"Block the IP at the firewall, reset r.patel's password, review all logins from that IP.\"" },
+                      ph: "What should be done now: contain, block, reset, escalate, and on what." },
                     { label: "Business impact", req: true, value: gImpact, set: setGImpact, rows: 2,
-                      ph: "e.g. \"The attacker had access to customer financial data - potential data-breach and regulatory exposure.\"" },
+                      ph: "What is at risk for the organisation: data, systems, operations, customers, regulation." },
                   ].map((f, i) => (
                     <div key={f.label}>
                       <p id={`ir-guided-label-${i}`} className="mb-1 text-[10px] font-semibold text-slate-400">
@@ -390,7 +401,7 @@ export function IncidentReportModal({
                     autoFocus
                     className={cn("w-full resize-none rounded border bg-bg px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none leading-relaxed",
                       isEnglishOnly(summary) ? "border-border/60 focus:border-cyber-500/40" : "border-neon-amber/60")}
-                    placeholder="Example: I detected a password spray attack targeting multiple accounts from IP 91.108.4.154. The attacker tried over 40 failed logins before succeeding with r.patel's credentials. I collected the source IP and compromised username as IOCs. Recommended action: block the IP at the firewall, reset r.patel's password, and review all successful logins from that IP."
+                    placeholder="Write it as one ticket: what attack technique it is and how far it got, the exact evidence from the logs (IPs, users, hosts, processes), the action to take now, and what is at risk for the organisation."
                   />
                   {!isEnglishOnly(summary) && (
                     <p id="ir-summary-lang" className="mt-1 text-[11px] text-neon-amber">{ENGLISH_ONLY_MESSAGE}</p>
@@ -586,6 +597,16 @@ export function IncidentReportModal({
                       No open incident to close right now, so nothing was credited. Keep monitoring the feed.
                     </p>
                   </div>
+                )}
+
+                {passed && credited && onReconstructChain && (
+                  <button
+                    type="button"
+                    onClick={onReconstructChain}
+                    className="w-full rounded border border-neon-purple/40 bg-neon-purple/10 py-2 text-xs font-bold text-neon-purple hover:bg-neon-purple/20 transition"
+                  >
+                    Reconstruct the attack chain
+                  </button>
                 )}
 
                 {!passed && (

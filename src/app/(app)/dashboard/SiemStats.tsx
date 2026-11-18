@@ -1,7 +1,5 @@
 "use client";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { Term } from "@/components/ui/Term";
 import type { LiveEvent } from "./useLiveEvents";
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -47,10 +45,8 @@ export function SiemStats({ events, avgCatchMs = null }: SiemStatsProps) {
   const topSrc   = mode(last50.map(e => e.source)) ?? "-";
   const topHost  = mode(last50.map(e => e.hostname).filter((h): h is string => !!h)) ?? "-";
   const uniqueIps = new Set(events.map(e => e.src_ip).filter((ip): ip is string => !!ip));
-  const alertPct  = events.length === 0
-    ? 0
-    : (events.filter(e => e.ruleLevel >= 10).length / events.length) * 100;
-  const alertRate = alertPct.toFixed(0);
+  // No "Alert Rate" chip (F-05, Stage A): it turned red when the attack's high-level rows landed,
+  // a gauge of "is the attack here now" that the no-hints design does not allow.
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-bg-elevated px-5 py-2.5">
@@ -86,25 +82,6 @@ export function SiemStats({ events, avgCatchMs = null }: SiemStatsProps) {
           </div>
         </>
       )}
-
-      {/* Alert Rate */}
-      <div className={cn(
-        "inline-flex items-center gap-2 rounded-md border px-3 py-1.5",
-        alertPct >= 20
-          ? "border-severity-critical/50 bg-severity-critical/10"
-          : alertPct >= 5
-          ? "border-severity-medium/40 bg-severity-medium/8"
-          : "border-border/60 bg-bg/40"
-      )}>
-        <span className="text-[10px] text-slate-400 font-medium"><Term k="alert">Alert</Term> Rate</span>
-        <span className={cn(
-          "font-mono text-[11px] font-bold",
-          alertPct >= 20 ? "text-severity-critical" :
-          alertPct >= 5  ? "text-severity-medium"   : "text-slate-400"
-        )}>
-          {alertRate}%
-        </span>
-      </div>
 
       {/* Avg Catch Speed - only visible after catching at least one attack */}
       {showAll && avgCatchMs != null && (
