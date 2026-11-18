@@ -817,7 +817,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
             <div className="space-y-1">
               {fields.map(([k, v]) => (
                 <div key={k} className="flex gap-3 items-start">
-                  <span className="w-52 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
+                  <span className="w-52 max-w-[45%] shrink-0 font-mono text-[10px] text-slate-400 [overflow-wrap:anywhere]">{k}</span>
                   <span className="font-mono text-[10px] text-slate-200 break-all">{v}</span>
                 </div>
               ))}

@@ -284,7 +284,7 @@ function EventRow({
                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {ecsFields.map(([k, v]) => (
                     <div key={k} className="flex gap-2 min-w-0">
-                      <span className="w-44 shrink-0 font-mono text-[10px] text-slate-400 truncate">{k}</span>
+                      <span className="w-44 max-w-[45%] shrink-0 font-mono text-[10px] text-slate-400 [overflow-wrap:anywhere]">{k}</span>
                       <span className={cn(
                         "font-mono text-[10px] break-all",
                         k === "file.hash.sha256" ? "text-cyber-300" : "text-slate-300"

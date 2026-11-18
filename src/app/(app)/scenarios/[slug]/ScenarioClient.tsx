@@ -260,7 +260,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
 
                   return (
                     <div key={`${i}:${k}`} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
-                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
+                      <span className="w-64 max-w-[45%] shrink-0 font-mono text-[10px] text-slate-400 [overflow-wrap:anywhere]">{k}</span>
                       <div className="flex flex-col gap-1.5 min-w-0">
                         <span className={cn(
                           "font-mono text-[10px] break-all",
