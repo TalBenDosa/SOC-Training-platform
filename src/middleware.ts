@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { refreshSupabaseSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";
+import { SESSION_COOKIE_OPTIONS } from "@/lib/supabase/cookieOptions";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "@/lib/supabase/config";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 import { buildPageCsp, makeNonce } from "@/lib/security/csp";
@@ -142,6 +143,7 @@ function isLicenceExemptApi(pathname: string): boolean {
 async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null; userId?: string; timedOut?: boolean; licenceLocked?: boolean }> {
   if (!isSupabaseConfigured) return { authed: true, orgId: null };
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
     cookies: {
       getAll() { return req.cookies.getAll(); },
       setAll() { /* read-only probe — no cookie writes on the API path */ },

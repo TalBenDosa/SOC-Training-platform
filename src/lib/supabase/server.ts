@@ -5,6 +5,7 @@ import "server-only";
  * across requests. Returns null when Supabase isn't configured.
  */
 import { createServerClient } from "@supabase/ssr";
+import { SESSION_COOKIE_OPTIONS } from "./cookieOptions";
 import { cookies } from "next/headers";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "./config";
 
@@ -13,6 +14,7 @@ export async function getSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
     cookies: {
       getAll() {
         return cookieStore.getAll();

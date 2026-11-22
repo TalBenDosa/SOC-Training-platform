@@ -46,9 +46,33 @@ const ALLOW = {
       "import-pptx route receives already-extracted slide text as JSON and " +
       "never handles the binary. Exploiting it needs attacker-controlled " +
       "image bytes reaching the parser; no such path exists.",
-    recheck: "2026-11-01",
+    // Re-verified 2026-11-22: (a) no image-size reference in pptxgenjs dist/ or
+    // types/, (b) no addImage in exportPptx.ts.
+    recheck: "2027-02-01",
     // Re-verify (a) with: grep -rl image-size node_modules/pptxgenjs/
     //          and (b) with: grep -n addImage src/lib/lessons/exportPptx.ts
+  },
+  zod: {
+    advisories: ["Zod can exhaust memory while validating oversized constrained collections"],
+    reason:
+      "The only fix is zod 4 (a major rewrite). Our single use is " +
+      "src/lib/config/env.ts, which validates the server's own environment " +
+      "variables at start-up: flat strings, no collections, nothing a visitor " +
+      "can send. Request bodies are never validated with zod, so no " +
+      "attacker-sized collection can reach it.",
+    recheck: "2027-02-01",
+    // Re-verify with: grep -rln 'from "zod"' src   (must list only env.ts)
+  },
+  katex: {
+    advisories: ["KaTeX: Existing prototype pollution can bypass trust restrictions"],
+    reason:
+      "Low severity, and it needs a SEPARATE prototype-pollution bug to exist " +
+      "first. KaTeX is pulled in only by mermaid (fix only in mermaid 12, a " +
+      "major), for $$math$$ inside diagram labels. Our diagrams are authored " +
+      "content rendered with securityLevel 'strict', none uses math, and " +
+      "learners cannot submit diagram source.",
+    recheck: "2027-02-01",
+    // Re-verify with: npm ls katex   (only via mermaid)
   },
 };
 

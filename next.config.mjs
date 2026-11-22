@@ -11,12 +11,11 @@
 
 
 const securityHeaders = [
-  // SAMEORIGIN, not DENY, so the app can frame its own same-origin static
-  // documents (the /lesson-decks/*.html slide decks shown view-only in the
-  // in-app SlideDeckViewer). Real pages are still unframeable by anyone: the
-  // middleware's per-request CSP sets `frame-ancestors 'none'`, which is the
-  // authoritative, stricter anti-clickjacking control and overrides this.
-  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  // Clickjacking: nothing may frame the app. DENY matches the CSP
+  // `frame-ancestors 'none'` the middleware sets on pages (browsers that know CSP
+  // use that; older ones use this). The one thing the app frames itself, the
+  // static slide decks in /lesson-decks, gets SAMEORIGIN below.
+  { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
@@ -35,8 +34,8 @@ const securityHeaders = [
 const apiCsp = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
 // The static slide decks (public/lesson-decks/*.html) bypass the middleware, so they
 // had no CSP at all. They are our own files: one inline script, inline styles, data:
-// images and Google Fonts, nothing else. frame-ancestors 'self' is the modern form of
-// the SAMEORIGIN above: only the in-app SlideDeckViewer may frame them.
+// images and Google Fonts, nothing else. frame-ancestors 'self' (with X-Frame-Options
+// SAMEORIGIN for older browsers): only the in-app SlideDeckViewer may frame them.
 const deckCsp = [
   "default-src 'none'",
   "script-src 'self' 'unsafe-inline'",
@@ -66,7 +65,12 @@ const nextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       { source: "/api/:path*", headers: [{ key: "Content-Security-Policy", value: apiCsp }] },
-      { source: "/lesson-decks/:path*", headers: [{ key: "Content-Security-Policy", value: deckCsp }] },
+      // Later entries override earlier ones for the same key: the decks may be framed by
+      // the app itself (SlideDeckViewer), and by nothing else.
+      { source: "/lesson-decks/:path*", headers: [
+        { key: "Content-Security-Policy", value: deckCsp },
+        { key: "X-Frame-Options", value: "SAMEORIGIN" },
+      ] },
     ];
   },
 };

@@ -22,6 +22,7 @@
  */
 import { isAuthOutage } from "@/lib/auth/authOutage";
 import { createServerClient } from "@supabase/ssr";
+import { SESSION_COOKIE_OPTIONS } from "./cookieOptions";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "./config";
@@ -130,6 +131,7 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
   if (isPublicPath(pathname)) return res;
 
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
     cookies: {
       getAll() {
         return req.cookies.getAll();

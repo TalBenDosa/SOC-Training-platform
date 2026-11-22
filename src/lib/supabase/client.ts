@@ -7,13 +7,14 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "./config";
+import { SESSION_COOKIE_OPTIONS } from "./cookieOptions";
 
 let client: SupabaseClient | null = null;
 
 export function getSupabaseBrowserClient(): SupabaseClient | null {
   if (!isSupabaseConfigured) return null;
   if (!client) {
-    client = createBrowserClient(supabaseUrl!, supabaseAnonKey!);
+    client = createBrowserClient(supabaseUrl!, supabaseAnonKey!, { cookieOptions: SESSION_COOKIE_OPTIONS });
   }
   return client;
 }
