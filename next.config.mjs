@@ -22,11 +22,32 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
+  // A page we open in another window (or that opens ours) cannot reach back into
+  // this one through window.opener. Same-origin windows keep their link, which the
+  // Team Training two-window console relies on (src/lib/team/twoWindows.ts).
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Legacy Flash/PDF plug-ins may not load cross-domain policy files from here.
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
 // SEC-03: PAGE responses get a per-request nonce CSP from the middleware
 // (src/lib/security/csp.ts). API responses (JSON / files) get one that lets
 // nothing run or frame.
 const apiCsp = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
+// The static slide decks (public/lesson-decks/*.html) bypass the middleware, so they
+// had no CSP at all. They are our own files: one inline script, inline styles, data:
+// images and Google Fonts, nothing else. frame-ancestors 'self' is the modern form of
+// the SAMEORIGIN above: only the in-app SlideDeckViewer may frame them.
+const deckCsp = [
+  "default-src 'none'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data:",
+  "frame-ancestors 'self'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "object-src 'none'",
+].join("; ");
 
 const nextConfig = {
   reactStrictMode: true,
@@ -45,6 +66,7 @@ const nextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       { source: "/api/:path*", headers: [{ key: "Content-Security-Policy", value: apiCsp }] },
+      { source: "/lesson-decks/:path*", headers: [{ key: "Content-Security-Policy", value: deckCsp }] },
     ];
   },
 };
