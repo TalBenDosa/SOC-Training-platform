@@ -752,7 +752,7 @@ export function OperationView(p: OperationViewProps) {
 
       {/* Story films sit above every phase; closing one reveals whatever is underneath. */}
       <AnimatePresence>
-        {story && <StoryPlayer key={story.key} clip={story.clip} label={story.label} onDone={closeStory} />}
+        {story && <StoryPlayer key={story.key} clip={story.clip} label={story.label} onDone={closeStory} roomId={room.id} clipKey={story.key} />}
       </AnimatePresence>
     </div>
   );

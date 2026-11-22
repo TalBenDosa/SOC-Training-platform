@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { HubStation } from "../board/types";
+import { worldsPaused } from "../worldPause";
 
 /** What every room world receives. Worlds are decorative: no pointer events. */
 export interface WorldProps {
@@ -62,6 +63,8 @@ export function mountWorld(
   let raf = 0;
   const loop = () => {
     raf = requestAnimationFrame(loop);
+    // A story film is open on top: skip the frame so the video gets the GPU (worldPause.ts).
+    if (worldsPaused()) { clock.getDelta(); return; }
     const dt = Math.min(clock.getDelta(), 0.1);
     frame(clock.elapsedTime, dt);
     if (pipe?.render) pipe.render(); else renderer.render(scene, camera);

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { worldsPaused } from "./worldPause";
 
 /**
  * The Operation centrepiece: a holographic cyber shield over a projector
@@ -276,6 +277,7 @@ export default function ShieldScene({ progress, primary, secondary, dimmed, redu
     let raf = 0;
     const loop = () => {
       raf = requestAnimationFrame(loop);
+      if (worldsPaused()) { clock.getDelta(); return; } // a story film is open on top
       const dt = Math.min(clock.getDelta(), 0.1);
       const t = clock.elapsedTime;
       const { progress: pr, reducedMotion: rm } = live.current;
