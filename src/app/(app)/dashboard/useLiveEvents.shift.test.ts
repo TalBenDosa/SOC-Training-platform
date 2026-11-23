@@ -46,6 +46,9 @@ function Harness() {
 }
 const PHASE1 = 151_000;   // first phase due at 150 s (random = 0.5)
 const GAP    = 181_000;   // later phases 180 s apart
+// Live cadence (storyFeed.ts): a phase's rows land in real time; these 2-row phases (authored 5 min
+// apart, compressed to 100 s) finish about 98.5 s after they start.
+const TRICKLE = 100_000;
 
 describe("live shift lifecycle", () => {
   let container: HTMLDivElement;
@@ -89,7 +92,7 @@ describe("live shift lifecycle", () => {
     act(() => { vi.advanceTimersByTime(PHASE1); });
     expect(latest!.activeIncident).toBeNull();          // baseline-only phase: no incident, no clock
     expect(latest!.attackTimerSeconds).toBeNull();
-    act(() => { vi.advanceTimersByTime(GAP); });
+    act(() => { vi.advanceTimersByTime(TRICKLE + GAP + TRICKLE); });
     const inc = latest!.activeIncident!;
     expect(inc).not.toBeNull();
     // Already-injected events only: the 2 baseline rows + the 2 attack rows, not s3/s4.
@@ -103,11 +106,11 @@ describe("live shift lifecycle", () => {
   });
 
   it("reset() after the story fully injected re-arms a catchable attack from phase 0", () => {
-    act(() => { vi.advanceTimersByTime(PHASE1 + GAP * 2); });
+    act(() => { vi.advanceTimersByTime(PHASE1 + TRICKLE + (GAP + TRICKLE) * 2); });
     expect(latest!.activeIncident?.injected.length).toBe(6);
     act(() => { latest!.reset(); });
     expect(latest!.activeIncident).toBeNull();
-    act(() => { vi.advanceTimersByTime(PHASE1 + GAP); });
+    act(() => { vi.advanceTimersByTime(PHASE1 + TRICKLE + GAP + TRICKLE); });
     const inc = latest!.activeIncident!;
     expect(inc).not.toBeNull();
     expect(inc.injected).toHaveLength(4);               // restarted from phase 0
@@ -117,7 +120,7 @@ describe("live shift lifecycle", () => {
 
   it("endSession reads same-tick counters, saves once per shift, and skips idle shifts", () => {
     expect(latest!.endSession()).toBeNull();            // nothing happened yet
-    act(() => { vi.advanceTimersByTime(PHASE1 + GAP); });
+    act(() => { vi.advanceTimersByTime(PHASE1 + TRICKLE + GAP); });
     const inc = latest!.activeIncident!;
     let rec: ReturnType<LiveEventsApi["endSession"]> = null;
     act(() => {
@@ -140,7 +143,7 @@ describe("live shift lifecycle", () => {
   });
 
   it("counts a missed attack in fnCount when the debrief fires", () => {
-    act(() => { vi.advanceTimersByTime(PHASE1 + GAP * 2); });  // whole story in, uncaught
+    act(() => { vi.advanceTimersByTime(PHASE1 + TRICKLE + (GAP + TRICKLE) * 2); });  // whole story in, uncaught
     act(() => { vi.advanceTimersByTime(600_000); });           // past the 9-min grace
     expect(latest!.missedAttack).toBe(true);
     expect(latest!.fnCount).toBe(1);

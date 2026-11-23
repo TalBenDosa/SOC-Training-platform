@@ -15,7 +15,7 @@ import { enrichEvent, injectAdvancedFidelityNoise, type LiveEvent } from "./live
 import { backfillTimes, benignTimes, siemMirror } from "./useLiveEvents";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { NoiseDeck } from "./noiseDeck";
-import { newStoryClock, noiseQuota, noiseTimes, phaseSize, placePhase } from "./storyFeed";
+import { RELEASE_LAG_MS, isDue, newStoryClock, noiseQuota, noiseTimes, phaseSize, placePhase } from "./storyFeed";
 import { isAttackEvent } from "./groundTruth";
 
 export type RowKind = "noise" | "story";
@@ -74,8 +74,11 @@ export function playShift(company: string, difficulty: "easy" | "medium" | "hard
     const sc = newStoryClock();
     let cursor = 0, noiseSince = 0, lastPhaseAt: number | null = null, doneAt = Infinity;
     let nextTick = T0 + 90_000, nextPhase = T0 + 120_000 + Math.floor(Math.random() * 60_000);
+    // Live cadence (useLiveEvents): a placed phase waits in a queue and each row lands when it is due.
+    let queue: { e: TelemetryEvent; idx: number }[] = [];
     while (clock < doneAt + 300_000 && clock < T0 + 4 * 3600_000) {
-      clock = Math.min(nextTick, cursor < story.events.length ? nextPhase : Infinity);
+      const nextRelease = queue.length ? Math.max(clock, Math.min(...queue.map(q => Date.parse(q.e.ts ?? "") + RELEASE_LAG_MS))) : Infinity;
+      clock = Math.min(nextTick, queue.length ? nextRelease : cursor < story.events.length ? nextPhase : Infinity);
       if (clock === nextTick) {
         nextTick += 90_000;
         const bs = Math.floor(Math.random() * 2) + 1;
@@ -87,16 +90,24 @@ export function playShift(company: string, difficulty: "easy" | "medium" | "hard
         }
         continue;
       }
-      const n = phaseSize(story.events, cursor);
-      const placed = placePhase(sc, story.events.slice(cursor, cursor + n), clock).rows;
+      if (queue.length === 0) {
+        const n = phaseSize(story.events, cursor);
+        const at = clock;
+        queue = placePhase(sc, story.events.slice(cursor, cursor + n), at, Math.random, { live: true }).rows
+          .map((e, i) => ({ e: { ...e, id: `atk_${story.events[cursor + i].id}_${at}_${i}` }, idx: cursor + i }));
+        cursor += n;
+      }
+      const due = queue.filter(q => isDue(q.e, clock));
+      queue = queue.filter(q => !isDue(q.e, clock));
+      if (due.length === 0) continue;
+      const placed = due.map(q => q.e);
       let attackRows = 0;
-      placed.forEach((e, i) => {
-        const inj = { ...e, id: `atk_${story.events[cursor + i].id}_${clock}_${i}` };
+      due.forEach(({ e: inj, idx }) => {
         const le = enrich(inj);
         const attack = isAttackEvent(le);
-        rows.push({ kind: "story", mirror: false, storyIdx: cursor + i, attack, event: le, authoredTs: story.events[cursor + i].ts, placed: inj });
+        rows.push({ kind: "story", mirror: false, storyIdx: idx, attack, event: le, authoredTs: story.events[idx].ts, placed: inj });
         const m = siemMirror(le, gi++);
-        if (m) rows.push({ kind: "story", mirror: true, storyIdx: cursor + i, attack, event: m });
+        if (m) rows.push({ kind: "story", mirror: true, storyIdx: idx, attack, event: m });
         if (attack) attackRows += m ? 2 : 1;
       });
       const owed = noiseQuota(attackRows, noiseSince);
@@ -106,11 +117,12 @@ export function playShift(company: string, difficulty: "easy" | "medium" | "hard
       const leadTimes = lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite);
       const firstShown = leadTimes.length ? Math.min(...leadTimes) : clock - 60_000;
       const from = Math.max(lastPhaseAt ?? firstShown, clock - 240_000);
-      const nt = noiseTimes(owed, from, clock - 5_000);
+      const nt = noiseTimes(owed, from, clock - 500);
       for (let k = 0; k < owed; k++) { const ch = deck.next(); if (!ch) break; pushNoise({ ...withRebasedTime(ch, new Date(nt[k]).toISOString()), id: `${ch.id}_${clock}_q${k}` }); }
       if (attackRows > 0 || lastPhaseAt !== null) { noiseSince = 0; lastPhaseAt = clock; }
-      cursor += n;
-      if (cursor >= story.events.length) doneAt = clock; else nextPhase = clock + 120_000 + Math.floor(Math.random() * 120_000);
+      if (queue.length === 0) {
+        if (cursor >= story.events.length) doneAt = clock; else nextPhase = clock + 120_000 + Math.floor(Math.random() * 120_000);
+      }
     }
     return { company, difficulty, seed, story, rows };
   } finally {

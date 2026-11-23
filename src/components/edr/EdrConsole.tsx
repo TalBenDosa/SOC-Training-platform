@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
 import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
-import { gradeEdrChoice } from "@/lib/edr/grade";
+import { CONTAIN_CHOICE, gradeEdrDecision } from "@/lib/edr/grade";
 import { runRtrCommand } from "@/lib/edr/rtr";
 import { processModules } from "@/lib/edr/modules";
 import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candidateIocs, classifyIndicator, labLookup, type SampleEvidence, type LabIntel } from "@/lib/edr/staticLab";
@@ -27,7 +27,7 @@ import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
 import { NO_APPROVER, NO_APPROVER_HELP, SELF_APPROVER_LINE, isNoApprover, isSelfApprover, waitingForApproval } from "@/lib/team/isolationApproval";
-import { alertKey, readAckedAlerts, unacknowledged, writeAckedAlerts } from "@/lib/edr/alerts";
+import { alertKey, newAlerts, readAckedAlerts, unacknowledged, writeAckedAlerts } from "@/lib/edr/alerts";
 import type { EdrDetection } from "@/lib/edr/investigations";
 
 const SEV_STYLE: Record<string, string> = {
@@ -75,8 +75,10 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
   useEffect(() => {
     if (!liveAlerts) return;
     const base = document.title.replace(/^\(\d+\) EDR alert · /, "");
-    document.title = pending.length ? `(${pending.length}) EDR alert · ${base}` : base;
-  }, [pending.length, liveAlerts]);
+    // One alert per incident (its behaviors are counted inside the console).
+    const alerts = newAlerts(investigations, acked).length;
+    document.title = alerts ? `(${alerts}) EDR alert · ${base}` : base;
+  }, [pending.length, liveAlerts, investigations, acked]);
   // More than one incident and none opened yet (or none at all yet, or the opened one is
   // gone) → the Incidents management page.
   if (caseId === null || investigations.length === 0 || !investigations.some(i => i.id === caseId)) {
@@ -221,6 +223,9 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
       return;
     }
     setLocalIsolated(next); setContained(inv.host.name, next);
+    // Isolating the host IS the analyst's call on it (Tal, 2026-11-23): it does not depend on the
+    // process selected in the tree. Releasing the host later does not undo the call.
+    if (next && !decided) decide(CONTAIN_CHOICE);
   };
   const sendIsolationRequest = () => {
     if (!teamIsolation || isoBusy || !askReason.trim()) return;
@@ -231,7 +236,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
     });
   };
   const [hashResult, setHashResult] = useState<Record<number, { label: string; bad: boolean }>>({});
-  const [decided, setDecided] = useState<null | { correct: boolean }>(null);
+  const [decided, setDecided] = useState<null | { correct: boolean; exact: boolean; choice: number }>(null);
   // When this case was opened: the time to a verdict on the learner's Progress page.
   const openedAtRef = useRef(Date.now());
   // a11y: the decision buttons unmount when the verdict shows, so move focus to
@@ -322,11 +327,11 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
     setRtr(r => [...r, { cmd: raw.trim(), out }]);
   }
 
-  function decide(choice: number /* pid, or -1 for benign */) {
+  function decide(choice: number /* pid, -1 benign, -2 contain the host */) {
     // The verdict rule lives in lib/edr/grade (shared with the server, which re-grades
     // before storing the result on the learner's Progress page).
-    const correct = gradeEdrChoice(inv, choice);
-    setDecided({ correct });
+    const { correct, exact } = gradeEdrDecision(inv, choice);
+    setDecided({ correct, exact, choice });
     // Standalone practice cases go to the learner's own record (0101). Team sessions are
     // judged by the after-action report; a scenario's embedded console by its own grader.
     if (!embedded && !teamIsolation) {
@@ -433,7 +438,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
             </div>
             <div className="h-8 w-px bg-border" />
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Detections</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Behaviors</p>
               <p className="text-sm font-bold text-white">{inv.detections.length}</p>
             </div>
             <div>
@@ -451,13 +456,13 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
           </div>
         </Card>
 
-        {/* Detections: every alert the sensor raised on this host, sortable by threat severity
+        {/* The detection's behaviors: every IOA the sensor raised on this host, sortable by threat severity
             or by time; opening one selects its process in the tree (and clears NEW). */}
         {detRows.length > 0 && (
           <Card className="p-0">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
               <h2 id="edr-detections-heading" className="flex items-center gap-2 text-sm font-bold text-white">
-                <ShieldAlert className="h-4 w-4 text-severity-critical" /> Detections
+                <ShieldAlert className="h-4 w-4 text-severity-critical" /> Detection behaviors
                 <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] font-medium text-slate-400">{detRows.length}</span>
                 {newKeys && detRows.some(r => newKeys.has(r.key)) && (
                   <span className="rounded-full bg-severity-critical px-2 py-0.5 text-[10px] font-bold text-white">{detRows.filter(r => newKeys.has(r.key)).length} new</span>
@@ -471,6 +476,10 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                   </button>
                 ))}
               </div>
+              <p className="w-full text-[11px] text-slate-400">
+                One detection for this attack on <bdi className="font-mono">{inv.host.name}</bdi>: each row is a behavior, a step of the
+                process tree that tripped an indicator of attack (IOA). The sensor adds them as the chain runs.
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table aria-labelledby="edr-detections-heading" className="w-full text-left text-xs">
@@ -855,9 +864,14 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
           {!decided ? (
             <>
               <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Your call</h2>
-              <p className="mt-1 text-[13px] text-slate-400">Select the process that is the malicious <strong>payload</strong> and flag it, or, if this is benign activity, resolve it as a false positive.</p>
+              <p className="mt-1 text-[13px] text-slate-400">If this is an attack, <strong>contain the host</strong> or flag the process you judge to be the <strong>payload</strong>. If it is benign activity, resolve it as a false positive.</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button variant="primary" size="sm" disabled={selPid === null} onClick={() => decide(selPid!)}>
+                {!teamIsolation && (
+                  <Button variant="primary" size="sm" onClick={() => isolate(true)}>
+                    <MonitorX className="mr-1.5 h-4 w-4" /> Contain {inv.host.name}
+                  </Button>
+                )}
+                <Button variant={teamIsolation ? "primary" : "outline"} size="sm" disabled={selPid === null} onClick={() => decide(selPid!)}>
                   <Ban className="mr-1.5 h-4 w-4" /> Flag {sel ? `${sel.name} (pid ${sel.pid})` : "selected"} as payload
                 </Button>
                 <span className="text-[11px] text-slate-500">or</span>
@@ -872,6 +886,18 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                 {decided.correct ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                 {decided.correct ? "Correct" : "Not quite"}
               </h2>
+              {decided.correct && !decided.exact && (() => {
+                const payload = inv.processes.find(p => p.pid === inv.answer.pid);
+                return (
+                  <p className="mt-2 text-[13px] text-slate-200">
+                    {decided.choice === CONTAIN_CHOICE ? <>Containing <bdi className="font-mono">{inv.host.name}</bdi> was the right call: this is an attack.</> : <>Right call: that process is part of the attack chain.</>}
+                    {payload && <> The payload itself is <bdi className="font-mono">{payload.name}</bdi> (pid {payload.pid}): name it in your report.</>}
+                  </p>
+                );
+              })()}
+              {!decided.correct && decided.choice === CONTAIN_CHOICE && (
+                <p className="mt-2 text-[13px] text-slate-200">Isolating <bdi className="font-mono">{inv.host.name}</bdi> cut a user off for activity that is benign: over-containment has a cost too.</p>
+              )}
               <p className="mt-2 text-[13px] text-slate-200">{inv.answer.explanation}</p>
               <p className="mt-2 text-[11px] text-slate-500">The process tree is now colour-coded by verdict, and each node&apos;s reasoning is shown in its detail panel.</p>
               {/* The investigation isn't done until it's written up. This runs in

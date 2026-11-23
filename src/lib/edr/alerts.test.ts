@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { EDR_INVESTIGATIONS } from "./investigations";
-import { alertKey, readAckedAlerts, unacknowledged, writeAckedAlerts } from "./alerts";
+import { alertKey, newAlerts, readAckedAlerts, unacknowledged, writeAckedAlerts } from "./alerts";
 
 const inv = EDR_INVESTIGATIONS[0];
 
@@ -18,6 +18,13 @@ describe("live EDR alerts (console cards + dashboard count)", () => {
     const acked = new Set(inv.detections.map(d => alertKey(inv, d)));
     const next = { ...inv, title: "Another incident" };
     expect(unacknowledged([next], acked)).toHaveLength(next.detections.length);
+  });
+
+  it("the bell counts ONE alert per incident, however many behaviors it has", () => {
+    expect(newAlerts([inv], new Set())).toEqual([{ inv, newBehaviors: inv.detections.length }]);
+    const someAcked = new Set([alertKey(inv, inv.detections[0])]);
+    expect(newAlerts([inv], someAcked)).toEqual([{ inv, newBehaviors: inv.detections.length - 1 }]);
+    expect(newAlerts([inv], new Set(inv.detections.map(d => alertKey(inv, d))))).toEqual([]);
   });
 
   it("corrupt storage reads as nothing acknowledged", () => {

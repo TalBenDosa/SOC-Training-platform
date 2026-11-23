@@ -65,9 +65,12 @@ describe("attack scheduler", () => {
     act(() => { vi.advanceTimersByTime(149_000); });
     expect(storyCount()).toBe(0);
     act(() => { vi.advanceTimersByTime(2_000); });   // the first phase is due at 150s
+    // Live cadence: the phase's first row lands now, the second when its time comes (~98.5 s later).
+    expect(storyCount()).toBe(1);
+    act(() => { vi.advanceTimersByTime(100_000); });
     const first = storyCount();
     expect(first).toBe(2);   // exactly ONE phase (2 events with random=0.5) - a doubled chain injected two
-    // The next phase is 2–4 min later (180s with random=0.5) - nothing before that.
+    // The next phase is 2–4 min after the last row (180s with random=0.5) - nothing before that.
     act(() => { vi.advanceTimersByTime(170_000); });
     expect(storyCount()).toBe(first);
     act(() => { vi.advanceTimersByTime(15_000); });

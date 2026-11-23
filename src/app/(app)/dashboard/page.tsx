@@ -783,10 +783,13 @@ export default function DashboardPage() {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
-  const edrAlertCount = useMemo(
+  // One alert per incident, like a real EDR's detection (lib/edr/alerts.ts newAlerts); its new
+  // behaviors are named in the button's tooltip.
+  const edrNewBehaviors = useMemo(
     () => (liveEdrInvestigation ? unacknowledged([liveEdrInvestigation], edrAcked).length : 0),
     [liveEdrInvestigation, edrAcked],
   );
+  const edrAlertCount = edrNewBehaviors > 0 ? 1 : 0;
 
   // E-09: the "contained in EDR" banner must reflect only THIS shift's hosts. A host
   // contained in a past standalone /edr practice case (FIN-WS-07, RES-SRV-02, …) is
@@ -1480,8 +1483,8 @@ export default function DashboardPage() {
                     ? "border-severity-critical/60 bg-severity-critical/10 text-white hover:bg-severity-critical/20"
                     : "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20",
                 )}
-                title={edrAlertCount > 0 ? `${edrAlertCount} new EDR detection${edrAlertCount > 1 ? "s" : ""}: open the EDR console` : "Open the EDR console in a new tab"}
-                aria-label={edrAlertCount > 0 ? `Investigate in EDR, ${edrAlertCount} new detection${edrAlertCount > 1 ? "s" : ""}` : undefined}
+                title={edrAlertCount > 0 ? `New EDR detection (${edrNewBehaviors} new behavior${edrNewBehaviors > 1 ? "s" : ""}): open the EDR console` : "Open the EDR console in a new tab"}
+                aria-label={edrAlertCount > 0 ? `Investigate in EDR, new detection with ${edrNewBehaviors} new behavior${edrNewBehaviors > 1 ? "s" : ""}` : undefined}
               >
                 <Cpu className="h-3.5 w-3.5" />
                 Investigate in EDR

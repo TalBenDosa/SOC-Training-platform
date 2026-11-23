@@ -15,6 +15,12 @@
  * keeps its authored spacing (never stretched), instead of trickling out over half an hour.
  *
  * R8: ordinary noise stays at least twice the attack rows while the attack runs (noiseQuota).
+ *
+ * Live cadence (Tal, 2026-11-23: "five EDR alerts at once is not realistic, they should arrive one
+ * by one"): the Live Feed places a phase with `live: true`. Its first row lands now and the rest keep
+ * their authored spacing INTO THE FUTURE; the feed releases each row when its time comes (plus the
+ * SIEM's ingestion lag, RELEASE_LAG_MS), the way a sensor's events reach a real console one after
+ * another. A burst stays a burst (R7): same rows, same spacing, only no longer dumped back-dated.
  */
 import { storyTimeMap, withMappedTime, type TimeMap } from "@/lib/sim/rebaseTime";
 
@@ -26,6 +32,14 @@ export const MAX_PHASE_ROWS = 24;
 export const PHASE_WINDOW_MS = 100_000;
 /** Ordinary noise rows per attack row (R8: at least twice). */
 export const NOISE_PER_ATTACK_ROW = 2;
+/** Live cadence: a placed row reaches the feed this long after its own time (SIEM ingestion lag). */
+export const RELEASE_LAG_MS = 3_000;
+
+/** Live cadence: the row is due in the feed at `now`. */
+export const isDue = (e: { ts?: string }, now: number) => {
+  const t = e.ts ? Date.parse(e.ts) : NaN;
+  return !Number.isFinite(t) || t + RELEASE_LAG_MS <= now;
+};
 
 export interface StoryClock {
   anchors: { authoredMs: number; shownMs: number }[];
@@ -63,14 +77,19 @@ export function phaseSize(events: { ts?: string }[], cursor: number, rnd: () => 
  * `ts` and every raw time mapped, and the map they were mapped with.
  */
 export function placePhase<E extends { ts?: string; raw?: Record<string, unknown>; description?: string }>(
-  clock: StoryClock, rows: E[], now: number, rnd: () => number = Math.random,
+  clock: StoryClock, rows: E[], now: number, rnd: () => number = Math.random, opts: { live?: boolean } = {},
 ): { rows: E[]; map: TimeMap } {
   const fresh = rows.map(authoredMs).filter(a => Number.isFinite(a) && a > clock.maxAuthored);
-  const end = now - (5_000 + Math.floor(rnd() * 15_000));            // newest: 5-20 s ago, never in the future
+  let end = now - (5_000 + Math.floor(rnd() * 15_000));              // newest: 5-20 s ago, never in the future
   if (fresh.length > 0) {
     const lo = Math.min(...fresh), hi = Math.max(...fresh);
     const span = Math.min(hi - lo, PHASE_WINDOW_MS);
-    const start = Math.min(end, Math.max(end - span, clock.lastShown + 1_000));
+    let start = Math.min(end, Math.max(end - span, clock.lastShown + 1_000));
+    if (opts.live) {
+      // Live cadence: the phase starts now (minus the ingestion lag) and runs forward in real time.
+      start = Math.max(now - RELEASE_LAG_MS - Math.floor(rnd() * 3_000), clock.lastShown + 1_000);
+      end = start + span;
+    }
     const shown = (a: number) => (hi === lo ? end : Math.round(start + ((a - lo) * (end - start)) / (hi - lo)));
     for (const a of new Set(fresh)) clock.anchors.push({ authoredMs: a, shownMs: shown(a) });
     clock.maxAuthored = hi;
@@ -81,7 +100,8 @@ export function placePhase<E extends { ts?: string; raw?: Record<string, unknown
     const a = authoredMs(e);
     // A row with no authored time is shown as the phase's newest row.
     const at = Number.isFinite(a) ? map(a) : end;
-    return withMappedTime(e, new Date(Math.min(at, now)).toISOString(), map, { storyClock: "local" });
+    // Live rows may lie ahead of now: the feed holds each one until it is due (isDue).
+    return withMappedTime(e, new Date(opts.live ? at : Math.min(at, now)).toISOString(), map, { storyClock: "local" });
   });
   return { rows: out, map };
 }

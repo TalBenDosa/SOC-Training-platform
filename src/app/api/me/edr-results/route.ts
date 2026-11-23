@@ -11,7 +11,7 @@ import { asObject } from "@/lib/http/body";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { EDR_INVESTIGATIONS } from "@/lib/edr/investigations";
-import { gradeEdrChoice } from "@/lib/edr/grade";
+import { CONTAIN_CHOICE, gradeEdrChoice } from "@/lib/edr/grade";
 import { recordEdrResult } from "@/lib/progress/record";
 
 export async function POST(req: Request) {
@@ -25,15 +25,15 @@ export async function POST(req: Request) {
   const inv = EDR_INVESTIGATIONS.find(i => i.id === body.caseId);
   if (!inv) return NextResponse.json({ saved: false, error: "Not a practice case." }, { status: 404 });
   const choice = typeof body.choice === "number" && Number.isInteger(body.choice) ? body.choice : null;
-  if (choice === null || (choice !== -1 && !inv.processes.some(p => p.pid === choice))) {
-    return NextResponse.json({ error: "choice must be a process id from this case, or -1." }, { status: 400 });
+  if (choice === null || (choice !== -1 && choice !== CONTAIN_CHOICE && !inv.processes.some(p => p.pid === choice))) {
+    return NextResponse.json({ error: "choice must be a process id from this case, -1 (benign) or -2 (contain the host)." }, { status: 400 });
   }
 
   const correct = gradeEdrChoice(inv, choice);
-  const proc = choice === -1 ? null : inv.processes.find(p => p.pid === choice);
+  const proc = choice < 0 ? null : inv.processes.find(p => p.pid === choice);
   const saved = await recordEdrResult(admin, {
     userId: user.id, orgId: user.orgId, caseId: inv.id, title: inv.title,
-    chosen: proc ? `${proc.name} (pid ${proc.pid})` : "Resolved as benign",
+    chosen: proc ? `${proc.name} (pid ${proc.pid})` : choice === CONTAIN_CHOICE ? "Contained the host" : "Resolved as benign",
     correct, durationMs: typeof body.durationMs === "number" ? body.durationMs : null,
   });
   return NextResponse.json({ saved, correct });

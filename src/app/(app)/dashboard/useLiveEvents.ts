@@ -103,7 +103,7 @@ import {
   type LiveEvent,
 } from "./liveEventEnrich";
 import { NoiseDeck } from "./noiseDeck";
-import { newStoryClock, noiseQuota, noiseTimes, phaseSize, placePhase, type StoryClock } from "./storyFeed";
+import { RELEASE_LAG_MS, isDue, newStoryClock, noiseQuota, noiseTimes, phaseSize, placePhase, type StoryClock } from "./storyFeed";
 import { isAttackEvent } from "./groundTruth";
 export { enrichEvent };
 export type { LiveEvent };
@@ -468,6 +468,8 @@ export function useLiveEvents({
   const noiseDeckRef       = useRef<NoiseDeck | null>(null);
   /** The active story's one monotone time map (storyFeed.ts, R4). */
   const storyClockRef      = useRef<StoryClock>(newStoryClock());
+  /** Live cadence: rows of the current phase already placed, waiting for their time (storyFeed.ts isDue). */
+  const phaseQueueRef      = useRef<TelemetryEvent[]>([]);
   /**
    * The shift's opening: ordinary rows still to arrive one by one (clean start, like Team training).
    * A fresh shift starts with an EMPTY feed; these trickle in a few seconds apart, so a baseline of
@@ -610,20 +612,28 @@ export function useLiveEvents({
     const s = storyRef.current;
     if (!s) return;
     const cursor = storyCursorRef.current;
-    if (cursor >= s.events.length) return;
+    if (cursor >= s.events.length && phaseQueueRef.current.length === 0) return;
     // Never inject behind a paused feed (report open, debrief, manual pause) -
     // check again shortly; resume continues the story where it stopped.
     if (!isStreamingRef.current) { armPhase(5_000); return; }
 
-    // 2-3 events, plus the rest of an authored burst (storyFeed.ts phaseSize, R7).
-    const n = phaseSize(s.events, cursor);
     const now = Date.now();
-    // L-02 / R4: the rows are spread over the last minute or two in story order, never in the future,
-    // and every time inside them goes through the story's ONE monotone map (storyFeed.ts placePhase).
-    const slice = placePhase(storyClockRef.current, s.events.slice(cursor, cursor + n), now).rows
-      .map((e, i) => ({ ...e, id: `atk_${s.events[cursor + i].id}_${now}_${i}` }));
-    storyCursorRef.current = cursor + n;
-    const storyDone = storyCursorRef.current >= s.events.length;
+    if (phaseQueueRef.current.length === 0) {
+      // 2-3 events, plus the rest of an authored burst (storyFeed.ts phaseSize, R7).
+      const n = phaseSize(s.events, cursor);
+      // L-02 / R4: every time inside the rows goes through the story's ONE monotone map
+      // (storyFeed.ts placePhase). Live cadence: the phase starts now and keeps its authored
+      // spacing forward in time; each row waits in the queue until it is due.
+      phaseQueueRef.current = placePhase(storyClockRef.current, s.events.slice(cursor, cursor + n), now, Math.random, { live: true }).rows
+        .map((e, i) => ({ ...e, id: `atk_${s.events[cursor + i].id}_${now}_${i}` }));
+      storyCursorRef.current = cursor + n;
+    }
+    // Release the rows whose time has come (with the SIEM's ingestion lag), in story order.
+    const slice = phaseQueueRef.current.filter(e => isDue(e, now));
+    phaseQueueRef.current = phaseQueueRef.current.filter(e => !isDue(e, now));
+    const nextDueIn = () => Math.max(500, Math.min(...phaseQueueRef.current.map(e => Date.parse(e.ts ?? "") + RELEASE_LAG_MS - now).filter(Number.isFinite)) || 1_000);
+    if (slice.length === 0) { armPhase(nextDueIn()); return; }
+    const storyDone = storyCursorRef.current >= s.events.length && phaseQueueRef.current.length === 0;
     storyInjectedRef.current = [...storyInjectedRef.current, ...slice];
 
     // Ids of this phase's ATTACK rows (and their SIEM mirrors): baseline / warm-up
@@ -647,7 +657,8 @@ export function useLiveEvents({
       const leadTimes = lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite);
       const firstShown = leadTimes.length ? Math.min(...leadTimes) : now - 60_000;
       const from = Math.max(lastPhaseAtRef.current ?? firstShown, now - 240_000);
-      const nt = noiseTimes(owed, from, now - 5_000);
+      // Up to just before now: a live row lands 3-6 s after its own time, so its noise follows it.
+      const nt = noiseTimes(owed, from, now - 500);
       for (let k = 0; k < owed; k++) {
         const chosen = nextNoise();
         if (!chosen) break;
@@ -719,6 +730,9 @@ export function useLiveEvents({
       }
       storyRef.current = null;
       onStoryCompleteRef.current?.();
+    } else if (phaseQueueRef.current.length > 0) {
+      // The rest of this phase is still on its way: the next row lands when its time comes.
+      armPhase(nextDueIn());
     } else {
       armPhase(PHASE_GAP());
     }
@@ -732,7 +746,8 @@ export function useLiveEvents({
     if (!attackTimerRef.current) {
       // Arm the first story phase - unless reset()/startStory() already
       // queued one with its own delay (kept, not doubled: P5-02).
-      armPhase(FIRST_PHASE_DELAY());
+      // A phase still on its way (paused mid-burst) carries on at once; otherwise the next phase.
+      armPhase(phaseQueueRef.current.length > 0 ? 1_000 : FIRST_PHASE_DELAY());
     }
 
     return () => {
@@ -753,6 +768,7 @@ export function useLiveEvents({
     storyInjectedRef.current = [];
     incidentOpenedRef.current = false;
     storyClockRef.current = newStoryClock();
+    phaseQueueRef.current = [];
     noiseSinceRef.current = 0;
     lastPhaseAtRef.current = null;
     armPhase(delayMs ?? ATTACK_COOLDOWN());
@@ -839,6 +855,7 @@ export function useLiveEvents({
     activeIncidentRef.current = null;
     caughtRef.current = false;
     storyClockRef.current = newStoryClock();
+    phaseQueueRef.current = [];
     noiseSinceRef.current = 0;
     lastPhaseAtRef.current = null;
     // A fresh deck for the (new) pool: once-only and one-off rows reset per shift; the opening rows
