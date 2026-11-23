@@ -16,6 +16,7 @@ import { eventMatchesSearch } from "./eventSearch";
 import { toRawLog } from "./rawLogFormat";
 import { isPublicIp } from "@/lib/edr/iocIntel";
 import { useNativeLog, useNativeRenderer, nativeRows, type NativeView, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+import { rawBlockRows, rowValues } from "@/lib/logs/native/fieldPaths";
 import { windowsEventSections, windowsValueMeaning } from "@/lib/logs/windowsEventView";
 import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
@@ -544,13 +545,11 @@ function legacyFieldRows(event: LiveEvent): [string, string][] {
 
   const ecsCoreKeys = new Set(ecsCore.map(([k]) => k));
 
-  const rawFields: [string, string][] = Object.entries(event.raw ?? {})
-    .filter(([k, v]) => !ecsCoreKeys.has(k) && v !== null && v !== undefined && v !== "" && typeof v !== "object" && typeof v !== "boolean")
-    .map(([k, v]) => [k, String(v)]);
+  const rawFields: [string, string][] = rawBlockRows(Object.fromEntries(Object.entries(event.raw ?? {})
+    .filter(([k, v]) => !ecsCoreKeys.has(k) && v !== null && v !== undefined && v !== "" && typeof v !== "object" && typeof v !== "boolean")));
 
-  const rawBool: [string, string][] = Object.entries(event.raw ?? {})
-    .filter(([k, v]) => !ecsCoreKeys.has(k) && typeof v === "boolean")
-    .map(([k, v]) => [k, v ? "true" : "false"]);
+  const rawBool: [string, string][] = rawBlockRows(Object.fromEntries(Object.entries(event.raw ?? {})
+    .filter(([k, v]) => !ecsCoreKeys.has(k) && typeof v === "boolean")));
   return [...ecsCore, ...rawFields, ...rawBool];
 }
 
@@ -565,8 +564,8 @@ const FIELD_LABEL: Record<string, string> = { "@user_email": "Username", "@hostn
 /** Identity rows of "Basic Information" filter on the event itself, whatever its source. */
 const BASIC_PROPS: Record<string, keyof LiveEvent> = { Username: "user_email", Hostname: "hostname", "IP Address": "src_ip" };
 const FieldFilterContext = createContext<((f: FieldFilter) => void) | null>(null);
-/** "process[0].name" and "process[1].name" are the same field for filtering. */
-const fieldKey = (k: string) => k.replace(/\[\d+\]/g, "[]");
+/** "process[0].name", "process[1].name" and "process.name" are the same field for filtering (older saved filters carry positions). */
+const fieldKey = (k: string) => k.replace(/\[\d*\]/g, "");
 
 export function fieldRowsOf(event: LiveEvent, render: NativeRenderer | null): [string, string][] {
   let native: NativeView | null = null;
@@ -580,7 +579,8 @@ export function matchesFieldFilter(event: LiveEvent, f: FieldFilter, rows: () =>
     hit = String(event[f.field.slice(1) as keyof LiveEvent] ?? "") === f.value;
   } else {
     const key = fieldKey(f.field);
-    hit = rows().some(([k, v]) => v === f.value && fieldKey(k) === key);
+    // A multi-valued field (shown as a JSON list) matches any of its values, as in Discover.
+    hit = rows().some(([k, v]) => fieldKey(k) === key && (v === f.value || rowValues(v).includes(f.value)));
   }
   return f.exclude ? !hit : hit;
 }

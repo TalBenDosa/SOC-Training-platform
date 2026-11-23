@@ -12,6 +12,7 @@
 import { createContext, useContext, useMemo } from "react";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog } from "./types";
+import { documentRows } from "./fieldPaths";
 
 export interface NativeView { log: NativeLog; product: string; /** Rows of the same transaction the product writes beside this one. */ related?: NativeLog[] }
 export type NativeRenderer = (ev: TelemetryEvent) => NativeView | null;
@@ -34,24 +35,7 @@ export function useNativeLog(ev: TelemetryEvent | null | undefined): NativeView 
   }, [render, ev]);
 }
 
-/** Flatten a native record into [path, value] rows for the fields table (arrays indexed). */
+/** A native record as the fields table shows it: Discover-style paths, no array positions (fieldPaths.ts). */
 export function nativeRows(record: Record<string, unknown>): [string, string][] {
-  const out: [string, string][] = [];
-  const walk = (v: unknown, p: string) => {
-    if (Array.isArray(v)) {
-      if (v.length === 0) { out.push([p, "[]"]); return; }
-      v.forEach((x, i) => walk(x, `${p}[${i}]`));
-      return;
-    }
-    if (v !== null && typeof v === "object") {
-      const e = Object.entries(v as Record<string, unknown>);
-      if (e.length === 0) { out.push([p, "{}"]); return; }
-      for (const [k, x] of e) walk(x, p ? `${p}.${k}` : k);
-      return;
-    }
-    if (v === undefined) return;
-    out.push([p, v === null ? "null" : String(v)]);
-  };
-  walk(record, "");
-  return out;
+  return documentRows(record);
 }

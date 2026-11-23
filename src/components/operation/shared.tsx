@@ -9,6 +9,7 @@ import { saveTaskReview, type ReviewRecord } from "@/components/rooms/reviewStor
 import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { Persona } from "@/lib/rooms/experience";
+import { rawBlockRows } from "@/lib/logs/native/fieldPaths";
 
 export interface MechanicProps<T> {
   roomId: string;
@@ -42,23 +43,9 @@ export function useMechanic(roomId: string, taskId: string, isCompleted: boolean
   return { submit, record, complete, recordInteraction };
 }
 
-/** Raw log fields as flat dotted rows; nested objects and arrays are expanded, not "[object Object]". */
-export function flattenRaw(raw: Record<string, unknown>, prefix = ""): { key: string; value: string }[] {
-  const out: { key: string; value: string }[] = [];
-  for (const [k, v] of Object.entries(raw)) {
-    const key = prefix ? `${prefix}.${k}` : k;
-    if (Array.isArray(v)) {
-      v.forEach((item, i) => {
-        if (item && typeof item === "object") out.push(...flattenRaw(item as Record<string, unknown>, `${key}[${i}]`));
-        else out.push({ key: `${key}[${i}]`, value: String(item) });
-      });
-    } else if (v && typeof v === "object") {
-      out.push(...flattenRaw(v as Record<string, unknown>, key));
-    } else {
-      out.push({ key, value: String(v) });
-    }
-  }
-  return out;
+/** Raw log fields as rows, the way a SIEM document view shows them: dotted paths without array positions (fieldPaths.ts). */
+export function flattenRaw(raw: Record<string, unknown>): { key: string; value: string }[] {
+  return rawBlockRows(raw).map(([key, value]) => ({ key, value }));
 }
 
 /** The "why" panel after a graded answer. Teaching, not just a verdict. */

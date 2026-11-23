@@ -2,6 +2,7 @@
 import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { NativeLogProvider, useNativeLog, nativeRows, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+import { rawBlockRows } from "@/lib/logs/native/fieldPaths";
 import { useState, useEffect, useCallback, useMemo, useRef, memo, type MutableRefObject, type TextareaHTMLAttributes } from "react";
 import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
@@ -177,12 +178,10 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
     ...(ev.file?.sha256 ? [["file.hash.sha256", ev.file.sha256]        as [string, string]] : []),
     ...(ev.file?.size   ? [["file.size",        `${ev.file.size} B`]   as [string, string]] : []),
   ];
-  const rawFields: [string, string][] = Object.entries(ev.raw ?? {})
-    .filter(([, v]) => v !== null && v !== undefined && v !== "" && typeof v !== "object" && typeof v !== "boolean")
-    .map(([k, v]) => [k, String(v)] as [string, string]);
-  const rawBool: [string, string][] = Object.entries(ev.raw ?? {})
-    .filter(([, v]) => typeof v === "boolean")
-    .map(([k, v]) => [k, v ? "true" : "false"] as [string, string]);
+  const rawFields: [string, string][] = rawBlockRows(Object.fromEntries(Object.entries(ev.raw ?? {})
+    .filter(([, v]) => v !== null && v !== undefined && v !== "" && typeof v !== "object" && typeof v !== "boolean")));
+  const rawBool: [string, string][] = rawBlockRows(Object.fromEntries(Object.entries(ev.raw ?? {})
+    .filter(([, v]) => typeof v === "boolean")));
   // A raw block often repeats an ECS field the typed event already carries
   // (source.ip, destination.port…): show it once, not twice with a clashing key.
   const seen = new Set(ecsCore.map(([k, v]) => `${k}=${v}`));
