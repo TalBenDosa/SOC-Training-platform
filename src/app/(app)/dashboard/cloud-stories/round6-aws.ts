@@ -50,6 +50,8 @@ function gd(o: Omit<Parameters<typeof guardDutyFinding>[0], "companyId" | "accou
   return { ...guardDutyFinding({ companyId: CX, accountId: ACCT, ...o }), edr_scope: "non_edr" as const };
 }
 const req = (o: Record<string, string>): Extra => Object.fromEntries(Object.entries(o).map(([k, v]) => [`aws.cloudtrail.requestParameters.${k}`, v]));
+/** responseElements the API returned: a minted key must be the key the later rows use (the analyst's pivot). */
+const resp = (o: Record<string, string>): Extra => Object.fromEntries(Object.entries(o).map(([k, v]) => [`aws.cloudtrail.responseElements.${k}`, v]));
 
 // ══════════════════════════════════════════════════════════════════════════════
 // family cloud-aws-sso-device-code, solo: a "renew your access" page, a device code, and data read from outside
@@ -185,7 +187,7 @@ function ssoDeviceCodeTeam(): TelemetryEvent[] {
     ct({
       id: "r6ae08", ts: T(9), eventName: "AssumeRole", eventSource: "sts.amazonaws.com", srcIp: outsideIp, userAgent: BOTO, actorType: "IAMUser", actorName: "deploy-bot", accountId: outside,
       arn: `arn:aws:iam::${outside}:user/deploy-bot`, accessKeyId: "AKIAT5KQW2ZR8EXAMPLE", severity: "high", mitre: "T1078.004", tactic: "Initial Access",
-      extra: req({ roleArn: `arn:aws:iam::${ACCT}:role/${backdoor}`, roleSessionName: "metrics-sync" }),
+      extra: { ...req({ roleArn: `arn:aws:iam::${ACCT}:role/${backdoor}`, roleSessionName: "metrics-sync" }), ...resp({ "credentials.accessKeyId": bd.accessKeyId }) },
       description: `CloudTrail AssumeRole into ${backdoor} by deploy-bot of the outside account ${outside} from ${outsideIp}, session metrics-sync.`,
     }),
     ct({ ...bd, id: "r6ae09", ts: T(11), eventName: "ListUsers", eventSource: "iam.amazonaws.com", readOnly: true, severity: "medium", mitre: "T1087.004", tactic: "Discovery",
@@ -287,7 +289,7 @@ function lambdaUrlTeam(): TelemetryEvent[] {
       extra: req({ userName: "svc-orders-replay" }),
       description: `CloudTrail CreateUser svc-orders-replay by the ${exec}/${fn} session (the changed function running) from ${fnS.srcIp}.` }),
     ct({ ...fnS, id: "r6am08", ts: T(140.3), eventName: "CreateAccessKey", eventSource: "iam.amazonaws.com", severity: "critical", mitre: "T1098.001", tactic: "Persistence",
-      extra: req({ userName: "svc-orders-replay" }),
+      extra: { ...req({ userName: "svc-orders-replay" }), ...resp({ "accessKey.accessKeyId": "AKIAJ6WN3PL8QEXAMPLE" }) },
       description: `CloudTrail CreateAccessKey for svc-orders-replay by the ${fn} function's session from ${fnS.srcIp}.` }),
     gd({
       id: "r6am09", ts: T(143), findingType: "Persistence:IAMUser/AnomalousBehavior", gdSeverity: 5, title: "An API commonly used to maintain unauthorized access to an AWS environment was invoked in an anomalous way.",
@@ -469,7 +471,7 @@ function orgEscapeTeam(): TelemetryEvent[] {
       description: `CloudTrail DescribePolicy ${scp} (deny-leave-organization-and-disable-security) by the same session from ${atk}.` }),
     ct({ ...s(req({ policyId: scp, targetId: member })), id: "r6aq04", ts: T(3), eventName: "DetachPolicy", eventSource: "organizations.amazonaws.com", severity: "critical", mitre: "T1685", tactic: "Defense Impairment",
       description: `CloudTrail DetachPolicy ${scp} from account ${member} by the same session from ${atk}: the guardrail that forbids leaving the organization no longer applies to it.` }),
-    ct({ ...s(req({ roleArn: `arn:aws:iam::${member}:role/OrganizationAccountAccessRole`, roleSessionName: person })), id: "r6aq05", ts: T(4), eventName: "AssumeRole", eventSource: "sts.amazonaws.com", severity: "high", mitre: "T1078.004", tactic: "Privilege Escalation",
+    ct({ ...s({ ...req({ roleArn: `arn:aws:iam::${member}:role/OrganizationAccountAccessRole`, roleSessionName: person }), ...resp({ "credentials.accessKeyId": ms.accessKeyId }) }), id: "r6aq05", ts: T(4), eventName: "AssumeRole", eventSource: "sts.amazonaws.com", severity: "high", mitre: "T1078.004", tactic: "Privilege Escalation",
       description: `CloudTrail AssumeRole into OrganizationAccountAccessRole of member account ${member} by the same session from ${atk}.` }),
     ct({ ...ms, id: "r6aq06", ts: T(6), eventName: "DeleteDetector", eventSource: "guardduty.amazonaws.com", outcome: "failure", errorCode: "BadRequestException", severity: "high", mitre: "T1685", tactic: "Defense Impairment",
       extra: req({ detectorId: "8cc4e1d27b9a05f3e6d0b1a2c3d4e5f6" }),
@@ -565,7 +567,7 @@ function sesTeam(): TelemetryEvent[] {
       description: `CloudTrail CreateUser ${smtp} by the same session from ${atk}: the SES console's SMTP credentials flow.` }),
     ct({ ...s(req({ userName: smtp, policyName: "AmazonSesSendingAccess", policyDocument: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ses:SendRawEmail","Resource":"*"}]}` })), id: "r6aa05", ts: T(6.2), eventName: "PutUserPolicy", eventSource: "iam.amazonaws.com", severity: "high", mitre: "T1098", tactic: "Persistence",
       description: `CloudTrail PutUserPolicy AmazonSesSendingAccess (ses:SendRawEmail on *) on ${smtp} by the same session from ${atk}.` }),
-    ct({ ...s(req({ userName: smtp })), id: "r6aa06", ts: T(6.4), eventName: "CreateAccessKey", eventSource: "iam.amazonaws.com", severity: "high", mitre: "T1098.001", tactic: "Persistence",
+    ct({ ...s({ ...req({ userName: smtp }), ...resp({ "accessKey.accessKeyId": "AKIAW7QN4ZT2KEXAMPLE" }) }), id: "r6aa06", ts: T(6.4), eventName: "CreateAccessKey", eventSource: "iam.amazonaws.com", severity: "high", mitre: "T1098.001", tactic: "Persistence",
       description: `CloudTrail CreateAccessKey for ${smtp} by the same session from ${atk}: the key the SMTP password is derived from.` }),
     gd({
       id: "r6aa07", ts: T(8), findingType: "Persistence:IAMUser/AnomalousBehavior", gdSeverity: 5, title: "An API commonly used to maintain unauthorized access to an AWS environment was invoked in an anomalous way.",

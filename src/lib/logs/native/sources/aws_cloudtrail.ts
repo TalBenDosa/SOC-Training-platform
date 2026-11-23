@@ -341,7 +341,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   const acct = awsAccountId(ev, ctx);
   const global = GLOBAL_SOURCES.has(es);
-  const region = awsRegion(ev, global);
+  const region = awsRegion(ev, global, ctx.tenant.awsRegion);
   const part = awsPartition(region);
   const isSignIn = en === "ConsoleLogin";
 
@@ -363,6 +363,15 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const isService = pr.type === "AWSService";
   const srcIp = ev.src_ip ?? rs(raw, "aws.cloudtrail.sourceIPAddress", "source.ip");
   const ua = isService ? String(ui.invokedBy) : rs(raw, "aws.cloudtrail.userAgent", "user_agent.original") ?? "aws-cli/2.17.60 md/awscrt#0.21.2 ua/2.0 os/linux#5.15.0 lang/python#3.11.4";
+  // An IAM user acting in the console runs on the console's temporary session credentials: an ASIA key,
+  // the session's creation and MFA in sessionContext, and sessionCredentialFromConsole "true". A long-term
+  // AKIA key only ever signs programmatic (CLI / SDK) calls.
+  const consoleSession = ui.type === "IAMUser" && !isSignIn && /Mozilla\//.test(ua) && !rs(raw, "aws.cloudtrail.userIdentity.accessKeyId");
+  if (consoleSession) {
+    const who = String(ui.userName);
+    ui.accessKeyId = awsSessionKey(ctx, "console", who);
+    ui.sessionContext = { attributes: { creationDate: sessionCreationDate(ctx, ev.ts, "console", who), mfaAuthenticated: rs(raw, "aws.cloudtrail.userIdentity.sessionContext.attributes.mfaAuthenticated") ?? "false" } };
+  }
 
   const eventType = isSignIn ? "AwsConsoleSignIn" : (rs(raw, "aws.cloudtrail.eventType") ?? "AwsApiCall");
   // Bedrock agent, knowledge-base and guardrail runtime calls are CloudTrail DATA events, like S3 object calls.
@@ -384,6 +393,12 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   }
   if (en === "AssumeRole" && req.roleArn && !req.roleSessionName) req.roleSessionName = callerSessionName(pr) ?? String(req.roleArn).split("/").pop();
   if (en === "CreateAccessKey" && !req.userName && pr.type === "IAMUser") req.userName = pr.userName;
+  // S3 records the endpoint the request was sent to as requestParameters.Host: virtual-hosted style for a
+  // bucket, the regional service endpoint for account-level calls (ListBuckets).
+  if (es === "s3.amazonaws.com" && !req.Host && !req.host) {
+    const b = typeof req.bucketName === "string" ? req.bucketName : rs(raw, "aws.cloudtrail.s3.bucket_name", "s3.bucket", "aws.s3.bucket.name");
+    req.Host = b ? `${b}.s3.${region}.amazonaws.com` : `s3.${region}.amazonaws.com`;
+  }
 
   // ── response ──
   const respAuthored = collectParams(raw, ["aws.cloudtrail.responseElements."], "aws.cloudtrail.responseElements");
@@ -439,6 +454,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     eventCategory: isData ? "Data" : "Management",
   };
   if (Object.keys(additionalEventData).length) record.additionalEventData = additionalEventData;
+  if (consoleSession) record.sessionCredentialFromConsole = "true";
   if (errorCode) record.errorCode = errorCode;
   if (errorMessage) record.errorMessage = errorMessage;
 

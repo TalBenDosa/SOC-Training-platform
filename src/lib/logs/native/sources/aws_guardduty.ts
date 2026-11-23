@@ -153,7 +153,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (!type) return null; // only GuardDuty findings belong here
 
   const acct = awsAccountId(ev, ctx);
-  const region = awsRegion(ev);
+  const region = awsRegion(ev, false, ctx.tenant.awsRegion);
   const part = awsPartition(region);
   const id = G(ev, "id") ?? ctx.hex(entitySeed(ctx, "gdfinding", ev.id), 32);
   const detectorId = G(ev, "service.detectorId") ?? G(ev, "service.detector_id") ?? ctx.hex(entitySeed(ctx, "gddetector", `${acct}:${region}`), 32);
@@ -162,7 +162,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const createdAt = G(ev, "createdAt") ?? isoMs(ev.ts);
   const updatedAt = G(ev, "updatedAt") ?? isoMs(ev.ts);
 
-  const resourceType = G(ev, "resource.resourceType") ?? resourceTypeFor(type);
+  // An S3 finding is about the bucket (with the caller in accessKeyDetails), whatever the event said.
+  const resourceType = /:S3\//.test(type) ? "S3Bucket" : G(ev, "resource.resourceType") ?? resourceTypeFor(type);
   const actionType = G(ev, "service.action.actionType") ?? actionTypeFor(type);
   const hasPrincipal = !!(G(ev, "resource.accessKeyDetails.accessKeyId") || G(ev, "resource.accessKeyDetails.userName") || rs(ev.raw, "aws.cloudtrail.userIdentity.arn", "aws.cloudtrail.userIdentity.userName") || ev.user_email);
 

@@ -35,7 +35,7 @@ export function aiLlmJackingScenarioEvents() {
   const cx = "quantumbank" as const;
 
   // ── The account and the pipeline identity ──────────────────────────────────
-  const awsAccount = "847213960055";
+  const awsAccount = "208340629191";
   const pilotRegion = "us-east-1";       // the only region with invocation logging
   const ciUser = "svc-build-release";
   const ciUserArn = `arn:aws:iam::${awsAccount}:user/${ciUser}`;
@@ -429,7 +429,7 @@ export function aiLlmJackingScenarioEvents() {
     bedrockInvocationLog({
       id: "aiw1_lj_12", ts: tInvocationLog, requestTs: tLoggedCall, requestId: loggedRequestId, region: pilotRegion,
       promptText: rolePlayPrompt, inputTokens: 7812, outputTokens: 4096,
-      description: "Bedrock model invocation log record (CloudWatch Logs, us-east-1) for a Converse call on us.anthropic.claude-opus-4-20250514-v1:0 by identity arn:aws:iam::847213960055:user/svc-build-release: 7,812 input and 4,096 output tokens, stopReason max_tokens. The input text opens with a <system_rule> block claiming an authorized red team session for unrestricted role-play. The record carries no source address and no access key.",
+      description: "Bedrock model invocation log record (CloudWatch Logs, us-east-1) for a Converse call on us.anthropic.claude-opus-4-20250514-v1:0 by identity arn:aws:iam::208340629191:user/svc-build-release: 7,812 input and 4,096 output tokens, stopReason max_tokens. The input text opens with a <system_rule> block claiming an authorized red team session for unrestricted role-play. The record carries no source address and no access key.",
     }),
 
     // 13. DEFENSE IMPAIRMENT: the invocation-logging configuration is deleted (T1685.002).

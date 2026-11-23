@@ -248,12 +248,12 @@ export function buildS3ExfilExposureScenario(
     // 8. THE DETECTION, GuardDuty flags the object-read as anomalous egress (T1567); CloudWatch's bytes metric agrees.
     {
       ...guardDutyFinding({
-        companyId: cx, id: "s3exfil_08_gd_object_read", ts: T(20 * MIN), findingType: "Exfiltration:S3/ObjectRead.Unusual", gdSeverity: 8,
-        title: "An IAM identity invoked an S3 API to read objects from medcore-patient-exports-prod from a remote host", srcIp: attackerIp, region, accountId: awsAccount,
+        companyId: cx, id: "s3exfil_08_gd_object_read", ts: T(20 * MIN), findingType: "Exfiltration:S3/AnomalousBehavior", gdSeverity: 8,
+        title: "An IAM entity invoked an S3 API in a suspicious way.", srcIp: attackerIp, region, accountId: awsAccount,
         api: "GetObject", serviceName: "s3.amazonaws.com", callerType: "Remote IP", remoteCountry: "Netherlands", asnOrg: "Serverius Holding B.V.",
         resourceType: "S3Bucket", bucketName: bucket, userType: "IAMUser", userName: iamUser, accessKeyId, count: 20000,
         mitre: "T1567", tactic: "Exfiltration", severity: "high", incidentId: INCIDENT,
-        description: "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual (severity 8) on medcore-patient-exports-prod: the reporting-export-svc identity read objects at a volume and from a location outside its established pattern, sourced from 203.0.113.98.",
+        description: "GuardDuty raised Exfiltration:S3/AnomalousBehavior (severity 8) on medcore-patient-exports-prod: the reporting-export-svc identity read objects at a volume and from a location outside its established pattern, sourced from 203.0.113.98.",
       }),
       edr_scope: "non_edr",
     },
@@ -369,7 +369,7 @@ export function buildS3ExfilExposureScenario(
       xp: 55,
       kind: "single",
       prompt:
-        "GuardDuty produced two findings on this bucket, Policy:S3/BucketAnonymousAccessGranted and Exfiltration:S3/ObjectRead.Unusual. What does each one tell you about a different stage of the incident?",
+        "GuardDuty produced two findings on this bucket, Policy:S3/BucketAnonymousAccessGranted and Exfiltration:S3/AnomalousBehavior. What does each one tell you about a different stage of the incident?",
       hint: "One finding fires on a configuration change; the other fires on the objects actually being pulled down.",
       options: [
         { value: "config_then_read", label: "The first fires on the config write that opened the store, the second on the records then being drained out, the origin, then the resulting loss" },
@@ -379,7 +379,7 @@ export function buildS3ExfilExposureScenario(
       ],
       answer: "config_then_read",
       explanation:
-        "The two findings map cleanly onto the two halves of the case. Policy:S3/BucketAnonymousAccessGranted (s3exfil_05) fires on the PutBucketPolicy change, the origin, the moment the bucket became reachable by anyone. Exfiltration:S3/ObjectRead.Unusual (s3exfil_08) fires on the GetObject burst, the blast radius, the data actually leaving. Read together they give you both where it began and what was lost. (b) is wrong, they key on different APIs (PutBucketPolicy vs GetObject) at different times. (c) reverses the causal order. (d) is false: both name the same S3 bucket resource and the same access key.",
+        "The two findings map cleanly onto the two halves of the case. Policy:S3/BucketAnonymousAccessGranted (s3exfil_05) fires on the PutBucketPolicy change, the origin, the moment the bucket became reachable by anyone. Exfiltration:S3/AnomalousBehavior (s3exfil_08) fires on the GetObject burst, the blast radius, the data actually leaving. Read together they give you both where it began and what was lost. (b) is wrong, they key on different APIs (PutBucketPolicy vs GetObject) at different times. (c) reverses the causal order. (d) is false: both name the same S3 bucket resource and the same access key.",
     },
     {
       id: "s3q5",
@@ -413,14 +413,14 @@ export function buildS3ExfilExposureScenario(
 
 The incident begins with a credential that should never have left the account. A long-lived IAM access key for the reporting-export-svc service account was committed to a public repository, medcore/reporting-tools, on 28 August, and GitHub secret scanning raised an alert at 11:42; the key was over-permissioned and was never rotated. On 31 August at 02:58 that key made its first calls from 203.0.113.98, an internet address: a GetCallerIdentity to check what it was, and at 03:00 a ListBuckets to survey the account. Three minutes later it began stripping the bucket's protections: PutBucketPublicAccessBlock flipped all four Block Public Access guards to false, PutBucketPolicy attached a statement allowing anyone (Principal "*") to read every object, and PutBucketAcl granted the AllUsers group READ. With Block Public Access off, those permissive grants took effect and the bucket was open to the world. It was used at once: at 03:07 a GetObject with accountId anonymous, from a second address (203.0.113.233) and no credential at all, was answered.
 
-GuardDuty caught the changes (Policy:S3/BucketBlockPublicAccessDisabled at 03:08 and Policy:S3/BucketAnonymousAccessGranted at 03:09). Meanwhile the same key enumerated the bucket with ListObjectsV2, page after page of up to 1,000 keys under the exports prefix, and from 03:12 ran GetObject calls that pulled those objects down, every request sourced from 203.0.113.98. One CloudTrail record carries one object; the scale is in the aggregates: GuardDuty counted 20,000 object reads and the CloudWatch BytesDownloaded alarm on the bucket reached 44,023,414,784 bytes (41 GB) by 03:20. At 03:20 GuardDuty raised Exfiltration:S3/ObjectRead.Unusual on the drain, and a minute later Discovery:S3/AnomalousBehavior tied the enumeration and reads together as one out-of-pattern run on the key.
+GuardDuty caught the changes (Policy:S3/BucketBlockPublicAccessDisabled at 03:08 and Policy:S3/BucketAnonymousAccessGranted at 03:09). Meanwhile the same key enumerated the bucket with ListObjectsV2, page after page of up to 1,000 keys under the exports prefix, and from 03:12 ran GetObject calls that pulled those objects down, every request sourced from 203.0.113.98. One CloudTrail record carries one object; the scale is in the aggregates: GuardDuty counted 20,000 object reads and the CloudWatch BytesDownloaded alarm on the bucket reached 44,023,414,784 bytes (41 GB) by 03:20. At 03:20 GuardDuty raised Exfiltration:S3/AnomalousBehavior on the drain, and a minute later Discovery:S3/AnomalousBehavior tied the enumeration and reads together as one out-of-pattern run on the key.
 
 Read as a whole, the case has a clean shape: the CloudTrail management events are the origin, the config change that opened the bucket, and the object reads plus the GuardDuty findings are the blast radius. The constant across every step is the from-outside-AWS source address on a service key whose real work never leaves the account.`,
     learning_objectives: [
       "Separate a malicious bulk S3 read from a legitimate high-volume one using the caller identity and source path (an internet address on a standalone key vs an assumed role over a VPC endpoint), not the object count",
       "Identify the CloudTrail management events (PutBucketPublicAccessBlock, PutBucketPolicy, PutBucketAcl) as the config-change origin, and understand why disabling Block Public Access is the change that lets the others take effect",
       "Use sourceIPAddress and userIdentity to prove a service key was driven from outside the account, and connect that to the GuardDuty anonymous-access and object-read findings",
-      "Read GuardDuty S3 findings (BucketAnonymousAccessGranted, ObjectRead.Unusual, AnomalousBehavior) as markers of distinct incident stages rather than duplicates",
+      "Read GuardDuty S3 findings (Policy:S3/BucketAnonymousAccessGranted, Exfiltration:S3/AnomalousBehavior, Discovery:S3/AnomalousBehavior) as markers of distinct incident stages rather than duplicates",
       "Scope containment for a leaked cloud access key, revoke and rotate the credential, restore the bucket's protections, and treat everything the key could reach as exposed",
     ],
     alerts: [],
@@ -437,7 +437,7 @@ Read as a whole, the case has a clean shape: the CloudTrail management events ar
       { ts: T(9 * MIN), phase: "Detection", action: `GuardDuty Policy:S3/BucketAnonymousAccessGranted on ${bucket}` },
       { ts: T(11 * MIN), phase: "Discovery", action: `ListObjectsV2, the exports/ prefix indexed page by page from ${attackerIp} (T1619)` },
       { ts: T(12 * MIN), phase: "Collection", action: `GetObject calls pull the objects from ${attackerIp}; 20,000 reads, 41 GB in total (T1530)` },
-      { ts: T(20 * MIN), phase: "Detection", action: "GuardDuty Exfiltration:S3/ObjectRead.Unusual, the drain flagged; the CloudWatch BytesDownloaded alarm confirms 41 GB (T1567)" },
+      { ts: T(20 * MIN), phase: "Detection", action: "GuardDuty Exfiltration:S3/AnomalousBehavior, the drain flagged; the CloudWatch BytesDownloaded alarm confirms 41 GB (T1567)" },
       { ts: T(21 * MIN), phase: "Detection", action: "GuardDuty Discovery:S3/AnomalousBehavior, enumeration + reads correlated on the key (T1526)" },
     ],
     questions,

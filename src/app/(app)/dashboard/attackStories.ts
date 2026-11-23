@@ -566,10 +566,10 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
   },
   {
     id: "qbwf11", ts: "2026-06-15T08:41:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
-    severity: "high", vendor: "AWS CloudTrail (GovCloud)", src_ip: "198.51.100.81",
-    description: "An attempt to stop logging on the GovCloud CloudTrail trail from 198.51.100.81 was denied by an IAM permission boundary",
+    severity: "high", vendor: "AWS CloudTrail", src_ip: "198.51.100.81",
+    description: "An attempt to stop logging on the organization CloudTrail trail from 198.51.100.81 was denied by an IAM permission boundary",
     mitre_technique: "T1685.002", mitre_tactic: "Defense Impairment",
-    raw: { "aws.cloudtrail.eventName": "StopLogging", "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "User is not authorized to perform: cloudtrail:StopLogging", "aws.cloudtrail.sourceIPAddress": "198.51.100.81", "action_result": "denied" }
+    raw: { "aws.cloudtrail.eventName": "StopLogging", "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com", "aws.cloudtrail.awsRegion": "eu-central-2", "aws.cloudtrail.requestParameters.name": "arn:aws:cloudtrail:eu-central-2:208340629191:trail/qb-org-trail", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::208340629191:assumed-role/qb-swift-ops-role/svc-swift-app", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAQB5SWF7OPEXAMPLE", "aws.cloudtrail.recipientAccountId": "208340629191", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "User: arn:aws:sts::208340629191:assumed-role/qb-swift-ops-role/svc-swift-app is not authorized to perform: cloudtrail:StopLogging on resource: arn:aws:cloudtrail:eu-central-2:208340629191:trail/qb-org-trail because no permissions boundary allows the cloudtrail:StopLogging action", "aws.cloudtrail.sourceIPAddress": "198.51.100.81", "action_result": "denied" }
   },
 ];
 
@@ -591,10 +591,10 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
   },
   {
     id: "qbft3", ts: "2026-06-20T22:24:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
-    severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "10.100.1.20",
     description: "Using svc-fraud-monitor's assumed role, alarm actions were disabled on the composite alarm qb-fraud-threshold-alerts",
     mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
-    raw: { "aws.cloudtrail.eventName": "DisableAlarmActions", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmNames": "qb-fraud-threshold-alerts", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.awsRegion": "us-gov-west-1", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "DisableAlarmActions", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmNames": "qb-fraud-threshold-alerts", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::208340629191:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.awsRegion": "eu-central-2", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
   },
   {
     // The page: a Sentinel analytic on alarm actions disabled for a fraud-monitoring alarm outside a change window.
@@ -608,10 +608,10 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
   },
   {
     id: "qbft4", ts: "2026-06-20T22:26:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
-    severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "10.100.1.20",
     description: "The same session raised the qb-large-wire-alarm reporting threshold from CHF 10,000 to CHF 500,000",
     mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
-    raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "500000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "500000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::208340629191:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
   },
   {
     id: "qbft5", ts: "2026-06-20T22:31:00.000Z", source: "edr", event_type: "process_create",
@@ -630,10 +630,10 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
   },
   {
     id: "qbft7", ts: "2026-06-20T22:49:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
-    severity: "high", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
+    severity: "high", vendor: "AWS CloudTrail", src_ip: "10.100.1.20",
     description: "Nine minutes after the transfer cleared, the qb-large-wire-alarm threshold was restored to its original CHF 10,000 value",
     mitre_technique: "T1070", mitre_tactic: "Stealth",
-    raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "10000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "10000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::208340629191:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
   },
   {
     id: "qbft8", ts: "2026-06-20T22:51:00.000Z", source: "edr", event_type: "process_create",
@@ -677,10 +677,10 @@ const QB_CYBERARK_MULE_PAYOUT: TelemetryEvent[] = [
   },
   {
     id: "qbmp4", ts: "2026-06-25T13:18:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
-    severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.44",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "10.100.1.44",
     description: "An ExecuteStatement call via the RDS Data API inserted a new, pre-approved beneficiary directly into the core-banking database, bypassing maker-checker",
     mitre_technique: "T1565.001", mitre_tactic: "Impact",
-    raw: { "aws.cloudtrail.eventName": "ExecuteStatement", "aws.cloudtrail.eventSource": "rds-data.amazonaws.com", "aws.cloudtrail.requestParameters.resourceArn": "arn:aws:rds:eu-central-2:552134008821:cluster:qb-corebanking-cluster", "aws.cloudtrail.requestParameters.sql": "INSERT INTO beneficiaries (iban, name, approved) VALUES ('RO49AAAA1B31007593840000','Silver Fern Trading Ltd',1)", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-corebanking-admin-role/svc-corebanking-admin", "aws.cloudtrail.sourceIPAddress": "10.100.1.44", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "ExecuteStatement", "aws.cloudtrail.eventSource": "rds-data.amazonaws.com", "aws.cloudtrail.requestParameters.resourceArn": "arn:aws:rds:eu-central-2:208340629191:cluster:qb-corebanking-cluster", "aws.cloudtrail.requestParameters.sql": "INSERT INTO beneficiaries (iban, name, approved) VALUES ('RO49AAAA1B31007593840000','Silver Fern Trading Ltd',1)", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::208340629191:assumed-role/qb-corebanking-admin-role/svc-corebanking-admin", "aws.cloudtrail.sourceIPAddress": "10.100.1.44", "action_result": "allowed" }
   },
   {
     id: "qbmp5", ts: "2026-06-25T13:24:00.000Z", source: "proxy", event_type: "http_request",
@@ -766,7 +766,7 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "198.51.100.93",
     description: "The stolen instance-role credentials called GetCallerIdentity from 198.51.100.93, confirming they were valid off-host",
     mitre_technique: "T1078.004", mitre_tactic: "Stealth",
-    raw: { "aws.cloudtrail.eventName": "GetCallerIdentity", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/i-0abc123def456789", "aws.cloudtrail.sourceIPAddress": "198.51.100.93", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetCallerIdentity", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/i-0abc123def456789", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7CIDEXAMPLE", "aws.cloudtrail.sourceIPAddress": "198.51.100.93", "action_result": "allowed" }
   },
   {
     id: "rscp7", ts: "2026-06-18T09:12:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -787,7 +787,7 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "198.51.100.93",
     description: "GetObject read exports/customers_full.csv from rocketstack-prod-customer-data using the new standing access key",
     mitre_technique: "T1530", mitre_tactic: "Collection",
-    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "IAMUser", "aws.cloudtrail.userIdentity.userName": "rocketstack-deploy-prod", "aws.cloudtrail.sourceIPAddress": "198.51.100.93", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "IAMUser", "aws.cloudtrail.userIdentity.userName": "rocketstack-deploy-prod", "aws.cloudtrail.userIdentity.accessKeyId": "AKIAW4ZRX7DEPEXAMPLE", "aws.cloudtrail.sourceIPAddress": "198.51.100.93", "action_result": "allowed" }
   },
   {
     id: "rscp10", ts: "2026-06-18T09:26:00.000Z", source: "firewall", event_type: "net_connection",
@@ -814,29 +814,29 @@ const RS_TERRAFORM_IAC_BACKDOOR: TelemetryEvent[] = [
     severity: "high", vendor: "GitHub", user_email: "m.ben-david@rocketstack.io",
     description: "A PR merged into rocketstack-io/terraform-aws-network added an external AWS account to the rocketstack-prod-admin role's trust policy",
     mitre_technique: "T1195.002", mitre_tactic: "Initial Access",
-    raw: { "github.audit.action": "pull_request.merge", "github.audit.actor": "m.ben-david", "github.audit.repo": "rocketstack-io/terraform-aws-network", "github.audit.base_ref": "main", "github.audit.head_ref": "fix/network-module-refactor", "github.workflow.diff_added_lines": "Principal = { AWS = \"arn:aws:iam::999999999999:root\" }", "event.action": "pull_request.merge", "event.outcome": "success", "user.name": "m.ben-david" }
+    raw: { "github.audit.action": "pull_request.merge", "github.audit.actor": "m.ben-david", "github.audit.repo": "rocketstack-io/terraform-aws-network", "github.audit.base_ref": "main", "github.audit.head_ref": "fix/network-module-refactor", "github.workflow.diff_added_lines": "Principal = { AWS = \"arn:aws:iam::731052984416:root\" }", "event.action": "pull_request.merge", "event.outcome": "success", "user.name": "m.ben-david" }
   },
   {
     id: "rstb2", ts: "2026-06-22T14:06:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "172.16.10.50",
     description: "The CI apply ran UpdateAssumeRolePolicy on rocketstack-prod-admin, adding sts:AssumeRole for an external account",
     mitre_technique: "T1098.003", mitre_tactic: "Persistence",
-    raw: { "aws.cloudtrail.eventName": "UpdateAssumeRolePolicy", "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.requestParameters.roleName": "rocketstack-prod-admin", "aws.cloudtrail.requestParameters.policyDocument": "{\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::999999999999:root\"},\"Action\":\"sts:AssumeRole\"}]}", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/ci-pipeline", "aws.cloudtrail.sourceIPAddress": "172.16.10.50", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "UpdateAssumeRolePolicy", "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.requestParameters.roleName": "rocketstack-prod-admin", "aws.cloudtrail.requestParameters.policyDocument": "{\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::731052984416:root\"},\"Action\":\"sts:AssumeRole\"}]}", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/ci-pipeline", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7CIPEXAMPLE", "aws.cloudtrail.sourceIPAddress": "172.16.10.50", "action_result": "allowed" }
   },
   {
     id: "rstb3", ts: "2026-06-22T14:08:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "high", vendor: "AWS GuardDuty", src_ip: "172.16.10.50",
     is_detection: true,
-    description: "GuardDuty flagged ci-pipeline's trust-policy change as PrivilegeEscalation:IAMUser/AdministrativePermissions",
+    description: "GuardDuty flagged the ci-pipeline session's trust-policy change as PrivilegeEscalation:IAMUser/AnomalousBehavior",
     mitre_technique: "T1098.003", mitre_tactic: "Persistence",
-    raw: { "aws.guardduty.type": "PrivilegeEscalation:IAMUser/AnomalousBehavior", "aws.guardduty.severity": "7.0", "aws.guardduty.title": "An IAM entity invoked an API commonly used to change the permissions of users, groups or roles.", "aws.guardduty.resource.accessKeyDetails.userName": "ci-pipeline", "aws.guardduty.resource.accessKeyDetails.userType": "IAMUser", "aws.guardduty.service.action.awsApiCallAction.api": "UpdateAssumeRolePolicy", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
+    raw: { "aws.guardduty.type": "PrivilegeEscalation:IAMUser/AnomalousBehavior", "aws.guardduty.severity": "7.0", "aws.guardduty.title": "An IAM entity invoked an API commonly used to change the permissions of users, groups or roles.", "aws.guardduty.resource.accessKeyDetails.userName": "rocketstack-ci-deploy-role", "aws.guardduty.resource.accessKeyDetails.userType": "AssumedRole", "aws.guardduty.resource.accessKeyDetails.accessKeyId": "ASIAW4ZRX7CIPEXAMPLE", "aws.guardduty.service.action.awsApiCallAction.api": "UpdateAssumeRolePolicy", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
   },
   {
     id: "rstb4", ts: "2026-06-22T14:15:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "198.51.100.94",
-    description: "AssumeRole from the newly-trusted external account 999999999999 succeeded against rocketstack-prod-admin",
+    description: "AssumeRole from the newly-trusted external account 731052984416 succeeded against rocketstack-prod-admin",
     mitre_technique: "T1199", mitre_tactic: "Initial Access",
-    raw: { "aws.cloudtrail.eventName": "AssumeRole", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.requestParameters.roleArn": "arn:aws:iam::247316892041:role/rocketstack-prod-admin", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.accountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "198.51.100.94", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "AssumeRole", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.requestParameters.roleArn": "arn:aws:iam::247316892041:role/rocketstack-prod-admin", "aws.cloudtrail.requestParameters.roleSessionName": "ext-session", "aws.cloudtrail.responseElements.credentials.accessKeyId": "ASIAW4ZRX7PROEXAMPLE", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.accountId": "731052984416", "aws.cloudtrail.sourceIPAddress": "198.51.100.94", "action_result": "allowed" }
   },
   {
     id: "rstb5", ts: "2026-06-22T14:19:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -850,7 +850,7 @@ const RS_TERRAFORM_IAC_BACKDOOR: TelemetryEvent[] = [
     severity: "high", vendor: "AWS CloudTrail", src_ip: "198.51.100.94",
     description: "GetSecretValue retrieved the production database master password using the backdoored role session",
     mitre_technique: "T1555.006", mitre_tactic: "Credential Access",
-    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-prod-admin/ext-session", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7PROEXAMPLE", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.userIdentity.srcAccountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "198.51.100.94", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-prod-admin/ext-session", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7PROEXAMPLE", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.userIdentity.srcAccountId": "731052984416", "aws.cloudtrail.sourceIPAddress": "198.51.100.94", "action_result": "allowed" }
   },
   {
     id: "rstb7", ts: "2026-06-22T14:33:00.000Z", source: "firewall", event_type: "net_connection",
@@ -863,7 +863,7 @@ const RS_TERRAFORM_IAC_BACKDOOR: TelemetryEvent[] = [
     id: "rstb8", ts: "2026-06-22T14:40:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS GuardDuty", src_ip: "198.51.100.94",
     is_detection: true,
-    description: "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual for the anomalous high-volume reads from account 999999999999",
+    description: "GuardDuty raised Exfiltration:S3/AnomalousBehavior for the anomalous high-volume reads from account 731052984416",
     mitre_technique: "T1530", mitre_tactic: "Collection",
     raw: { "aws.guardduty.type": "Exfiltration:S3/AnomalousBehavior", "aws.guardduty.severity": "8.0", "aws.guardduty.title": "An S3 API was invoked in an anomalous way by an IAM principal.", "aws.guardduty.resource.accessKeyDetails.accessKeyId": "ASIAW4ZRX7PROEXAMPLE", "aws.guardduty.resource.accessKeyDetails.userType": "AssumedRole", "aws.guardduty.resource.s3BucketDetails.name": "rocketstack-prod-customer-data", "aws.guardduty.service.action.awsApiCallAction.api": "GetObject", "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.recipientAccountId": "247316892041", "action_result": "detected" }
   },
@@ -918,14 +918,14 @@ const RS_OAUTH_CONSENT_CHAINING: TelemetryEvent[] = [
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "198.51.100.95",
     description: "AssumeRoleWithSAML using an Okta-issued assertion succeeded against the AWS federation role from an unfamiliar IP",
     mitre_technique: "T1078.004", mitre_tactic: "Initial Access",
-    raw: { "aws.cloudtrail.eventName": "AssumeRoleWithSAML", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.userIdentity.type": "SAMLUser", "aws.cloudtrail.userIdentity.userName": "r.cohen@rocketstack.io", "aws.cloudtrail.userIdentity.identityProvider": "Okta", "aws.cloudtrail.responseElements.credentials.accessKeyId": "ASIAW4ZRX7OKTAFED07", "aws.cloudtrail.responseElements.assumedRoleUser.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/r.cohen@rocketstack.io", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.requestParameters.principalArn": "arn:aws:iam::247316892041:saml-provider/Okta", "aws.cloudtrail.sourceIPAddress": "198.51.100.95", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "AssumeRoleWithSAML", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.userIdentity.type": "SAMLUser", "aws.cloudtrail.userIdentity.userName": "r.cohen@rocketstack.io", "aws.cloudtrail.userIdentity.identityProvider": "Okta", "aws.cloudtrail.responseElements.credentials.accessKeyId": "ASIAW4ZRX7OK7EXAMPLE", "aws.cloudtrail.responseElements.assumedRoleUser.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/r.cohen@rocketstack.io", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.requestParameters.principalArn": "arn:aws:iam::247316892041:saml-provider/Okta", "aws.cloudtrail.sourceIPAddress": "198.51.100.95", "action_result": "allowed" }
   },
   {
     id: "rsoc7", ts: "2026-06-28T10:21:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "198.51.100.95",
     description: "The federated session listed buckets and read objects from rocketstack-prod-customer-data",
     mitre_technique: "T1530", mitre_tactic: "Collection",
-    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/r.cohen@rocketstack.io", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7OKTAFED07", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.additionalEventData.bytesTransferredOut": "740352000", "aws.cloudtrail.sourceIPAddress": "198.51.100.95", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/r.cohen@rocketstack.io", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7OK7EXAMPLE", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.additionalEventData.bytesTransferredOut": "740352000", "aws.cloudtrail.sourceIPAddress": "198.51.100.95", "action_result": "allowed" }
   },
   {
     id: "rsoc8", ts: "2026-06-28T10:50:00.000Z", source: "gws", event_type: "account_modify",

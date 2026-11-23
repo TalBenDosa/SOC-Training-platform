@@ -139,11 +139,11 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
     industry:    "Banking / Finance",
     size:        520,
     hq:          "Zurich, Switzerland",
-    description: "Private bank with PCI-DSS Level 1 compliance. Security-first architecture: CrowdStrike Falcon Elite, FIDO2-only auth, CyberArk PAM for privileged access, Zscaler ZIA for all egress. AWS GovCloud.",
+    description: "Private bank with PCI-DSS Level 1 compliance. Security-first architecture: CrowdStrike Falcon Elite, FIDO2-only auth, CyberArk PAM for privileged access, Zscaler ZIA for all egress. AWS in the Zurich region (eu-central-2).",
     gradient:    "from-violet-600 to-purple-700",
     architecture: {
       edr:      "CrowdStrike Falcon Elite",
-      cloud:    "AWS GovCloud",
+      cloud:    "AWS (eu-central-2, Zurich)",
       idp:      "Okta + CyberArk PAM",
       email:    "Microsoft 365 (DMARC enforced)",
       firewall: "Palo Alto NGFW (HA pair)",

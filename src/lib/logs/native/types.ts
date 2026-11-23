@@ -120,6 +120,8 @@ export interface NativeCtx {
   /** Stable tenant identifiers derived from the company (cloud account id, tenant ids …). */
   tenant: {
     awsAccountId: string;
+    /** Home AWS region of the company (where its workloads run when a row names none). */
+    awsRegion: string;
     azureTenantId: string;
     azureSubscriptionId: string;
     gcpProjectId: string;

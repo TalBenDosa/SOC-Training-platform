@@ -85,7 +85,7 @@ describe("AWS CloudTrail emitter", () => {
 describe("AWS GuardDuty emitter", () => {
   const keyValid = validatorFor("aws-cloudtrail"); // GuardDuty rides the aws-cloudtrail registry key
   const finding = guardDutyFinding({
-    id: "g1", ts: T(9), findingType: "Exfiltration:S3/ObjectRead.Unusual", gdSeverity: 8,
+    id: "g1", ts: T(9), findingType: "Exfiltration:S3/AnomalousBehavior", gdSeverity: 8,
     title: "An IAM identity read objects from a bucket from a remote host", srcIp: "91.242.217.35",
     api: "GetObject", serviceName: "s3.amazonaws.com", callerType: "Remote IP", resourceType: "S3Bucket",
     bucketName: "medcore-patient-exports-prod", userType: "IAMUser", userName: "reporting-export-svc",
@@ -98,7 +98,7 @@ describe("AWS GuardDuty emitter", () => {
     for (const k of Object.keys(finding.raw ?? {})) expect(keyValid(k), `invalid GuardDuty field "${k}"`).toBe(true);
   });
   it("carries the finding type + severity", () => {
-    expect(finding.raw?.["aws.guardduty.type"]).toBe("Exfiltration:S3/ObjectRead.Unusual");
+    expect(finding.raw?.["aws.guardduty.type"]).toBe("Exfiltration:S3/AnomalousBehavior");
     expect(finding.raw?.["aws.guardduty.severity"]).toBe("8");
     expect(finding.severity).toBe("high");
   });

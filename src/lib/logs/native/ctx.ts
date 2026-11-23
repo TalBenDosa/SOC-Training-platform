@@ -83,6 +83,12 @@ const GLOBAL_SEED = /(^|\|)(sha1:|img:|dom:|threat:|s1:indicator:|role-template:
  */
 const tenantSeed = (companyId: string, seed: string) => (GLOBAL_SEED.test(seed) ? seed : `${companyId}\u0002${seed}`);
 
+/**
+ * Where a company runs its AWS workloads, for rows that name no region. A Zurich private bank keeps its data
+ * in Zurich and a Frankfurt logistics group in Frankfurt; the rest default to us-east-1 (AWS review 2026-11-22).
+ */
+const AWS_HOME_REGION: Record<string, string> = { quantumbank: "eu-central-2", globallogis: "eu-central-1" };
+
 /** Build the per-company context; identifiers are stable for a company across every session. */
 export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "domain" | "netbios">> = {}): NativeCtx {
   // A scenario-only organization (vantageindustrial …) has its domain and realm in the asset registry too.
@@ -97,6 +103,7 @@ export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "d
     timeZone: d.timeZone,
     tenant: {
       awsAccountId: digits(`${companyId}:aws`, 12),
+      awsRegion: AWS_HOME_REGION[companyId] ?? "us-east-1",
       azureTenantId: seededUuid(`${companyId}:aad`),
       azureSubscriptionId: seededUuid(`${companyId}:sub`),
       // A GCP project id is human-readable, so a named organization (domain override) gets its own

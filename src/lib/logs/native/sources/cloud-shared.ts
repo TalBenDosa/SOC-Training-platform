@@ -148,12 +148,12 @@ export function awsPartition(region: string): AwsPartition {
  * Global services (IAM, Organizations, sign-in …) record in the partition's home region
  * (us-east-1 / us-gov-west-1); a GovCloud record never carries a commercial region.
  */
-export function awsRegion(ev: TelemetryEvent, globalService = false): string {
+export function awsRegion(ev: TelemetryEvent, globalService = false, home = "us-east-1"): string {
   const r = rs(ev.raw, "aws.cloudtrail.awsRegion", "cloud.region", "aws.guardduty.region", "aws.guardduty.finding.region") ?? ev.cloud?.region;
   if (isGovCloud(ev)) return !globalService && r?.startsWith("us-gov-") ? r : "us-gov-west-1";
   if (r?.startsWith("cn-")) return globalService ? "cn-north-1" : r;
   if (globalService) return "us-east-1";
-  return r ?? "us-east-1";
+  return r ?? home;
 }
 
 /**

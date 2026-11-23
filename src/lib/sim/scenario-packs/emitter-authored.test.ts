@@ -903,7 +903,7 @@ describe("emitter-authored scenario packs", () => {
     expect(s.events.find(e => e.id === "s3exfil_06_list_objects")?.raw?.["aws.cloudtrail.additional_event_data.keys_returned"]).toBeUndefined();
     expect(s.events.find(e => e.id === "s3exfil_08b_cloudwatch_bytes")?.raw?.["cloudwatch.alarm.actual_value"]).toBe("44023414784");
     const gdRead = s.events.find(e => e.id === "s3exfil_08_gd_object_read");
-    expect(gdRead?.raw?.["aws.guardduty.type"]).toBe("Exfiltration:S3/ObjectRead.Unusual");
+    expect(gdRead?.raw?.["aws.guardduty.type"]).toBe("Exfiltration:S3/AnomalousBehavior");
     expect(gdRead?.is_detection).toBe(true);
     // the anomaly finding is a finding too
     expect(s.events.find(e => e.id === "s3exfil_09_gd_anomalous")?.is_detection).toBe(true);

@@ -128,7 +128,7 @@ export function cloudTrailEvent(o: CloudTrailOpts): TelemetryEvent {
 // A GuardDuty finding raised on top of the CloudTrail/VPC/DNS data plane. Vendor
 // "AWS GuardDuty" (an alias of aws-cloudtrail), so the aws.guardduty.* prefix validates.
 export interface GuardDutyFindingOpts extends Ctx {
-  findingType: string;              // e.g. "Exfiltration:S3/ObjectRead.Unusual"
+  findingType: string;              // e.g. "Exfiltration:S3/AnomalousBehavior"
   gdSeverity: number;               // GuardDuty 1-10 severity score
   title: string;
   actionType?: string;              // service.action.actionType (default "AWS_API_CALL"; e.g. "DNS_REQUEST")

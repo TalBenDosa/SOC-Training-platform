@@ -25,7 +25,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, pickInFamilies, familyOf, familyOfId, type AttackStory } from "@/app/(app)/dashboard/attackStories";
-import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type TeamEnv } from "./environment";
+import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type Industry, type TeamEnv } from "./environment";
 import { legacyLoad, LOAD_RULES, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { mapTimeString, storyTimeMap, withMappedTime, withRebasedTime, type TimeMap } from "@/lib/sim/rebaseTime";
@@ -419,6 +419,9 @@ function storyEventChosen(e: TelemetryEvent, env: TeamEnv, stack: Stack, company
   return orgRunsSource(e, env, stack, companyId);
 }
 
+/** The industry of each Live-SOC demo company whose ordinary traffic is industry-specific (the rest are general). */
+const DEMO_COMPANY_INDUSTRY: Record<string, Industry> = { quantumbank: "finance", medcore: "healthcare", globallogis: "logistics" };
+
 /** Platforms whose ordinary logs a named organization's template lacks: borrowed (re-homed) from the demo company that runs them. */
 function platformNoise(companyId: string, env: TeamEnv, own: TelemetryEvent[]): TelemetryEvent[] {
   const ownHas = new Set(own.flatMap(platformsOfEvent));
@@ -427,6 +430,10 @@ function platformNoise(companyId: string, env: TeamEnv, own: TelemetryEvent[]): 
   const out: TelemetryEvent[] = [];
   for (const other of Object.keys(COMPANY_EVENTS).sort()) {
     if (other === companyId) continue;
+    // Ordinary traffic borrowed from a bank, a hospital or a logistics group carries its systems (a
+    // core-banking bucket, an EMR host): only a same-industry or general company lends to this organization.
+    const lender = DEMO_COMPANY_INDUSTRY[other] ?? "general";
+    if (lender !== "general" && lender !== env.industry) continue;
     const pool = COMPANY_EVENTS[other] ?? [];
     const borrowed = pool.filter(e => {
       const ps = platformsOfEvent(e);

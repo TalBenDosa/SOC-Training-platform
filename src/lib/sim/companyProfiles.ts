@@ -116,7 +116,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
     vendor: "AWS CloudTrail", user_email: undefined, src_ip: undefined,
     description: "The ci-pipeline-role service account read a log file from the rocketstack-prod-logs S3 bucket",
-    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-logs", "aws.cloudtrail.requestParameters.key": "ci/build-logs/api/run-4821.log.gz", "action_result": "allowed" }
   },
   // ── Google Cloud audit logs (the data platform) ─────────────────────────────
   // The pipeline's own reads come from inside Google Cloud (gce-internal-ip); people
@@ -515,7 +515,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     raw: {
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject",
       "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.request_parameters.source_bucket": "prod-data",
-      "aws.cloudtrail.request_parameters.destination_bucket": "backup-rocketstack-dr",
+      "aws.cloudtrail.request_parameters.destination_bucket": "backup-rocketstack-dr", "aws.cloudtrail.request_parameters.key": "snapshots/nightly/orders.parquet",
       "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:iam::987654321:role/svc-dataops",
       "aws.cloudtrail.additional_event_data.bytes_transferred_out": "13211648000",
       "aws.cloudtrail.userAgent": "aws-cli/2.13 Python/3.11.4", "action_result": "allowed" }
@@ -530,7 +530,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "CTO pre-authorized this download for the Q2 data warehouse migration. Ticket RS-4401 covers it.",
     raw: {
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "GetObject",
-      "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.requestParameters.bucketName": "prod-analytics-lake",
+      "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.requestParameters.bucketName": "prod-analytics-lake", "aws.cloudtrail.requestParameters.key": "datasets/2026-q2/events.parquet",
       "aws.cloudtrail.userIdentity.userName": "j.lee",
       "aws.cloudtrail.additional_event_data.bytes_transferred_out": "8699731968",
       "aws.cloudtrail.userAgent": "aws-cli/2.13", "action_result": "allowed" }
@@ -546,7 +546,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     raw: {
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject",
       "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.request_parameters.source_bucket": "rocketstack-prod-customer-data",
-      "aws.cloudtrail.request_parameters.destination_bucket": "s3://external-acct-774412/exfil",
+      "aws.cloudtrail.request_parameters.destination_bucket": "external-acct-774412-exfil", "aws.cloudtrail.request_parameters.key": "pii/customers_full.csv",
       "aws.cloudtrail.userIdentity.userName": "t.chen",
       "aws.cloudtrail.sourceIPAddress": "198.51.100.103",
       "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0",
@@ -924,25 +924,30 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
   {
     id: "rs_cw_001", ts: "2026-05-10T07:00:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "low",
-    vendor: "AWS CloudWatch", user_email: undefined, src_ip: undefined,
-    description: "CloudWatch alarm 'prod-api-5xx-rate' triggered - error rate 2.3% (threshold 2%)",
+    vendor: "AWS CloudTrail", user_email: undefined, src_ip: "10.20.4.17",
+    description: "Terraform (CI apply, change CHG0041877) updated the CloudWatch alarm prod-api-5xx-rate: 5XXError average above 2% for 3 minutes",
     raw: {
-      "aws.cloudtrail.eventSource": "cloudwatch.amazonaws.com",
-      "aws.cloudtrail.eventName": "PutMetricAlarm",
-      "cloudwatch.alarm.name": "prod-api-5xx-rate", "cloudwatch.alarm.state": "ALARM",
-      "cloudwatch.alarm.metric": "5XXError", "cloudwatch.alarm.threshold": "2",
-      "cloudwatch.alarm.actual_value": "2.3", "action_result": "allowed" }
+      "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.eventName": "PutMetricAlarm",
+      "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::677005474693:assumed-role/rocketstack-terraform-apply/terraform-ci",
+      "aws.cloudtrail.userAgent": "APN/1.0 HashiCorp/1.0 Terraform/1.9.8 (+https://www.terraform.io) terraform-provider-aws/5.72.1 (+https://registry.terraform.io/providers/hashicorp/aws) aws-sdk-go-v2/1.32.2 ua/2.1 os/linux lang/go#1.23.2 md/GOOS#linux md/GOARCH#amd64 api/cloudwatch#1.42.1",
+      "aws.cloudtrail.requestParameters.alarmName": "prod-api-5xx-rate", "aws.cloudtrail.requestParameters.namespace": "AWS/ApiGateway",
+      "aws.cloudtrail.requestParameters.metricName": "5XXError", "aws.cloudtrail.requestParameters.statistic": "Average",
+      "aws.cloudtrail.requestParameters.period": 60, "aws.cloudtrail.requestParameters.evaluationPeriods": 3,
+      "aws.cloudtrail.requestParameters.threshold": 0.02, "aws.cloudtrail.requestParameters.comparisonOperator": "GreaterThanThreshold",
+      "aws.cloudtrail.requestParameters.alarmActions.0": "arn:aws:sns:us-east-1:677005474693:oncall-pager",
+      "action_result": "allowed" }
   },
   {
     id: "rs_cw_002", ts: "2026-05-10T07:08:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
-    vendor: "AWS CloudWatch", user_email: undefined, src_ip: undefined,
-    description: "CloudWatch alarm 'prod-api-5xx-rate' resolved - error rate back to 0.4%",
+    vendor: "AWS CloudTrail", user_email: "s.cohen@rocketstack.io", src_ip: "198.51.100.220",
+    description: "The on-call engineer reviewed the state history of alarm prod-api-5xx-rate in the console after the 5xx spike (back to OK at 0.4%)",
     raw: {
-      "aws.cloudtrail.eventSource": "cloudwatch.amazonaws.com",
-      "aws.cloudtrail.eventName": "PutMetricAlarm",
-      "cloudwatch.alarm.name": "prod-api-5xx-rate", "cloudwatch.alarm.state": "OK",
-      "cloudwatch.alarm.metric": "5XXError", "cloudwatch.alarm.actual_value": "0.4",
+      "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.eventName": "DescribeAlarmHistory",
+      "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::677005474693:assumed-role/AWSReservedSSO_DevOps_5a2c8e71d93f04b6/s.cohen@rocketstack.io",
+      "aws.cloudtrail.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+      "aws.cloudtrail.requestParameters.alarmName": "prod-api-5xx-rate", "aws.cloudtrail.requestParameters.historyItemType": "StateUpdate",
+      "aws.cloudtrail.requestParameters.maxRecords": 50,
       "action_result": "allowed" }
   },
 ];
@@ -2254,14 +2259,14 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
     vendor: "AWS CloudTrail",
     description: "The ERP export role wrote the morning stock export to globallogis-erp-exports",
-    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "PutObject", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.requestParameters.bucketName": "globallogis-erp-exports", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "PutObject", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.requestParameters.bucketName": "globallogis-erp-exports", "aws.cloudtrail.requestParameters.key": "stock/morning/stock-export-0630.csv", "action_result": "allowed" }
   },
   {
     id: "gl_aws_104", ts: "2026-05-10T13:30:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
     vendor: "AWS CloudTrail",
     description: "The ERP export role wrote the afternoon stock export to globallogis-erp-exports",
-    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "PutObject", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.requestParameters.bucketName": "globallogis-erp-exports", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "PutObject", "aws.cloudtrail.awsRegion": "eu-central-1", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.requestParameters.bucketName": "globallogis-erp-exports", "aws.cloudtrail.requestParameters.key": "stock/afternoon/stock-export-1430.csv", "action_result": "allowed" }
   },
   {
     id: "gl_o365_101", ts: "2026-05-10T08:20:00.000Z",
@@ -2699,7 +2704,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Company 5 - QuantumBank Corp.
-// CrowdStrike Falcon Elite + AWS GovCloud + Okta + CyberArk PAM + Zscaler
+// CrowdStrike Falcon Elite + AWS (Zurich, eu-central-2) + Okta + CyberArk PAM + Zscaler
 // Banking/Finance: strictest controls, PCI-DSS, MFA everywhere
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2779,21 +2784,21 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     file: { path: "memory://svchost.exe", sha256: "32519b85c0b422e4656de6e6c41878e95fd95026267daab4215ee59c107d6c77" },
     raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.reflective", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "crowdstrike.SeverityName": "CRITICAL" }
   },
-  // ── AWS GovCloud ──────────────────────────────────────────────────────────
+  // ── AWS (Zurich, eu-central-2) ──────────────────────────────────────────────────────────
   {
     id: "qb_aws_001", ts: "2026-05-10T08:15:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
     vendor: "AWS CloudTrail", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     user_title: "IT Security",
-    description: "l.brunner assumed db-reader-role on AWS GovCloud",
-    raw: { "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.eventName": "AssumeRole", "aws.cloudtrail.awsRegion": "eu-central-2", "aws.cloudtrail.request_parameters.role_arn": "arn:aws:iam::847213960055:role/db-reader-role", "action_result": "allowed" }
+    description: "l.brunner assumed db-reader-role in the bank's AWS account (Zurich region)",
+    raw: { "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.eventName": "AssumeRole", "aws.cloudtrail.awsRegion": "eu-central-2", "aws.cloudtrail.request_parameters.role_arn": "arn:aws:iam::208340629191:role/db-reader-role", "action_result": "allowed" }
   },
   {
     id: "qb_aws_002", ts: "2026-05-10T12:00:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "low",
     vendor: "AWS CloudTrail",
-    description: "AWS Config rule PCI-DSS-EBS-Encryption evaluated on production account - compliant",
-    raw: { "aws.cloudtrail.eventSource": "config.amazonaws.com", "aws.cloudtrail.eventName": "PutEvaluations", "aws.cloudtrail.request_parameters.config_rule_name": "PCI-DSS-EBS-Encryption", "aws.cloudtrail.request_parameters.compliance_type": "COMPLIANT", "action_result": "allowed" }
+    description: "The AWS Config rule PCI-DSS-EBS-Encryption (its Lambda) reported a production EBS volume as compliant",
+    raw: { "aws.cloudtrail.eventSource": "config.amazonaws.com", "aws.cloudtrail.eventName": "PutEvaluations", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::208340629191:assumed-role/qb-config-rule-ebs-encryption-role/qb-config-pci-ebs-encryption", "aws.cloudtrail.userAgent": "Boto3/1.35.44 md/Botocore#1.35.44 ua/2.0 os/linux#5.10.227-239.884.amzn2.x86_64 md/arch#x86_64 lang/python#3.12.7 md/pyimpl#CPython exec-env/AWS_Lambda_python3.12 cfg/retry-mode#legacy Botocore/1.35.44", "aws.cloudtrail.requestParameters.evaluations.0.complianceResourceType": "AWS::EC2::Volume", "aws.cloudtrail.requestParameters.evaluations.0.complianceResourceId": "vol-0c4e19a7b2d83f651", "aws.cloudtrail.requestParameters.evaluations.0.complianceType": "COMPLIANT", "aws.cloudtrail.requestParameters.evaluations.0.orderingTimestamp": "2026-05-10T11:59:41Z", "aws.cloudtrail.requestParameters.testMode": false, "action_result": "allowed" }
   },
   // ── Palo Alto NGFW ────────────────────────────────────────────────────────
   {
@@ -3014,7 +3019,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     expected_verdict: "fp",
     fp_explanation: "QuantumBank runs end-of-day batch settlement jobs at 03:00 UTC. The job calls multiple high-privilege AWS APIs (IAM AssumeRole, KMS Decrypt, S3 PutObject) in rapid succession - this pattern looks like credential abuse but is a fully authorised settlement pipeline (role: qb-settlement-batch). The job runs every weekday and is catalogued in the Change Advisory Board.",
     description: "The qb-settlement-batch job decrypted settlement data and wrote results to S3 at 03:15 - scheduled end-of-day process",
-    raw: { "aws.cloudtrail.eventSource": "kms.amazonaws.com", "aws.cloudtrail.eventName": "Decrypt", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "qb-settlement-batch", "aws.cloudtrail.requestParameters.key_id": "arn:aws:kms:eu-central-2:513908224471:key/qb-settlement-key", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "kms.amazonaws.com", "aws.cloudtrail.eventName": "Decrypt", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "qb-settlement-batch", "aws.cloudtrail.requestParameters.keyId": "arn:aws:kms:eu-central-2:208340629191:key/7c1e93a4-2b6f-4d8e-9a51-3f0c6e2d84b7", "aws.cloudtrail.requestParameters.encryptionAlgorithm": "SYMMETRIC_DEFAULT", "aws.cloudtrail.awsRegion": "eu-central-2", "action_result": "allowed" }
   },
 
   // ── IT Verify events - QuantumBank ──────────────────────────────────────────
@@ -3165,8 +3170,8 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject",
       "aws.cloudtrail.awsRegion": "eu-central-2",
       "aws.cloudtrail.request_parameters.source_bucket": "core-banking-prod",
-      "aws.cloudtrail.request_parameters.destination_bucket": "dr-vault-govcloud",
-      "aws.cloudtrail.userIdentity.arn": "arn:aws:iam::762045198833:role/svc-backup",
+      "aws.cloudtrail.request_parameters.destination_bucket": "qb-dr-vault", "aws.cloudtrail.request_parameters.key": "ledger/nightly/ledger-snapshot.bak",
+      "aws.cloudtrail.userIdentity.arn": "arn:aws:iam::208340629191:role/svc-backup",
       "aws.cloudtrail.additionalEventData.bytesTransferredOut": "19327352832",
       "action_result": "allowed" }
   },
@@ -3181,7 +3186,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     raw: {
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "GetObject",
       "aws.cloudtrail.awsRegion": "eu-central-2",
-      "aws.cloudtrail.requestParameters.bucketName": "pci-audit-reports",
+      "aws.cloudtrail.requestParameters.bucketName": "pci-audit-reports", "aws.cloudtrail.requestParameters.key": "regulator/2026-q2/pci-audit-dataset.zip",
       "aws.cloudtrail.userIdentity.userName": "l.brunner",
       "aws.cloudtrail.additionalEventData.bytesTransferredOut": "12884901888",
       "action_result": "allowed" }
@@ -3215,7 +3220,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject",
       "aws.cloudtrail.awsRegion": "eu-central-2",
       "aws.cloudtrail.request_parameters.source_bucket": "trading-positions-live",
-      "aws.cloudtrail.request_parameters.destination_bucket": "s3://external-acct-991234/exfil",
+      "aws.cloudtrail.request_parameters.destination_bucket": "external-acct-991234-exfil", "aws.cloudtrail.request_parameters.key": "positions/live/positions-eod.csv",
       "aws.cloudtrail.userIdentity.userName": "a.keller",
       "aws.cloudtrail.sourceIPAddress": "198.51.100.203",
       "aws.cloudtrail.additionalEventData.bytesTransferredOut": "10091053875",
@@ -3850,7 +3855,7 @@ const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
       "aws.cloudtrail.awsRegion":                "us-east-1",
       "aws.cloudtrail.userIdentity.type":        "AssumedRole",
       "aws.cloudtrail.userIdentity.arn":         "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/a.kim@rocketstack.io",
-      "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7OKTAFEDKM",
+      "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7OKKEXAMPLE",
       "aws.cloudtrail.sourceIPAddress":         "198.51.100.217",
       "aws.cloudtrail.userAgent":                "aws-cli/2.15.0 Python/3.11.0",
       "aws.cloudtrail.responseElements":         null,
@@ -4047,7 +4052,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com",
            "aws.cloudtrail.userIdentity.type": "AssumedRole",
            "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/n.shapiro@rocketstack.io",
-           "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7OKTAFEDND",
+           "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7OKDEXAMPLE",
            "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data",
            "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv",
            "aws.cloudtrail.recipientAccountId": "247316892041",
@@ -4328,7 +4333,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "198.51.100.224",
     description: "An attempt from the Amsterdam IP to delete audit log files in S3 was blocked by write-protection (Object Lock)",
     mitre_technique: "T1685.002",
-    raw: { "aws.cloudtrail.eventName": "DeleteObject", "aws.cloudtrail.requestParameters.bucketName": "qb-audit-logs-immutable", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-trading-okta-role/a.keller@quantumbank.ch", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAQBTRADINGKELLER", "aws.cloudtrail.recipientAccountId": "552134008821", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "Access Denied because object protected by object lock.", "aws.cloudtrail.sourceIPAddress": "198.51.100.224", "action_result": "blocked" }
+    raw: { "aws.cloudtrail.eventName": "DeleteObject", "aws.cloudtrail.requestParameters.bucketName": "qb-audit-logs-immutable", "aws.cloudtrail.requestParameters.key": "trading/audit-2026-05-07.log.gz", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::208340629191:assumed-role/qb-trading-okta-role/a.keller@quantumbank.ch", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAQB7TRD4KLEXAMPLE", "aws.cloudtrail.recipientAccountId": "208340629191", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "Access Denied because object protected by object lock.", "aws.cloudtrail.sourceIPAddress": "198.51.100.224", "action_result": "blocked" }
   },
   // ── Chain D - SWIFT password spray → core banking session hijack ──────────
   {
