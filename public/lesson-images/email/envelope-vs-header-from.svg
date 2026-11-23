@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 600" role="img" aria-label="One spoofed message as an envelope and the letter inside it: the envelope sender that SPF checks, the From line Outlook shows, where an analyst sees each one, and what SPF and DMARC conclude">
+  <title>Two senders in one message: the envelope (P1) and the From: line (P2)</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .env   { fill: #1a1708; stroke: #fbbf24; stroke-width: 1.4; }
+      .flap  { fill: none; stroke: #fbbf24; stroke-width: 1.2; stroke-opacity: .55; }
+      .sheet { fill: #0c1a2a; stroke: #7dd3fc; stroke-width: 1.4; }
+      .card  { fill: #0d1528; stroke: #263a5e; stroke-width: 1; }
+      .row   { fill: #13203a; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #94a3b8; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+      .p1    { fill: #fbbf24; }
+      .p2    { fill: #7dd3fc; }
+      .p1b   { fill: #fbbf24; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+      .p2b   { fill: #7dd3fc; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+      .key   { fill: #94a3b8; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .pass  { fill: #86efac; font-weight: 700; }
+      .fail  { fill: #f87171; font-weight: 700; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .name  { fill: #f1f5f9; font-size: 12.5px; font-weight: 700; }
+      .subj  { fill: #cbd5e1; font-size: 11.5px; }
+      .link  { stroke: #475569; stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="600"/>
+  <text class="ui head" x="24" y="30">TWO SENDERS IN ONE MESSAGE: THE ENVELOPE AND THE FROM: LINE</text>
+
+  <!-- left: the message as an envelope and its letter -->
+  <rect class="panel" x="24" y="46" width="424" height="404" rx="6"/>
+  <text class="ui col" x="40" y="68">ONE MESSAGE, AS THE RECEIVING SERVER GETS IT</text>
+
+  <rect class="env" x="44" y="84" width="384" height="150" rx="4"/>
+  <path class="flap" d="M44 84 L236 150 L428 84"/>
+  <text class="ui p1b" x="62" y="176">THE ENVELOPE  ·  P1 SENDER</text>
+  <text class="mono" x="62" y="198"><tspan class="key">MAIL FROM:</tspan><tspan class="p1">&lt;bounce-7731@mailer-x.example&gt;</tspan></text>
+  <text class="ui note" x="62" y="220">Handed over in the SMTP conversation. SPF checks this domain.</text>
+
+  <path class="link" d="M236 234 L236 262"/>
+  <text class="ui note" x="246" y="253">carried inside</text>
+
+  <rect class="sheet" x="64" y="262" width="344" height="172" rx="4"/>
+  <text class="ui p2b" x="82" y="286">THE MESSAGE INSIDE  ·  P2 SENDER</text>
+  <text class="mono" x="82" y="310"><tspan class="key">From: </tspan><tspan class="p2">"Dana Levi, CFO"</tspan></text>
+  <text class="mono" x="124" y="327"><tspan class="p2">&lt;dana.levi@corp.com&gt;</tspan></text>
+  <text class="mono" x="82" y="347"><tspan class="key">To: </tspan><tspan class="val">&lt;ap@corp.com&gt;</tspan></text>
+  <text class="mono" x="82" y="367"><tspan class="key">Subject: </tspan><tspan class="val">Updated bank details</tspan></text>
+  <text class="ui note" x="82" y="398">One line of the message text, typed by the sender.</text>
+  <text class="ui note" x="82" y="416">Outlook shows this one. SPF never reads it.</text>
+
+  <!-- right: where an analyst sees each address -->
+  <rect class="panel" x="464" y="46" width="452" height="404" rx="6"/>
+  <text class="ui col" x="480" y="68">WHERE YOU SEE EACH ONE</text>
+
+  <rect class="card" x="480" y="80" width="420" height="100" rx="5"/>
+  <text class="ui col" x="494" y="99">1 · OUTLOOK INBOX</text>
+  <rect class="row" x="494" y="108" width="392" height="40" rx="3"/>
+  <text class="ui name" x="506" y="124">Dana Levi, CFO</text>
+  <text class="ui dim" x="846" y="124" font-size="11">09:14</text>
+  <text class="ui subj" x="506" y="141">Updated bank details for this week's payments</text>
+  <text class="ui note" x="494" y="168"><tspan class="p2">P2 only.</tspan> The envelope never appears in the reading pane.</text>
+
+  <rect class="card" x="480" y="190" width="420" height="132" rx="5"/>
+  <text class="ui col" x="494" y="209">2 · MESSAGE HEADERS  (File &gt; Properties &gt; Internet headers)</text>
+  <text class="mono" x="494" y="234"><tspan class="key">Return-Path: </tspan><tspan class="p1">bounce-7731@mailer-x.example</tspan></text>
+  <text class="mono" x="494" y="254"><tspan class="key">spf=</tspan><tspan class="pass">pass</tspan><tspan class="key"> smtp.mailfrom=</tspan><tspan class="p1">mailer-x.example</tspan></text>
+  <text class="mono" x="494" y="274"><tspan class="key">dmarc=</tspan><tspan class="fail">fail</tspan><tspan class="key"> action=none header.from=</tspan><tspan class="p2">corp.com</tspan></text>
+  <text class="ui note" x="494" y="306">Both. <tspan class="p1">Envelope</tspan> in Return-Path and smtp.mailfrom, <tspan class="p2">From:</tspan> in header.from.</text>
+
+  <rect class="card" x="480" y="332" width="420" height="104" rx="5"/>
+  <text class="ui col" x="494" y="351">3 · DEFENDER ADVANCED HUNTING  ·  EmailEvents</text>
+  <text class="mono" x="494" y="376"><tspan class="key">SenderMailFromAddress  </tspan><tspan class="p1">bounce-7731@mailer-x.example</tspan></text>
+  <text class="mono" x="494" y="396"><tspan class="key">SenderFromAddress      </tspan><tspan class="p2">dana.levi@corp.com</tspan></text>
+  <text class="ui note" x="494" y="422">Both, as columns you can compare across every message.</text>
+
+  <!-- bottom: what the checks conclude -->
+  <rect class="panel" x="24" y="466" width="892" height="114" rx="6"/>
+  <text class="ui col" x="40" y="488">WHAT THE CHECKS CONCLUDE</text>
+  <text class="mono" x="40" y="514"><tspan class="key">spf=</tspan><tspan class="pass">pass</tspan></text>
+  <text class="ui note" x="140" y="514">for <tspan class="p1">mailer-x.example</tspan>: the attacker published SPF for their own server. corp.com's record was never checked.</text>
+  <text class="mono" x="40" y="540"><tspan class="key">dmarc=</tspan><tspan class="fail">fail</tspan></text>
+  <text class="ui note" x="140" y="540">the passing domain, <tspan class="p1">mailer-x.example</tspan>, does not align with <tspan class="p2">corp.com</tspan>, the domain the reader sees.</text>
+  <text class="ui note" x="40" y="566">corp.com publishes p=none, so the message is delivered anyway (action=none). The habit: compare smtp.mailfrom with header.from on every reported message.</text>
+</svg>

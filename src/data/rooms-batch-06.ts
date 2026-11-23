@@ -103,7 +103,71 @@ This means: "Only Microsoft's mail servers (protection.outlook.com) are allowed 
 
 When a receiving server gets an email claiming to be from corp.com, it checks the SPF record and asks: "Did this email come from one of the approved servers?" If yes → **SPF pass**. If no → **SPF fail**.
 
-**Limitation**: SPF only checks the hidden "envelope from" address (used during SMTP delivery), not the visible "From:" header that users see. Attackers can exploit this mismatch. Microsoft's email logs name the two addresses: the envelope sender is the **P1 sender** and the visible From: header is the **P2 sender**, so a field such as \`P2SenderDomain\` holds the domain the recipient actually sees.
+**Limitation: SPF checks the envelope, not the From: line the user reads**
+
+Every email carries two sender addresses, and they sit in different places. Think of a paper letter: the return address on the **envelope** is what the post office reads, and the name on the **letterhead** inside is what the reader sees. Nothing forces the two to match.
+
+- The **envelope sender** (also called MAIL FROM or Return-Path, and the **P1 sender** in Microsoft's logs) is handed to the receiving server during the SMTP conversation, before the message itself is sent. Bounces go back to it. **SPF checks this domain.**
+- The **header From:** (the **P2 sender**) is a line inside the message. It is what Outlook shows as the sender. SPF never looks at it.
+
+This is what it looks like on the wire. The sending server talks to Exchange Online in plain SMTP commands. The envelope is the \`MAIL FROM\` command; the From: the user will see is just one line of the message text sent after \`DATA\`:
+
+\`\`\`smtp
+220 AM4PEPF00027A6C.mail.protection.outlook.com Microsoft ESMTP MAIL Service ready
+EHLO mta1.mailer-x.example
+250-AM4PEPF00027A6C.mail.protection.outlook.com Hello [203.0.113.81]
+MAIL FROM:<bounce-7731@mailer-x.example>
+250 2.1.0 Sender OK
+RCPT TO:<ap@corp.com>
+250 2.1.5 Recipient OK
+DATA
+354 Start mail input; end with <CRLF>.<CRLF>
+From: "Dana Levi, CFO" <dana.levi@corp.com>
+To: <ap@corp.com>
+Subject: Updated bank details for this week's payments
+
+.
+250 2.6.0 Queued mail for delivery
+\`\`\`
+
+The user never sees that conversation. Exchange Online keeps the envelope sender in two headers anyone can open: \`Return-Path:\` and the \`smtp.mailfrom=\` part of Authentication-Results. The From: domain is recorded next to it as \`header.from=\`:
+
+\`\`\`headers
+Return-Path: bounce-7731@mailer-x.example
+Authentication-Results: spf=pass (sender IP is 203.0.113.81)
+ smtp.mailfrom=mailer-x.example; dkim=none (message not signed)
+ header.d=none;dmarc=fail action=none header.from=corp.com;compauth=fail
+ reason=001
+From: "Dana Levi, CFO" <dana.levi@corp.com>
+\`\`\`
+
+**Where you find each address**
+
+- **Outlook and Outlook on the web** show only the header From: (the P2 sender). The envelope never appears in the reading pane.
+- **The message headers** show both. In classic Outlook: open the message, then File > Properties > Internet headers. In Outlook on the web: the More actions menu (...) > View > View message details.
+- **Microsoft Defender** shows both side by side. In Advanced hunting, the \`EmailEvents\` table has \`SenderMailFromAddress\` (envelope, P1) and \`SenderFromAddress\` (visible From:, P2). In the Microsoft 365 audit records for email threats, the same pair is \`P1Sender\` and \`P2Sender\`, so a field such as \`P2SenderDomain\` holds the domain the recipient actually saw.
+
+The figure at the end of this reading puts the envelope, the message and those three places together.
+
+**The attacker's side: how this gap is used**
+
+The example above is a complete attack, and every step is cheap:
+
+1. The attacker registers a throwaway domain (\`mailer-x.example\`) and rents one server (\`203.0.113.81\`).
+2. They publish an honest SPF record for their own domain: \`v=spf1 ip4:203.0.113.81 -all\`.
+3. They send with the envelope on their own domain and type the CFO's address into From:.
+4. The receiving server checks SPF for **mailer-x.example**, the envelope domain. The server is listed, so the result is **spf=pass**. corp.com's own SPF record is never consulted.
+5. The accounts-payable clerk sees "Dana Levi, CFO" in the inbox, and anyone who glances at the header sees spf=pass.
+
+This is exactly the gap DMARC alignment closes (next section): the passing SPF domain, mailer-x.example, does not match the visible corp.com, so DMARC fails and corp.com's published policy decides what happens. With \`p=none\` the message is still delivered, as in the header above.
+
+Once a domain enforces DMARC (\`p=reject\`), forging its exact address stops working, so attackers step sideways:
+
+- **A lookalike domain** they really own, such as \`corp-com.example\`, with its own SPF, DKIM and DMARC. Every check passes and aligns, because it is a real domain sending its own mail. Authentication proves which domain sent the message, not that it is the domain you expected, so read the domain itself.
+- **Display-name spoofing**: \`"Dana Levi, CFO" <dana.levi.cfo@gmail.com>\`. The address is an honest Gmail address that passes everything for gmail.com; only the name lies, and many phone mail apps show only the name.
+- **A compromised real mailbox**: every check passes because it really is the domain's own mail. The next reading covers it.
+
+**Analyst habit**: on every reported message, compare \`smtp.mailfrom\` with \`header.from\`. If they differ, find out who owns the envelope domain (a known mailing service, or a domain registered last week?). Then check the From: domain itself, letter by letter.
 
 ---
 
@@ -153,6 +217,12 @@ Breaking this down:
 **Key insight for analysts**: An email with \`dmarc=fail action=none\` was delivered to the inbox despite failing authentication. This is a critical finding, especially if the "From:" domain appears to be a trusted organisation like your CEO's company.
 
 **Microsoft's 2025 enforcement update**: In May 2025, Microsoft began rejecting bulk email from senders who lack proper DMARC, SPF, and DKIM alignment when sending to consumer Microsoft addresses (Outlook.com, Hotmail). Enterprise tenants can enforce stricter policies in their own anti-phishing policies.`,
+      image: {
+        src: "/lesson-images/email/envelope-vs-header-from.svg",
+        alt: "One spoofed message drawn as an envelope and the letter inside it. The envelope carries MAIL FROM bounce-7731@mailer-x.example, the P1 sender that SPF checks; the letter carries From: Dana Levi, CFO at dana.levi@corp.com, the P2 sender Outlook shows. Beside it, where each address appears: the Outlook inbox shows only the CFO's name, the message headers show Return-Path and smtp.mailfrom for the envelope and header.from for the visible sender, and Advanced hunting EmailEvents shows SenderMailFromAddress and SenderFromAddress. The result: SPF passes for the attacker's own domain and DMARC fails because it does not align with corp.com.",
+        caption: "The envelope (P1) is what SPF checks; the From: line (P2) is what the user reads. Compare them in the headers or in EmailEvents.",
+        credit: "Figure authored for this course.",
+      },
       checkpoint: {
         question: "A legitimate, signed newsletter is auto-forwarded from an employee's personal mailbox to their work inbox. Which check is most likely to still pass at the work inbox, and why?",
         options: [

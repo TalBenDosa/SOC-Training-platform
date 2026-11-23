@@ -201,7 +201,7 @@ export const ROOM_NARRATION: Record<string, { h: string; w?: string; v: string }
   "esxi-virtualization-security/esxf-r7": { h: "4b0a9bc8", w: "7c605a68", v: "en-US-EmmaMultilingualNeural" },
   "esxi-virtualization-security/esxf-r8": { h: "9f1a6973", w: "c7b1c9ee", v: "en-US-EmmaMultilingualNeural" },
   "exchange-online-security/exch-sec-r1": { h: "ed735a12", w: "b5ed91e7", v: "en-US-AvaMultilingualNeural" },
-  "exchange-online-security/exch-sec-r2": { h: "e09ced40", w: "03b84b27", v: "en-US-AvaMultilingualNeural" },
+  "exchange-online-security/exch-sec-r2": { h: "2e1d7506", w: "6981de1a", v: "en-US-AvaMultilingualNeural" },
   "exchange-online-security/exch-sec-r3": { h: "9347d58b", w: "8983c941", v: "en-US-AvaMultilingualNeural" },
   "firewall-log-analysis/fw-r1": { h: "769dd8ce", w: "cddf41f1", v: "en-US-EmmaMultilingualNeural" },
   "firewall-log-analysis/fw-r2": { h: "9220ce49", w: "99d29dd9", v: "en-US-EmmaMultilingualNeural" },
