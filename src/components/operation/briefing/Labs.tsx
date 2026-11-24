@@ -360,6 +360,17 @@ export function FieldNote({ lab }: { lab: BriefingLab }) {
   );
 }
 
+/** Why this lab exists: the skill it trains and where the job needs it. Always open, above everything else. */
+export function LabPurpose({ lab }: { lab: BriefingLab }) {
+  if (!lab.teaches) return null;
+  return (
+    <div className="mb-3 rounded-xl border p-3" style={{ borderColor: "color-mix(in srgb, var(--room-accent, #38bdf8) 55%, transparent)", background: "color-mix(in srgb, var(--room-accent, #38bdf8) 12%, transparent)" }}>
+      <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--room-accent, #7dd3fc)" }}>What this lab trains</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-white [overflow-wrap:anywhere]"><InlineMd text={lab.teaches} /></p>
+    </div>
+  );
+}
+
 /** The short teaching card before a lab: just what this lab needs, with one worked example. */
 export function Primer({ lab }: { lab: BriefingLab }) {
   const p = lab.primer;

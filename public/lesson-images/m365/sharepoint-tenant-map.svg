@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 860" role="img" aria-label="Map of one Microsoft 365 tenant. At the top, the tenant holds the control plane (the SharePoint admin center and the tenant sharing setting that is the ceiling for every site) and the identity plane (the Entra ID directory with users, guests, groups and apps). The data plane follows. Below it, four flat sites side by side: a group-connected team site, a private or shared channel site, a communication site and a user's OneDrive, each with its URL, who controls access, and its library, folders and files. A dashed hub bar links the team site and the communication site as an association only. At the bottom, a table maps what Teams shows to where it is really stored: a team to a Microsoft 365 Group and team site, a standard channel to a folder, a private or shared channel to its own site, a chat file to the sender's OneDrive, a meeting recording to the organiser's OneDrive, and messages to Exchange mailboxes.">
+  <title>One tenant, flat sites, and where Teams really stores things</title>
+  <defs>
+    <style>
+      .bg     { fill: #0b0f1e; }
+      .panel  { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .tenant { fill: #0d1528; stroke: #a78bfa; stroke-width: 1.4; }
+      .chip   { fill: #13203a; stroke: #263a5e; stroke-width: 1; }
+      .site   { fill: #0c1a2a; stroke: #22d3ee; stroke-width: 1.3; }
+      .chan   { fill: #0c1a2a; stroke: #fb923c; stroke-width: 1.3; }
+      .comm   { fill: #0c1a2a; stroke: #86efac; stroke-width: 1.3; }
+      .od     { fill: #0c1a2a; stroke: #fbbf24; stroke-width: 1.3; }
+      .lib    { fill: #0a1324; stroke: #263a5e; stroke-width: 1; }
+      .hub    { fill: none; stroke: #a78bfa; stroke-width: 1.3; stroke-dasharray: 6 5; }
+      .rule   { stroke: #1e2d4a; stroke-width: 1; }
+      .ui     { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono   { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .head   { fill: #cbd5e1; font-size: 13px; font-weight: 700; letter-spacing: .12em; }
+      .col    { fill: #94a3b8; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+      .tn     { fill: #c4b5fd; font-size: 12px; font-weight: 700; letter-spacing: .1em; }
+      .cy     { fill: #22d3ee; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+      .or     { fill: #fb923c; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+      .gr     { fill: #86efac; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+      .am     { fill: #fbbf24; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+      .url    { fill: #e2e8f0; }
+      .val    { fill: #e2e8f0; font-size: 11.5px; }
+      .note   { fill: #94a3b8; font-size: 11px; }
+      .dim    { fill: #64748b; font-size: 10.5px; }
+      .file   { fill: #f1f5f9; }
+      .lft    { fill: #7dd3fc; font-size: 12px; font-weight: 600; }
+      .rgt    { fill: #e2e8f0; font-size: 12px; }
+      .arrow  { fill: #64748b; font-size: 12px; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1000" height="860"/>
+  <text class="ui head" x="24" y="30">ONE TENANT, FLAT SITES, AND WHERE TEAMS REALLY STORES THINGS</text>
+
+  <!-- Level 1: tenant -->
+  <rect class="tenant" x="24" y="44" width="952" height="96" rx="6"/>
+  <text class="ui tn" x="40" y="66">LEVEL 1 · THE TENANT  (one organisation: nexacorp)</text>
+  <rect class="chip" x="40" y="78" width="296" height="50" rx="4"/>
+  <text class="ui col" x="52" y="96">CONTROL PLANE · SHAREPOINT ADMIN CENTER</text>
+  <text class="mono url" x="52" y="116">nexacorp-admin.sharepoint.com</text>
+  <rect class="chip" x="348" y="78" width="296" height="50" rx="4"/>
+  <text class="ui col" x="360" y="96">CONTROL PLANE · TENANT SHARING SETTING</text>
+  <text class="ui val" x="360" y="116">The ceiling: no site can be more open</text>
+  <rect class="chip" x="656" y="78" width="304" height="50" rx="4"/>
+  <text class="ui col" x="668" y="96">IDENTITY PLANE · ENTRA ID</text>
+  <text class="ui val" x="668" y="116">Users, guests (#EXT#), groups, apps</text>
+
+  <!-- Level 2: sites -->
+  <text class="ui col" x="24" y="164">DATA PLANE · LEVEL 2 · SITES (SITE COLLECTIONS): FLAT, SIDE BY SIDE, EACH WITH ITS OWN PERMISSIONS</text>
+
+  <!-- Card 1: team site -->
+  <rect class="site" x="24" y="174" width="232" height="262" rx="6"/>
+  <text class="ui cy" x="38" y="194">TEAM SITE (GROUP-CONNECTED)</text>
+  <text class="mono url" x="38" y="214">nexacorp.sharepoint.com</text>
+  <text class="mono url" x="38" y="230">/sites/BidTeam</text>
+  <text class="ui note" x="38" y="252">Access comes from the</text>
+  <text class="ui note" x="38" y="267">Microsoft 365 Group "Bid Team"</text>
+  <rect class="lib" x="34" y="280" width="212" height="146" rx="4"/>
+  <text class="ui col" x="44" y="298">LEVEL 3 · INSIDE THE SITE</text>
+  <text class="mono file" x="44" y="318">Documents</text>
+  <text class="ui dim" x="112" y="318">in URLs: Shared Documents</text>
+  <text class="mono file" x="58" y="338">General/</text>
+  <text class="ui dim" x="128" y="338">standard channel</text>
+  <text class="mono file" x="58" y="356">Design/</text>
+  <text class="ui dim" x="128" y="356">standard channel</text>
+  <text class="mono file" x="72" y="376">Stadium_v3.pdf</text>
+  <text class="ui dim" x="72" y="394">a file: versions + one item ID</text>
+  <text class="ui dim" x="44" y="416">library, then folder, then file</text>
+
+  <!-- Card 2: channel site -->
+  <rect class="chan" x="268" y="174" width="232" height="262" rx="6"/>
+  <text class="ui or" x="282" y="194">CHANNEL SITE</text>
+  <text class="ui dim" x="372" y="194">private or shared</text>
+  <text class="mono url" x="282" y="214">nexacorp.sharepoint.com</text>
+  <text class="mono url" x="282" y="230">/sites/BidTeam-Pricing</text>
+  <text class="ui note" x="282" y="252">Access: the channel's own members,</text>
+  <text class="ui note" x="282" y="267">managed in Teams, not the whole team</text>
+  <rect class="lib" x="278" y="280" width="212" height="146" rx="4"/>
+  <text class="ui col" x="288" y="298">ITS OWN LIBRARY</text>
+  <text class="mono file" x="288" y="318">Documents</text>
+  <text class="ui dim" x="356" y="318">in URLs: Shared Documents</text>
+  <text class="mono file" x="302" y="338">Pricing_Model.xlsx</text>
+  <text class="ui dim" x="288" y="362">A team member who is not in</text>
+  <text class="ui dim" x="288" y="378">this channel cannot open it.</text>
+  <text class="ui dim" x="288" y="402">Same team name, different</text>
+  <text class="ui dim" x="288" y="418">SiteUrl in every audit record.</text>
+
+  <!-- Card 3: communication site -->
+  <rect class="comm" x="512" y="174" width="232" height="262" rx="6"/>
+  <text class="ui gr" x="526" y="194">COMMUNICATION SITE</text>
+  <text class="mono url" x="526" y="214">nexacorp.sharepoint.com</text>
+  <text class="mono url" x="526" y="230">/sites/Intranet</text>
+  <text class="ui note" x="526" y="252">Access: its own SharePoint groups.</text>
+  <text class="ui note" x="526" y="267">No Microsoft 365 Group behind it.</text>
+  <rect class="lib" x="522" y="280" width="212" height="146" rx="4"/>
+  <text class="ui col" x="532" y="298">DEFAULT GROUPS ON EVERY SITE</text>
+  <text class="ui val" x="532" y="320">Owners</text>
+  <text class="ui dim" x="600" y="320">Full Control</text>
+  <text class="ui val" x="532" y="340">Members</text>
+  <text class="ui dim" x="600" y="340">Edit</text>
+  <text class="ui val" x="532" y="360">Visitors</text>
+  <text class="ui dim" x="600" y="360">Read</text>
+  <text class="ui dim" x="532" y="388">Permissions flow down to every</text>
+  <text class="ui dim" x="532" y="404">library, folder and file unless</text>
+  <text class="ui dim" x="532" y="420">inheritance is broken.</text>
+
+  <!-- Card 4: OneDrive -->
+  <rect class="od" x="756" y="174" width="220" height="262" rx="6"/>
+  <text class="ui am" x="770" y="194">ONEDRIVE (PERSONAL SITE)</text>
+  <text class="mono url" x="770" y="214">nexacorp-my.sharepoint.com</text>
+  <text class="mono url" x="770" y="230">/personal/d_levi_nexacorp_com</text>
+  <text class="ui note" x="770" y="252">Access: the owner, plus</text>
+  <text class="ui note" x="770" y="267">whatever the owner shares</text>
+  <rect class="lib" x="766" y="280" width="200" height="146" rx="4"/>
+  <text class="ui col" x="776" y="298">LIBRARY: Documents</text>
+  <text class="mono file" x="776" y="318">Microsoft Teams Chat Files/</text>
+  <text class="ui dim" x="790" y="334">files she sent in chats</text>
+  <text class="mono file" x="776" y="356">Recordings/</text>
+  <text class="ui dim" x="790" y="372">meetings she organised</text>
+  <text class="ui dim" x="776" y="400">Audit records here say</text>
+  <text class="ui dim" x="776" y="416">Workload: OneDrive</text>
+
+  <!-- Hub: association, not container -->
+  <path class="hub" d="M140 436 L140 462 L628 462 L628 436"/>
+  <rect class="chip" x="254" y="450" width="262" height="24" rx="4"/>
+  <text class="ui tn" x="266" y="467" font-size="11">HUB "Projects": AN ASSOCIATION</text>
+  <text class="ui note" x="140" y="492">A hub links sites for shared navigation and search. It is not a container and does not change any site's permissions.</text>
+
+  <!-- Teams map -->
+  <rect class="panel" x="24" y="510" width="952" height="300" rx="6"/>
+  <text class="ui col" x="40" y="534">WHAT TEAMS SHOWS</text>
+  <text class="ui col" x="400" y="534">WHERE IT REALLY LIVES, AND WHERE YOU SEARCH</text>
+  <line class="rule" x1="40" y1="544" x2="960" y2="544"/>
+
+  <text class="ui lft" x="40" y="570">A team ("Bid Team")</text>
+  <text class="ui arrow" x="362" y="570">→</text>
+  <text class="ui rgt" x="400" y="570">A Microsoft 365 Group in Entra ID, plus its team site /sites/BidTeam</text>
+  <line class="rule" x1="40" y1="582" x2="960" y2="582"/>
+
+  <text class="ui lft" x="40" y="606">A standard channel's files</text>
+  <text class="ui arrow" x="362" y="606">→</text>
+  <text class="ui rgt" x="400" y="606">A folder named after the channel, in the team site's Documents library</text>
+  <line class="rule" x1="40" y1="618" x2="960" y2="618"/>
+
+  <text class="ui lft" x="40" y="642">A private or shared channel's files</text>
+  <text class="ui arrow" x="362" y="642">→</text>
+  <text class="ui rgt" x="400" y="642">Its own channel site, /sites/TeamName-ChannelName, with its own members</text>
+  <line class="rule" x1="40" y1="654" x2="960" y2="654"/>
+
+  <text class="ui lft" x="40" y="678">A file sent in a 1:1 or group chat</text>
+  <text class="ui arrow" x="362" y="678">→</text>
+  <text class="ui rgt" x="400" y="678">The SENDER's OneDrive, folder Microsoft Teams Chat Files, shared with the chat</text>
+  <line class="rule" x1="40" y1="690" x2="960" y2="690"/>
+
+  <text class="ui lft" x="40" y="714">A meeting recording</text>
+  <text class="ui arrow" x="362" y="714">→</text>
+  <text class="ui rgt" x="400" y="714">The organiser's OneDrive, Recordings folder (a channel meeting: the channel's library)</text>
+  <line class="rule" x1="40" y1="726" x2="960" y2="726"/>
+
+  <text class="ui lft" x="40" y="750">Chat and channel messages</text>
+  <text class="ui arrow" x="362" y="750">→</text>
+  <text class="ui rgt" x="400" y="750">Exchange Online: chats in participants' mailboxes, channel posts in the group mailbox</text>
+  <line class="rule" x1="40" y1="762" x2="960" y2="762"/>
+
+  <text class="ui note" x="40" y="790">Files are in SharePoint and OneDrive (search the audit log by SiteUrl). Messages are in Exchange (search with eDiscovery). Membership is in Entra ID.</text>
+
+  <text class="ui dim" x="24" y="840">Site and user names are fictional. The URL patterns, library names and folder names are the ones SharePoint, OneDrive and Teams create.</text>
+</svg>

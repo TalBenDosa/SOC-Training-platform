@@ -8,7 +8,7 @@ import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedReadingTask } from "@/lib/rooms/sanitize";
 import type { BriefingLab } from "@/lib/rooms/experience";
 import { AlreadyCleared, useMechanic, type MechanicProps } from "../shared";
-import { HowToPlay, Lab, Primer, FieldNote } from "./Labs";
+import { HowToPlay, Lab, LabPurpose, Primer, FieldNote } from "./Labs";
 import { useStudyInline } from "../study/StudyGuide";
 
 export const LAB_ICON: Record<BriefingLab["kind"], string> = {
@@ -140,6 +140,7 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
             Lab {step + 1} of {labs.length} · {LAB_ICON[labs[step].kind]}
           </p>
           <h3 className="mt-1 text-lg font-bold text-white">{labs[step].title}</h3>
+          <div className="mt-3"><LabPurpose lab={labs[step]} /></div>
           <p className="mb-4 mt-1 text-sm leading-relaxed text-slate-300 [overflow-wrap:anywhere]">{labs[step].prompt}</p>
           <Primer lab={labs[step]} />
           <HowToPlay lab={labs[step]} />

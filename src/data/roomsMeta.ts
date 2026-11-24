@@ -1362,7 +1362,7 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Discover how attackers exploit Microsoft's collaboration tools to steal data, conduct phishing via Teams chat, and abuse external sharing. Learn to detect bulk data theft, insider threats, and guest-account abuse.",
     "difficulty": "intermediate",
     "category": "Cloud Security",
-    "estimatedMinutes": 40,
+    "estimatedMinutes": 60,
     "xp": 220,
     "icon": "💬",
     "prerequisites": [

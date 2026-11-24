@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Crosshair, CheckCircle2, ChevronRight, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BriefingLab } from "@/lib/rooms/experience";
-import { HowToPlay, Lab, Primer, FieldNote } from "./Labs";
+import { HowToPlay, Lab, LabPurpose, Primer, FieldNote } from "./Labs";
 import { LAB_ICON } from "./IntelBriefing";
 
 /**
@@ -35,6 +35,7 @@ export function Drill({ labs, skip, children }: { labs: BriefingLab[]; skip: boo
           Drill {step + 1} of {labs.length} · {LAB_ICON[lab.kind]}
         </p>
         <h3 className="mt-1 text-lg font-bold text-white">{lab.title}</h3>
+        <div className="mt-3"><LabPurpose lab={lab} /></div>
         <p className="mb-4 mt-1 text-sm leading-relaxed text-slate-300 [overflow-wrap:anywhere]">{lab.prompt}</p>
         <Primer lab={lab} />
         <HowToPlay lab={lab} />

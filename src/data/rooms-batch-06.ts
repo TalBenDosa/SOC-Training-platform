@@ -440,7 +440,7 @@ const sharepointTeamsMonitoring: Room = {
     "Discover how attackers exploit Microsoft's collaboration tools to steal data, conduct phishing via Teams chat, and abuse external sharing. Learn to detect bulk data theft, insider threats, and guest-account abuse.",
   difficulty: "intermediate",
   category: "Cloud Security",
-  estimatedMinutes: 40,
+  estimatedMinutes: 60,
   xp: 220,
   icon: "💬",
   prerequisites: ["microsoft-365-security"],
@@ -449,68 +449,235 @@ const sharepointTeamsMonitoring: Room = {
     {
       type: "reading",
       id: "spt-teams-r1",
-      heading: "SharePoint Online & OneDrive: How Data Lives in Microsoft 365",
-      content: `**SharePoint Online** is Microsoft's cloud-based document management and collaboration platform. If you've ever seen a shared company folder in a browser that looks like a file explorer, chances are it was SharePoint. In a Microsoft 365 organisation, SharePoint is where teams store, share, and collaborate on documents. It integrates tightly with Teams (every Teams channel has a SharePoint library behind it), Outlook, and OneDrive.
+      heading: "SharePoint and OneDrive: Where Files Live and Who Can Reach Them",
+      content: `**SharePoint Online** is the Microsoft 365 service that stores and shares an organisation's files. Team files live in SharePoint sites, and each person's own files live in OneDrive, which is built on SharePoint too.
+By the end of this reading you can read any SharePoint or OneDrive URL from a log: whose data it is, who could reach it, and which records prove what happened.
 
-**The SharePoint Architecture You Need to Know**
+### The map in one picture
 
-Understanding how SharePoint is organised helps you understand where data lives and how it can be leaked:
+Picture one company's office building. The **tenant** is the building. Each **site** is a locked suite with its own key list. A **library** is a filing cabinet in a suite, a **folder** is a drawer, and a **file** is the document. **OneDrive** is a separate wing of personal lockers, one per employee. The figure at the end of this reading draws the whole map.
 
-- **Tenant**: The entire organisation's Microsoft 365 environment. Everything lives under one tenant.
-- **Site Collections / Sites**: Think of these as top-level department folders. Example: \`corp.sharepoint.com/sites/Finance\`, \`corp.sharepoint.com/sites/HR\`, \`corp.sharepoint.com/sites/Engineering\`.
-- **Document Libraries**: Inside each site, there are document libraries. A library is like a folder that can have sub-folders, metadata, permissions, and version history.
-- **OneDrive for Business**: Every individual employee gets their own personal SharePoint site for personal work files. This is OneDrive. URL pattern: \`corp-my.sharepoint.com/personal/john_smith_corp_com/\`.
+There are three levels, and each one owns different things:
 
-**External Sharing: The Biggest Security Risk**
+| Level | What it is | What it owns | Where you see it in a log |
+|---|---|---|---|
+| 1. Tenant | Your organisation's single Microsoft 365 instance | The directory of people, the admin settings, the sharing ceiling for every site | \`OrganizationId\`, the tenant's GUID (globally unique identifier), on every record |
+| 2. Site | A container with its own owners, members, storage and sharing setting | Who can get in | \`SiteUrl\` |
+| 3. Library, folder, file | The content inside one site | The files, their versions, and any exceptions to the site's permissions | \`SourceRelativeUrl\`, \`SourceFileName\`, \`ObjectId\`, \`ListItemUniqueId\` |
 
-SharePoint makes it very easy to share files with people outside your organisation. This is useful for collaboration with clients and partners, but it is also a major data leakage risk. There are four levels of external sharing:
+### Three planes: who, how, and what
 
-1. **Anyone links (Anonymous links)**: The most dangerous setting. A link is created that anyone with the link can access, with no authentication required. Use of the link is still logged (\`AnonymousLinkUsed\`, with the client IP and user agent), but it cannot be attributed to a named identity.
-2. **Specific people links (external)**: A link sent to a specific external email address. The recipient must authenticate, and access is logged.
-3. **Existing external guests**: Sharing with people already added as Azure AD guest accounts.
-4. **Only people in your organisation**: Internal only; no external sharing.
+Every cloud investigation in Microsoft 365 crosses three planes. Each plane has its own job and its own logs, and you need all three to tell one story.
 
-**Key Audit Events in SharePoint**
+| Plane | What it decides or holds | Main parts | Where its activity is logged |
+|---|---|---|---|
+| Identity plane | Who someone is, and whether they may sign in | Microsoft Entra ID: users, guests, Microsoft 365 Groups, apps and service principals, Conditional Access | Entra sign-in logs (interactive, non-interactive, service principal) and the Entra audit log, for example Consent to application |
+| Control plane | How the services are configured | The SharePoint and Teams admin centers, each site's settings, the sharing policy | Admin operations in the Unified Audit Log, for example SharingPolicyChanged and SiteCollectionAdminAdded |
+| Data plane | The content itself | Sites, libraries, folders, files, chat and channel messages | File, sharing and Teams operations in the Unified Audit Log |
 
-Every action in SharePoint is logged in the Microsoft 365 Unified Audit Log (searchable in the Microsoft Purview portal, purview.microsoft.com → Audit). The operations a SOC analyst watches for:
+SharePoint never decides who you are; it applies what the identity plane says. That is why a leak case always ends up in two places: the file records and the sign-in records of whoever touched the file.
 
-| Operation | What it Means |
+### Level 1: the tenant
+
+A tenant has exactly one directory and one SharePoint service. The directory is **Microsoft Entra ID**, Microsoft's identity service. It holds every user, every guest and every group. SharePoint keeps no list of people of its own; it asks Entra ID.
+
+Three things live at tenant level:
+- **The SharePoint admin center**, at nexacorp-admin.sharepoint.com for a tenant named nexacorp. Admins create and delete sites and set tenant-wide policy there.
+- **The tenant sharing setting.** It is the ceiling for every site and every OneDrive. A tenant starts at the most open level, Anyone, until an admin changes it.
+- **Microsoft 365 Groups.** A group is one membership list that unlocks a shared mailbox, a calendar, a team site and, when a team is created, a team in Teams.
+- **Apps.** An app registered in Entra ID is an identity too. Granted a permission such as Sites.Read.All or Files.Read.All, it can read every site with no person signed in, until someone removes the app or its permission.
+
+### Level 2: sites, and the five kinds you will meet
+
+A **site** is the unit of access: it has its own owners, its own members and its own sharing setting. Microsoft's older name for it is **site collection**, and admin tools still use that term. Modern SharePoint is flat: sites sit side by side, not inside each other. Older tenants may still have subsites, which share their parent site's URL.
+
+| Kind of site | Used for | Who controls access | URL pattern |
+|---|---|---|---|
+| Team site (group-connected) | Collaboration for a team or project. One is created with every Microsoft 365 Group, so every team in Teams has one | The Microsoft 365 Group: group owners become site Owners, group members become site Members | nexacorp.sharepoint.com/sites/BidTeam (admins can choose /teams/ instead of /sites/) |
+| Channel site | The files of one private or shared channel in Teams | The channel's own owners and members, managed only from Teams | nexacorp.sharepoint.com/sites/BidTeam-Pricing: the team name, a hyphen, the channel name |
+| Communication site | Publishing to many readers: the intranet, news, policies | The site's own SharePoint groups. No Microsoft 365 Group sits behind it | nexacorp.sharepoint.com/sites/Intranet |
+| OneDrive | One personal site per user | The user, plus whatever the user shares | nexacorp-my.sharepoint.com/personal/d_levi_nexacorp_com |
+| Hub site | A team or communication site that an admin registered as the centre of a family of sites | Its own permissions, like any other site | The URL of the site it is built on |
+
+Two of these need a closer look.
+
+**OneDrive lives on a different host name.** Personal sites use the tenant name plus -my. The path is the owner's sign-in name with the @ and every dot turned into underscores. So d.levi@nexacorp.com owns /personal/d_levi_nexacorp_com. Audit records from a OneDrive carry \`Workload\` OneDrive, not SharePoint.
+
+**A hub is an association, not a container.** Joining a site to a hub adds shared navigation, a shared look and hub-wide search. It does not move the site, and it does not change who can open it. A file "in the Projects hub" really sits in one specific site, with that site's permissions. Joining is audited as \`HubSiteJoined\`.
+
+### Level 3: inside a site
+
+- **List**: a table of rows that the site stores, like a shared spreadsheet. Each row is an **item**. Task trackers and contact lists are lists.
+- **Document library**: a list whose items are files. Every team site starts with one library called **Documents**. In URLs and audit records its name is **Shared Documents**. In a OneDrive the library is simply **Documents**.
+- **Folder**: a drawer inside a library. Teams creates one folder per standard channel.
+- **File**: the document. It has a unique ID, logged as \`ListItemUniqueId\`, and a **version history**. Each save can keep an earlier copy, so a file that was later emptied or overwritten may still be recoverable.
+
+### How Teams sits on top of SharePoint
+
+Teams stores almost none of its own data. It is a window onto three other services: Entra ID for membership, SharePoint and OneDrive for files, and Exchange Online for messages.
+
+| What you see in Teams | Where it is really stored | Where you search |
+|---|---|---|
+| A team | A Microsoft 365 Group in Entra ID, plus a group-connected team site | The group's membership, then the team site's audit records |
+| A standard channel's files | A folder named after the channel, in the team site's Documents library. Every team has a General channel, so most team sites have a General folder | The team site's \`SiteUrl\`, with the channel's folder in \`SourceRelativeUrl\` |
+| A private channel's files | A separate channel site that only the channel's members can open | A different \`SiteUrl\`, ending in -ChannelName |
+| A shared channel's files | A separate channel site too. People from other organisations reach it with their home account through Entra B2B direct connect, without a guest account | The channel site's \`SiteUrl\` |
+| A file sent in a 1:1 or group chat | The sender's OneDrive, in a folder named Microsoft Teams Chat Files, shared only with the people in that chat | The sender's OneDrive URL, never a team site |
+| A meeting recording | The organiser's OneDrive, in Recordings. For a channel meeting: a Recordings folder in that channel's library | The organiser's OneDrive, or the channel's site |
+| Chat and channel messages | Exchange Online. Chats: a copy in each participant's mailbox. Channel posts: the team's group mailbox | An eDiscovery content search of mailboxes, not the SharePoint audit records |
+
+### Who can reach a file: the permission model
+
+Think of building badges. Each site hands out three standard badges, and a sharing link is a visitor pass for one door.
+
+**The three default groups.** Every site gets three SharePoint groups.
+
+| SharePoint group | Default permission level | What it allows | Who is in it on a team site |
+|---|---|---|---|
+| Owners | Full Control | Everything, including changing permissions and sharing settings | The Microsoft 365 Group's owners |
+| Members | Edit | Add, change and delete files, folders and lists | The group's members |
+| Visitors | Read | View and download | Nobody by default. Microsoft 365 Groups have no read-only role, so readers are added here directly |
+
+Two more facts change who is really inside:
+- **Public teams.** On a public team's site, the built-in group "Everyone except external users" sits in Members. Every employee can then open and edit the site's files.
+- **Site collection administrators** have full control of the whole site. Global admins and SharePoint admins can add themselves, which is logged as \`SiteCollectionAdminAdded\`. The same event appears when an admin gives themselves access to a user's OneDrive.
+
+**Inheritance.** Permissions flow downward: site, then library, then folder, then file. A suite key opens every drawer in the suite. An owner can **break inheritance** on a library, folder or file and give it unique permissions, which is logged as \`SharingInheritanceBroken\`. Sharing one file with someone who has no access breaks inheritance on that file automatically.
+
+**Sharing links and Limited Access.** When someone shares one file, SharePoint creates the link and a hidden SharePoint group behind it, whose name starts with SharingLinks. and carries IDs for the file and the link. SharePoint also gives the recipients **Limited Access** on the library and site above the file. Limited Access lets them reach that one file and nothing else. So a person shown with Limited Access on a site had something inside shared with them. It does not mean they can read the site.
+
+**Guests.** When an outsider accepts an invitation to a site or a team, Entra ID creates a **guest** account for them. With SharePoint's Entra B2B integration turned on, sharing a single file does the same. The guest's sign-in name is their own address with @ turned into _, then #EXT#, then your tenant's onmicrosoft.com domain. So partner@fabrikam.example becomes partner_fabrikam.example#EXT#@nexacorp.onmicrosoft.com. From then on, a guest gets access exactly as an employee does: through a group, a site membership or a link.
+
+**The layering rule.** Sharing settings stack in three layers. Each layer can be as open as the layer above it, or tighter, never wider.
+1. **Tenant**: the SharePoint setting, plus a OneDrive setting that can be equal or tighter.
+2. **Site**: each site's own setting, equal to the tenant's or tighter.
+3. **Link**: a user can only create the link types that the site allows.
+
+The four sharing levels have the same names at tenant and at site level:
+
+| Level in the admin center | PowerShell value (SharingCapability) | What people can do |
+|---|---|---|
+| Anyone | ExternalUserAndGuestSharing | Create links that work with no sign-in, and invite guests |
+| New and existing guests | ExternalUserSharingOnly | Invite new outsiders, who must sign in or enter a one-time code |
+| Existing guests | ExistingExternalUserSharingOnly | Share only with guests already in the directory |
+| Only people in your organization | Disabled | No external sharing at all |
+
+The settings that decide reach are visible with one PowerShell command, Get-SPOTenant. These are the ones to compare during a case:
+
+| Get-SPOTenant setting | What it controls |
 |---|---|
-| \`FileAccessed\` | A file was opened/viewed |
-| \`FileDownloaded\` | A file was downloaded to the user's device |
-| \`FileUploaded\` | A file was uploaded to SharePoint |
-| \`FileCopied\` | A file was copied within SharePoint |
-| \`SharingInvitationCreated\` | A sharing invitation was sent to an external user |
-| \`AnonymousLinkCreated\` | An "Anyone" link was created (high risk!) |
-| \`AnonymousLinkUsed\` | An "Anyone" link was used to access a file |
-| \`SensitiveFileRead\` | A file classified as sensitive (by DLP) was accessed |
+| SharingCapability | The tenant ceiling for SharePoint sites, using the four values above |
+| OneDriveSharingCapability | The ceiling for every OneDrive, equal to SharingCapability or tighter |
+| DefaultSharingLinkType | The link the sharing dialog offers first: Direct (Specific people), Internal (your organisation), AnonymousAccess (Anyone), or None (the widest type allowed) |
+| DefaultLinkPermission | Whether that first link offers View or Edit |
+| RequireAnonymousLinksExpireInDays | The longest an Anyone link may live, from 1 to 730 days. 0 removes the limit |
+| ExternalUserExpirationRequired and ExternalUserExpireInDays | Whether guests lose site access automatically, and after how many days (30 to 730) |
 
-**Bulk Downloads: The Classic Data Theft Pattern**
+The tenant does not announce that it became more open, but the audit log does. Every change is a SharingPolicyChanged record, and its ModifiedProperties name the setting with its old and new values. From that record you know who changed it and when, and you check that admin's sign-in next.
 
-A disgruntled or compromised user stealing data from SharePoint will typically download hundreds or thousands of files in a short time window. Normal user behaviour might be 5 to 20 file downloads per day. Downloading 500+ files in a single session is highly anomalous.
+An example. The tenant allows Anyone, but the Finance site is set to Only people in your organization. Then nobody can share a Finance file outside, even by mistake. In an investigation, the site's level tells you which kinds of link were even possible.
 
-Microsoft Purview (formerly Compliance Center) can generate alerts when bulk download activity is detected. When you see a \`FileDownloaded\` event storm from a single user, check:
-- Is this user leaving the company soon? (Departing employees are a common insider threat vector)
-- Are the files from sensitive sites (Finance, HR, Legal, Engineering)?
-- What is the user's normal download baseline?
-- Is the client IP internal or external?
+**The four kinds of sharing link.** These are the choices in the sharing dialog.
 
-Be precise about what a download proves. It only moves files from SharePoint onto a device, which MITRE ATT&CK (the public catalogue of attacker behaviour) files under the Collection tactic: gathering data the attacker wants, here as technique T1213.002. It counts as Exfiltration, the tactic for stealing data out of the organisation, only once you have evidence of that next step, such as a USB copy, an upload to personal cloud storage or a large outbound email.
+| Link type | Works for | Sign-in needed? | What the audit log records |
+|---|---|---|---|
+| Anyone with the link | Whoever holds the URL, including anyone it was forwarded to | No | \`AnonymousLinkCreated\` when made. \`AnonymousLinkUsed\` on each use, with ClientIP and UserAgent but no named person |
+| People in your organization | Any member of your directory who has the link. It does not work for guests | Yes | \`CompanyLinkCreated\`, then \`CompanyLinkUsed\` |
+| Specific people | Only the named recipients, inside or outside the organisation. Forwarding it gives nobody else access | Yes, as that recipient | \`SecureLinkCreated\`, plus \`AddedToSecureLink\` naming the recipient in TargetUserOrGroupName. An outsider's use then shows as \`FileAccessed\` |
+| People with existing access (newer dialogs say "Only people added to the file have access") | Only people who can already open the file | Yes | Nothing new is granted: it is a pointer, not a permission |
 
-**Tenant-Level External Sharing Controls**
+Two more sharing records complete the set. Sharing straight with a named person already in your directory logs \`SharingSet\`. Inviting an outsider to a whole site logs \`SharingInvitationCreated\`, then \`SharingInvitationAccepted\` when they accept.
 
-Administrators can control external sharing at the SharePoint Admin Center (admin.microsoft.com → SharePoint → Policies → Sharing). SOC analysts should know whether their organisation allows "Anyone" links, if so, any created "Anyone" link is an exfiltration channel whose users cannot be identified once the URL is shared externally.`,
+### Reading a SharePoint audit record
+
+You met the Unified Audit Log (UAL) and Purview audit search in the prerequisite room. Here is what a SharePoint or OneDrive record says, field by field. Three fields split one file path into parts:
+
+\`\`\`text
+ObjectId           https://nexacorp.sharepoint.com/sites/BidTeam/Shared Documents/Design/Stadium_v3.pdf
+SiteUrl            https://nexacorp.sharepoint.com/sites/BidTeam/
+SourceRelativeUrl  Shared Documents/Design
+SourceFileName     Stadium_v3.pdf
+\`\`\`
+
+SiteUrl, then SourceRelativeUrl, then SourceFileName, joined together, give ObjectId. Read a path from the outside in: the host (with -my or without), then /sites/ or /personal/, then the site name, then the library and folders.
+
+| Field | What it tells you |
+|---|---|
+| Workload | SharePoint or OneDrive. The first fork: a shared site, or one person's own storage |
+| RecordType | 6 for file operations (SharePointFileOperation), 14 for sharing (SharePointSharingOperation), 4 for other SharePoint events such as permission changes |
+| Operation | What happened: FileDownloaded, AnonymousLinkCreated, AddedToGroup and so on |
+| UserId | Who did it. A name containing #EXT# is a guest. On AnonymousLinkUsed it is anonymous, or an ID starting with urn:spo:anon, never a person. app@sharepoint means an app with SharePoint app-only access acted, not a person |
+| UserType | What kind of identity acted: 0 a regular user, 2 an admin, 4 the system, 5 an application, 6 a service principal. A 5 or a 6 means software acted, not a person at a keyboard |
+| ClientIP | The address SharePoint saw: an office egress, a home connection, a VPN or a cloud host |
+| UserAgent | The client: a browser, the OneDrive sync app, or a script or tool |
+| EventSource | SharePoint or ObjectModel: which part of SharePoint raised the event |
+| ApplicationDisplayName and ApplicationId | The app that acted. An unfamiliar app pulling many files is a lead to check in Entra ID's enterprise applications |
+| ListItemUniqueId | The file's ID. Filter on it to collect every record about that one file |
+| AppAccessContext.AADSessionId | The Entra session behind the action. Match it to the sign-in log to find the sign-in, and often the device, that the action came from |
+| TargetUserOrGroupName and TargetUserOrGroupType | Sharing records only: who received access, and whether that is a Member, Guest, SharePointGroup, SecurityGroup or Partner |
+
+Know the limits of the log before you trust a gap in it:
+- **It is on by default** for enterprise tenants, but some records need Audit (Premium) licences.
+- **It is late.** For SharePoint, OneDrive and Teams, records typically arrive 60 to 90 minutes after the event, and sometimes later. A search five minutes after an alert can come back empty.
+- **It expires.** Audit (Standard) keeps 180 days. With Audit (Premium), SharePoint, OneDrive, Exchange and Entra records are kept one year.
+- **You can query it in four places:** Purview Audit search, Search-UnifiedAuditLog in Exchange Online PowerShell, the OfficeActivity table in Microsoft Sentinel, and CloudAppEvents in Microsoft Defender XDR advanced hunting.
+
+The operations you will use most, grouped by what they mean:
+
+| Group | Operations | Note |
+|---|---|---|
+| Reading | FileAccessed, FilePreviewed | FileAccessed is not logged again for the same user and file within five minutes |
+| Taking a copy | FileDownloaded (browser), FileSyncDownloadedFull (OneDrive sync app), FileCopied, FileMoved | Count all of them, not only FileDownloaded |
+| Changing | FileUploaded, FileSyncUploadedFull, FileModified, FileRenamed, FileDeleted, FileRecycled, FileRestored | A burst of FileModified and FileRenamed to an unknown extension can mean ransomware |
+| Sharing | AnonymousLinkCreated, AnonymousLinkUsed, AnonymousLinkRemoved, CompanyLinkCreated, SecureLinkCreated, AddedToSecureLink, SharingSet, SharingInvitationCreated, SharingInvitationAccepted, SharingRevoked | All carry RecordType 14 |
+| Permissions | AddedToGroup, GroupAdded, SiteCollectionAdminAdded, SharingInheritanceBroken | GroupAdded also fires the first time a user creates a sharing link in their OneDrive |
+| Admin | SharingPolicyChanged, SiteCollectionCreated, HubSiteJoined | SharingPolicyChanged lists the changed setting in ModifiedProperties |
+
+### Why it matters in an investigation: scoping a leak
+
+When a file turns up where it should not be, four questions come before any judgement of how bad it is. The architecture answers each one.
+
+| Question | What answers it | Evidence |
+|---|---|---|
+| 1. Which container held it? | The host and path: team site, channel site, communication site or OneDrive | SiteUrl, Workload, ObjectId |
+| 2. Who could reach it? | The site's membership (the Microsoft 365 Group, the three SharePoint groups, Everyone except external users on a public team), any unique permissions, and every link on the file | Group membership in Entra ID, the site's permissions page, and the sharing records for that ObjectId |
+| 3. What was touched? | Every read, copy and share of the file, and everything else the same identity or link touched | Operation, ObjectId and ListItemUniqueId, counted per UserId |
+| 4. From where? | The network and client behind each access | ClientIP and UserAgent, then the user's sign-in log at the same time |
+
+A worked example. NexaCorp's file Stadium_v3.pdf turns up at a rival firm.
+1. Its FileDownloaded records carry SiteUrl /sites/BidTeam-Pricing. That is a private channel's site, so the starting reach is the channel's 6 members, not the team's 40.
+2. Sharing records for the same ObjectId show AnonymousLinkCreated by one channel member, three days earlier. Now the reach is anyone who ever held that URL.
+3. AnonymousLinkUsed shows two uses from 198.51.100.77 with a desktop browser UserAgent, and no named user.
+4. Next: ask the link's creator why it was made, remove the link, look for every other Anyone link that person created, and pull their sign-in log around the creation time.
+
+### Classic pitfalls
+
+- **"The file was posted in the team's chat, so check the team site."** A file sent in a 1:1 or group chat is in the sender's OneDrive, under Microsoft Teams Chat Files. The team site has no record of it.
+- **"The team has 40 members, so 40 people could see it."** A private or shared channel is a separate site with its own members. Check whether the SiteUrl ends in a channel name.
+- **"There is an Anyone link, so the file leaked."** A link is exposure. Only AnonymousLinkUsed proves access. Never report one as the other.
+- **"No sign-in at that time, so the user did not do it."** A stolen session token acts without any new interactive sign-in. Check the non-interactive sign-in log and AADSessionId.
+- **"Limited Access means they could read the site."** It only means that one item inside was shared with them.
+- **"The site is in the Projects hub, so the hub's members could open it."** A hub changes navigation and search, never permissions.
+- **"There is no FileDownloaded, so nothing was copied."** The sync app logs FileSyncDownloadedFull, and opening a file in a desktop app can log only FileAccessed. Count all three.
+- **"A public team is open only to its members."** Its Members group contains Everyone except external users, so every employee can open and edit its files.
+- **"The chat messages will be in SharePoint too."** Messages are in Exchange mailboxes. Search them with eDiscovery, not with the SharePoint audit records.`,
+      image: {
+        src: "/lesson-images/m365/sharepoint-tenant-map.svg",
+        alt: "Map of one Microsoft 365 tenant. The tenant at the top holds the SharePoint admin center, the tenant sharing setting that caps every site, and the Entra ID directory of users, guests and groups. Below it sit four flat sites with their URLs and who controls access: a group-connected team site with its Documents library, standard-channel folders and a file; a private or shared channel site with its own members; a communication site with its Owners, Members and Visitors groups; and a OneDrive holding Microsoft Teams Chat Files and Recordings. A dashed hub bar links two sites as an association only. A table at the bottom maps a team, a standard channel, a private or shared channel, a chat file, a meeting recording and messages to where each is really stored.",
+        caption: "The whole map: one tenant, flat sites with their own permissions, what sits inside a site, and where each part of Teams is really stored.",
+        credit: "Figure authored for this course.",
+      },
       checkpoint: {
-        question: "The audit log shows a Finance spreadsheet being opened from an unfamiliar external IP address, but the access record carries no user identity at all. Which way of sharing the file produces that kind of record?",
+        question: "An employee sent Pricing_Model.xlsx to a colleague in a 1:1 Teams chat, and the file later leaked. Where do the audit records for that copy of the file point?",
         options: [
-          "Specific people links (external)",
-          "Anyone links (Anonymous links)",
-          "Existing external guests",
-          "Only people in your organisation",
+          "To the team site's Documents library, inside the General folder",
+          "To the colleague's Exchange mailbox, next to the chat message",
+          "To the sender's OneDrive, in the Microsoft Teams Chat Files folder",
+          "To the private channel site that the bid team uses for pricing",
         ],
-        answer: 1,
+        answer: 2,
         explanation:
-          "Only an “Anyone” link lets someone open the file without signing in, so its use is logged (AnonymousLinkUsed, with IP and user agent) but cannot be tied to a person. A specific-people link makes the external recipient authenticate, so their identity is recorded. An existing guest signs in with a guest account (a #EXT# UPN). Internal-only sharing means a named employee account appears in the record.",
+          "A file sent in a 1:1 or group chat is uploaded to the sender's OneDrive, into Microsoft Teams Chat Files, and shared with the people in that chat. Its records carry Workload OneDrive and a SiteUrl under -my.sharepoint.com/personal/. The team site's General folder holds files posted in the General channel, not chat files. The colleague's mailbox holds a copy of the chat message, not the file. A private channel's site holds only that channel's own files.",
       },
     } satisfies ReadingTask,
 
@@ -534,53 +701,118 @@ Administrators can control external sharing at the SharePoint Admin Center (admi
     {
       type: "reading",
       id: "spt-teams-r2",
-      heading: "Microsoft Teams Security Risks and Monitoring",
-      content: `Microsoft Teams has become one of the most widely used business communication platforms in the world. With hundreds of millions of daily active users, it is also an increasingly attractive target for attackers. SOC analysts need to understand how Teams works and how it can be abused.
+      heading: "Microsoft Teams: How Outsiders Reach Your Users, and What the Logs Show",
+      content: `**Microsoft Teams** is Microsoft 365's chat, call and meeting service, and attackers use it as a phishing channel that never passes the mail filter.
+By the end of this reading you can name the four ways outsiders reach your users, read who acted from a record's fields, and scope a Teams phishing campaign.
 
-**Teams Architecture Basics**
+### Teams in one line
 
-- **Teams** contain **Channels**. Each channel is a conversation thread plus a shared file library (backed by SharePoint).
-- **Chats** are direct messages between individuals or small groups. These are separate from channels.
-- **Files** shared in Teams are actually stored in the team's SharePoint library or in the sender's OneDrive.
-- **External Access** allows Teams users to message people in other organisations' Teams tenants. This is a legitimate feature for business collaboration.
-- **Guest Access** allows external people to be added as full members of a specific Team. They get an Azure AD guest account (B2B).
+The previous reading covered storage. A team is a Microsoft 365 Group plus a team site; files live in SharePoint and OneDrive; messages live in Exchange mailboxes. This reading is about **people**: who can talk to your users, and who can get into your teams.
 
-**Teams Attack Vectors**
+### The four ways an outsider reaches your users
 
-**1. Phishing via Teams Chat**
-Attackers have increasingly pivoted from email phishing to Teams phishing. The reasoning: employees are trained to be suspicious of phishing emails, but they often have lower guard in Teams chat. Techniques include:
-- Sending malicious links in Teams messages to internal users (if an internal account is compromised)
-- Using External Access to message employees from a fake external tenant (e.g. a tenant named "Microsoft Support")
-- Adding external guests to a Team and using that access to harvest data or spread malware
+Think of your office building again. **External access** is the intercom at the front door: anyone outside can buzz, but nobody comes in. **Guest access** is a visitor badge for one floor. A **shared channel** is one meeting room with its own street door. An **anonymous meeting join** is a seat at a public talk.
 
-The tool **TeamsPhisher** (seen in red-team exercises and, per Microsoft, in real campaigns by the group Storm-1674 to distribute DarkGate malware) automates sending phishing messages via Teams to large numbers of users by abusing the External Access feature.
+| Path | What the outsider can do | Account in your directory? | What your user sees | Audit records it leaves |
+|---|---|---|---|---|
+| External access (federation between tenants) | Chat, call and meet with your users. No access to your teams, channels or files | No. They stay signed in to their own tenant | An External label. A first contact arrives as a message request the user must Accept | ChatCreated, MessageSent, UserAccepted |
+| Guest access (Entra B2B collaboration) | Join a team as a member with the Guest role: its channels, its files, its team site | Yes: a guest account with #EXT# in its name | The person's name marked as a guest | MemberAdded on the team, with the #EXT# name in Members, and AddedToGroup on the team site |
+| Shared channel (Entra B2B direct connect) | Work in one shared channel and its channel site, nothing else in the team | No. They sign in at home, and the channel shows their organisation | The person in the channel, marked as external | InviteSent and InviteeResponded, then file records on the channel site |
+| Anonymous meeting join | Join one meeting from its link, without signing in | No | A participant who is not verified | MeetingParticipantDetail |
 
-**2. Guest Account Abuse**
-When an external guest is added to a Team, they can access all files in that team's SharePoint library. A compromised or malicious guest account can exfiltrate documents. Guest accounts appear in audit logs with a UPN suffix like \`user_externalcompany.com#EXT#@corp.onmicrosoft.com\`.
+Only a guest is ever inside your tenant. An external access contact has no account in your Entra ID and cannot open your files.
 
-**3. External Access Abuse**
-External Access (federation between tenants) allows anyone from any tenant to initiate a Teams chat with your employees by default. Attackers set up or compromise Microsoft 365 tenants, rename them to look like "Microsoft Help Desk" or an identity-protection team, and message your employees claiming to be IT support; Midnight Blizzard used this approach in 2023.
+### Who acted? Read it from the record
 
-**Key Teams Audit Events**
+Every audit record names its actor. Never work it out by elimination ("nobody else signed in, so it must be..."). Read the fields:
 
-| Operation | Significance |
-|---|---|
-| \`MessageSent\` | A message was sent in a channel or chat |
-| \`MessageDeleted\` | A message was deleted (suspicious if done in bulk) |
-| \`TeamCreated\` | A new Team was created |
-| \`MemberAdded\` | A member was added to a team, channel or group chat; adding an external guest is logged here too, with the added member's role recorded as Guest |
-| \`AppInstalled\` | A Teams app was installed (could be malicious app) |
+| Actor | How it shows in the record | What it can reach |
+|---|---|---|
+| Member (employee) | A UPN (user principal name, the sign-in address) in your own domain, UserType 0 | Whatever its groups, sites and links allow |
+| Guest | A UPN with #EXT#, for example partner_fabrikam.example#EXT#@nexacorp.onmicrosoft.com | The teams and sites it was added to |
+| External access contact | The sender's own UPN in another tenant's domain, often a name.onmicrosoft.com. It appears in chat records only | Chats, calls and meetings. Never your files |
+| Shared channel participant | Their home tenant's UPN, with no guest account in your directory | One shared channel and its site |
+| App, bot or service principal | UserType 5 (application) or 6 (service principal), with the app named in AppAccessContext.ClientAppName or ApplicationDisplayName | Whatever permissions it was granted at install or consent, until someone removes it |
+| Anonymous | No named identity, for example on AnonymousLinkUsed | Whatever the link opens |
 
-**Microsoft Defender for Cloud Apps (MDCA) Integration**
+**Apps and bots act on their own.** Bots, connectors, incoming webhooks and Workflows can post into channels under their own identity. A Graph app with the right permission can read messages in bulk, which writes MessagesListed or ChatRetrieved, records that only exist for Graph calls. So for any app you find, look for how it arrived: AppInstalled, BotAddedToTeam or ConnectorAdded in the audit log, and Consent to application in the Entra audit log.
 
-Microsoft Defender for Cloud Apps (formerly Cloud App Security) can monitor Teams activity and generate alerts. It integrates with the Microsoft 365 audit log and applies machine-learning-based anomaly detection. Relevant MDCA policies for Teams:
-- **Mass download by a single user**: Triggers when a user downloads far more files than their peers.
-- **Activity from infrequent country**: A Teams login from a country the user has never been in before.
-- **Suspicious app consent**: A third-party Teams app was granted broad permissions.
+**Tokens act without a new sign-in.** An attacker holding a stolen session cookie or refresh token works with no interactive sign-in at all. A quiet interactive sign-in log proves nothing: check the non-interactive sign-in log for the same user and time.
 
-**DLP in Teams**
+### The defaults that decide your exposure
 
-Microsoft Purview DLP policies can inspect Teams messages and files shared in Teams for sensitive data types (credit card numbers, Social Security Numbers, custom regex patterns). When a policy matches, Teams will show a warning to the user or block the message entirely. SOC analysts see these as \`DlpRuleMatch\` events in the audit log, with the Teams workload.`,
+- **External access is open by default.** Teams allows chat with every external domain until an admin switches to an allow list or blocks domains.
+- **Blocking a domain does not block its subdomains**, unless the admin also sets BlockAllSubdomains.
+- **Tenants with only trial licences are blocked by default** (ExternalAccessWithTrialTenants is Blocked). Tenants that pay, including compromised ones, are not.
+- **Unmanaged Teams accounts** (personal Microsoft accounts) have their own switch, with a separate option for whether those people may start a conversation.
+
+One command shows all of it. Run it at the start of any Teams phishing case:
+
+\`\`\`powershell
+Get-CsTenantFederationConfiguration | Format-List AllowFederatedUsers, AllowedDomains, BlockedDomains, BlockAllSubdomains, AllowTeamsConsumer, AllowTeamsConsumerInbound, ExternalAccessWithTrialTenants
+\`\`\`
+
+### How attackers use Teams
+
+Phishing over a chat service is MITRE ATT&CK technique T1566.003, Spearphishing via Service. These are the patterns you will meet:
+
+| Pattern | How it works | Seen in the wild | What to look for |
+|---|---|---|---|
+| Fake help desk over external access | The attacker renames a tenant, or adds an onmicrosoft.com subdomain with a security-sounding name, then messages staff as IT support | Midnight Blizzard, 2023: compromised small-business tenants, and a request to type a code into a Microsoft Authenticator prompt, which approved the attacker's own sign-in | A message request from an External sender, then a successful sign-in for the same user from an unfamiliar IP |
+| Inbox flood, then a help-desk chat or call | The user's mailbox is buried in junk mail. The "help desk" offers to fix it and asks the user to start Quick Assist, Windows' built-in remote support tool, then installs remote management tools | Storm-1811, 2024, ending in ransomware | quickassist.exe, then a remote management tool, starting on the endpoint soon after an external chat. Remote access tools are technique T1219 |
+| Mass phishing with a tool | TeamsPhisher, a public red-team tool, sends messages and file links to many users in another tenant | Storm-0324, 2023. Storm-1674 used tools like it to spread the DarkGate malware | Many ChatCreated records from one external sender to many users within minutes |
+| Phishing from a hijacked colleague | A taken-over internal account messages coworkers, who trust the name. Internal spearphishing, T1534 | Common after any account compromise | Messages with links from a user whose sign-in log shows an unfamiliar location |
+| Guest abuse | A guest account that is stolen, or one left behind after a project, reads everything in the team site | Any long-lived partner team | FileDownloaded by a #EXT# UserId on a team site, and guests that no one has reviewed |
+| A risky app | A user is tricked into consenting to an app, or adds an app or bot to a team, and it then acts with whatever permissions it was granted | OAuth consent phishing | Consent to application in the Entra audit log, AppInstalled or BotAddedToTeam on the team, then records where that app is the actor |
+
+In Microsoft Defender XDR, the advanced hunting tables MessageEvents, MessagePostDeliveryEvents, MessageUrlInfo and UrlClickEvents cover Teams messages and link clicks. CloudAppEvents carries Teams activity collected by Defender for Cloud Apps.
+
+### The Teams audit records you will use
+
+Every Teams record in the Unified Audit Log carries \`Workload\` MicrosoftTeams. Know what each one means, and when it is not written.
+
+| Operation | What it means | Watch out |
+|---|---|---|
+| ChatCreated | A new chat was created | For a chat with another organisation, every participating tenant gets the record |
+| MessageSent | A message was posted in a chat or a channel | For chats, it is written only when guests, external users or anonymous users take part. A chat between two employees leaves none |
+| MessageCreatedHasLink, MessageEditedHasLink | A message containing a URL was sent, or a URL was added by an edit | The address is in MessageURLs |
+| UserAccepted, UserBlocked | The user accepted, or blocked, a message from someone they had never contacted | Accepting an External stranger is the moment a lure lands |
+| TeamsImpersonationDetected | Teams flagged an external sender as a possible impersonator | ImpersonationType says whether of a brand, a domain or a user |
+| MemberAdded, MemberRemoved, MemberRoleChanged | A member was added to, removed from, or changed in a team, channel or group chat | A #EXT# name in Members is a guest |
+| TeamCreated, ChannelAdded | A team or a channel was created | A new private or shared channel also creates a new site |
+| AppInstalled, BotAddedToTeam, ConnectorAdded | An app, a bot or a connector was added | AddOnName names it. Check who added it, and what it is allowed to do |
+| TeamsSessionStarted | A user signed in to a Teams client | Token refreshes are not captured |
+| MessageDeleted | A chat or channel message was deleted | Written only with Audit (Premium) licences |
+| MessagesListed, MessageHostedContentsListed, ChatRetrieved, MessagesExported | Messages, or the images and files inside them, were read in bulk or exported | Written only when done through the Microsoft Graph API, so they point to an app or a script, not to the Teams client |
+
+### Why it matters in an investigation: scoping a reported chat
+
+A user reports a strange Teams chat. You work from records, not from the chat window. Five questions, in order, each with its own log.
+
+1. **Who is the sender, really?** Ignore the display name: the attacker typed it. Read the sender's address and domain, and check whether the chat carried the External label. An onmicrosoft.com address in another tenant is not your IT department.
+2. **Did the user engage?** Look for UserAccepted, and for MessageSent records from your user in that chat. A user who never accepted saw only a preview.
+3. **What was asked, and was it done?** For a link: MessageCreatedHasLink and UrlClickEvents. For a code typed into an MFA prompt: the user's sign-in logs around the chat time, interactive and non-interactive, looking for a success from an unfamiliar IP. For remote support: quickassist.exe or another remote tool starting on the user's device, in your EDR (endpoint detection and response) process events.
+4. **Who else did the sender reach?** Search ChatCreated and MessageSent for the same external domain across all users. A campaign hits dozens of people, and often only one reports.
+5. **Contain.** Block the domain in Teams external access, or in Defender's Tenant Allow/Block List if your admins let the security team manage it. Revoke sessions and reset the password if an MFA prompt was approved. Isolate the device if a remote session was granted.
+
+### Classic pitfalls
+
+- **"The display name says Microsoft Security."** A display name is text chosen by whoever owns the other tenant. The domain and the External label are the evidence.
+- **"No sign-in at that time, so it wasn't them."** A stolen token needs no new interactive sign-in. Read the non-interactive sign-in log, and read the record's own actor fields.
+- **"There is no MessageSent, so they never talked."** Chats between two employees never write MessageSent. The messages themselves are in Exchange mailboxes, so use an eDiscovery content search.
+- **"The external contact must be in Entra ID."** An external access contact has no account in your tenant. A file they "attach" is a link into their own tenant's storage, which your audit log never sees.
+- **"We blocked example.com, so login.example.com is blocked too."** Not unless subdomain blocking is on.
+- **"A guest and an external contact are the same thing."** A guest has a #EXT# account and real access to a team's files. A compromised guest is a data incident, not just a phishing case.`,
+      diagram: `flowchart LR
+  OUT["Person in another organisation"]
+  OUT -->|"External access"| CHAT["Chats, calls and meetings with your users"]
+  OUT -->|"Guest access"| GUEST["Guest account in your Entra ID"]
+  GUEST --> TEAM["Membership of one team"]
+  TEAM --> SITE["That team's site and files"]
+  OUT -->|"Shared channel"| CH["One shared channel, signed in at home"]
+  CH --> CHS["That channel's own site only"]
+  OUT -->|"Anonymous join"| MEET["One meeting, from its link"]`,
+      diagramCaption: "Four doors for an outsider, and how far each one reaches",
       checkpoint: {
         question: "An employee gets a Teams chat from “IT Help Desk”, a sender in another organisation's tenant. That sender is not a member of any of your teams. Which Teams feature delivered the message?",
         options: [
@@ -615,61 +847,155 @@ Microsoft Purview DLP policies can inspect Teams messages and files shared in Te
     {
       type: "reading",
       id: "spt-teams-r3",
-      heading: "DLP and Insider Threat Detection in Microsoft 365",
-      content: `**Data Loss Prevention (DLP)** is a set of policies and technologies designed to detect and prevent the movement of sensitive information outside your organisation. In Microsoft 365, DLP is managed through **Microsoft Purview** (purview.microsoft.com → Data loss prevention).
+      heading: "Purview DLP and Insider Risk: What People Do With Access They Already Have",
+      content: `**Data Loss Prevention (DLP)** in Microsoft Purview inspects content while people use it, and acts when sensitive data heads somewhere it should not go. **Insider risk** is the threat from people who already have legitimate access.
+By the end of this reading you can read a DLP record, tell an override from a policy change, and work a bulk-download case to the hand-off to HR and Legal.
 
-**How Microsoft Purview DLP Works**
+### How a DLP policy is built
 
-DLP policies define three things:
-1. **What to protect**: Sensitive information types (e.g. credit card numbers, UK National Insurance numbers, patient health information, company-defined custom patterns like project codes).
-2. **Where to protect it**: Which services to monitor: Exchange email, SharePoint, OneDrive, Teams chats, Endpoint devices, Power BI.
-3. **What to do when a match occurs**: Options include: notify the user with a policy tip (warning), block the action (prevent sending/uploading), notify the admin, log the event for audit.
+An airport scanner checks what is in the bag, not who carries it. DLP does the same with content: it looks inside the file or message, whoever sends it.
 
-**Key DLP Audit Operations**
+A **policy** says where it applies and holds one or more **rules**. Each rule has conditions and actions.
 
-- \`DlpRuleMatch\`: A DLP policy rule was triggered. The audit log entry includes: the policy name, the rule that matched, the workload (Exchange/SharePoint/Teams), the user who triggered it, the sensitive information type(s) detected, and the confidence level and count.
-- \`DlpRuleUndo\`: A user acknowledged a policy tip and provided a justification to override the block.
-- \`DlpRuleActivated\`: A DLP rule was enabled or changed.
+| Part | What it is | Concrete examples |
+|---|---|---|
+| What to look for | Sensitive information types (SITs): patterns plus supporting evidence. Each match is scored High, Medium or Low confidence, and counted | Credit card number, IBAN (international bank account number), U.S. Social Security number, U.K. National Insurance number, a custom pattern for your own project codes. A sensitivity label on the file can also be a condition |
+| Where | The locations the policy covers | Exchange email, SharePoint sites, OneDrive accounts, Teams chat and channel messages, Windows and macOS devices (Endpoint DLP), on-premises file shares, Power BI, Microsoft 365 Copilot |
+| How much | A threshold in the condition | "10 or more credit card numbers at high confidence, shared with people outside the organisation" |
+| What to do | The actions | Audit only. Show a policy tip. Block, but let the user override with a justification. Block outright. Remove access for people outside the organisation. On devices, audit or block a copy to USB |
+| Who hears about it | Alerts and notifications | An alert with a severity, an incident report by email, a notice to the user |
 
-**Insider Threat: The Risk from Within**
+A policy can run in **simulation mode** first. It then logs matches but takes no action, so a match from a simulated policy was never blocked.
 
-Insider threats come from current or former employees (or contractors) who misuse their legitimate access to steal, damage, or expose data. They are especially dangerous because:
-- They already have authorised access: no need to "break in"
-- They know where sensitive data lives
-- Their activity can look legitimate until you look closely
+### The DLP records in the audit log
 
-**Microsoft Purview Insider Risk Management**
+Every DLP match goes to the Unified Audit Log and to Purview's Activity explorer. DLP records always carry UserKey DlpAgent. Three operations matter:
 
-Microsoft Purview offers a dedicated **Insider Risk Management** module (separate from DLP) that uses machine learning to score users based on risky behaviours:
-- **Data theft by departing employees**: Triggered when HR feeds show a user's resignation date is approaching and that user starts downloading unusually large amounts of data.
-- **Data leaks**: High volume of file uploads to personal cloud storage or email to personal accounts.
-- **Security policy violations**: Attempting to access restricted sites or disabling security tools.
+| Operation | Where it exists | What it means |
+|---|---|---|
+| DlpRuleMatch | Exchange, SharePoint, OneDrive, Teams, devices | A rule matched. The record names the policy and rule, the actions taken, the severity, and each sensitive type found with its count and confidence |
+| DlpRuleUndo | SharePoint and OneDrive only | An action taken earlier was lifted. ExceptionInfo.Reason says why: Override, Document Change or Policy Change. For an override, Justification holds the user's own words |
+| DlpInfo | SharePoint and OneDrive only | The user marked a match as a false positive, and no action was lifted |
 
-The module requires integration with HR systems and applies a risk score to users. High-scoring users appear in the Insider Risk dashboard.
+In Exchange there is no separate undo record: the override and false-positive details sit inside DlpRuleMatch itself. In Teams, a blocked message is hidden from its recipients, and the sender is told it was blocked.
 
-**Behavioural Indicators of Insider Threat in SharePoint**
+Here is a trimmed DlpRuleMatch for a SharePoint file, with the fields you read first:
 
-Even without Purview Insider Risk Management, SOC analysts can identify suspicious insider behaviour by looking for these patterns in the Unified Audit Log:
+\`\`\`json
+{
+  "CreationTime": "2026-11-18T13:52:07",
+  "Operation": "DlpRuleMatch",
+  "RecordType": 11,
+  "Workload": "SharePoint",
+  "UserKey": "DlpAgent",
+  "UserId": "r.haddad@nexacorp.com",
+  "ObjectId": "https://nexacorp.sharepoint.com/sites/Payroll/Shared Documents/Bonus_2026.xlsx",
+  "PolicyDetails": [{
+    "PolicyName": "Payroll data",
+    "Rules": [{
+      "RuleName": "Bank details shared outside",
+      "Severity": "High",
+      "RuleMode": "Enforce",
+      "ConditionsMatched": { "SensitiveInformation": [{
+        "SensitiveInformationTypeName": "International Banking Account Number (IBAN)",
+        "Count": 212,
+        "Confidence": 85
+      }]}
+    }]
+  }],
+  "SharePointMetaData": { "IsViewableByExternalUsers": true }
+}
+\`\`\`
 
-| Indicator | Description |
-|---|---|
-| **Bulk download** | User downloads hundreds of files in a short time window (e.g. 847 files in 4 minutes) |
-| **Access to previously unvisited folders** | User suddenly accesses Finance or Legal folders they have never touched in 12 months |
-| **Off-hours access** | Downloads at 2 AM on a Saturday are unusual for a normal employee |
-| **Download from sensitive sites** | Focus on Finance, HR, Legal, Engineering IP repositories |
-| **External sharing spike** | Sudden creation of many "Anyone" links or sharing invitations to personal email addresses |
-| **OneDrive sync of entire libraries** | Syncing a whole SharePoint library to a personal laptop for offline access; the sync client logs \`FileSyncDownloadedFull\`, while a browser download logs \`FileDownloaded\` |
+How to read it:
+- **Count and confidence.** One low-confidence card number in a chat is often noise. 212 high-confidence IBANs in one file means the file is the payroll data itself.
+- **RuleMode.** Enforce means the actions ran. Audit modes mean the match was only recorded.
+- **IsViewableByExternalUsers: true.** Someone outside the organisation can already open this file. That changes the priority at once.
+- **Where alerts live.** DLP alerts stay 30 days in Purview's DLP Alerts dashboard and six months in the Defender portal. Activity explorer shows 30 days. The audit log keeps the records for its own retention period, which you met in the prerequisite room.
 
-**Practical Investigation Workflow**
+### Insider risk: the threat from within
 
-When you receive a DLP alert or a bulk-download alert:
+An **insider** is a current or former employee, contractor or partner who misuses legitimate access to steal, damage or expose data. Three things make insiders hard to catch:
+- They need no break-in: their access is already approved.
+- They know where the valuable files are.
+- Each action looks like work. Only the pattern, compared with their own normal, gives them away.
 
-1. Go to **purview.microsoft.com → Audit** and search for the user's \`FileDownloaded\` operations in the last 24–72 hours.
-2. Count the volume and look at the file paths. Were they from sensitive sites like /Finance/ or /HR/?
-3. Check the **ClientIP** field: is this the user's normal corporate IP or an unusual external IP?
-4. Cross-reference with **HR systems**: is this employee on a performance improvement plan, under investigation, or about to leave?
-5. Check for **external sharing** by the same user: search for \`AnonymousLinkCreated\` or \`SharingInvitationCreated\` with external email addresses.
-6. If warranted, **escalate to HR and Legal**. Insider threat cases have legal and HR implications beyond technical response.`,
+**Microsoft Purview Insider Risk Management** is a separate tool from DLP. It joins signals into a risk score per user, and shows users under pseudonyms by default to protect privacy. Each policy starts from a template:
+
+| Template | What starts the scoring | Signals it then weighs |
+|---|---|---|
+| Data theft by departing users | A resignation or end date imported by the HR connector, or the account being deleted from Entra ID | Downloads from SharePoint, printing, copies to USB or to personal cloud storage |
+| Data leaks | A high-severity DLP alert, or chosen indicators | Sharing and exfiltration activity after the trigger |
+| Data leaks by risky users, or by priority users | HR signals such as a performance improvement plan, or membership of a group marked as priority | The same signals, scored higher |
+| Security policy violations | Alerts from Microsoft Defender for Endpoint | Attempts to disable or evade security tools, installing unwanted software |
+
+### Behavioural indicators you can find in the audit log yourself
+
+You do not need Insider Risk Management to spot these. There is no universal "normal" number of downloads: measure each person against their own history and their peers. Each indicator has a benign look-alike, which is why one signal alone is never a verdict.
+
+| Indicator | How to measure it | Example | Benign look-alike |
+|---|---|---|---|
+| Bulk copying | Count FileDownloaded, FileSyncDownloadedFull and FileCopied per user per session, and compare with that person's own last 30 days and with peers in the same role | Far more files in one evening than the user's usual month | A records clerk archiving a finished project |
+| New territory | Sites or folders the user did not open in the previous 30 days | A sales account opening Legal and HR libraries | A new role, or a project handover |
+| Unusual hours | Activity outside the user's normal hours, in their own time zone | 02:00 on a Saturday | Travel, a deadline, shift work |
+| Sensitive sources | Activity on Finance, HR, Legal or research sites | Downloads from /sites/Payroll | The user's own team works there |
+| Outbound sharing | AnonymousLinkCreated, or SecureLinkCreated with AddedToSecureLink naming a personal address | A Specific people link to a webmail address with the user's own surname | A link to a real client's corporate address |
+| Whole-library sync | Many FileSyncDownloadedFull records from a library the user rarely opens | A full bids library synced to a laptop | Setting up a new laptop |
+| Repeated overrides | DlpRuleUndo with Reason Override, several times | "client asked for it", three times in a day | A real client request, confirmed by the account owner |
+
+Microsoft Defender for Cloud Apps watches some of these for you. Its policy template **Mass download by a single user** alerts at more than 50 downloads in one minute by default. **File shared with personal email addresses** catches the outbound pattern. Its anomaly detections also flag unusual file download and file share activity per user, and OAuth apps that download files unusually.
+
+### What a download proves, and what it does not
+
+Be precise about what a download proves. It only moves files from SharePoint onto a device. MITRE ATT&CK (the public catalogue of attacker behaviour) files that under the Collection tactic: gathering data the attacker wants, here technique T1213.002. It counts as Exfiltration, the tactic for stealing data out of the organisation, only once you have evidence of that next step. That evidence is a USB copy, an upload to personal cloud storage (T1567.002) or a large outbound email.
+
+Two blind spots matter here:
+- **The sync label can be faked.** The OneDrive sync app logs FileSyncDownloadedFull, while a browser download logs FileDownloaded. A tool that sends the sync app's UserAgent (it contains "SkyDriveSync") gets its downloads recorded as sync events. Count both kinds in any volume rule.
+- **Open in app.** Opening a file through the desktop app's link can be logged only as FileAccessed, with no download record. Microsoft treats this as by design.
+
+### Practical investigation workflow
+
+When a DLP alert or a bulk-download alert arrives:
+
+1. **Read the alert.** Note the user, the policy and rule, the counts and the confidence, and whether the content is viewable by outsiders.
+2. **Search the audit log.** In Microsoft Purview (purview.microsoft.com, then Audit), search the user's FileDownloaded, FileSyncDownloadedFull, FileCopied and FileAccessed operations for the last 24 to 72 hours. Search a normal week before it too, as a baseline.
+3. **Group by container.** Group the records by SiteUrl. Which sites, and are they ones this user normally works in?
+4. **Check where from.** Read ClientIP and UserAgent: the corporate egress or a home connection, a managed laptop or an unknown device, the sync app or a browser.
+5. **Look for sharing.** Search the same user for AnonymousLinkCreated, SecureLinkCreated with AddedToSecureLink, and SharingInvitationCreated to outside addresses.
+6. **Follow the next hop.** On the endpoint: USB copies, archives, uploads to personal cloud storage. In mail: large messages to personal addresses.
+7. **Get context through the right door.** Ask HR whether the person is leaving, on an improvement plan, or under investigation. Then escalate to HR and Legal together. Preserve the evidence, and never confront the employee yourself: insider cases carry legal and employment consequences.
+
+In Microsoft Sentinel, steps 2 and 3 are one query. The same records sit in the OfficeActivity table, where SharePoint's SiteUrl is called Site_Url. This lists everyone who took a copy from a site, by any route:
+
+\`\`\`kql
+OfficeActivity
+| where TimeGenerated > ago(3d)
+| where Site_Url has "Payroll"
+| where Operation in ("FileDownloaded", "FileSyncDownloadedFull", "FileCopied")
+| summarize count() by UserId
+\`\`\``,
+      diagram: `flowchart LR
+  A["User shares, uploads or sends content"] --> B{"Does a DLP rule match?"}
+  B -->|"No"| Z["No DLP record"]
+  B -->|"Yes"| C["DlpRuleMatch in the audit log"]
+  C --> D["Actions: tip, block, or block with override"]
+  D -->|"User overrides"| E["DlpRuleUndo, Reason Override, with justification"]
+  D -->|"False positive, nothing lifted"| F["DlpInfo"]
+  C -->|"Rule raises an alert"| G["Alert in Purview and the Defender portal"]
+  G --> H["Analyst: audit search, sharing records, endpoint, then HR"]`,
+      diagramCaption: "One DLP match, the records it writes, and where the analyst picks it up",
+      checkpoint: {
+        question: "A SharePoint file's DlpRuleUndo record shows ExceptionInfo.Reason set to Document Change. What happened?",
+        options: [
+          "The user overrode the policy tip and typed a business justification",
+          "An admin edited the DLP policy, and the file was evaluated again",
+          "The file was edited until it no longer matched, so the action was lifted",
+          "The user marked the match as a false positive, and nothing was lifted",
+        ],
+        answer: 2,
+        explanation:
+          "Document Change means the content itself changed so that the rule no longer matched, for example the sensitive numbers were removed, and the earlier action was lifted. A user override carries Reason Override and the user's justification. A policy edit that triggers re-evaluation carries Reason Policy Change. A false positive that lifts nothing is logged as DlpInfo, not as DlpRuleUndo.",
+      },
     } satisfies ReadingTask,
 
     // ── Question 3 ────────────────────────────────────────────────────────────

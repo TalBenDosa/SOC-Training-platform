@@ -635,6 +635,10 @@ export type BriefingLab = ({
       sameLine?: string;
       winTitle?: string;
     }) & {
+  /** Why this lab exists, shown first above every lab: one or two sentences naming the skill it
+   *  trains, the part of the reading it practises, and where an analyst uses it on the job.
+   *  Required on every lab of a room listed in labClarityRooms.ts (labClarity.test.ts). */
+  teaches?: string;
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];
   /** What the learner needs before this lab: a few lines and one worked example, on data
