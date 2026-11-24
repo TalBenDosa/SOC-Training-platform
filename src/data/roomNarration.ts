@@ -460,9 +460,9 @@ export const ROOM_NARRATION: Record<string, { h: string; w?: string; v: string }
   "sentinelone/s1-r1": { h: "61bced00", w: "0dd8fa2e", v: "en-US-EmmaMultilingualNeural" },
   "sentinelone/s1-r2": { h: "6b0173c0", w: "cc55da03", v: "en-US-EmmaMultilingualNeural" },
   "sentinelone/s1-r3": { h: "d06b1fba", w: "1339f89d", v: "en-US-EmmaMultilingualNeural" },
-  "sharepoint-teams-monitoring/spt-teams-r1": { h: "4e265d91", w: "d99d3d84", v: "en-US-BrianMultilingualNeural" },
-  "sharepoint-teams-monitoring/spt-teams-r2": { h: "5670c051", w: "8a2ffdd6", v: "en-US-BrianMultilingualNeural" },
-  "sharepoint-teams-monitoring/spt-teams-r3": { h: "84e16acd", w: "008a8d23", v: "en-US-BrianMultilingualNeural" },
+  "sharepoint-teams-monitoring/spt-teams-r1": { h: "eec91783", w: "a3eda148", v: "en-US-BrianMultilingualNeural" },
+  "sharepoint-teams-monitoring/spt-teams-r2": { h: "051b8f7a", w: "75fc2e4d", v: "en-US-BrianMultilingualNeural" },
+  "sharepoint-teams-monitoring/spt-teams-r3": { h: "dc1b3051", w: "b9d131f4", v: "en-US-BrianMultilingualNeural" },
   "siem-fundamentals/siem-fund-r1": { h: "aa9d3a71", w: "a31bf631", v: "en-US-AndrewMultilingualNeural" },
   "siem-fundamentals/siem-fund-r2": { h: "787fcc9e", w: "a14b2091", v: "en-US-AndrewMultilingualNeural" },
   "siem-fundamentals/siem-fund-r3": { h: "915f2a14", w: "fb2a7a1b", v: "en-US-AndrewMultilingualNeural" },
@@ -564,4 +564,5 @@ export const ROOM_NARRATION: Record<string, { h: string; w?: string; v: string }
   "windows-protocols-lateral/winproto-r4": { h: "1df7089f", w: "362dfe38", v: "en-US-BrianMultilingualNeural" },
   "windows-protocols-lateral/winproto-r5": { h: "716ab668", w: "dfbfb975", v: "en-US-BrianMultilingualNeural" },
   "windows-protocols-lateral/winproto-r6": { h: "44dfc691", w: "5863c9ca", v: "en-US-BrianMultilingualNeural" },
+
 };
