@@ -8,7 +8,7 @@ import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedReadingTask } from "@/lib/rooms/sanitize";
 import type { BriefingLab } from "@/lib/rooms/experience";
 import { AlreadyCleared, useMechanic, type MechanicProps } from "../shared";
-import { HowToPlay, Lab, LabPurpose, Primer, FieldNote } from "./Labs";
+import { HowToPlay, Lab, LabHints, LabPurpose, Primer, FieldNote } from "./Labs";
 import { useStudyInline } from "../study/StudyGuide";
 
 export const LAB_ICON: Record<BriefingLab["kind"], string> = {
@@ -145,6 +145,7 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
           <Primer lab={labs[step]} />
           <HowToPlay lab={labs[step]} />
           <Lab key={step} lab={labs[step]} onDone={() => markDone(step)} />
+          <LabHints key={`hints-${step}`} lab={labs[step]} />
           {doneLabs.has(step) && <FieldNote lab={labs[step]} />}
           {doneLabs.has(step) && (
             <button autoFocus onClick={() => setStep(step + 1)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-5 py-2.5 text-sm font-bold text-bg hover:brightness-110">

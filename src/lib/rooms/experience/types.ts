@@ -639,6 +639,11 @@ export type BriefingLab = ({
    *  trains, the part of the reading it practises, and where an analyst uses it on the job.
    *  Required on every lab of a room listed in labClarityRooms.ts (labClarity.test.ts). */
   teaches?: string;
+  /** Progressive hints, revealed one at a time by "Need a hint?" (Tal, 2026-11-24: hints are
+   *  mandatory, worked examples are not). At least two: the first points where to look (which
+   *  field, column or reading section), the next narrows it down. A hint never states the answer.
+   *  Required on every lab of a room listed in labClarityRooms.ts (labClarity.test.ts). */
+  hints?: string[];
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];
   /** What the learner needs before this lab: a few lines and one worked example, on data

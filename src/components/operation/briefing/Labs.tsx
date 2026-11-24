@@ -360,6 +360,34 @@ export function FieldNote({ lab }: { lab: BriefingLab }) {
   );
 }
 
+/** Progressive hints under the lab: one more each time the learner asks, never the answer. */
+export function LabHints({ lab }: { lab: BriefingLab }) {
+  const hints = lab.hints ?? [];
+  const [shown, setShown] = useState(0);
+  if (!hints.length) return null;
+  return (
+    <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-400/[0.06] p-3">
+      {shown > 0 && (
+        <ol className="mb-2 space-y-1.5">
+          {hints.slice(0, shown).map((h, i) => (
+            <li key={h} className="flex gap-2 text-sm leading-relaxed text-amber-50">
+              <span className="shrink-0 text-[11px] font-black uppercase tracking-wider text-amber-200">Hint {i + 1}</span>
+              <span className="min-w-0 [overflow-wrap:anywhere]"><InlineMd text={h} /></span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {shown < hints.length ? (
+        <button type="button" onClick={() => setShown(n => n + 1)} className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-bold text-amber-100 hover:bg-amber-300/10">
+          {shown === 0 ? "Need a hint?" : `Another hint (${shown + 1} of ${hints.length})`}
+        </button>
+      ) : (
+        <p className="text-xs text-amber-200/80">That is every hint. The reading beside you has the rest.</p>
+      )}
+    </div>
+  );
+}
+
 /** Why this lab exists: the skill it trains and where the job needs it. Always open, above everything else. */
 export function LabPurpose({ lab }: { lab: BriefingLab }) {
   if (!lab.teaches) return null;

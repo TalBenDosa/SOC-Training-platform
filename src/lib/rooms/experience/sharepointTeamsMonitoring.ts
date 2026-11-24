@@ -92,6 +92,11 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
         kind: "reader",
         title: "Place Each Record on the Map",
         teaches: "Placing SharePoint and OneDrive audit records on the tenant map: team site, channel site, communication site or someone's OneDrive. It practises the reading's site types, the Teams storage map and the URL anatomy. On the job this is the first step of scoping any leak, because the SiteUrl tells you whose membership to pull.",
+        hints: [
+          "Read the SiteUrl column first, from the host inward: tenant.sharepoint.com or tenant-my.sharepoint.com, then /sites/ or /personal/, then the site name.",
+          "Next read SourceRelativeUrl for the folder Teams creates for chats, and compare the site names: a team name followed by a hyphen and more is a separate site with its own members.",
+          "For people, read UserId: #EXT# marks a guest, and the part before it is their own address with @ turned into an underscore. For reach, the container always comes before any link.",
+        ],
         primer: {
           title: "Read a path in four moves",
           points: [
@@ -144,6 +149,11 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
         kind: "spotdiff",
         title: "What Changed in Sharing?",
         teaches: "Spotting which tenant sharing settings widen who can reach a file. It practises the reading's layering rule and the four sharing levels. On the job you compare today's Get-SPOTenant output with the last approved copy after a leak, an audit finding or a SharingPolicyChanged record.",
+        hints: [
+          "Compare the two copies line by line, and ask one question of each change: does it let more people, or people for longer, reach a file?",
+          "Map each setting to the reading's Get-SPOTenant table. The ceiling, the default link, Anyone-link expiry and guest expiry decide reach; storage and notifications do not.",
+          "Watch for 0 and False: in these settings they often switch a limit off rather than tighten it.",
+        ],
         primer: {
           title: "What each setting controls",
           points: [
@@ -203,6 +213,11 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
         kind: "reader",
         title: "Who Acted in Teams?",
         teaches: "Naming who acted in Teams audit records from the records' own fields: a member, a guest, an external access contact or an app. It practises the reading's actor table and the four ways an outsider gets in. On the job this is how you scope a Teams phishing campaign, and how you notice an app quietly reading channels.",
+        hints: [
+          "Start with the UserId column on every row, and compare its domain with Wrenhall's own domain before you read anything else.",
+          "Then read UserType and AppAccessContext.ClientAppName: 0 is a regular user, 5 or 6 is software. For guests, look for #EXT# inside the Other fields column.",
+          "To learn how an app got into the team, take its name from ClientAppName and look for an earlier row that names it as an add-on.",
+        ],
         primer: {
           title: "Read the actor, never guess it",
           points: [
@@ -256,6 +271,11 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
         kind: "queue",
         title: "Triage the Teams Queue",
         teaches: "Triaging Teams and SharePoint alerts by the door the outsider used: external access, a guest account, or someone inside. It practises the reading's four paths, the audit records each one leaves, and when to contain or escalate. On the job this is the daily Microsoft 365 queue in your SIEM.",
+        hints: [
+          "Read UserId or Members in the fields first and name the door: a sender in another tenant's onmicrosoft.com domain, a #EXT# guest, or a Wrenhall account.",
+          "Then read the context: is there an owner who can confirm it, is a partner contract named, and is the activity still running right now?",
+          "Choose by timing: stop what is still spreading before you investigate it; when access is already gone but data moved, someone must scope what was taken.",
+        ],
         primer: {
           title: "Three questions for every Teams alert",
           points: [
@@ -320,6 +340,11 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
         kind: "trace",
         title: "Follow the Override",
         teaches: "Following one DLP alert across the audit log to a decision: the match, the override, the share and the outside access. It practises the reading's DlpRuleMatch and DlpRuleUndo records, the sharing records and the hand-off to HR. On the job this is how a low alert left in the queue becomes an insider case.",
+        hints: [
+          "In each step, read the column that answers the ask: Count and Confidence for the match, Operation and Detail for the decision, TargetUserOrGroupName for the share.",
+          "Follow one person and one file through every table, and watch the minutes right after the policy tip: what came next tells you what the person decided.",
+          "For the outside access, compare ClientIP with the office range seen earlier, and remember that a link's recipient appears with #EXT# once they redeem it.",
+        ],
         primer: {
           title: "The four hops of a DLP case",
           points: [
@@ -417,6 +442,11 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
         kind: "hunt",
         title: "Count Every Copy in OfficeActivity",
         teaches: "Querying the audit log for every route a file copy can take, not only browser downloads. It practises the reading's point that sync and copy count as copies, and its OfficeActivity query. On the job you run this in Microsoft Sentinel when a site's data turns up outside and you must list who took files from it.",
+        hints: [
+          "Build the query from the container outward: first narrow Site_Url to the one site Annika named, then narrow Operation, then group the result.",
+          "A channel's own site is the team name, a hyphen and the channel name. For copies, list every operation the reading counts as a copy, not only the browser one.",
+          "For the last line, ask what Annika wants back: one row per person. Group by the column that names the person, not by the network address.",
+        ],
         primer: {
           title: "OfficeActivity in four lines",
           points: [
@@ -495,6 +525,11 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
         kind: "tune",
         title: "Tune the Download Alert",
         teaches: "Writing a bulk-download alert that catches theft without paging on honest work. It practises the reading's behavioural indicators: volume measured against normal work, and access to places a person never used. On the job you tune rules like this in your SIEM or in Defender for Cloud Apps after the first week of false positives.",
+        hints: [
+          "Compare the three thefts with the four honest sessions on both dials at once, not on the file count alone.",
+          "The largest session is honest and one theft is small, so volume alone cannot separate them. Let the new-folders dial do most of the work.",
+          "Set the new-folders dial just above the highest honest value, then set the files dial low enough to keep the smallest theft.",
+        ],
         primer: {
           title: "Two signals beat one",
           points: [

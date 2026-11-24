@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Crosshair, CheckCircle2, ChevronRight, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BriefingLab } from "@/lib/rooms/experience";
-import { HowToPlay, Lab, LabPurpose, Primer, FieldNote } from "./Labs";
+import { HowToPlay, Lab, LabHints, LabPurpose, Primer, FieldNote } from "./Labs";
 import { LAB_ICON } from "./IntelBriefing";
 
 /**
@@ -40,6 +40,7 @@ export function Drill({ labs, skip, children }: { labs: BriefingLab[]; skip: boo
         <Primer lab={lab} />
         <HowToPlay lab={lab} />
         <Lab lab={lab} onDone={() => setDone(d => new Set(d).add(step))} />
+        <LabHints key={`hints-${step}`} lab={lab} />
         {isDone && <FieldNote lab={lab} />}
       </motion.div>
       <button
