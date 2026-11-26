@@ -1,0 +1,925 @@
+{
+  "topic": "Detecting anomalous use of API keys (AI API key abuse)",
+  "slug": "ai-api-key-abuse",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "LLMjacking: Stolen Cloud Credentials Used in New AI Attack",
+      "url": "https://sysdig.com/blog/llmjacking-stolen-cloud-credentials-used-in-new-ai-attack/",
+      "publisher": "Sysdig Threat Research Team",
+      "used_for": "Definition of LLMjacking, first case, access-check call, logging check, ten targeted services, reverse proxy, cost calculation, example CloudTrail values"
+    },
+    {
+      "id": "S2",
+      "title": "The Growing Dangers of LLMjacking",
+      "url": "https://sysdig.com/blog/growing-dangers-of-llmjacking/",
+      "publisher": "Sysdig Threat Research Team",
+      "used_for": "Model enablement calls, deletion of invocation logging, Converse not producing InvokeModel records, user agents, request volumes, higher cost estimate"
+    },
+    {
+      "id": "S3",
+      "title": "Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "AWS",
+      "used_for": "Bedrock management versus data events, example InvokeModel record, stream-completion events and their fields"
+    },
+    {
+      "id": "S4",
+      "title": "Monitor model invocation using CloudWatch Logs and Amazon S3",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html",
+      "publisher": "AWS",
+      "used_for": "Model invocation logging default, record fields, 100 KB limit, Logs Insights query"
+    },
+    {
+      "id": "S5",
+      "title": "MITRE ATLAS data file ATLAS.yaml (version 5.6.0 as served)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE",
+      "used_for": "ATLAS technique names and tactics"
+    },
+    {
+      "id": "S6",
+      "title": "LLM10:2025 Unbounded Consumption",
+      "url": "https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item number and name, denial of wallet wording, rate limiting mitigation"
+    },
+    {
+      "id": "S7",
+      "title": "About secret scanning",
+      "url": "https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning",
+      "publisher": "GitHub Docs",
+      "used_for": "Scope of secret scanning, public repositories, partner notification"
+    },
+    {
+      "id": "S8",
+      "title": "REST API endpoints for secret scanning",
+      "url": "https://docs.github.com/en/rest/secret-scanning/secret-scanning",
+      "publisher": "GitHub Docs",
+      "used_for": "Alert object fields and allowed values, location fields"
+    },
+    {
+      "id": "S9",
+      "title": "Audit log events for your enterprise",
+      "url": "https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/audit-log-events-for-your-enterprise",
+      "publisher": "GitHub Docs",
+      "used_for": "Audit log action names, descriptions, common and additional fields"
+    },
+    {
+      "id": "S10",
+      "title": "Manage access keys for IAM users",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
+      "publisher": "AWS",
+      "used_for": "Access key parts, secret retrievable only at creation, maximum of two keys per user"
+    },
+    {
+      "id": "S11",
+      "title": "CloudTrail userIdentity element",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html",
+      "publisher": "AWS",
+      "used_for": "userIdentity fields and the meaning of accessKeyId"
+    },
+    {
+      "id": "S12",
+      "title": "IAM identifiers",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html",
+      "publisher": "AWS",
+      "used_for": "Unique ID prefixes AKIA, ASIA, AIDA, AROA"
+    },
+    {
+      "id": "S13",
+      "title": "Update access keys",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id-credentials-access-keys-update.html",
+      "publisher": "AWS",
+      "used_for": "Rotation procedure, deactivate before delete, access key age column"
+    },
+    {
+      "id": "S14",
+      "title": "AWS managed policy AWSCompromisedKeyQuarantineV2",
+      "url": "https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSCompromisedKeyQuarantineV2.html",
+      "publisher": "AWS",
+      "used_for": "Policy description and denied Bedrock actions"
+    },
+    {
+      "id": "S15",
+      "title": "ATT&CK T1496.004 Resource Hijacking: Cloud Service Hijacking",
+      "url": "https://attack.mitre.org/techniques/T1496/004/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, tactic, mention of LLMJacking and reverse proxies"
+    },
+    {
+      "id": "S16",
+      "title": "ATT&CK T1552.001 Unsecured Credentials: Credentials In Files",
+      "url": "https://attack.mitre.org/techniques/T1552/001/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, tactic, source code and cloud credential files"
+    },
+    {
+      "id": "S17",
+      "title": "ATT&CK T1078.004 Valid Accounts: Cloud Accounts",
+      "url": "https://attack.mitre.org/techniques/T1078/004/",
+      "publisher": "MITRE",
+      "used_for": "Technique name and tactics"
+    },
+    {
+      "id": "S18",
+      "title": "ATT&CK T1593.003 Search Open Websites/Domains: Code Repositories",
+      "url": "https://attack.mitre.org/techniques/T1593/003/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, tactic, leaked credentials or API keys"
+    },
+    {
+      "id": "S19",
+      "title": "ATT&CK T1526 Cloud Service Discovery",
+      "url": "https://attack.mitre.org/techniques/T1526/",
+      "publisher": "MITRE",
+      "used_for": "Technique name and tactic"
+    },
+    {
+      "id": "S20",
+      "title": "Monitor bedrock-runtime inference using CloudWatch metrics",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring-runtime-metrics.html",
+      "publisher": "AWS",
+      "used_for": "Namespace AWS/Bedrock, metric names and meanings, ModelId dimension"
+    },
+    {
+      "id": "S21",
+      "title": "CloudTrail record contents for management, data, and network activity events",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html",
+      "publisher": "AWS",
+      "used_for": "Top-level record fields, eventType values, readOnly, managementEvent, eventCategory, errorCode, errorMessage"
+    },
+    {
+      "id": "S22",
+      "title": "Logging IAM and AWS STS API calls with AWS CloudTrail",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/cloudtrail-integration.html",
+      "publisher": "AWS",
+      "used_for": "IAM events in CloudTrail, eventSource iam.amazonaws.com, example records"
+    },
+    {
+      "id": "S23",
+      "title": "IAM API Reference: GetAccessKeyLastUsed",
+      "url": "https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetAccessKeyLastUsed.html",
+      "publisher": "AWS",
+      "used_for": "What the last-used information contains"
+    },
+    {
+      "id": "S24",
+      "title": "About push protection",
+      "url": "https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection",
+      "publisher": "GitHub Docs",
+      "used_for": "What push protection does, bypass reasons, audit log entry on bypass"
+    },
+    {
+      "id": "S25",
+      "title": "Admin API: Update API Key",
+      "url": "https://platform.claude.com/docs/en/api/admin-api/apikeys/update-api-key",
+      "publisher": "Anthropic",
+      "used_for": "API key status values and that an administrator can set a key inactive"
+    },
+    {
+      "id": "S26",
+      "title": "IAM API Reference: UpdateAccessKey",
+      "url": "https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateAccessKey.html",
+      "publisher": "AWS",
+      "used_for": "Operation description, parameters, Active and Inactive status"
+    },
+    {
+      "id": "S27",
+      "title": "Usage and Cost API",
+      "url": "https://platform.claude.com/docs/en/build-with-claude/usage-cost-api",
+      "publisher": "Anthropic",
+      "used_for": "Usage buckets, filtering and grouping by API key, workspace and model, data freshness"
+    },
+    {
+      "id": "S28",
+      "title": "Best Practices for API Key Safety",
+      "url": "https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety",
+      "publisher": "OpenAI",
+      "used_for": "Never deploy a key in client-side environments, never commit a key"
+    },
+    {
+      "id": "S29",
+      "title": "Secure access keys",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/securing_access-keys.html",
+      "publisher": "AWS",
+      "used_for": "Holder has the same access as the owner, different keys per application, network conditions, mobile apps, AKIA and ASIA meaning"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "An AWS access key consists of an access key ID and a secret access key that must be used together; the secret can be retrieved only at creation.",
+      "source": "S10",
+      "locator": "Access keys consist of two parts"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "AKIA is the prefix of an access key and ASIA of a temporary (AWS STS) access key ID; AIDA is an IAM user and AROA a role.",
+      "source": "S12",
+      "locator": "Understanding unique ID prefixes"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "AKIA keys are long-term credentials for an IAM user or root user; ASIA keys are temporary credentials created with AWS STS.",
+      "source": "S29",
+      "locator": "Auditing access keys"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "An IAM user can have a maximum of two access keys.",
+      "source": "S10",
+      "locator": "You can have a maximum of two access keys per user."
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Anyone who has your access keys has the same level of access to your AWS resources that you do.",
+      "source": "S29",
+      "locator": "First sentence of Secure access keys"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "userIdentity.accessKeyId is the access key ID that was used to sign the request; type values include IAMUser and AssumedRole.",
+      "source": "S11",
+      "locator": "Fields: accessKeyId, type"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Secret scanning scans the entire Git history on all branches, also issues, pull requests, discussions and wikis; it runs automatically and free on public repositories; partners are notified.",
+      "source": "S7",
+      "locator": "Secret scanning scans your entire Git history on all branches"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Push protection blocks pushes containing recognised secrets; bypass reasons are used in tests, false positive, fix later; a bypass is added to the audit log.",
+      "source": "S24",
+      "locator": "Bypass section"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Audit log actions secret_scanning_alert.create, secret_scanning_alert.public_leak, secret_scanning_push_protection.bypass and repo.access with the stated meanings.",
+      "source": "S9",
+      "locator": "secret_scanning_alert and repo categories"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Alert fields state (open, resolved), validity (active, inactive, unknown), publicly_leaked, multi_repo, push_protection_bypassed, first_location_detected with path, start_line, commit_sha.",
+      "source": "S8",
+      "locator": "Response schema of the alert endpoints"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "OpenAI advises never deploying a key in client-side environments like browsers or mobile apps; AWS advises not embedding access keys in a mobile app even in encrypted storage.",
+      "source": "S28",
+      "locator": "Never deploy your key in client-side environments like browsers or mobile apps"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "T1552.001 names source code with embedded passwords and files such as ~/.aws/credentials; T1593.003 mentions accidentally leaked credentials or API keys.",
+      "source": "S16",
+      "locator": "Technique description"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "LLMjacking was named by Sysdig; the first case took credentials from a system running vulnerable Laravel (CVE-2021-3129) and targeted ten AI services, listed by name.",
+      "source": "S1",
+      "locator": "Overview and key checker sections"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Worst-case cost 46,080 USD per day: 500,000 tokens per minute, 0.016 USD per 1,000 tokens average (0.008 input, 0.024 output), 60 x 24, four Regions.",
+      "source": "S1",
+      "locator": "Impact, cost calculation"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Follow-up report: over 100,000 USD per day with newer models; more than 85,000 Bedrock requests, 61,000 in a three-hour window.",
+      "source": "S2",
+      "locator": "Numbers reported in the article"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "T1496.004 Cloud Service Hijacking is in the Impact tactic and its description names LLMJacking with reverse proxies.",
+      "source": "S15",
+      "locator": "Technique description"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "LLM10:2025 is Unbounded Consumption and describes denial of wallet through a high volume of operations exploiting the cost-per-use model.",
+      "source": "S6",
+      "locator": "Denial of Wallet (DoW)"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Bedrock logs InvokeModel, InvokeModelWithResponseStream, Converse and ConverseStream as management events; management events are logged by default and data events are not.",
+      "source": "S3",
+      "locator": "Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "The access check was InvokeModel with max_tokens_to_sample set to -1, producing ValidationException; without access the error would be AccessDenied; errorMessage max_tokens_to_sample: range: 1..1,000,000.",
+      "source": "S1",
+      "locator": "InvokeModel section and example log"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "GetModelInvocationLoggingConfiguration was used to check logging; CloudTrail does not capture prompts or responses.",
+      "source": "S1",
+      "locator": "GetModelInvocationLoggingConfiguration section"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ListFoundationModels and GetFoundationModelAvailability were used to enumerate models before use.",
+      "source": "S2",
+      "locator": "Model enablement section"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Attackers called PutFoundationModelEntitlement (usually with PutUseCaseForModelAccess) and DeleteModelInvocationLoggingConfiguration; disabled models are not a security measure; Converse produces no InvokeModel CloudTrail logs.",
+      "source": "S2",
+      "locator": "API calls named in the article"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Observed user agent Python/3.11 aiohttp/3.9.5; Regions attempted in the first report: us-east-1, us-west-2, ap-southeast-1, ap-northeast-1, eu-central-1, eu-west-3, us-gov-west-1.",
+      "source": "S1",
+      "locator": "Bedrock regions cited"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Streaming operations write an additional stream-completion event with eventType AwsServiceEvent, same eventName, identity, address and user agent; count only AwsApiCall.",
+      "source": "S3",
+      "locator": "Stream-completion events for streaming invocations"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Namespace AWS/Bedrock; metrics Invocations, InputTokenCount, OutputTokenCount, InvocationClientErrors, InvocationThrottles; throttled requests are not counted in Invocations; ModelId dimension.",
+      "source": "S20",
+      "locator": "Amazon Bedrock runtime metrics table"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Token counts inputTokens and outputTokens sit under serviceEventDetails; serviceEventDetails.parentRequestId equals the requestID of the API call.",
+      "source": "S3",
+      "locator": "Stream-completion example"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Model invocation logging is disabled by default; record fields identity.arn, modelId, input.inputTokenCount, output.outputTokenCount; bodies up to 100 KB.",
+      "source": "S4",
+      "locator": "Log entry format"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Anthropic usage data comes in 1m, 1h or 1d buckets, can be filtered and grouped by API key, workspace and model, and typically appears within 5 minutes.",
+      "source": "S27",
+      "locator": "Usage API key concepts and FAQ"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "UpdateAccessKey changes the status from Active to Inactive or back; Inactive means the key cannot be used.",
+      "source": "S26",
+      "locator": "Description and Status parameter"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Rotation: create a second key, update applications, check last used, set the old key Inactive, confirm, delete; a deactivated key can be reactivated.",
+      "source": "S13",
+      "locator": "To update access keys without interrupting your applications"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "GetAccessKeyLastUsed returns the date and time of last use with the service and Region of the last request.",
+      "source": "S23",
+      "locator": "Operation description"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "AWS advises different access keys for different applications, IAM policy conditions for expected networks, and temporary credentials instead of long-term keys.",
+      "source": "S29",
+      "locator": "Manage IAM user access keys properly"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "AWSCompromisedKeyQuarantineV2 is applied by the AWS team when credentials are compromised or exposed publicly, must not be removed, and denies bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream and bedrock:PutFoundationModelEntitlement among others.",
+      "source": "S14",
+      "locator": "Description and JSON policy document"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "An Anthropic API key has a status that an administrator can set to active, inactive or archived.",
+      "source": "S25",
+      "locator": "Body parameters: status"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "LLM10:2025 lists Rate Limiting among its prevention and mitigation strategies.",
+      "source": "S6",
+      "locator": "Prevention and Mitigation Strategies"
+    },
+    {
+      "where": "room:aikey-r1",
+      "claim": "repo.access means the visibility of a repository changed and carries visibility and previous_visibility.",
+      "source": "S9",
+      "locator": "repo.access"
+    },
+    {
+      "where": "room:aikey-r2",
+      "claim": "The stages and event names of the pattern (list calls, failing InvokeModel, logging check, entitlement, four invocation operations, logging deletion).",
+      "source": "S2",
+      "locator": "API calls named in the article"
+    },
+    {
+      "where": "room:aikey-r3",
+      "claim": "Stream-completion records carry inputTokens and outputTokens under serviceEventDetails with eventType AwsServiceEvent.",
+      "source": "S3",
+      "locator": "Stream-completion events for streaming invocations"
+    },
+    {
+      "where": "room:aikey-la2",
+      "claim": "CloudTrail values for the access-check record: eventSource bedrock.amazonaws.com, errorCode ValidationException, errorMessage text, modelId anthropic.claude-v2, readOnly true.",
+      "source": "S1",
+      "locator": "CloudTrail example (InvokeModel)"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "github-audit-log",
+      "field": "github.action",
+      "source": "S9",
+      "locator": "Common field action"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.actor",
+      "source": "S9",
+      "locator": "Common field actor"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.actor_id",
+      "source": "S9",
+      "locator": "Common field actor_id"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.org",
+      "source": "S9",
+      "locator": "Common field org"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.repo",
+      "source": "S9",
+      "locator": "Common field repo"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.visibility",
+      "source": "S9",
+      "locator": "repo.access additional field visibility"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.previous_visibility",
+      "source": "S9",
+      "locator": "repo.access additional field previous_visibility"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.public_repo",
+      "source": "S9",
+      "locator": "repo.access additional field public_repo"
+    },
+    {
+      "vendor": "github-audit-log",
+      "field": "github.user_agent",
+      "source": "S9",
+      "locator": "Common field user_agent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventTime",
+      "source": "S21",
+      "locator": "eventTime"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventSource",
+      "source": "S21",
+      "locator": "eventSource"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventName",
+      "source": "S21",
+      "locator": "eventName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.awsRegion",
+      "source": "S21",
+      "locator": "awsRegion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.sourceIPAddress",
+      "source": "S21",
+      "locator": "sourceIPAddress"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userAgent",
+      "source": "S21",
+      "locator": "userAgent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.errorCode",
+      "source": "S21",
+      "locator": "errorCode"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.errorMessage",
+      "source": "S21",
+      "locator": "errorMessage"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.type",
+      "source": "S11",
+      "locator": "type"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.arn",
+      "source": "S11",
+      "locator": "arn"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accountId",
+      "source": "S11",
+      "locator": "accountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accessKeyId",
+      "source": "S11",
+      "locator": "accessKeyId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.userName",
+      "source": "S11",
+      "locator": "userName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.modelId",
+      "source": "S3",
+      "locator": "Example InvokeModel log entry, requestParameters.modelId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.readOnly",
+      "source": "S21",
+      "locator": "readOnly"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventType",
+      "source": "S21",
+      "locator": "eventType"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.managementEvent",
+      "source": "S21",
+      "locator": "managementEvent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventCategory",
+      "source": "S21",
+      "locator": "eventCategory"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.recipientAccountId",
+      "source": "S21",
+      "locator": "recipientAccountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.parentRequestId",
+      "source": "S3",
+      "locator": "Stream-completion example, serviceEventDetails.parentRequestId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.AdditionalEventData.additionalEntries.inferenceRegion",
+      "source": "S3",
+      "locator": "Stream-completion example, additionalEntries.inferenceRegion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.AdditionalEventData.additionalEntries.inputTokens",
+      "source": "S3",
+      "locator": "Stream-completion example, additionalEntries.inputTokens"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.AdditionalEventData.additionalEntries.outputTokens",
+      "source": "S3",
+      "locator": "Stream-completion example, additionalEntries.outputTokens"
+    },
+    {
+      "vendor": "github-secret-scanning-alert (lesson only)",
+      "field": "state, resolution, validity, publicly_leaked, multi_repo, push_protection_bypassed, push_protection_bypassed_at, first_location_detected.details.path, start_line, end_line, commit_sha, has_more_locations, number, created_at",
+      "source": "S8",
+      "locator": "Alert response schema"
+    },
+    {
+      "vendor": "aws-bedrock-model-invocation-log (lesson only)",
+      "field": "identity.arn, modelId, input.inputTokenCount, output.outputTokenCount",
+      "source": "S4",
+      "locator": "Log entry format table"
+    },
+    {
+      "vendor": "aws-cloudwatch (lesson only)",
+      "field": "Invocations, InputTokenCount, OutputTokenCount, InvocationClientErrors, InvocationThrottles",
+      "source": "S20",
+      "locator": "Runtime metrics table"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "A key ID that starts with AKIA is a long-term access key that stays valid until someone revokes it."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "An active key is an incident, not a hygiene note."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "The figure assumes the whole token quota is used every minute of the day in four Regions."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "A ValidationException on such a call proves the key may invoke the model, because a key without permission would get AccessDenied instead."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "A Converse call is recorded under its own event name and produces no InvokeModel record."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "A stream-completion event is not an API call, so count invocations only where eventType is AwsApiCall."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "Deactivate first, then rotate, then delete."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "The Converse calls from a first-seen address in a Region the team never uses are what move this from exposure to confirmed abuse."
+    },
+    {
+      "q": "room:aikey-q1",
+      "taught_in": "room:aikey-r1",
+      "support": "An ID that starts with AKIA is a long-term key that works until a person revokes it."
+    },
+    {
+      "q": "room:aikey-la1#1",
+      "taught_in": "room:aikey-r1",
+      "support": "A repository that changes from private to public exposes every secret in its history at that moment."
+    },
+    {
+      "q": "room:aikey-la1#2",
+      "taught_in": "room:aikey-r1",
+      "support": "A validity of active means the key still works, so treat the alert as an incident."
+    },
+    {
+      "q": "room:aikey-q2",
+      "taught_in": "room:aikey-r1",
+      "support": "Deleting the line in a later commit does not help, because the key stays in the history."
+    },
+    {
+      "q": "room:aikey-la2#1",
+      "taught_in": "room:aikey-r2",
+      "support": "A ValidationException on a deliberately invalid request shows the key is allowed to invoke the model, because a key without permission gets AccessDenied."
+    },
+    {
+      "q": "room:aikey-la2#2",
+      "taught_in": "room:aikey-r2",
+      "support": "The same access key ID appearing from an address it has never used before is the strongest single signal."
+    },
+    {
+      "q": "room:aikey-la2#3",
+      "taught_in": "room:aikey-r2",
+      "support": "To follow one caller through the log, search for the access key ID in userIdentity.accessKeyId."
+    },
+    {
+      "q": "room:aikey-m1",
+      "taught_in": "room:aikey-r2",
+      "support": "In order, the caller enumerates models, checks access, checks logging, enables models and invokes at volume, and the bill follows."
+    },
+    {
+      "q": "room:aikey-ac1",
+      "taught_in": "room:aikey-r2",
+      "support": "Switches on a model the account had not enabled"
+    },
+    {
+      "q": "room:aikey-o1",
+      "taught_in": "room:aikey-r2",
+      "support": "In order, the caller enumerates models, checks access, checks logging, enables models and invokes at volume, and the bill follows."
+    },
+    {
+      "q": "room:aikey-ac2",
+      "taught_in": "room:aikey-r3",
+      "support": "A spike is authorised when the key, the source address, the model and a change ticket all match what the team planned."
+    },
+    {
+      "q": "room:aikey-f1",
+      "taught_in": "room:aikey-r3",
+      "support": "Pivot on the access key ID, not on the user name, because one IAM user can hold two keys."
+    },
+    {
+      "q": "room:aikey-q3",
+      "taught_in": "room:aikey-r3",
+      "support": "Deactivate the key first, because an Inactive key cannot be used but can be switched back to Active if a real application breaks."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "T1078.004",
+      "name": "Valid Accounts: Cloud Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S17"
+    },
+    {
+      "id": "T1552.001",
+      "name": "Unsecured Credentials: Credentials In Files",
+      "tactics": [
+        "Credential Access"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "T1593.003",
+      "name": "Search Open Websites/Domains: Code Repositories",
+      "tactics": [
+        "Reconnaissance"
+      ],
+      "source": "S18"
+    },
+    {
+      "id": "T1526",
+      "name": "Cloud Service Discovery",
+      "tactics": [
+        "Discovery"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "T1496.004",
+      "name": "Resource Hijacking: Cloud Service Hijacking",
+      "tactics": [
+        "Impact"
+      ],
+      "source": "S15"
+    },
+    {
+      "id": "T1496",
+      "name": "Resource Hijacking",
+      "tactics": [
+        "Impact"
+      ],
+      "source": "S15",
+      "note": "Parent technique. Not cited in learner-facing text: it appears only inside a reference URL path. Name read on the sub-technique page; tactics are those shown for the sub-technique, the parent page was not fetched."
+    },
+    {
+      "id": "T1552",
+      "name": "Unsecured Credentials",
+      "tactics": [
+        "Credential Access"
+      ],
+      "source": "S16",
+      "note": "Parent technique. Not cited in learner-facing text: it appears only inside a reference URL path. Name read on the sub-technique page; tactics are those shown for the sub-technique, the parent page was not fetched."
+    },
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S17",
+      "note": "Parent technique. Not cited in learner-facing text: it appears only inside a reference URL path. Name read on the sub-technique page; tactics are those shown for the sub-technique, the parent page was not fetched."
+    },
+    {
+      "id": "T1593",
+      "name": "Search Open Websites/Domains",
+      "tactics": [
+        "Reconnaissance"
+      ],
+      "source": "S18",
+      "note": "Parent technique. Not cited in learner-facing text: it appears only inside a reference URL path. Name read on the sub-technique page; tactics are those shown for the sub-technique, the parent page was not fetched."
+    },
+    {
+      "id": "AML.T0012",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Initial Access (AML.TA0004)",
+        "Privilege Escalation (AML.TA0012)"
+      ],
+      "source": "S5"
+    },
+    {
+      "id": "AML.T0040",
+      "name": "AI Model Inference API Access",
+      "tactics": [
+        "AI Model Access (AML.TA0000)"
+      ],
+      "source": "S5"
+    },
+    {
+      "id": "AML.T0055",
+      "name": "Unsecured Credentials",
+      "tactics": [
+        "Credential Access (AML.TA0013)"
+      ],
+      "source": "S5"
+    },
+    {
+      "id": "AML.T0034",
+      "name": "Cost Harvesting",
+      "tactics": [
+        "Impact (AML.TA0011)"
+      ],
+      "source": "S5"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "ATT&CK ID for disabling cloud logs (T1562.008) as a mapping for DeleteModelInvocationLoggingConfiguration",
+      "why": "The attack.mitre.org page returned empty content, so its current name and status under ATT&CK v19 could not be read",
+      "handled": "left out; the Prepare stage is described without an ATT&CK ID"
+    },
+    {
+      "item": "ATLAS tactic lists",
+      "why": "The served dist/ATLAS.yaml reports version 5.6.0 and carries a note that the file is deprecated; only the first 100,000 characters were read. A newer ATLAS release may list more tactics for AML.T0012",
+      "handled": "tactics recorded exactly as read; the lesson names the techniques without stating their tactics"
+    },
+    {
+      "item": "Exact secret_type token and display name GitHub assigns to an AWS access key",
+      "why": "Not shown on the fetched pages",
+      "handled": "left out of the lesson example and of every raw block"
+    },
+    {
+      "item": "Value format of push_protection_bypass_reason and the created_at timestamp format in GitHub audit events",
+      "why": "The audit events page lists the field names but not their value formats",
+      "handled": "left out of raw blocks; bypass is described in prose only"
+    },
+    {
+      "item": "requestParameters and responseElements of a PutFoundationModelEntitlement CloudTrail record",
+      "why": "The Sysdig example was summarised, not read field by field",
+      "handled": "left out of the aikey-ac1 raw block; the scenario text does not name the model"
+    },
+    {
+      "item": "Whether a model token limit above the maximum returns ValidationException in a real application bug (the lesson's false-positive example)",
+      "why": "Inferred from the documented range message in the Sysdig example, not stated by AWS on a fetched page",
+      "handled": "kept as an illustrative false-positive scenario; no numeric limit is claimed"
+    },
+    {
+      "item": "A SIEM query (SPL or KQL) over CloudTrail",
+      "why": "The Splunk add-on source type page returned HTTP 403 and no Sentinel schema page was fetched",
+      "handled": "detections are written as vendor-neutral field conditions; the only query shown is the CloudWatch Logs Insights query adapted from the Bedrock user guide"
+    },
+    {
+      "item": "Values visibility public and private, and the 30-day first-seen window in the lesson's Rule C",
+      "why": "The visibility value strings are implied by the field descriptions but not enumerated on the fetched page; the 30-day window is this lesson's own design choice, not a sourced threshold",
+      "handled": "visibility values kept as the plain words; the window is presented as part of the lesson's own rule"
+    }
+  ]
+}

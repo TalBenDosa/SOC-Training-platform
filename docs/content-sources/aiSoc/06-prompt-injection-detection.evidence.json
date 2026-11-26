@@ -1,0 +1,962 @@
+{
+  "topic": "Detecting prompt injection attempts",
+  "slug": "prompt-injection-detection",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Prompt Shields in Azure AI Content Safety (concepts)",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection",
+      "publisher": "Microsoft Learn",
+      "used_for": "Two shield types, request fields, subtypes, provenance not verified, API does not block, language limits, defaults (user prompt on, document off), detected/filtered annotation, spotlighting, false positive troubleshooting, up to five documents"
+    },
+    {
+      "id": "S2",
+      "title": "Quickstart: Detect prompt attacks with Prompt Shields",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-services/content-safety/quickstart-jailbreak",
+      "publisher": "Microsoft Learn",
+      "used_for": "text:shieldPrompt endpoint and api-version, request and response field names, Boolean attackDetected, system prompt false positive warning"
+    },
+    {
+      "id": "S3",
+      "title": "Content filtering for Microsoft Foundry Models",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/content-filter",
+      "publisher": "Microsoft Learn",
+      "used_for": "HTTP 400 and error code content_filter for a filtered prompt, finish_reason content_filter, indirect attacks also called cross-domain prompt injection attacks, annotate versus block"
+    },
+    {
+      "id": "S4",
+      "title": "Document embedding in prompts",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/content-filter-document-embedding",
+      "publisher": "Microsoft Learn",
+      "used_for": "Document delimiter needed for indirect attack detection in the built-in filter"
+    },
+    {
+      "id": "S5",
+      "title": "How to use function calling with Microsoft Foundry Models",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/function-calling",
+      "publisher": "Microsoft Learn",
+      "used_for": "Model returns tool_calls (id, type, function name, arguments), application executes; validate calls and confirm with the user"
+    },
+    {
+      "id": "S6",
+      "title": "Azure Monitor Logs reference: ApiManagementGatewayLogs",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/apimanagementgatewaylogs",
+      "publisher": "Microsoft Learn",
+      "used_for": "Every column used in room raw blocks and named in the lesson"
+    },
+    {
+      "id": "S7",
+      "title": "Azure Monitor Logs reference: ApiManagementGatewayLlmLog",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/apimanagementgatewayllmlog",
+      "publisher": "Microsoft Learn",
+      "used_for": "LLM log columns: RequestMessages, ResponseMessages, token counts, DeploymentName, ModelName, CorrelationId, SequenceNumber"
+    },
+    {
+      "id": "S8",
+      "title": "Set up logging for language model APIs in Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-llm-logs",
+      "publisher": "Microsoft Learn",
+      "used_for": "Generative AI gateway diagnostic category, Log LLM messages setting, 32 KB chunks, 2 MB cap, sample KQL joining requests and responses"
+    },
+    {
+      "id": "S9",
+      "title": "Monitor Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/monitor-api-management",
+      "publisher": "Microsoft Learn",
+      "used_for": "Default settings exclude bodies, 8,192 byte payload limit, 32 KB entry limit and trimming, diagnostic category names"
+    },
+    {
+      "id": "S10",
+      "title": "Alerts for AI services, Microsoft Defender for Cloud",
+      "url": "https://learn.microsoft.com/en-us/azure/defender-for-cloud/alerts-ai-workloads",
+      "publisher": "Microsoft Learn",
+      "used_for": "Alert type identifiers, display names, severities and descriptions"
+    },
+    {
+      "id": "S11",
+      "title": "AI threat protection in Microsoft Defender for Cloud",
+      "url": "https://learn.microsoft.com/en-us/azure/defender-for-cloud/ai-threat-protection",
+      "publisher": "Microsoft Learn",
+      "used_for": "Works with Prompt Shields and threat intelligence, Defender XDR integration"
+    },
+    {
+      "id": "S12",
+      "title": "Audit logs for Copilot and AI applications, Microsoft Purview",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotInteraction operation, Messages (ID, isPrompt, JailbreakDetected, Size), AccessedResources (SiteUrl, Name, Type, Action, Status, XPIADetected)"
+    },
+    {
+      "id": "S13",
+      "title": "CopilotInteraction schema, Office 365 Management API",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/copilot-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "RecordType 261, Workload Copilot, CopilotEventData, AppHost, ThreadId, sample record shape"
+    },
+    {
+      "id": "S14",
+      "title": "How Microsoft defends against indirect prompt injection attacks",
+      "url": "https://www.microsoft.com/en-us/msrc/blog/2025/07/how-microsoft-defends-against-indirect-prompt-injection-attacks",
+      "publisher": "Microsoft Security Response Center",
+      "used_for": "Impacts (image, link, tool call, covert channel, phishing, command execution), Prompt Shields as probabilistic classifier, deterministic blocking, vulnerability only with security impact"
+    },
+    {
+      "id": "S15",
+      "title": "OWASP Top 10 for LLM Applications 2025, LLM01:2025 Prompt Injection",
+      "url": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item name and number, no known fool-proof prevention, scenarios (payload splitting, multilingual and obfuscated, multimodal)"
+    },
+    {
+      "id": "S16",
+      "title": "MITRE ATLAS data, ATLAS.yaml (dist, version 5.6.0 as served)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE",
+      "used_for": "Technique ids, names, tactics and descriptions; mitigation AML.M0024"
+    },
+    {
+      "id": "S17",
+      "title": "Prompt injection is not SQL injection (it may be worse)",
+      "url": "https://www.ncsc.gov.uk/blog-post/prompt-injection-is-not-sql-injection",
+      "publisher": "UK National Cyber Security Centre",
+      "used_for": "No boundary between instructions and data, logging advice, failed tool or API calls as early signal, deny-listing phrases is weak"
+    },
+    {
+      "id": "S18",
+      "title": "NIST AI 600-1, AI RMF Generative AI Profile",
+      "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+      "publisher": "NIST",
+      "used_for": "Action MS-2.7-007 (AI red-teaming against GAI attacks such as prompt injection); read from the fetched PDF by local text extraction"
+    },
+    {
+      "id": "S19",
+      "title": "CVE-2025-32711 CVE record",
+      "url": "https://cveawg.mitre.org/api/cve/CVE-2025-32711",
+      "publisher": "CVE Program (MITRE)",
+      "used_for": "Description, affected product, CVSS 3.1 base score 9.3"
+    },
+    {
+      "id": "S20",
+      "title": "Prompt Shields in Microsoft Foundry",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/content-filter-prompt-shields",
+      "publisher": "Microsoft Learn",
+      "used_for": "Cross-check of S1 (same annotation example and defaults)"
+    },
+    {
+      "id": "S21",
+      "title": "Guardrail annotations",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/content-filter-annotations",
+      "publisher": "Microsoft Learn",
+      "used_for": "Annotation output per optional model (detected, filtered), sample response with prompt_filter_results and jailbreak"
+    },
+    {
+      "id": "S22",
+      "title": "Monitoring data reference for Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/monitor-api-management-reference",
+      "publisher": "Microsoft Learn",
+      "used_for": "Resource log categories GatewayLogs and GatewayLlmLogs and their tables"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "Current LLMs do not enforce a security boundary between instructions and data inside a prompt",
+      "source": "S17",
+      "locator": "Quote: 'simply do not enforce a security boundary between instructions and data inside a prompt'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "OWASP item is LLM01:2025 Prompt Injection and says it is unclear if fool-proof methods of prevention exist",
+      "source": "S15",
+      "locator": "Title and Prevention and Mitigation Strategies intro"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "AML.T0051 LLM Prompt Injection maps to tactic Execution (AML.TA0005); sub-techniques .000 Direct, .001 Indirect, .002 Triggered list no tactics of their own",
+      "source": "S16",
+      "locator": "techniques AML.T0051, AML.T0051.000, AML.T0051.001, AML.T0051.002"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "AML.T0054 LLM Jailbreak maps to Privilege Escalation and Defense Evasion",
+      "source": "S16",
+      "locator": "technique AML.T0054 tactics AML.TA0012, AML.TA0007"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "AML.T0068 LLM Prompt Obfuscation is Defense Evasion; AML.T0077 LLM Response Rendering and AML.T0086 Exfiltration via AI Agent Tool Invocation are Exfiltration",
+      "source": "S16",
+      "locator": "techniques AML.T0068 (AML.TA0007), AML.T0077 (AML.TA0010), AML.T0086 (AML.TA0010)"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Attackers refine attempts; detecting failed tool or API calls could identify earlier stages of an attack",
+      "source": "S17",
+      "locator": "Monitoring section"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ApiManagementGatewayLogs has columns ApimSubscriptionId, ApiId, OperationId, Url, CallerIpAddress, ResponseCode, CorrelationId, RequestBody, BackendRequestBody, BackendResponseBody, ResponseBody",
+      "source": "S6",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ApiManagementGatewayLlmLog has DeploymentName, ModelName, PromptTokens, CompletionTokens, TotalTokens, RequestMessages, ResponseMessages, CorrelationId, SequenceNumber",
+      "source": "S7",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Diagnostic categories are named 'Logs related to ApiManagement Gateway' and 'Logs related to generative AI gateway'",
+      "source": "S9",
+      "locator": "Azure Monitor-based dashboard steps and tip"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Default settings do not include details of requests or responses such as request or response bodies",
+      "source": "S9",
+      "locator": "Modify API logging settings"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Gateway log payloads up to 8,192 bytes each; entry over 32 KB is trimmed by removing all body and trace content",
+      "source": "S9",
+      "locator": "Important note after Modify API logging settings"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "LLM messages up to 32 KB in one entry, larger split into 32 KB chunks with sequence numbers, request and response messages cannot exceed 2 MB each; setting is called Log LLM messages",
+      "source": "S8",
+      "locator": "Enable logging of requests or responses for language model API, Note"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ATLAS mitigation AML.M0024 AI Telemetry Logging: implement logging of inputs and outputs of deployed AI models",
+      "source": "S16",
+      "locator": "mitigation AML.M0024 description"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "NCSC advises logging potentially including full input and output of the LLM, tool use and API calls",
+      "source": "S17",
+      "locator": "Monitoring section"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "User prompt shield was previously called Jailbreak risk detection; request fields userPrompt and documents",
+      "source": "S1",
+      "locator": "Prompt Shields for user prompts; Types of input attacks table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Indirect attacks are also referred to as cross-domain prompt injection attacks",
+      "source": "S3",
+      "locator": "Content filter types table, Indirect Attacks row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Azure AI Content Safety does not verify the submitted content's provenance",
+      "source": "S1",
+      "locator": "Opening paragraph"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Endpoint is POST <endpoint>/contentsafety/text:shieldPrompt?api-version=2024-09-01",
+      "source": "S2",
+      "locator": "Quick example and URL fields table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The standalone API analyzes a userPrompt and up to five documents",
+      "source": "S1",
+      "locator": "Configure the Azure AI Content Safety API"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Response fields userPromptAnalysis.attackDetected and documentsAnalysis[].attackDetected are Booleans, one result per document provided",
+      "source": "S2",
+      "locator": "Interpret the API response table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The API does not itself block or route content; blocking, excluding or escalating requires application logic",
+      "source": "S1",
+      "locator": "Intro and Detect document attacks"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Annotations return detected and filtered; user prompt attack annotation is prompt_filter_results[].content_filter_results.jailbreak",
+      "source": "S1",
+      "locator": "Annotation structure example"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "A filtered prompt returns HTTP 400 with error code content_filter",
+      "source": "S3",
+      "locator": "Scenario 3: Inappropriate input prompt"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "User prompt attack detection is enabled by default; document attack detection is off by default",
+      "source": "S1",
+      "locator": "Paragraph on Foundry guardrails"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Documents must be marked with the delimiter \"\"\" <documents> ... </documents> \"\"\" for indirect attack detection in the built-in filter",
+      "source": "S4",
+      "locator": "Embedding documents in your prompt"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Prompt Shields is described as a probabilistic classifier-based approach",
+      "source": "S14",
+      "locator": "Detection section"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "System prompts often include rules and examples that look like attacks, which causes false positives",
+      "source": "S1",
+      "locator": "User scenarios, Important"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "False positive troubleshooting list: system prompt not in userPrompt or documents, block to annotate, review subtypes, consider exempting trusted input sources",
+      "source": "S1",
+      "locator": "Troubleshooting, False positives"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "A no-attack result does not establish that the document is trustworthy",
+      "source": "S1",
+      "locator": "Prompt Shields for documents, Examples table"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Models are primarily trained and evaluated on English content; performance can vary for non-English",
+      "source": "S1",
+      "locator": "Language performance note"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Prompt Shields do not determine whether content is harmful, accurate, or aligned with the application's task",
+      "source": "S1",
+      "locator": "Important note"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "OWASP scenarios include payload splitting, multilingual or obfuscated attacks and multimodal injection",
+      "source": "S15",
+      "locator": "Example Attack Scenarios 6, 7, 9"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "NIST AI 600-1 action MS-2.7-007: perform AI red-teaming to assess resilience against GAI attacks (e.g., prompt injection)",
+      "source": "S18",
+      "locator": "MS-2.7-007"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "NCSC advises against deny-listing known bad phrases because attackers can rephrase",
+      "source": "S17",
+      "locator": "Making attacks harder"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Class names: Attempt to change system rules, Embedding a conversation mockup, Role-Play, Encoding Attacks; document classes include Information Gathering",
+      "source": "S1",
+      "locator": "Subtypes tables"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Defender for Cloud alert 'ASCII Smuggling prompt injection detected' covers invisible instructions",
+      "source": "S10",
+      "locator": "AI.Azure_ASCIISmuggling"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Impacts listed by MSRC: markdown or HTML image (no user interaction), clickable link (needs click), tool calls, phishing from trusted sources, remote command execution",
+      "source": "S14",
+      "locator": "Potential impacts"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "CVE-2025-32711: AI command injection in M365 Copilot allows an unauthorized attacker to disclose information over a network; CVSS 3.1 base 9.3",
+      "source": "S19",
+      "locator": "descriptions and metrics"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "The model returns tool_calls items with id, type, function name and arguments; the application executes the function",
+      "source": "S5",
+      "locator": "Intro and sample output"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "JailbreakDetected is a boolean flag on Messages; XPIADetected is a boolean on AccessedResources denoting a cross prompt injection attack detected from a resource Copilot accessed",
+      "source": "S12",
+      "locator": "Common properties table, Messages and AccessedResources rows"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Defender for Cloud AI threat protection works with Prompt Shields and threat intelligence and integrates with Defender XDR",
+      "source": "S11",
+      "locator": "Intro and Defender XDR integration"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Alert types and severities: Jailbreak BlockedAttempt Medium, DetectedAttempt Medium, ASCIISmuggling High, CredentialTheftAttempt Medium, MaliciousUrl.ModelResponse High, AnomalousToolInvocation Low",
+      "source": "S10",
+      "locator": "Alerts for AI applications"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "DetectedAttempt description: detected but not blocked due to content filtering settings or due to low confidence",
+      "source": "S10",
+      "locator": "AI.Azure_Jailbreak.ContentFiltering.DetectedAttempt description"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Microsoft deterministically blocks known exfiltration methods such as markdown image injection",
+      "source": "S14",
+      "locator": "Deterministic blocking"
+    },
+    {
+      "where": "room:pidet-r1",
+      "claim": "userPrompt holds user input and documents holds third-party content such as emails; response has userPromptAnalysis and documentsAnalysis with attackDetected",
+      "source": "S2",
+      "locator": "Request and response tables"
+    },
+    {
+      "where": "room:pidet-r1",
+      "claim": "The Prompt Shields API does not block by itself; the application decides",
+      "source": "S1",
+      "locator": "Intro"
+    },
+    {
+      "where": "room:pidet-r2",
+      "claim": "Clean result does not establish the document is trustworthy; models primarily trained on English",
+      "source": "S1",
+      "locator": "Examples table; Language performance note"
+    },
+    {
+      "where": "room:pidet-r3",
+      "claim": "Image exfiltration needs no user interaction, link needs a click, tool calls can leak directly",
+      "source": "S14",
+      "locator": "Potential impacts"
+    },
+    {
+      "where": "room:pidet-r3",
+      "claim": "Completion body carries prompt_filter_results with content_filter_results.jailbreak detected and filtered",
+      "source": "S21",
+      "locator": "Output sample"
+    },
+    {
+      "where": "room:pidet-r3",
+      "claim": "False positive advice: keep system prompt out, consider exempting trusted input sources, annotate mode logs without filtering",
+      "source": "S1",
+      "locator": "Troubleshooting, False positives"
+    },
+    {
+      "where": "room:pidet-ac3",
+      "claim": "Chat completions path is /openai/deployments/{deployment-id}/chat/completions with an api-version parameter",
+      "source": "S1",
+      "locator": "Configure Prompt Shields in the REST API"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "azure-api-management",
+      "field": "TimeGenerated",
+      "source": "S6",
+      "locator": "Columns: TimeGenerated datetime"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "Type",
+      "source": "S6",
+      "locator": "Columns: Type, the name of the table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "_ResourceId",
+      "source": "S6",
+      "locator": "Columns: _ResourceId"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ApimSubscriptionId",
+      "source": "S6",
+      "locator": "Columns: ApimSubscriptionId string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ApiId",
+      "source": "S6",
+      "locator": "Columns: ApiId string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "OperationId",
+      "source": "S6",
+      "locator": "Columns: OperationId string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "Method",
+      "source": "S6",
+      "locator": "Columns: Method string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "Url",
+      "source": "S6",
+      "locator": "Columns: Url string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "BackendUrl",
+      "source": "S6",
+      "locator": "Columns: BackendUrl string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "CallerIpAddress",
+      "source": "S6",
+      "locator": "Columns: CallerIpAddress string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ResponseCode",
+      "source": "S6",
+      "locator": "Columns: ResponseCode int"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "BackendResponseCode",
+      "source": "S6",
+      "locator": "Columns: BackendResponseCode int"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "IsRequestSuccess",
+      "source": "S6",
+      "locator": "Columns: IsRequestSuccess bool"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "RequestSize",
+      "source": "S6",
+      "locator": "Columns: RequestSize int"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ResponseSize",
+      "source": "S6",
+      "locator": "Columns: ResponseSize int"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "BackendTime",
+      "source": "S6",
+      "locator": "Columns: BackendTime long"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "TotalTime",
+      "source": "S6",
+      "locator": "Columns: TotalTime long"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "BackendRequestBody",
+      "source": "S6",
+      "locator": "Columns: BackendRequestBody string, Backend request body"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "BackendResponseBody",
+      "source": "S6",
+      "locator": "Columns: BackendResponseBody string, Backend response body"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "CorrelationId",
+      "source": "S6",
+      "locator": "Columns: CorrelationId string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "Region",
+      "source": "S6",
+      "locator": "Columns: Region string"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "RequestBody",
+      "source": "S6",
+      "locator": "Columns: RequestBody string, Client request body (lesson text only)"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ResponseBody",
+      "source": "S6",
+      "locator": "Columns: ResponseBody string, Gateway response body (lesson text only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "RequestMessages",
+      "source": "S7",
+      "locator": "Columns: RequestMessages dynamic (lesson only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "ResponseMessages",
+      "source": "S7",
+      "locator": "Columns: ResponseMessages dynamic (lesson only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "PromptTokens",
+      "source": "S7",
+      "locator": "Columns: PromptTokens int (lesson only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "CompletionTokens",
+      "source": "S7",
+      "locator": "Columns: CompletionTokens int (lesson only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "TotalTokens",
+      "source": "S7",
+      "locator": "Columns: TotalTokens int (lesson only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "DeploymentName",
+      "source": "S7",
+      "locator": "Columns: DeploymentName string (lesson only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "ModelName",
+      "source": "S7",
+      "locator": "Columns: ModelName string (lesson only)"
+    },
+    {
+      "vendor": "azure-api-management (ApiManagementGatewayLlmLog)",
+      "field": "SequenceNumber",
+      "source": "S7",
+      "locator": "Columns: SequenceNumber int (lesson only)"
+    },
+    {
+      "vendor": "azure-ai-content-safety (Prompt Shields API body)",
+      "field": "userPrompt",
+      "source": "S2",
+      "locator": "Request body table"
+    },
+    {
+      "vendor": "azure-ai-content-safety (Prompt Shields API body)",
+      "field": "documents",
+      "source": "S2",
+      "locator": "Request body table"
+    },
+    {
+      "vendor": "azure-ai-content-safety (Prompt Shields API body)",
+      "field": "userPromptAnalysis.attackDetected",
+      "source": "S2",
+      "locator": "Response fields table"
+    },
+    {
+      "vendor": "azure-ai-content-safety (Prompt Shields API body)",
+      "field": "documentsAnalysis[].attackDetected",
+      "source": "S2",
+      "locator": "Response fields table"
+    },
+    {
+      "vendor": "Azure OpenAI response body",
+      "field": "prompt_filter_results[].content_filter_results.jailbreak.detected / .filtered",
+      "source": "S1",
+      "locator": "Annotation structure example"
+    },
+    {
+      "vendor": "Azure OpenAI response body",
+      "field": "choices[].message.content, choices[].finish_reason, choices[].index, prompt_index",
+      "source": "S21",
+      "locator": "Output sample"
+    },
+    {
+      "vendor": "Azure OpenAI response body",
+      "field": "tool_calls[].id / .type / .function.name / .function.arguments",
+      "source": "S5",
+      "locator": "Sample output of ChatCompletionMessage"
+    },
+    {
+      "vendor": "microsoft-365 (CopilotInteraction, lesson only)",
+      "field": "CopilotEventData.Messages[].ID / isPrompt / JailbreakDetected / Size",
+      "source": "S12",
+      "locator": "Common properties, Messages"
+    },
+    {
+      "vendor": "microsoft-365 (CopilotInteraction, lesson only)",
+      "field": "CopilotEventData.AccessedResources[].Action / Name / Type / SiteUrl / Status / XPIADetected",
+      "source": "S12",
+      "locator": "Common properties, AccessedResources"
+    },
+    {
+      "vendor": "microsoft-365 (CopilotInteraction, lesson only)",
+      "field": "Operation, RecordType, Workload, UserId, CreationTime, CopilotEventData.AppHost, CopilotEventData.ThreadId",
+      "source": "S13",
+      "locator": "Audit log examples and schema definitions"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "Did instruction-like text arrive? | The input itself and a classifier verdict on it"
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "default settings do not include details of requests or responses such as request or response bodies."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "`documentsAnalysis`: a list with one `attackDetected` value for each document provided."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "ensure the system prompt is not in `userPrompt` or `documents`"
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "That is a report about an attack, and the real lead is the original email, not the ticket."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "The request alone is still only an attempt."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "When `XPIADetected` is true, the same entry gives you the pivot: `SiteUrl` and `Name` identify the file, page or email that carried the text."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "The web proxy log for the staff member's workstation shows a GET request to `repairs-status-img.example` at 10:02:19, allowed, 14 seconds after the completion."
+    },
+    {
+      "q": "room:pidet-q1",
+      "taught_in": "room:pidet-r1",
+      "support": "a list with one attackDetected value for each document provided"
+    },
+    {
+      "q": "room:pidet-la1#1",
+      "taught_in": "room:pidet-r1",
+      "support": "A true value under documentsAnalysis points at third-party content, which means an indirect attempt."
+    },
+    {
+      "q": "room:pidet-la1#2",
+      "taught_in": "room:pidet-r1",
+      "support": "ApimSubscriptionId | Which application's subscription made the call"
+    },
+    {
+      "q": "room:pidet-la1#3",
+      "taught_in": "room:pidet-r1",
+      "support": "A verdict proves that attack-like text arrived. It does not prove that the model saw it or obeyed it."
+    },
+    {
+      "q": "room:pidet-ac1",
+      "taught_in": "room:pidet-r2",
+      "support": "When the content is a real attempt that was stopped, the rule worked: that is a true positive of low severity, worth recording because attackers refine and retry."
+    },
+    {
+      "q": "room:pidet-q2",
+      "taught_in": "room:pidet-r2",
+      "support": "no document attack pattern detected does not establish that the document is trustworthy."
+    },
+    {
+      "q": "room:pidet-ac2",
+      "taught_in": "room:pidet-r2",
+      "support": "When the content is not an attack at all, the rule misfired and the verdict is false positive."
+    },
+    {
+      "q": "room:pidet-m1",
+      "taught_in": "room:pidet-r2",
+      "support": "An attempt stops at the first or second stage. A success reaches the third, and an incident is confirmed at the fourth or fifth."
+    },
+    {
+      "q": "room:pidet-ac3",
+      "taught_in": "room:pidet-r3",
+      "support": "A confirmed outside effect is a true positive and an incident, even when the classifier said false."
+    },
+    {
+      "q": "room:pidet-o1",
+      "taught_in": "room:pidet-r3",
+      "support": "Work in this order, because each step tells you where to look next."
+    },
+    {
+      "q": "room:pidet-q3",
+      "taught_in": "room:pidet-r3",
+      "support": "Exempt narrowly: one verified, expected source, never a phrase and never the whole application."
+    },
+    {
+      "q": "room:pidet-f1",
+      "taught_in": "room:pidet-r3",
+      "support": "The address inside the image markup names the host that receives the data."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0051",
+      "name": "LLM Prompt Injection",
+      "tactics": [
+        "Execution (AML.TA0005)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.T0051.000",
+      "name": "Direct",
+      "tactics": [
+        "Execution (inherited from AML.T0051; the sub-technique lists none)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.T0051.001",
+      "name": "Indirect",
+      "tactics": [
+        "Execution (inherited from AML.T0051; the sub-technique lists none)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.T0051.002",
+      "name": "Triggered",
+      "tactics": [
+        "Execution (inherited from AML.T0051; the sub-technique lists none)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.T0054",
+      "name": "LLM Jailbreak",
+      "tactics": [
+        "Privilege Escalation (AML.TA0012)",
+        "Defense Evasion (AML.TA0007)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.T0068",
+      "name": "LLM Prompt Obfuscation",
+      "tactics": [
+        "Defense Evasion (AML.TA0007)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.T0077",
+      "name": "LLM Response Rendering",
+      "tactics": [
+        "Exfiltration (AML.TA0010)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.T0086",
+      "name": "Exfiltration via AI Agent Tool Invocation",
+      "tactics": [
+        "Exfiltration (AML.TA0010)"
+      ],
+      "source": "S16"
+    },
+    {
+      "id": "AML.M0024",
+      "name": "AI Telemetry Logging (mitigation)",
+      "tactics": [],
+      "source": "S16"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [
+    {
+      "vendor": "azure-api-management",
+      "field": "BackendRequestBody",
+      "source": "S6",
+      "locator": "ApiManagementGatewayLogs Columns table: BackendRequestBody, string, 'Backend request body'"
+    }
+  ],
+  "unverified": [
+    {
+      "item": "JSON key name of the document attack annotation in Azure OpenAI responses (indirect_attack)",
+      "why": "None of the pages fetched in this run showed the key verbatim; only the jailbreak key and the detected/filtered pair for 'indirect attacks' were shown",
+      "handled": "left out; the lesson names only the jailbreak key and describes the pair"
+    },
+    {
+      "item": "That documentsAnalysis entries are returned in the same order as the submitted documents",
+      "why": "The quickstart says one result per document but does not state the ordering",
+      "handled": "softened: the worked case says the application's own log maps the flagged entry to the file"
+    },
+    {
+      "item": "Quoted attack text (security newsletters, training material) as a cause of false positives",
+      "why": "Microsoft documents system prompts and suggests exempting trusted sources, but does not name quoted examples as a cause",
+      "handled": "stated in the lesson as this lesson's own reasoning, and used as the room's fictional false positive"
+    },
+    {
+      "item": "Whether Azure OpenAI's own resource logs (RequestResponse) contain prompt text, and whether Content Safety's own resource log carries the verdict",
+      "why": "The monitoring reference fetched lists categories only",
+      "handled": "left out"
+    },
+    {
+      "item": "finish_reason value for a tool call response",
+      "why": "Not shown on the function calling page fetched",
+      "handled": "left out"
+    },
+    {
+      "item": "ATLAS data version",
+      "why": "dist/ATLAS.yaml served version 5.6.0 and the fetch summary mentioned a note pointing to the repository for current data; ids and tactics were taken from this file only",
+      "handled": "ids cited as read; sub-technique tactics described as inherited from the parent"
+    },
+    {
+      "item": "NIST AI 600-1 text",
+      "why": "WebFetch could not parse the PDF; the fetched file was read with local text extraction (pdftotext)",
+      "handled": "only action MS-2.7-007 is cited, quoted from the extracted text"
+    },
+    {
+      "item": "NVD page for CVE-2025-32711",
+      "why": "NVD page did not render through the fetch tool",
+      "handled": "details taken from the CVE record API instead; the nickname of the vulnerability is not used"
+    },
+    {
+      "item": "OperationId and ApiId values in raw blocks (shieldPrompt, ChatCompletions_Create, content-safety, azure-openai) and ApimSubscriptionId values",
+      "why": "These are names an API Management administrator assigns, not fixed product values",
+      "handled": "used as plausible configured names; column names themselves are documented"
+    },
+    {
+      "item": "Registry prefixes promptshields.* and gateway.* of azure-ai-content-safety",
+      "why": "They are the platform's own representation, not vendor-documented fields",
+      "handled": "not used; room raw blocks use only documented ApiManagementGatewayLogs columns with the Prompt Shields JSON inside the body columns"
+    },
+    {
+      "item": "Severity table in lesson section 6 and the five-stage chain in the room",
+      "why": "Author's own teaching aids",
+      "handled": "labelled in the text as the lesson's or room's own"
+    },
+    {
+      "item": "Copilot audit record: that message text is absent",
+      "why": "The Purview page lists the documented Messages fields but does not state in words that text is excluded",
+      "handled": "softened to: the documented fields are identifiers and flags"
+    }
+  ]
+}

@@ -9050,5 +9050,1229 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 40
       }
     ]
+  },
+  {
+    "id": "ai-user-activity-monitoring",
+    "title": "Reading the AI Assistant Audit Trail",
+    "description": "Read the audit records that sanctioned AI assistants write, field by field: a Microsoft 365 Copilot interaction record and a Claude Enterprise activity record for the same kind of work. Learn what each field proves, what the record never contains, and how to pivot from a user to a conversation to a file.",
+    "difficulty": "intermediate",
+    "category": "Log Analysis",
+    "estimatedMinutes": 45,
+    "xp": 160,
+    "icon": "🧾",
+    "prerequisites": [
+      "siem-fundamentals"
+    ],
+    "tasks": [
+      {
+        "id": "aiua-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiua-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aiua-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aiua-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiua-la2",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "aiua-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aiua-q2",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aiua-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aiua-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiua-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "aiua-q3",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aiua-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aiua-q4",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "shadow-ai-detection",
+    "title": "Shadow AI Detection: Hunting Unsanctioned AI Use",
+    "description": "Work a week of findings at a freight company that has no AI policy yet: triage web gateway rows into visits, shadow use and sanctioned use, read an OAuth consent event for an AI app, catch a DNS rule that misfired, and turn what you found into an inventory with a decision for each tool.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 60,
+    "xp": 170,
+    "icon": "🔦",
+    "prerequisites": [
+      "ai-user-activity-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "shai-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "shai-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "shai-la1",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "shai-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "shai-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "shai-la2",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "shai-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "shai-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "shai-ac2",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "shai-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "shai-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "shai-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "shai-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "enterprise-ai-anomalous-use",
+    "title": "Anomalous Use of Enterprise AI Systems",
+    "description": "Follow one paralegal's account through a single day at a law firm and decide, alert by alert, what is a rule misfire, what is authorised heavy use and what is an intruder using the firm's AI assistant as a search engine. You build a baseline, compare it with peers, read the sign-in context and review rare administrative events.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 50,
+    "xp": 180,
+    "icon": "📈",
+    "prerequisites": [
+      "ai-user-activity-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "aianu-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aianu-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aianu-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aianu-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aianu-ac2",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aianu-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aianu-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aianu-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aianu-ac3",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aianu-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aianu-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aianu-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aianu-o1",
+        "type": "ordering",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "llm-api-access-monitoring",
+    "title": "LLM API Access Monitoring: One Call, Two Records",
+    "description": "Follow model calls at Brightwater Health Tech through the cloud audit record and the AI gateway record. Learn which fields say who called which model, from where and how much, pair the two records for the same call, and triage a call that skipped the gateway and a logging setting that was switched off.",
+    "difficulty": "intermediate",
+    "category": "Cloud Security",
+    "estimatedMinutes": 45,
+    "xp": 190,
+    "icon": "🔌",
+    "prerequisites": [
+      "cloud-security-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "llmapi-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "llmapi-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "llmapi-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "llmapi-q2",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "llmapi-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "llmapi-la2",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "llmapi-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "llmapi-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "llmapi-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "llmapi-qf1",
+        "type": "query_fill",
+        "xp": 20
+      },
+      {
+        "id": "llmapi-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "llmapi-ac2",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "llmapi-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "llmapi-q3",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-api-key-abuse",
+    "title": "AI API Key Abuse: Following a Leaked Key Through the Logs",
+    "description": "A test key at a game studio reaches a public repository. Read the GitHub audit trail that shows the exposure, follow the key through AWS CloudTrail as it is checked, prepared and used against Amazon Bedrock, order the stages of the abuse, separate it from an authorised load test, and choose the response in the right order.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 55,
+    "xp": 175,
+    "icon": "🔑",
+    "prerequisites": [
+      "llm-api-access-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "aikey-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aikey-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aikey-la1",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "aikey-q2",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aikey-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aikey-la2",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aikey-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aikey-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aikey-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "aikey-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aikey-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aikey-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aikey-q3",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "prompt-injection-detection",
+    "title": "Detecting Prompt Injection: Attempt, Success or False Alarm",
+    "description": "Work the alert queue for Fenmoor Retail's email assistant. Read Prompt Shields verdicts in API gateway records, tell a blocked attempt from a quoted example in a newsletter, and prove a successful indirect injection from the draft the model wrote and the trace it left outside the application.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 45,
+    "xp": 180,
+    "icon": "🔎",
+    "prerequisites": [
+      "ai-attacks-soc-detection"
+    ],
+    "tasks": [
+      {
+        "id": "pidet-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "pidet-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "pidet-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "pidet-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "pidet-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "pidet-q2",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "pidet-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "pidet-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "pidet-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "pidet-ac3",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "pidet-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "pidet-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "pidet-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-agent-activity-monitoring",
+    "title": "Monitoring AI Agent Activity",
+    "description": "Follow an AI agent the way an analyst has to: rebuild one run from its OpenTelemetry spans, read the CloudTrail records that show who ran and who changed a hosted agent, tie each action to a role session, and judge new-tool, loop and out-of-task alerts for a travel company's rebooking agent.",
+    "difficulty": "advanced",
+    "category": "Threat Detection",
+    "estimatedMinutes": 60,
+    "xp": 185,
+    "icon": "🤖",
+    "prerequisites": [
+      "prompt-injection-detection"
+    ],
+    "tasks": [
+      {
+        "id": "agmon-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "agmon-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "agmon-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "agmon-ord1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "agmon-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "agmon-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "agmon-la2",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "agmon-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "agmon-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "agmon-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "agmon-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "agmon-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "agmon-q3",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "anomalous-function-calling",
+    "title": "Detecting Anomalous Function Calling",
+    "description": "Work the tool-call queue of a bank's internal finance assistant: read execute tool spans field by field, spot out-of-scope arguments and a read-then-send sequence, check approvals, and pair every tool call with the downstream audit record that proves or disproves it.",
+    "difficulty": "advanced",
+    "category": "Threat Detection",
+    "estimatedMinutes": 50,
+    "xp": 175,
+    "icon": "🧰",
+    "prerequisites": [
+      "ai-agent-activity-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "fcall-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "fcall-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "fcall-la1",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "fcall-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "fcall-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "fcall-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "fcall-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "fcall-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "fcall-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "fcall-la2",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "fcall-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "fcall-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "fcall-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-unauthorized-data-access",
+    "title": "Unauthorized Data Access Through AI: Oversharing or Compromise?",
+    "description": "A council's new AI assistant starts surfacing files that were never meant to be widely read. Read the AccessedResources list and sensitivity label IDs in Copilot audit records, sort each access into permission problem, authorised owner, blocked read or possible stolen account, pivot from the assistant to a direct file open, and choose a fix that changes access and not only discovery.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 50,
+    "xp": 205,
+    "icon": "🔎",
+    "prerequisites": [
+      "ai-user-activity-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "aidat-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aidat-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aidat-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aidat-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aidat-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aidat-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aidat-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aidat-ac3",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aidat-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aidat-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aidat-ac4",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aidat-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aidat-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "aidat-q3",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-data-leakage-analysis",
+    "title": "Analyzing AI Data Leakage Events",
+    "description": "Work two DLP alerts for generative AI destinations at a pharmaceutical company: read a Purview endpoint DLP record and its Activity explorer row, read a Zscaler gateway row for an upload, tell a real leak from a false positive on sample data, and complete the scoping worksheet that says what left, to which account, how much, and whether it can come back.",
+    "difficulty": "intermediate",
+    "category": "Data Security",
+    "estimatedMinutes": 60,
+    "xp": 180,
+    "icon": "🧪",
+    "prerequisites": [
+      "dlp-fundamentals",
+      "shadow-ai-detection"
+    ],
+    "tasks": [
+      {
+        "id": "ailk-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ailk-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "ailk-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "ailk-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "ailk-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ailk-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "ailk-la2",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "ailk-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "ailk-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "ailk-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ailk-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "ailk-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "ailk-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-threat-use-cases",
+    "title": "Building Use Cases for AI Threats",
+    "description": "Build an AI detection roadmap for a utility's SOC: turn MITRE ATLAS techniques into use cases, match each technique to the log that shows it, rank systems with an AI asset inventory, find the gaps in a coverage matrix, order the lifecycle for one AI threat and judge the first alerts a new use case raises.",
+    "difficulty": "advanced",
+    "category": "Threat Detection",
+    "estimatedMinutes": 60,
+    "xp": 175,
+    "icon": "🗺️",
+    "prerequisites": [
+      "use-case-development"
+    ],
+    "tasks": [
+      {
+        "id": "aiuc-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiuc-q1",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aiuc-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aiuc-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiuc-q2",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aiuc-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aiuc-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aiuc-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aiuc-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiuc-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "aiuc-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aiuc-ac2",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aiuc-q4",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-detection-rules",
+    "title": "Writing Detection Rules for AI Telemetry",
+    "description": "Join Pellham University's SOC as it writes its first AI detection rules. Complete a single-event Sigma rule, a KQL threshold query and a Sigma sequence rule for Amazon Bedrock logs, choose a threshold from a baseline, judge a fired alert, and work out why one rule never fires.",
+    "difficulty": "advanced",
+    "category": "Threat Detection",
+    "estimatedMinutes": 60,
+    "xp": 200,
+    "icon": "📐",
+    "prerequisites": [
+      "ai-threat-use-cases",
+      "detection-rules-tuning"
+    ],
+    "tasks": [
+      {
+        "id": "airule-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "airule-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "airule-qf1",
+        "type": "query_fill",
+        "xp": 20
+      },
+      {
+        "id": "airule-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "airule-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "airule-qf2",
+        "type": "query_fill",
+        "xp": 20
+      },
+      {
+        "id": "airule-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "airule-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "airule-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "airule-qf3",
+        "type": "query_fill",
+        "xp": 20
+      },
+      {
+        "id": "airule-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "airule-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "airule-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "airule-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-siem-source-integration",
+    "title": "AI Sources in the SIEM: Five Feeds That Must Join",
+    "description": "Garrowby Media has five AI log feeds arriving in its SIEM and no rule that can follow one person across them. Map each feed to its collection method and landing table, read two records of the same model call, pick the entity keys that join them, fix names and clocks, decide what to keep, and judge two logging-configuration alerts.",
+    "difficulty": "advanced",
+    "category": "SIEM",
+    "estimatedMinutes": 70,
+    "xp": 195,
+    "icon": "🧩",
+    "prerequisites": [
+      "log-sources-integration"
+    ],
+    "tasks": [
+      {
+        "id": "aisiem-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisiem-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aisiem-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisiem-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisiem-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aisiem-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aisiem-la2",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aisiem-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aisiem-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisiem-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aisiem-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aisiem-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "aisiem-q3",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-incident-log-investigation",
+    "title": "Investigating an AI Incident Through Logs",
+    "description": "An assistant at Ironbridge Capital sent a client's statement to the wrong party. Work the case from the first phone call to a finding: identity, prompt, retrieved context, tool call and downstream record, on one timeline, with a stated level of confidence.",
+    "difficulty": "advanced",
+    "category": "Incident Response",
+    "estimatedMinutes": 50,
+    "xp": 180,
+    "icon": "🧭",
+    "prerequisites": [
+      "investigation-methodology",
+      "ai-siem-source-integration"
+    ],
+    "tasks": [
+      {
+        "id": "aiinv-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiinv-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aiinv-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aiinv-la1",
+        "type": "log_analysis",
+        "xp": 20
+      },
+      {
+        "id": "aiinv-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aiinv-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiinv-la2",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aiinv-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aiinv-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiinv-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "aiinv-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aiinv-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aiinv-q3",
+        "type": "question",
+        "xp": 15
+      }
+    ]
+  },
+  {
+    "id": "ai-incident-response-process",
+    "title": "Building an AI Incident Response Playbook",
+    "description": "Write the first AI incident response playbook with a SOC lead at an airline: map AI incidents onto NIST SP 800-61 Revision 3, prepare an AI inventory with kill switches, match each incident category to its first containment action, read the audit records that prove a key was revoked and a connector disabled, decide under pressure when a kill switch is touched, and finish with eradication, recovery, communication and a tabletop exercise.",
+    "difficulty": "advanced",
+    "category": "Incident Response",
+    "estimatedMinutes": 60,
+    "xp": 195,
+    "icon": "🧯",
+    "prerequisites": [
+      "incident-response-methodology",
+      "ai-incident-log-investigation"
+    ],
+    "tasks": [
+      {
+        "id": "aiir-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiir-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "aiir-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aiir-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiir-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "aiir-la1",
+        "type": "log_analysis",
+        "xp": 30
+      },
+      {
+        "id": "aiir-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "aiir-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aiir-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aiir-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "aiir-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "aiir-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aiir-q4",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aiir-q5",
+        "type": "question",
+        "xp": 15
+      }
+    ]
   }
 ];

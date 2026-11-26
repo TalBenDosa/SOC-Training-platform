@@ -12598,9 +12598,27 @@
     },
     "p0f": {
       "label": "p0f",
-      "aliases": ["p0f v3"],
+      "aliases": [
+        "p0f v3"
+      ],
       "sourceNote": "p0f v3 passive fingerprinting log (-o): pipe-delimited name=value pairs, the same names as the pretty-printed stdout output (mod, cli, srv, subj, os, dist, params, raw_sig; app / lang / params for HTTP; link / raw_mtu for MTU; uptime / raw_freq for uptime). raw_sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass, ittl written observed_ttl+distance. Source: p0f v3 README, https://github.com/p0f/p0f/blob/master/docs/README (sections on output format and signature format).",
-      "exactFields": ["mod", "cli", "srv", "subj", "os", "dist", "params", "raw_sig", "app", "lang", "link", "raw_mtu", "uptime", "raw_freq", "raw_hits"],
+      "exactFields": [
+        "mod",
+        "cli",
+        "srv",
+        "subj",
+        "os",
+        "dist",
+        "params",
+        "raw_sig",
+        "app",
+        "lang",
+        "link",
+        "raw_mtu",
+        "uptime",
+        "raw_freq",
+        "raw_hits"
+      ],
       "prefixes": []
     },
     "suricata": {
@@ -14183,7 +14201,7 @@
     },
     "azure-api-management": {
       "label": "Azure API Management gateway logs",
-      "note": "Columns of the ApiManagementGatewayLogs table: learn.microsoft.com/azure/azure-monitor/reference/tables/apimanagementgatewaylogs (checked 2026-11-07, 2026-11-08). BackendResponseBody is logged when the diagnostic setting logs backend response payloads (e.g. a Content Safety text:shieldPrompt response).",
+      "note": "Columns of the ApiManagementGatewayLogs table: learn.microsoft.com/azure/azure-monitor/reference/tables/apimanagementgatewaylogs (checked 2026-11-07, 2026-11-08). BackendResponseBody is logged when the diagnostic setting logs backend response payloads (e.g. a Content Safety text:shieldPrompt response). BackendRequestBody (string, backend request body) is a column of the same table, logged when the diagnostic setting logs backend request payloads (checked 2026-11-26). DeploymentName, ModelName, SequenceNumber, PromptTokens, CompletionTokens, TotalTokens, RequestMessages and ResponseMessages are columns of the companion ApiManagementGatewayLlmLog table (learn.microsoft.com/azure/azure-monitor/reference/tables/apimanagementgatewayllmlog, checked 2026-11-26), joined to the gateway log by CorrelationId.",
       "aliases": [
         "Azure API Management"
       ],
@@ -14207,7 +14225,16 @@
         "Region",
         "BackendUrl",
         "BackendTime",
-        "BackendResponseBody"
+        "BackendResponseBody",
+        "BackendRequestBody",
+        "DeploymentName",
+        "ModelName",
+        "SequenceNumber",
+        "PromptTokens",
+        "CompletionTokens",
+        "TotalTokens",
+        "RequestMessages",
+        "ResponseMessages"
       ],
       "prefixes": []
     },
@@ -14255,9 +14282,75 @@
     "virustotal": {
       "label": "VirusTotal",
       "sourceNote": "VirusTotal API v3 object as returned by GET /api/v3/ip_addresses/{ip} (and /domains, /files): {data: {id, type, links.self, attributes: {...}}}. Field reference: docs.virustotal.com/reference/ip-object.",
-      "aliases": ["VirusTotal", "VT", "VirusTotal Intelligence"],
-      "exactFields": ["data.id", "data.type", "data.links.self"],
-      "prefixes": ["data.attributes."]
+      "aliases": [
+        "VirusTotal",
+        "VT",
+        "VirusTotal Intelligence"
+      ],
+      "exactFields": [
+        "data.id",
+        "data.type",
+        "data.links.self"
+      ],
+      "prefixes": [
+        "data.attributes."
+      ]
+    },
+    "opentelemetry-genai": {
+      "label": "OpenTelemetry GenAI spans",
+      "note": "A span rendered as a flat record. Envelope keys name, context.trace_id, context.span_id, parent_id, start_time, end_time and the attributes object follow the illustrative span JSON at opentelemetry.io/docs/concepts/signals/traces/ (not a specific export format; OTLP/JSON is more verbose). kind and status are flat renderings of the documented span kind and span status. attributes.gen_ai.* are the GenAI semantic convention attributes (status Development) from github.com/open-telemetry/semantic-conventions-genai docs/gen-ai (agent spans, execute-tool, client inference); error.type, server.address and user.* are the general semantic-convention attributes those documents reference. Checked 2026-11-26.",
+      "aliases": [
+        "OpenTelemetry GenAI",
+        "OpenTelemetry GenAI spans",
+        "OTel GenAI spans",
+        "OTel GenAI"
+      ],
+      "exactFields": [
+        "name",
+        "context.trace_id",
+        "context.span_id",
+        "parent_id",
+        "kind",
+        "start_time",
+        "end_time",
+        "status"
+      ],
+      "prefixes": [
+        "attributes.gen_ai.",
+        "attributes.error.",
+        "attributes.server.",
+        "attributes.user."
+      ]
+    },
+    "amazon-bedrock-invocation-logs": {
+      "label": "Amazon Bedrock model invocation logs",
+      "note": "Log entry format of Amazon Bedrock model invocation logging (same for CloudWatch Logs and S3): docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html, checked 2026-11-26. requestMetadata is an optional caller-supplied object of key-value tags, so its sub-keys are caller-defined (hence the prefix).",
+      "aliases": [
+        "Bedrock model invocation logs",
+        "Amazon Bedrock model invocation logging",
+        "Bedrock ModelInvocationLog"
+      ],
+      "exactFields": [
+        "schemaType",
+        "schemaVersion",
+        "timestamp",
+        "accountId",
+        "region",
+        "requestId",
+        "operation",
+        "modelId",
+        "identity.arn",
+        "requestMetadata",
+        "input.inputContentType",
+        "input.inputBodyJson",
+        "input.inputTokenCount",
+        "output.outputContentType",
+        "output.outputBodyJson",
+        "output.outputTokenCount"
+      ],
+      "prefixes": [
+        "requestMetadata."
+      ]
     }
   },
   "deniedFields": [

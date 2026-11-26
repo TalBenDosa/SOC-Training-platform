@@ -63,6 +63,7 @@ import { roomsBatch47 } from "./rooms-batch-47";
 import { roomsBatch48 } from "./rooms-batch-48";
 import { roomsBatch49 } from "./rooms-batch-49";
 import { roomsBatch50 } from "./rooms-batch-50";
+import { roomsBatch51 } from "./rooms-batch-51";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -353,4 +354,5 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch48), // vishing-helpdesk-social-engineering
   ...cast(roomsBatch49), // html-smuggling-and-lolbins
   ...cast(roomsBatch50), // google-secops-fundamentals
+  ...cast(roomsBatch51), // AI security monitoring, detection and response track (15 rooms)
 ];

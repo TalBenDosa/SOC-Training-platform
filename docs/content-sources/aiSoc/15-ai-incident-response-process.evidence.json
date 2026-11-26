@@ -1,0 +1,885 @@
+{
+  "topic": "Building incident response processes for AI incidents",
+  "slug": "ai-incident-response-process",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "NIST SP 800-61 Rev. 3, Incident Response Recommendations and Considerations for Cybersecurity Risk Management: A CSF 2.0 Community Profile (publication page)",
+      "url": "https://csrc.nist.gov/pubs/sp/800/61/r3/final",
+      "publisher": "NIST CSRC",
+      "used_for": "Current revision, publication date April 2025, final status, supersedes Rev. 2 (2012)"
+    },
+    {
+      "id": "S2",
+      "title": "NIST SP 800-61 Rev. 3 (full text PDF, read via text extraction)",
+      "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r3.pdf",
+      "publisher": "NIST",
+      "used_for": "Life cycle model based on CSF 2.0 functions, Table 1 mapping, roles, policy elements, playbooks, priorities, RS and RC outcomes and recommendations, ID.IM"
+    },
+    {
+      "id": "S3",
+      "title": "NIST AI 600-1, AI RMF Generative AI Profile (PDF, read via text extraction)",
+      "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+      "publisher": "NIST",
+      "used_for": "AI incident definition (Appendix A.1.8), MANAGE 2.4 deactivation actions (MG-2.4-004)"
+    },
+    {
+      "id": "S4",
+      "title": "OWASP GenAI Security Project, GenAI Incident Response Guide 1.0 (resource page)",
+      "url": "https://genai.owasp.org/resource/genai-incident-response-guide-1-0/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Title, version 1.0, date July 28, 2025, purpose"
+    },
+    {
+      "id": "S5",
+      "title": "OWASP GenAI Security Project, GenAI Incident Response Guide 1.0 (PDF, read via text extraction)",
+      "url": "https://genai.owasp.org/download/49068/?tmstv=1753687643",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "No accepted AI incident definition, asset inventory and non-human identities, factors before declaration, severity calculation, blast radius, SLAs, third-party provider containment and post-incident guidance"
+    },
+    {
+      "id": "S6",
+      "title": "Coalition for Secure AI (CoSAI), AI Incident Response Framework V1.0 (PDF, read via text extraction)",
+      "url": "https://www.coalitionforsecureai.org/wp-content/uploads/2026/03/AI-Incident-Response-1.pdf",
+      "publisher": "CoSAI / OASIS Open",
+      "used_for": "Five incident domains, baseline telemetry, architecture-specific containment, evidence preservation, eradication by level, playbook structure, provider versus consumer responsibilities, exercises, post-incident review timing"
+    },
+    {
+      "id": "S7",
+      "title": "Microsoft Learn, Incident response for AI systems",
+      "url": "https://learn.microsoft.com/en-ca/security/zero-trust/sfi/incident-response-ai-systems",
+      "publisher": "Microsoft",
+      "used_for": "Generic buckets lose signal, context-dependent severity, telemetry versus privacy, staged remediation, 60 minute containment success factor, watch periods, non-determinism, annual tabletop"
+    },
+    {
+      "id": "S8",
+      "title": "Anthropic, Claude Platform Docs: Query the Activity Feed (Compliance API)",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-activity-feed",
+      "publisher": "Anthropic",
+      "used_for": "Activity object top-level fields, actor union and its fields, id formats in the example"
+    },
+    {
+      "id": "S9",
+      "title": "Anthropic, Claude Platform API reference: Query compliance activities",
+      "url": "https://platform.claude.com/docs/en/api/compliance/activities/list",
+      "publisher": "Anthropic",
+      "used_for": "Activity type names and descriptions: claude_gdrive_integration_deleted, mcp_server_deleted, mcp_tool_policy_updated"
+    },
+    {
+      "id": "S10",
+      "title": "AWS IAM API Reference, UpdateAccessKey",
+      "url": "https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateAccessKey.html",
+      "publisher": "AWS",
+      "used_for": "Operation changes key status Active to Inactive or vice versa; meaning of Inactive; parameters UserName, AccessKeyId, Status"
+    },
+    {
+      "id": "S11",
+      "title": "AWS IAM User Guide, Logging IAM and AWS STS API calls with AWS CloudTrail",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/cloudtrail-integration.html",
+      "publisher": "AWS",
+      "used_for": "CloudTrail record fields and an IAM example event (eventSource iam.amazonaws.com, awsRegion us-east-1, userIdentity for AssumedRole, requestParameters.userName)"
+    },
+    {
+      "id": "S12",
+      "title": "AWS IAM User Guide, IAM identifiers",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html",
+      "publisher": "AWS",
+      "used_for": "Unique ID prefixes AKIA (access key), ASIA (temporary STS access key), AROA (role); assumed-role ARN format"
+    },
+    {
+      "id": "S13",
+      "title": "Amazon Bedrock User Guide, Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "AWS",
+      "used_for": "eventSource bedrock.amazonaws.com, management versus data events, agent API operations logged, stream-completion events with eventType AwsServiceEvent"
+    },
+    {
+      "id": "S14",
+      "title": "Amazon Bedrock API Reference, UpdateAgentActionGroup",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_UpdateAgentActionGroup.html",
+      "publisher": "AWS",
+      "used_for": "actionGroupState valid values ENABLED and DISABLED and its meaning; agentVersion pattern DRAFT"
+    },
+    {
+      "id": "S15",
+      "title": "EU AI Act, Article 73: Reporting of Serious Incidents",
+      "url": "https://artificialintelligenceact.eu/article/73/",
+      "publisher": "Future of Life Institute (EU AI Act explorer, official text)",
+      "used_for": "Who reports, to whom, 15 day, 2 day and 10 day limits, duty not to alter the system before informing authorities"
+    },
+    {
+      "id": "S16",
+      "title": "GDPR, Article 33: Notification of a personal data breach to the supervisory authority",
+      "url": "https://gdpr-info.eu/art-33-gdpr/",
+      "publisher": "gdpr-info.eu (official text)",
+      "used_for": "72 hour notification by the controller, exception, processor duty"
+    },
+    {
+      "id": "S17",
+      "title": "CISA, AI Cybersecurity Collaboration Playbook",
+      "url": "https://www.cisa.gov/resources-tools/resources/ai-cybersecurity-collaboration-playbook",
+      "publisher": "CISA",
+      "used_for": "Publication date January 14, 2025, voluntary information sharing through JCDC"
+    },
+    {
+      "id": "S18",
+      "title": "CISA, Tabletop Exercise Packages",
+      "url": "https://www.cisa.gov/resources-tools/services/cisa-tabletop-exercise-packages",
+      "publisher": "CISA",
+      "used_for": "Shape of a tabletop exercise package: objectives, scenarios, modules, discussion questions, after-action report"
+    },
+    {
+      "id": "S19",
+      "title": "MITRE ATLAS data, ATLAS-2026.10.yaml (and the deprecated dist/ATLAS.yaml 5.6.0 for tactic mappings)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.10.yaml",
+      "publisher": "MITRE",
+      "used_for": "Technique names AML.T0051, AML.T0053, AML.T0055, AML.T0070"
+    },
+    {
+      "id": "S20",
+      "title": "MITRE ATT&CK, Valid Accounts: Cloud Accounts (T1078.004)",
+      "url": "https://attack.mitre.org/techniques/T1078/004/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, current status and tactics"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "SP 800-61 Revision 3 was published in April 2025, is final, and supersedes Revision 2 of 2012",
+      "source": "S1",
+      "locator": "Publication page: final 04/03/25; Supersedes SP 800-61 Rev. 2 (08/06/2012)"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Revision 3 title: Incident Response Recommendations and Considerations for Cybersecurity Risk Management: A CSF 2.0 Community Profile",
+      "source": "S1",
+      "locator": "Publication page title"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Revision 2 depicted a circular life cycle; incidents were relatively rare and recovery usually completed within a day or two; today recovery often takes weeks or months and lessons should be shared as soon as identified",
+      "source": "S2",
+      "locator": "Section 2.1, text under Fig. 1"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Govern, Identify and Protect preparation activities are not part of the incident response itself; incident response is Detect, Respond and Recover; Improvement (ID.IM) is the middle level",
+      "source": "S2",
+      "locator": "Section 2.1, text under Fig. 2: 'The bottom level reflects that the preparation activities of Govern, Identify, and Protect are not part of the incident response itself'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Table mapping previous phases to CSF 2.0 functions",
+      "source": "S2",
+      "locator": "Table 1"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Priority meanings High, Medium, Low and the R, C, N item designations",
+      "source": "S2",
+      "locator": "Section 3, bullets after 'Each row's relative priority'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "It is no longer feasible to capture details of how to perform incident response in a single static publication",
+      "source": "S2",
+      "locator": "Section 1.1 Purpose and Scope"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "CoSAI framework focuses on NIST 800-61r3 life cycle; OWASP guide generally aligns with the NIST incident response lifecycle",
+      "source": "S6",
+      "locator": "1.2.1 Quick Start Guide; OWASP 'Guide Structure' (S5)"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Definition of a cybersecurity incident used by Revision 3",
+      "source": "S2",
+      "locator": "Section 1 Introduction, FISMA2014 quotation"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "OWASP guide is version 1.0 dated July 28, 2025 and says there is still no widely accepted definition of an AI incident",
+      "source": "S5",
+      "locator": "Cover page; 'Defining AI Incidents'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "NIST AI 600-1 harm-based definition of AI incidents",
+      "source": "S3",
+      "locator": "Appendix A.1.8 Incident Disclosure, Overview"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "CoSAI five domains (data, model, deployment, infrastructure, user interaction) and the example incident types listed",
+      "source": "S6",
+      "locator": "Section 2.1 to 2.5 tables"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "RS.MA-03 'Incidents are categorized and prioritized' and the recommendation to categorise by incident type",
+      "source": "S2",
+      "locator": "Table 3, RS.MA-03 R1"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Triage loses signal when AI incidents default to generic buckets",
+      "source": "S7",
+      "locator": "Context and problem: Taxonomy gaps"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "OWASP: classify AI assets, create an asset inventory, pay special attention to non-human identities",
+      "source": "S5",
+      "locator": "Knowing AI Systems within an organization"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Asset owners are listed among incident response roles",
+      "source": "S2",
+      "locator": "Section 2.2, 'Asset owners'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "CoSAI baseline telemetry list",
+      "source": "S6",
+      "locator": "3.1 Pre-Incident Preparation, Baseline Telemetry"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Forensic-grade telemetry may conflict with privacy-by-design defaults",
+      "source": "S7",
+      "locator": "Trade-offs"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "MANAGE 2.4 deactivation mechanisms and MG-2.4-004 criteria that warrant deactivation",
+      "source": "S3",
+      "locator": "MANAGE 2.4 table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Policy states which roles have the authority to confiscate, disconnect, or shut down technology assets",
+      "source": "S2",
+      "locator": "Section 2.3 policy elements"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Shared responsibility model with third parties defined in a contract; CoSAI provider versus consumer split",
+      "source": "S2",
+      "locator": "Section 2.2 third parties paragraph; CoSAI 3.4.1 (S6)"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Incidents should not be handled first-come, first-served; risk evaluation factor examples",
+      "source": "S2",
+      "locator": "RS.MA R1, R2, N2"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "OWASP severity: score dimensions 1 to 4, highest score is overall severity; example functional 2, data 4 gives Critical",
+      "source": "S5",
+      "locator": "Calculating the Severity of a declared incident"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "OWASP blast radius elements and SLA elements (initial containment time, eradication time, RTO, RPO, communication frequency hourly for Critical, daily for High)",
+      "source": "S5",
+      "locator": "Define the Blast Radius; Define Response time obligations and SLAs"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "At least one containment action executable within 60 minutes of incident declaration; severity weighted by domain, population, content",
+      "source": "S7",
+      "locator": "Key success factors; Solution"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Escalation means increasing resources or time frames; elevation means involving higher management",
+      "source": "S2",
+      "locator": "RS.MA-04 N1"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Containment refers to preventing the expansion of an incident; most incidents require containment; criteria can take the incident type into account; automatic and manual containment",
+      "source": "S2",
+      "locator": "RS.MI N1, RS.MI-01 N1, C1, R1"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "CoSAI architecture-specific containment and evidence preservation before containment",
+      "source": "S6",
+      "locator": "3.3.3 Containment Strategies"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "UpdateAccessKey changes status Active to Inactive or vice versa; Inactive means the key cannot be used",
+      "source": "S10",
+      "locator": "Description and Status parameter"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "IAM calls are logged with eventSource iam.amazonaws.com",
+      "source": "S11",
+      "locator": "Example IAM API event (GetUserPolicy)"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "UpdateAgentActionGroup actionGroupState ENABLED or DISABLED; agentVersion DRAFT",
+      "source": "S14",
+      "locator": "Request Body actionGroupState; URI parameter agentVersion pattern"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Agents for Amazon Bedrock API operations are logged by CloudTrail as management events",
+      "source": "S13",
+      "locator": "Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Activity type descriptions for mcp_server_deleted, claude_gdrive_integration_deleted, mcp_tool_policy_updated",
+      "source": "S9",
+      "locator": "activity_types enum descriptions"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Eradication definition and RC.RP recovery recommendations; RS.MA-05 recovery criteria",
+      "source": "S2",
+      "locator": "RS.MI-02 N1, R1; RC.RP-03 to RC.RP-06; RS.MA-05"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Staged remediation: first hour, first 24 hours, days or weeks; allow and block lists as triage tools; watch periods; single test pass",
+      "source": "S7",
+      "locator": "Apply staged remediation"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "CoSAI component remediation by level",
+      "source": "S6",
+      "locator": "3.3.3 Eradication Procedures"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "OWASP: reassess trustworthiness of outputs generated during the period of compromise at a third-party provider",
+      "source": "S5",
+      "locator": "Attacks on Third-Party Model Providers, Containment, Eradication, and Recovery"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Stream-completion events have eventType AwsServiceEvent; restrict to AwsApiCall when counting invocations",
+      "source": "S13",
+      "locator": "Stream-completion events for streaming invocations"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Four categories of incident communication; notification recommendation RS.CO-02 R3",
+      "source": "S2",
+      "locator": "RS.CO N1; RS.CO-02 R3"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "GDPR Article 33: controller notifies the supervisory authority within 72 hours where feasible, with the unlikely-risk exception",
+      "source": "S16",
+      "locator": "Paragraph 1"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "EU AI Act Article 73: providers of high-risk AI systems, market surveillance authorities, 15 days, 2 days, 10 days, no alteration before informing authorities",
+      "source": "S15",
+      "locator": "Paragraphs 1 to 4 and 6"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "CISA AI Cybersecurity Collaboration Playbook published January 14, 2025; all actions voluntary",
+      "source": "S17",
+      "locator": "Resource page"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "After-action report (RC.RP-06 R1); improvements include TTPs not blocked or flagged (ID.IM-03 N2); CoSAI review within 1 to 2 weeks",
+      "source": "S2",
+      "locator": "RC.RP-06 R1; ID.IM-03 N2; CoSAI 3.3.4 (S6)"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Playbooks provide actionable steps or tasks; CoSAI playbook structure of six parts",
+      "source": "S2",
+      "locator": "Section 2.3 last paragraph; CoSAI 1.3.4 (S6)"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "CISA tabletop package shape and modules; ID.IM-02 improvements from tests and exercises; Microsoft one AI tabletop per year; CoSAI quarterly exercises",
+      "source": "S18",
+      "locator": "CTEP page; NIST Table 2 ID.IM-02 (S2); Microsoft key success factors (S7); CoSAI 3.4.2 (S6)"
+    },
+    {
+      "where": "room:aiir-r1",
+      "claim": "Revision 3 published April 2025; six CSF 2.0 functions; preparation versus response; ID.IM",
+      "source": "S2",
+      "locator": "Section 2.1"
+    },
+    {
+      "where": "room:aiir-r1",
+      "claim": "Severity is the highest score in any dimension; score range 1 to 4; a 4 gives Critical",
+      "source": "S5",
+      "locator": "Calculation Method"
+    },
+    {
+      "where": "room:aiir-r2",
+      "claim": "Containment means preventing expansion; criteria and procedures make selection easier and faster",
+      "source": "S2",
+      "locator": "RS.MI N1, RS.MI-01 N1"
+    },
+    {
+      "where": "room:aiir-r2",
+      "claim": "UpdateAccessKey, Inactive meaning and reversibility",
+      "source": "S10",
+      "locator": "Description and Status parameter"
+    },
+    {
+      "where": "room:aiir-r2",
+      "claim": "Temporary keys start with ASIA and access keys with AKIA",
+      "source": "S12",
+      "locator": "Understanding unique ID prefixes"
+    },
+    {
+      "where": "room:aiir-r2",
+      "claim": "claude_gdrive_integration_deleted: a Google Drive integration was disabled for the organization",
+      "source": "S9",
+      "locator": "activity_types enum description"
+    },
+    {
+      "where": "room:aiir-r2",
+      "claim": "One containment action within 60 minutes of declaring",
+      "source": "S7",
+      "locator": "Key success factors"
+    },
+    {
+      "where": "room:aiir-r3",
+      "claim": "Check restored assets for indicators of compromise and remediate root causes before production use",
+      "source": "S2",
+      "locator": "RC.RP-05 R1"
+    },
+    {
+      "where": "room:aiir-r3",
+      "claim": "GDPR 72 hours to the supervisory authority",
+      "source": "S16",
+      "locator": "Paragraph 1"
+    },
+    {
+      "where": "room:aiir-r3",
+      "claim": "Four kinds of incident communication",
+      "source": "S2",
+      "locator": "RS.CO N1"
+    },
+    {
+      "where": "room:aiir-la1",
+      "claim": "CloudTrail record structure for an IAM call by an assumed role",
+      "source": "S11",
+      "locator": "Example IAM API event in CloudTrail log file"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventVersion",
+      "source": "S11",
+      "locator": "example event: eventVersion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventTime",
+      "source": "S11",
+      "locator": "example event: eventTime"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventSource",
+      "source": "S11",
+      "locator": "example event: eventSource iam.amazonaws.com"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventName",
+      "source": "S11",
+      "locator": "example event: eventName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.awsRegion",
+      "source": "S11",
+      "locator": "example event: awsRegion us-east-1"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.sourceIPAddress",
+      "source": "S11",
+      "locator": "example event: sourceIPAddress"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userAgent",
+      "source": "S11",
+      "locator": "example event: userAgent (aws-cli format from the STS global endpoint example)"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.type",
+      "source": "S11",
+      "locator": "example event: userIdentity.type AssumedRole"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.principalId",
+      "source": "S11",
+      "locator": "example event: userIdentity.principalId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.arn",
+      "source": "S11",
+      "locator": "example event: userIdentity.arn assumed-role form"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accountId",
+      "source": "S11",
+      "locator": "example event: userIdentity.accountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accessKeyId",
+      "source": "S11",
+      "locator": "example event: userIdentity.accessKeyId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.userName",
+      "source": "S11",
+      "locator": "example event: requestParameters.userName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.accessKeyId",
+      "source": "S10",
+      "locator": "API parameter AccessKeyId; CloudTrail casing inferred, see unverified"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.status",
+      "source": "S10",
+      "locator": "API parameter Status; CloudTrail casing inferred, see unverified"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.responseElements",
+      "source": "S11",
+      "locator": "example event: responseElements null"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestID",
+      "source": "S11",
+      "locator": "example event: requestID"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventID",
+      "source": "S11",
+      "locator": "example event: eventID"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.readOnly",
+      "source": "S11",
+      "locator": "example event: readOnly"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventType",
+      "source": "S11",
+      "locator": "example event: eventType AwsApiCall"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.managementEvent",
+      "source": "S11",
+      "locator": "example event: managementEvent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.recipientAccountId",
+      "source": "S11",
+      "locator": "example event: recipientAccountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventCategory",
+      "source": "S11",
+      "locator": "example event: eventCategory Management"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "actionGroupState",
+      "source": "S14",
+      "locator": "Request Body (named in lesson section 5 only)"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "id",
+      "source": "S8",
+      "locator": "Understand the Activity object: id"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "created_at",
+      "source": "S8",
+      "locator": "Understand the Activity object: created_at"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "organization_id",
+      "source": "S8",
+      "locator": "Understand the Activity object: organization_id"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "organization_uuid",
+      "source": "S8",
+      "locator": "Understand the Activity object: organization_uuid"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "type",
+      "source": "S8",
+      "locator": "Understand the Activity object: type"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.type",
+      "source": "S8",
+      "locator": "actor table: user_actor"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.email_address",
+      "source": "S8",
+      "locator": "actor table: user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.user_id",
+      "source": "S8",
+      "locator": "actor table: user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.ip_address",
+      "source": "S8",
+      "locator": "actor table: user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.user_agent",
+      "source": "S8",
+      "locator": "actor table: user_actor key fields"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "The document is explicit that the preparation activities of Govern, Identify and Protect are not part of the incident response itself."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "Pick the category of the earliest step for containment and list the others for scoping."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "Write the AI equivalents down: who may revoke a production key, disable a connector or pause an agent at three in the morning."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "Assess each applicable impact dimension, give it a score from 1 to 4, and take the **highest** score as the overall severity."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "`UpdateAgentActionGroup` carries `actionGroupState`, whose valid values are `ENABLED` and `DISABLED`; it specifies whether the action group is available for the agent to invoke."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "Microsoft states that non-deterministic behaviour cannot be verified through a single test pass, and asks for watch periods with explicit closure criteria after each stage."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "The SOC's job is to know the clocks exist and to supply facts quickly."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "Before changing anything, the analyst exports the two conversations with their retrieved context and records the document's identifier and upload details."
+    },
+    {
+      "q": "room:aiir-q1",
+      "taught_in": "room:aiir-r1",
+      "support": "Writing this inventory is Identify work, and deciding who may pull each kill switch is Govern work."
+    },
+    {
+      "q": "room:aiir-q2",
+      "taught_in": "room:aiir-r1",
+      "support": "The overall severity is the highest score in any single dimension, not the average."
+    },
+    {
+      "q": "room:aiir-m1",
+      "taught_in": "room:aiir-r2",
+      "support": "Each category has one first move: revoke the key, disable the tool, disable the connector, restrict the access, quarantine the source."
+    },
+    {
+      "q": "room:aiir-la1#1",
+      "taught_in": "room:aiir-r2",
+      "support": "userIdentity.arn names the role and the session, for example an assumed role called soc-responder with the session name of the analyst."
+    },
+    {
+      "q": "room:aiir-la1#2",
+      "taught_in": "room:aiir-r2",
+      "support": "Inactive means the key cannot be used for programmatic calls, and the change can be reversed by setting the status back to Active."
+    },
+    {
+      "q": "room:aiir-la1#3",
+      "taught_in": "room:aiir-r2",
+      "support": "Search CloudTrail for bedrock.amazonaws.com events signed with the contained key after the change."
+    },
+    {
+      "q": "room:aiir-f1",
+      "taught_in": "room:aiir-r2",
+      "support": "requestParameters.accessKeyId is the key that was changed."
+    },
+    {
+      "q": "room:aiir-ac1",
+      "taught_in": "room:aiir-r2",
+      "support": "A contained key, tool or connector is switched back on only with the incident lead's approval recorded in the incident ticket, after eradication is complete."
+    },
+    {
+      "q": "room:aiir-o1",
+      "taught_in": "room:aiir-r3",
+      "support": "Preserve comes before contain, and verify comes straight after it."
+    },
+    {
+      "q": "room:aiir-ac2",
+      "taught_in": "room:aiir-r2",
+      "support": "When that rule fires on the responders' own recorded action, the verdict is benign true positive: the rule worked and the activity was authorised."
+    },
+    {
+      "q": "room:aiir-q3",
+      "taught_in": "room:aiir-r3",
+      "support": "Whether a duty applies is decided by legal, not by the SOC."
+    },
+    {
+      "q": "room:aiir-q4",
+      "taught_in": "room:aiir-r3",
+      "support": "One clean test proves little, because the same input can produce a different output next time."
+    },
+    {
+      "q": "room:aiir-q5",
+      "taught_in": "room:aiir-r3",
+      "support": "What an exercise reveals is treated like a lesson from a real incident: it goes to Improvement and changes the playbook the same week."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0051",
+      "name": "LLM Prompt Injection",
+      "tactics": [
+        "Execution (AML.TA0005)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0053",
+      "name": "AI Agent Tool Invocation",
+      "tactics": [
+        "Execution (AML.TA0005)",
+        "Privilege Escalation (AML.TA0012)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0055",
+      "name": "Unsecured Credentials",
+      "tactics": [
+        "Credential Access (AML.TA0013)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0070",
+      "name": "RAG Poisoning",
+      "tactics": [],
+      "source": "S19"
+    },
+    {
+      "id": "T1078.004",
+      "name": "Valid Accounts: Cloud Accounts",
+      "tactics": [
+        "Initial Access",
+        "Persistence",
+        "Privilege Escalation",
+        "Stealth"
+      ],
+      "source": "S20"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "CloudTrail requestParameters key casing for UpdateAccessKey (accessKeyId, status)",
+      "why": "No AWS documentation page fetched in this run shows a CloudTrail record for UpdateAccessKey. The API parameters are UserName, AccessKeyId and Status (S10), and the fetched IAM example (GetUserPolicy, S11) shows CloudTrail writing such parameters in lower camel case (userName, policyName).",
+      "handled": "used as requestParameters.userName, requestParameters.accessKeyId, requestParameters.status following the documented casing pattern; should be confirmed against a real event before integration"
+    },
+    {
+      "item": "Tactic mapping of AML.T0070 RAG Poisoning, and tactic mappings of the other ATLAS techniques in the 2026.10 data",
+      "why": "The current ATLAS-2026.10.yaml confirmed the four technique names, but its technique entries carry no tactic field in the chunks read. Tactics for AML.T0051, AML.T0053 and AML.T0055 were read from the deprecated dist/ATLAS.yaml (5.6.0); AML.T0070 was outside the chunk read there.",
+      "handled": "the content cites ATLAS technique IDs and names only and states no ATLAS tactic; AML.T0070 tactics left empty in mitre_ids"
+    },
+    {
+      "item": "Names of all five OWASP severity dimensions (A to E)",
+      "why": "The extracted PDF text gave the calculation method and the example (Functional Impact, Data Impact) but the matrix table itself did not extract cleanly.",
+      "handled": "content names only functional impact and data impact as OWASP dimensions; the lesson worksheet labels its dimension names as one organisation's choice"
+    },
+    {
+      "item": "AWS Security Blog 'Methodology for incident response on generative AI workloads'",
+      "why": "The page returned only navigation text in two fetch attempts.",
+      "handled": "left out entirely"
+    },
+    {
+      "item": "Type-specific fields of the claude_gdrive_integration_deleted and mcp_server_deleted activity records",
+      "why": "The API reference page is very large and only the activity_types enum descriptions were read, not the per-type response schema.",
+      "handled": "records in the lesson and room use only the documented top-level Activity fields and user_actor fields"
+    },
+    {
+      "item": "How a DRAFT action group change on a Bedrock agent reaches a deployed alias",
+      "why": "Only the UpdateAgentActionGroup API reference was read (agentVersion pattern DRAFT).",
+      "handled": "softened to an instruction to ask the application owner and write the step into the playbook"
+    },
+    {
+      "item": "EU AI Act Article 73 application date and the Article 3(49)(b) definition",
+      "why": "Only the Article 73 page was read; the 2 day limit also covers serious incidents under Article 3(49)(b), which was not read.",
+      "handled": "no application date stated; the 2 day limit is described only for a widespread infringement"
+    },
+    {
+      "item": "ATT&CK tactic name 'Stealth' for T1078.004",
+      "why": "The fetched technique page (version 2.0, last modified 12 May 2026) lists tactics Stealth, Persistence, Privilege Escalation, Initial Access; integrate mode should confirm how src/lib/mitre/attack.ts names this tactic.",
+      "handled": "content cites the technique ID and name only, no tactic"
+    }
+  ]
+}

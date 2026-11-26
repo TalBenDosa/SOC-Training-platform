@@ -1,0 +1,966 @@
+{
+  "topic": "Bringing AI data sources into the SIEM and making them work together",
+  "slug": "ai-siem-source-integration",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Azure Monitor Logs reference: CopilotActivity",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/copilotactivity",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotActivity table description, columns, table plan and transformation support"
+    },
+    {
+      "id": "S2",
+      "title": "Monitor model invocation using CloudWatch Logs and Amazon S3",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html",
+      "publisher": "AWS documentation",
+      "used_for": "Bedrock model invocation logging: default state, destinations, operations, modalities, size limits, log entry format, requestMetadata"
+    },
+    {
+      "id": "S3",
+      "title": "Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "AWS documentation",
+      "used_for": "Bedrock management and data events, CloudTrail record fields, stream-completion events, ApplyGuardrail data events"
+    },
+    {
+      "id": "S4",
+      "title": "Normalization and the Advanced Security Information Model (ASIM)",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/normalization",
+      "publisher": "Microsoft Learn",
+      "used_for": "ASIM definition, schema list, query-time parsers and ingest-time normalisation"
+    },
+    {
+      "id": "S5",
+      "title": "Auditing and health monitoring in Microsoft Sentinel",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/health-audit",
+      "publisher": "Microsoft Learn",
+      "used_for": "SentinelHealth and SentinelAudit tables, need to enable health monitoring"
+    },
+    {
+      "id": "S6",
+      "title": "Audit logs for Copilot and AI applications",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn (Purview)",
+      "used_for": "What a Copilot audit record contains, AppHost values, Messages and AccessedResources, automatic logging under Audit (Standard)"
+    },
+    {
+      "id": "S7",
+      "title": "Monitor the health of your Microsoft Sentinel data connectors",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/monitor-data-connector-health",
+      "publisher": "Microsoft Learn",
+      "used_for": "SentinelHealth supported connectors, Data fetch status change timing, sample KQL, health workbook"
+    },
+    {
+      "id": "S8",
+      "title": "Log data ingestion time in Azure Monitor",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-ingestion-time",
+      "publisher": "Microsoft Learn",
+      "used_for": "TimeGenerated, _TimeReceived, ingestion_time(), TimeGenerated replacement rule, resource log latency, latency query"
+    },
+    {
+      "id": "S9",
+      "title": "Azure Monitor Logs overview and table plans",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-platform-logs",
+      "publisher": "Microsoft Learn",
+      "used_for": "Analytics, Basic and Auxiliary table plans, alert support, retention, transformations"
+    },
+    {
+      "id": "S10",
+      "title": "Azure Monitor Logs reference: ApiManagementGatewayLlmLog",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/apimanagementgatewayllmlog",
+      "publisher": "Microsoft Learn",
+      "used_for": "ApiManagementGatewayLlmLog columns and table attributes"
+    },
+    {
+      "id": "S11",
+      "title": "Azure Monitor Logs reference: AWSCloudTrail",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/awscloudtrail",
+      "publisher": "Microsoft Learn",
+      "used_for": "AWSCloudTrail columns, EventTypeName and UserIdentityType values, table attributes"
+    },
+    {
+      "id": "S12",
+      "title": "PutModelInvocationLoggingConfiguration",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_PutModelInvocationLoggingConfiguration.html",
+      "publisher": "AWS documentation",
+      "used_for": "Request syntax of the logging configuration API (loggingConfig, s3Config, delivery flags)"
+    },
+    {
+      "id": "S13",
+      "title": "OCSF Schema 1.3.0: API Activity class",
+      "url": "https://schema.ocsf.io/1.3.0/classes/api_activity",
+      "publisher": "OCSF project",
+      "used_for": "API Activity class UID, category, description and required attributes"
+    },
+    {
+      "id": "S14",
+      "title": "Elastic Common Schema reference: Gen AI fields",
+      "url": "https://www.elastic.co/docs/reference/ecs/ecs-gen_ai",
+      "publisher": "Elastic",
+      "used_for": "ECS Gen AI field set, field names, beta status, OpenTelemetry basis"
+    },
+    {
+      "id": "S15",
+      "title": "Query the Activity Feed (Compliance API)",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-activity-feed.md",
+      "publisher": "Anthropic (Claude Platform Docs)",
+      "used_for": "Activity Feed endpoint, availability, retention, no backfill, pagination, Activity object and actor types"
+    },
+    {
+      "id": "S16",
+      "title": "Design your compliance integration",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-integration-patterns.md",
+      "publisher": "Anthropic (Claude Platform Docs)",
+      "used_for": "Window polling rules, deduplication, rate limit, SIEM join fields, user_id as primary join key"
+    },
+    {
+      "id": "S17",
+      "title": "Set up logging for language model APIs in Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-llm-logs",
+      "publisher": "Microsoft Learn",
+      "used_for": "Diagnostic setting category, optional prompt and completion logging, 32 KB chunks, 2 MB limit, CorrelationId"
+    },
+    {
+      "id": "S18",
+      "title": "MITRE ATT&CK T1685.002 Disable or Modify Cloud Log",
+      "url": "https://attack.mitre.org/techniques/T1685/002/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, ID, parent technique and tactic"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "A Copilot audit record says which user interacted, when and where, and includes references to files and other resources accessed",
+      "source": "S6",
+      "locator": "User activities with Copilot: 'These audit records contain details about which user interacted with Copilot, when the interaction took place, and where it occurred. Audit records also include references to files, sites, or other resources'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "The documented CloudTrail InvokeModel example has requestParameters containing only modelId",
+      "source": "S3",
+      "locator": "Understanding Amazon Bedrock log file entries, InvokeModel example: \"requestParameters\": { \"modelId\": ... }"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Bedrock invocation logging collects full request data, response data and metadata, with input and output token counts",
+      "source": "S2",
+      "locator": "'you can collect the full request data, response data, and metadata'; Log entry format fields input.inputTokenCount, output.outputTokenCount"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "ApplyGuardrail calls are CloudTrail data events on the AWS::Bedrock::Guardrail resource type, with requestParameters.source INPUT and responseElements.action",
+      "source": "S3",
+      "locator": "Amazon Bedrock data events in CloudTrail; ApplyGuardrail example"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Azure API Management sends LLM logs through a diagnostic setting, log category 'Logs related to generative AI gateway'",
+      "source": "S17",
+      "locator": "Enable diagnostic setting for language model API logs, step 3"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A CloudTrail trail delivers log files to an Amazon S3 bucket",
+      "source": "S3",
+      "locator": "'A trail enables CloudTrail to deliver log files to an Amazon S3 bucket'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Invocation logging destinations are CloudWatch Logs and Amazon S3, same account and Region only",
+      "source": "S2",
+      "locator": "'Supported destinations include Amazon CloudWatch Logs and Amazon Simple Storage Service (Amazon S3). Only destinations from the same account and Region are supported.'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "CloudTrail logs management events by default; Bedrock logs InvokeModel, InvokeModelWithResponseStream, Converse and ConverseStream as management events",
+      "source": "S3",
+      "locator": "Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "InvokeAgent is a data event; data events are not logged by default and carry additional charges",
+      "source": "S3",
+      "locator": "Amazon Bedrock data events in CloudTrail: 'Data events are often high-volume activities that CloudTrail doesn't log by default'; 'Additional charges apply for data events'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Model invocation logging is disabled by default",
+      "source": "S2",
+      "locator": "'Model invocation logging is disabled by default.'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Copilot and AI application activities are logged automatically as part of Audit (Standard) when auditing is enabled",
+      "source": "S6",
+      "locator": "Introduction: 'The system automatically logs these activities as part of Audit (Standard). If your organization enables auditing, you don't need to take extra steps'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Activity Feed recording begins when the Compliance API is first enabled; no backfill",
+      "source": "S15",
+      "locator": "'No backfill: Recording begins when the Compliance API is first enabled for your organization. Earlier activity is not backfilled.'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Activity Feed endpoint is GET /v1/compliance/activities; newest first; limit default 100, max 5,000; queryable within 1 minute",
+      "source": "S15",
+      "locator": "Availability bullet; Paginate results: 'capped at limit results in each response (default 100, max 5,000)'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Window polling: created_at.lt at least 1 minute in the past, reuse previous lt as next gte, deduplicate on id, overlap or reconcile",
+      "source": "S16",
+      "locator": "Window polling section and its warning"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Compliance API requests are limited to 600 per minute for each parent organisation",
+      "source": "S16",
+      "locator": "Choose a feed-consumption pattern, shared constraints"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "CopilotActivity columns ActorName, SrcIpAddr, RecordType, AppHost, Workload, LLMEventData and their descriptions; table described as audit logs for Copilot and other AI workloads",
+      "source": "S1",
+      "locator": "Table description and Columns table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "AppHost examples include Word and Teams",
+      "source": "S6",
+      "locator": "Common AppHost scenarios in Copilot table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "AWSCloudTrail columns EventSource, EventName, UserIdentityArn, UserIdentityAccessKeyId, SourceIpAddress, EventTypeName (AwsApiCall, AwsServiceEvent, AwsConsoleAction, AwsConsoleSignIn), RequestParameters; ingested from Sentinel's connector",
+      "source": "S11",
+      "locator": "Table description and Columns table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "ApiManagementGatewayLlmLog columns DeploymentName, ModelName, PromptTokens, CompletionTokens, TotalTokens, CorrelationId (corresponds to ApiManagementGatewayLogs), RequestMessages, ResponseMessages, SequenceNumber",
+      "source": "S10",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ECS Gen AI field set: description, field names gen_ai.provider.name, gen_ai.request.model, gen_ai.operation.name, gen_ai.usage.input_tokens, gen_ai.usage.output_tokens; every field marked beta; based on OpenTelemetry semantic conventions",
+      "source": "S14",
+      "locator": "Gen AI fields page: field list, beta notes, OpenTelemetry relation"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "OCSF API Activity is class 6003 in the Application Activity category; description names AWS CloudTrail; required attributes include actor, api, src_endpoint, cloud, time",
+      "source": "S13",
+      "locator": "Class header and attribute table (schema version 1.3.0)"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ASIM is a layer between sources and the user; schema list includes Audit Event, Authentication Event, Web Session; query-time parsers are KQL functions that do not modify data and whose fixes apply to existing data; ingest-time normalisation accelerates queries",
+      "source": "S4",
+      "locator": "Intro, Normalized schemas, Query time parsers, Ingest time normalization"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "identity.arn example arn:aws:sts::123456789012:assumed-role/MyRole/session-name; requestMetadata is the only caller-supplied field, an optional object of key-value tags",
+      "source": "S2",
+      "locator": "Log entry format example and field table; note 'requestMetadata is the only field supplied by the caller'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "actor.user_id is stable, does not change when email or display name changes; use user_id, not email_address, as the primary join key",
+      "source": "S16",
+      "locator": "Correlate with your SIEM"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "LLM messages larger than 32 KB are split into 32 KB chunks with sequence numbers; entries correlate by CorrelationId",
+      "source": "S17",
+      "locator": "Note under 'Enable logging of requests or responses'; 'Review Azure Monitor logs for requests and responses'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "A streaming Bedrock call records an additional CloudTrail event with eventType AwsServiceEvent after the stream finishes, carrying token counts; serviceEventDetails.parentRequestId holds the requestID of the API call",
+      "source": "S3",
+      "locator": "Stream-completion events for streaming invocations"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "AWSCloudTrail has AwsRequestId_ (request id) and CopilotActivity has RecordId, ActorUserId, AppIdentity",
+      "source": "S11",
+      "locator": "AWSCloudTrail Columns: AwsRequestId_; CopilotActivity columns are in S1"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Claude activity fields actor.user_id, actor.email_address, actor.ip_address, actor.api_key_id, claude_chat_id, id",
+      "source": "S15",
+      "locator": "Understand the Activity object: field table and actor table; response example"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "TimeGenerated is record creation at source, _TimeReceived is receipt at the data collection endpoint, ingestion_time() is when stored and available",
+      "source": "S8",
+      "locator": "Check ingestion time table"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "TimeGenerated cannot be more than two days before the received time or more than a day in the future, otherwise it is replaced with the received time",
+      "source": "S8",
+      "locator": "Check ingestion time table, TimeGenerated comments"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "CloudTrail log files are not an ordered stack trace of API calls",
+      "source": "S3",
+      "locator": "Understanding Amazon Bedrock log file entries"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Azure resource logs are usually available within 3 to 10 minutes",
+      "source": "S8",
+      "locator": "Azure metrics, resource logs, activity logs"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Documented examples of eventTime, timestamp and created_at end in Z",
+      "source": "S3",
+      "locator": "S3 example eventTime 2023-10-11T21:58:59Z; S2 example timestamp 2024-01-15T12:00:00Z; S15 example created_at 2026-04-10T08:09:10Z"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ActorName is a user principal name or email address",
+      "source": "S1",
+      "locator": "Columns: ActorName"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "user_actor has email_address and user_id; api_actor has api_key_id",
+      "source": "S15",
+      "locator": "Actor discriminated union table"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "A stream-completion event has the same eventName, eventSource, userIdentity, sourceIPAddress and userAgent as the API call; eventType is the only distinguishing field; restrict counts to AwsApiCall",
+      "source": "S3",
+      "locator": "Stream-completion events, Important note"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Invocation logging modalities are Text, Image, Embedding, Video; bodies up to 100 KB inline, larger or binary data to S3 as separate objects",
+      "source": "S2",
+      "locator": "Model invocation logging using the console; Logging destinations"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "API Management: Log LLM messages, Log prompts and Log completions sizes in bytes such as 32768; up to 32 KB in a single entry; request and response messages cannot exceed 2 MB each; token usage and model name are logged for each request, messages optionally",
+      "source": "S17",
+      "locator": "Enable diagnostic setting; Enable logging of requests or responses and its note"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Copilot audit Messages property lists message IDs and an isPrompt flag; AccessedResources lists references",
+      "source": "S6",
+      "locator": "Common properties in Copilot audit logs: Messages, AccessedResources"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "A Claude activity carries type-specific identifiers such as claude_chat_id; chat content is retrieved through separate content endpoints with the read:compliance_user_data scope",
+      "source": "S15",
+      "locator": "Understand the Activity object: additional fields; paragraph on names and titles mentioning read:compliance_user_data"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Table plans: Analytics best for continuous monitoring and real-time detection with alerts; Basic for troubleshooting and incident response with simple log alerts; Auxiliary for verbose, audit and compliance data with no alerts; Analytics retention 30 days (90 for Microsoft Sentinel); total retention up to 12 years",
+      "source": "S9",
+      "locator": "Table feature comparison"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "CopilotActivity supports Basic and Auxiliary plans but not DCR workspace transformation",
+      "source": "S1",
+      "locator": "Table attributes"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "AWSCloudTrail and ApiManagementGatewayLlmLog support DCR workspace transformation; transformations can optimise cost and remove personal data",
+      "source": "S11",
+      "locator": "S11 and S10 Table attributes; S9 'Transform data based on your needs to optimize costs, remove personal data, and more'"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "After invocation logging is enabled, logs are stored until the logging configuration is deleted",
+      "source": "S2",
+      "locator": "'After model invocation logging is enabled, logs are stored until the logging configuration is deleted.'"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "SentinelHealth requires health monitoring to be turned on; supported connectors include Amazon Web Services (CloudTrail and S3), Office 365 and any Codeless Connector Framework connector",
+      "source": "S7",
+      "locator": "Use the SentinelHealth data table; Supported data connectors"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Data fetch status change is logged once an hour while status is stable and immediately on a change; potentially transient errors are logged only after more than 60 minutes",
+      "source": "S7",
+      "locator": "Understanding SentinelHealth table events"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "The Data collection health monitoring workbook detects anomalies by table using an anomaly score",
+      "source": "S7",
+      "locator": "Use the health monitoring workbook: Data collection anomalies tab"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Invocation logging is configured with PutModelInvocationLoggingConfiguration and DeleteModelInvocationLoggingConfiguration, and all Bedrock API operations are logged by CloudTrail",
+      "source": "S2",
+      "locator": "S2 'Model invocation logging using the API'; S3 'All Amazon Bedrock API operations ... are logged by CloudTrail'"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "T1685.002 is Disable or Modify Cloud Log, sub-technique of Disable or Modify Tools, tactic Defense Impairment",
+      "source": "S18",
+      "locator": "Technique page header"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "SentinelHealth sample query columns OperationName, Status, SentinelResourceName, SentinelResourceId",
+      "source": "S7",
+      "locator": "Run queries to detect health drifts: 'Detect latest failure events per connector'"
+    },
+    {
+      "where": "room:aisiem-r1",
+      "claim": "Collection method and landing table of each of the five feeds (CopilotActivity, AWSCloudTrail, S3 or CloudWatch Logs, diagnostic setting into ApiManagementGatewayLlmLog, GET /v1/compliance/activities)",
+      "source": "S17",
+      "locator": "S1 table description; S11 table description; S2 destinations; S17 diagnostic setting steps; S15 endpoint"
+    },
+    {
+      "where": "room:aisiem-r1",
+      "claim": "Invocation logging applies to invocations in an account in a Region",
+      "source": "S2",
+      "locator": "'for all invocations in your AWS account used in Amazon Bedrock in a Region'"
+    },
+    {
+      "where": "room:aisiem-r1",
+      "claim": "The Activity Feed is at-least-once: a retry can re-deliver activities, deduplicate on id",
+      "source": "S16",
+      "locator": "Delivery guarantees and completeness"
+    },
+    {
+      "where": "room:aisiem-r2",
+      "claim": "ASIM uses query-time parsers (KQL functions that do not modify data) and ingest-time normalisation into normalised tables",
+      "source": "S4",
+      "locator": "Query time parsers; Ingest time normalization"
+    },
+    {
+      "where": "room:aisiem-r2",
+      "claim": "Entity key table: ActorName, AppIdentity, SrcIpAddr (CopilotActivity); UserIdentityArn, UserIdentityAccessKeyId, SourceIpAddress (AWSCloudTrail); requestMetadata, identity.arn (invocation log); actor.user_id, actor.email_address, actor.api_key_id, actor.ip_address (Claude)",
+      "source": "S1",
+      "locator": "S1, S11 Columns tables; S2 log entry format; S15 actor table"
+    },
+    {
+      "where": "room:aisiem-r3",
+      "claim": "API Management logs token usage and model name per request; prompts and completions are optional and enabled per API with Log LLM messages",
+      "source": "S17",
+      "locator": "Enable diagnostic setting; Enable logging of requests or responses"
+    },
+    {
+      "where": "room:aisiem-ac2",
+      "claim": "PutModelInvocationLoggingConfiguration request body: loggingConfig.s3Config.bucketName, keyPrefix, textDataDeliveryEnabled, imageDataDeliveryEnabled, embeddingDataDeliveryEnabled",
+      "source": "S12",
+      "locator": "Request Syntax"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventVersion",
+      "source": "S3",
+      "locator": "InvokeModel example: eventVersion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventTime",
+      "source": "S3",
+      "locator": "InvokeModel example: eventTime"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventSource",
+      "source": "S3",
+      "locator": "InvokeModel example: eventSource bedrock.amazonaws.com"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventName",
+      "source": "S3",
+      "locator": "InvokeModel and ConverseStream examples: eventName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.awsRegion",
+      "source": "S3",
+      "locator": "InvokeModel example: awsRegion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.sourceIPAddress",
+      "source": "S3",
+      "locator": "InvokeModel example: sourceIPAddress"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userAgent",
+      "source": "S3",
+      "locator": "ConverseStream example: userAgent Boto3/1.34.0 Python/3.11.0"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.type",
+      "source": "S3",
+      "locator": "InvokeModel example: userIdentity.type; value AssumedRole listed in S11 UserIdentityType"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.arn",
+      "source": "S3",
+      "locator": "InvokeModel example: userIdentity.arn"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accountId",
+      "source": "S3",
+      "locator": "InvokeModel example: userIdentity.accountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accessKeyId",
+      "source": "S3",
+      "locator": "InvokeModel example: userIdentity.accessKeyId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.userName",
+      "source": "S3",
+      "locator": "InvokeModel example: userIdentity.userName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.modelId",
+      "source": "S3",
+      "locator": "InvokeModel example: requestParameters.modelId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.loggingConfig.s3Config.bucketName",
+      "source": "S12",
+      "locator": "Request Syntax: loggingConfig.s3Config.bucketName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.loggingConfig.s3Config.keyPrefix",
+      "source": "S12",
+      "locator": "Request Syntax: loggingConfig.s3Config.keyPrefix"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.loggingConfig.textDataDeliveryEnabled",
+      "source": "S12",
+      "locator": "Request Syntax: loggingConfig.textDataDeliveryEnabled"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.loggingConfig.imageDataDeliveryEnabled",
+      "source": "S12",
+      "locator": "Request Syntax: loggingConfig.imageDataDeliveryEnabled"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters.loggingConfig.embeddingDataDeliveryEnabled",
+      "source": "S12",
+      "locator": "Request Syntax: loggingConfig.embeddingDataDeliveryEnabled"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestID",
+      "source": "S3",
+      "locator": "InvokeModel example: requestID"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventID",
+      "source": "S3",
+      "locator": "InvokeModel example: eventID"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventType",
+      "source": "S3",
+      "locator": "InvokeModel example: eventType AwsApiCall; stream-completion example: AwsServiceEvent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.managementEvent",
+      "source": "S3",
+      "locator": "InvokeModel example: managementEvent true"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.recipientAccountId",
+      "source": "S3",
+      "locator": "InvokeModel example: recipientAccountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventCategory",
+      "source": "S3",
+      "locator": "InvokeModel example: eventCategory Management"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "schemaType",
+      "source": "S2",
+      "locator": "Log entry format: schemaType, always ModelInvocationLog"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "schemaVersion",
+      "source": "S2",
+      "locator": "Log entry format: schemaVersion"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "timestamp",
+      "source": "S2",
+      "locator": "Log entry format: timestamp, ISO 8601"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "accountId",
+      "source": "S2",
+      "locator": "Log entry format: accountId"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "region",
+      "source": "S2",
+      "locator": "Log entry format: region"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "requestId",
+      "source": "S2",
+      "locator": "Log entry format: requestId"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "operation",
+      "source": "S2",
+      "locator": "Log entry format: operation (for example Converse, InvokeModel)"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "modelId",
+      "source": "S2",
+      "locator": "Log entry format: modelId"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "identity.arn",
+      "source": "S2",
+      "locator": "Log entry format: identity.arn"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "requestMetadata.user",
+      "source": "S2",
+      "locator": "Log entry format: requestMetadata, optional key-value tags supplied by the caller (key names are caller-defined; the documented example uses team and environment)"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "requestMetadata.app",
+      "source": "S2",
+      "locator": "Log entry format: requestMetadata, optional key-value tags supplied by the caller (key names are caller-defined)"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "input.inputContentType",
+      "source": "S2",
+      "locator": "Log entry format example: input.inputContentType"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "input.inputTokenCount",
+      "source": "S2",
+      "locator": "Log entry format: input.inputTokenCount"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "output.outputContentType",
+      "source": "S2",
+      "locator": "Log entry format example: output.outputContentType"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "output.outputTokenCount",
+      "source": "S2",
+      "locator": "Log entry format: output.outputTokenCount"
+    },
+    {
+      "vendor": "amazon-bedrock-invocation-logs",
+      "field": "input.inputBodyJson",
+      "source": "S2",
+      "locator": "Log entry format: input.inputBodyJson (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "CopilotActivity: ActorName, ActorUserId, SrcIpAddr, RecordType, RecordId, AppHost, AppIdentity, Workload, AIModelName, LLMEventData, TimeGenerated",
+      "source": "S1",
+      "locator": "Columns table (named in lesson and room text, not used in a raw block)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "AWSCloudTrail: EventSource, EventName, EventTypeName, UserIdentityArn, UserIdentityAccessKeyId, SourceIpAddress, RequestParameters, AwsRequestId_, TimeGenerated",
+      "source": "S11",
+      "locator": "Columns table (named in lesson and room text, not used in a raw block)"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ApiManagementGatewayLlmLog: DeploymentName, ModelName, PromptTokens, CompletionTokens, TotalTokens, CorrelationId, RequestMessages, ResponseMessages, SequenceNumber",
+      "source": "S10",
+      "locator": "Columns table (named in lesson and room text, not used in a raw block)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "SentinelHealth: OperationName, Status, SentinelResourceName, SentinelResourceId, TimeGenerated",
+      "source": "S7",
+      "locator": "Sample query 'Detect latest failure events per connector' (lesson code example only)"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "id, created_at, type, actor.type, actor.user_id, actor.email_address, actor.ip_address, actor.api_key_id, claude_chat_id",
+      "source": "S15",
+      "locator": "Activity object and actor tables; response example (named in lesson and room text, not used in a raw block)"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "The Bedrock invocation log is the record that carries the request and response bodies and the token counts."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "Set the upper bound at least 1 minute in the past, so that everything in the window is already queryable."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "| EventSource, EventName | The service called and the action, for example bedrock.amazonaws.com and Converse |"
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "It leaves the data in its source format, and a fix to the parser applies to data already stored."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "The person is absent unless the application adds them."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "Count invocations on AwsApiCall only, or every streamed call is counted twice and a volume threshold fires at half the real rate."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "| Auxiliary | Low-touch data such as verbose logs, and audit and compliance data | No |"
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "Collection is working, so the gap is at the source."
+    },
+    {
+      "q": "room:aisiem-q1",
+      "taught_in": "room:aisiem-r1",
+      "support": "Bedrock model invocation logging is disabled by default."
+    },
+    {
+      "q": "room:aisiem-q2",
+      "taught_in": "room:aisiem-r1",
+      "support": "A job that sets the upper bound to the present moment silently loses any activity that is indexed a few seconds later: the next window starts after it."
+    },
+    {
+      "q": "room:aisiem-m1",
+      "taught_in": "room:aisiem-r2",
+      "support": "Two feeds join only where they hold a key for the same entity."
+    },
+    {
+      "q": "room:aisiem-la1#1",
+      "taught_in": "room:aisiem-r2",
+      "support": "When an application calls with a role, the ARN (Amazon Resource Name) reads assumed-role, then the role name, then the session name."
+    },
+    {
+      "q": "room:aisiem-la1#2",
+      "taught_in": "room:aisiem-r2",
+      "support": "In the documented example its request parameters hold only the model ID, so do not look for the prompt there."
+    },
+    {
+      "q": "room:aisiem-la1#3",
+      "taught_in": "room:aisiem-r2",
+      "support": "Only eventType tells them apart: AwsApiCall is the call, AwsServiceEvent is the stream completion."
+    },
+    {
+      "q": "room:aisiem-la2#1",
+      "taught_in": "room:aisiem-r2",
+      "support": "An application that puts its end user there gives every model call a person key."
+    },
+    {
+      "q": "room:aisiem-la2#2",
+      "taught_in": "room:aisiem-r2",
+      "support": "Lower-case both sides before comparing them."
+    },
+    {
+      "q": "room:aisiem-la2#3",
+      "taught_in": "room:aisiem-r2",
+      "support": "| Workload | AppIdentity | UserIdentityArn | identity.arn | None |"
+    },
+    {
+      "q": "room:aisiem-f1",
+      "taught_in": "room:aisiem-r2",
+      "support": "Use the source address to confirm a match, not to make one."
+    },
+    {
+      "q": "room:aisiem-ac1",
+      "taught_in": "room:aisiem-r3",
+      "support": "A deletion with no ticket and no Put event after it, while model calls continue, is a true positive."
+    },
+    {
+      "q": "room:aisiem-ac2",
+      "taught_in": "room:aisiem-r3",
+      "support": "A ticketed change by the platform team, where logging resumes, is a benign true positive: the rule caught exactly what it watches for, and the activity was authorised."
+    },
+    {
+      "q": "room:aisiem-o1",
+      "taught_in": "room:aisiem-r3",
+      "support": "Add a freshness alert before any rule depends on the feed."
+    },
+    {
+      "q": "room:aisiem-q3",
+      "taught_in": "room:aisiem-r3",
+      "support": "| Auxiliary | Low-touch data such as verbose logs, and audit and compliance data | Not supported |"
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "T1685",
+      "name": "Disable or Modify Tools",
+      "tactics": [
+        "Defense Impairment"
+      ],
+      "source": "S18"
+    },
+    {
+      "id": "T1685.002",
+      "name": "Disable or Modify Tools: Disable or Modify Cloud Log",
+      "tactics": [
+        "Defense Impairment"
+      ],
+      "source": "S18"
+    }
+  ],
+  "new_vendor": {
+    "key": "amazon-bedrock-invocation-logs",
+    "label": "Amazon Bedrock model invocation logs",
+    "aliases": [
+      "Bedrock model invocation logs",
+      "Amazon Bedrock model invocation logging",
+      "Bedrock ModelInvocationLog"
+    ],
+    "exactFields": [
+      "schemaType",
+      "schemaVersion",
+      "timestamp",
+      "accountId",
+      "region",
+      "requestId",
+      "operation",
+      "modelId",
+      "identity.arn",
+      "requestMetadata",
+      "input.inputContentType",
+      "input.inputBodyJson",
+      "input.inputTokenCount",
+      "output.outputContentType",
+      "output.outputBodyJson",
+      "output.outputTokenCount"
+    ],
+    "prefixes": [
+      "requestMetadata."
+    ],
+    "note": "Log entry format of Amazon Bedrock model invocation logging (same for CloudWatch Logs and S3): docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html, checked 2026-11-26. requestMetadata is an optional caller-supplied object of key-value tags, so its sub-keys are caller-defined (hence the prefix). If another topic of this track proposes the same vendor under a different key, merge them."
+  },
+  "unverified": [
+    {
+      "item": "Name, preview status and required roles of the Microsoft Sentinel connector that fills CopilotActivity",
+      "why": "The Microsoft Tech Community announcement returned HTTP 403 and no Microsoft Learn connector page was fetched; only the CopilotActivity table reference (S1) was read",
+      "handled": "softened to 'vendor-managed connector' and 'Microsoft-managed delivery into Sentinel'; no connector name or setup steps stated"
+    },
+    {
+      "item": "Whether CloudTrail requestID and the invocation-log requestId hold the same value for one call",
+      "why": "S2 and S3 describe each field but neither states they are equal",
+      "handled": "lesson section 5 says the sources do not state equality and tells the reader to test the join; the two room records (aisiem-la1, aisiem-la2) show the same value for realism but no task asks about it. Remove or change if a reviewer disagrees"
+    },
+    {
+      "item": "KQL string equality in a join being case-sensitive",
+      "why": "No KQL operator reference was fetched in this run",
+      "handled": "content only says to lower-case both sides before comparing; the lesson query uses tolower(), which is correct either way"
+    },
+    {
+      "item": "Mechanics of the Sentinel Amazon Web Services connector (queue, role, setup)",
+      "why": "The connect-aws page was not fetched; S11 and S7 only confirm that the connector exists and fills AWSCloudTrail",
+      "handled": "left out; text says only that a trail writes files to S3 and the connector reads them"
+    },
+    {
+      "item": "Temporary access key IDs beginning with ASIA and long-term ones with AKIA",
+      "why": "Not read in a source this run; only the documented AKIAIOSFODNN7EXAMPLE sample was seen",
+      "handled": "used only as sample values in raw blocks; no text or question refers to the prefix"
+    },
+    {
+      "item": "KQL in code examples that is not copied from documentation (union freshness query, CloudTrail to Copilot join, logging-configuration search)",
+      "why": "Queries were written from documented column names and standard operators but were not executed against a workspace",
+      "handled": "kept as worked artefacts; the SentinelHealth query and the ingestion latency expression are copied from S7 and S8"
+    },
+    {
+      "item": "Placement of AI records in ASIM schemas (Audit Event, Web Session)",
+      "why": "This is the author's own mapping; S4 lists the schemas and none is dedicated to model calls",
+      "handled": "stated in the lesson as this lesson's suggestion, not a Microsoft rule"
+    },
+    {
+      "item": "Field-level detail for web proxy, CASB, DLP and identity provider sources",
+      "why": "No vendor documentation for these was fetched in this run",
+      "handled": "named only as source families in the lesson's source map; no field, table or event names given"
+    },
+    {
+      "item": "OCSF version",
+      "why": "The API Activity class was read at schema version 1.3.0; newer schema versions may exist",
+      "handled": "class name and UID stated without a version claim in learner text"
+    },
+    {
+      "item": "readOnly value of ConverseStream and logging-configuration events; responseElements content",
+      "why": "Documented examples differ by event and do not cover these exact events",
+      "handled": "both fields left out of the raw blocks"
+    },
+    {
+      "item": "Order of Garrowby's onboarding runbook",
+      "why": "The six-step order is the author's own synthesis of the sources, not a published procedure",
+      "handled": "presented as the fictional organisation's runbook"
+    }
+  ]
+}

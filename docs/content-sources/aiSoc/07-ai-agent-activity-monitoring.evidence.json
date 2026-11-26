@@ -1,0 +1,874 @@
+{
+  "topic": "Monitoring AI agent activity",
+  "slug": "ai-agent-activity-monitoring",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Semantic Conventions for GenAI agent and framework spans",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/gen-ai-agent-spans.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "Agent definition, create_agent, invoke_agent internal span, invoke_workflow, plan span, attribute names, Development status"
+    },
+    {
+      "id": "S2",
+      "title": "Semantic conventions for generative AI tool execution",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/execute-tool.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "execute_tool span name and kind, gen_ai.tool.* attributes, Opt-In arguments and result, transfer attributes"
+    },
+    {
+      "id": "S3",
+      "title": "Semantic conventions for generative client AI spans",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/gen-ai-spans.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "Well-known gen_ai.operation.name values, memory operations, content capture configuration and its environment variable, sampling mention"
+    },
+    {
+      "id": "S4",
+      "title": "Semantic conventions for generative AI client agent invocations",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/client-invoke-agent.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "invoke_agent client span for remote agent services such as AWS Bedrock Agents, gen_ai.agent.id, gen_ai.provider.name"
+    },
+    {
+      "id": "S5",
+      "title": "Semantic conventions for generative AI client inference",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/client-inference.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "Inference span name pattern, model and token usage attributes, server.address"
+    },
+    {
+      "id": "S6",
+      "title": "Agent call examples (non-normative)",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/non-normative/examples-agent-calls.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "Example span properties: span name, kind INTERNAL, status UNSET, trace id, span id, parent span id, transfer mode values"
+    },
+    {
+      "id": "S7",
+      "title": "Traces",
+      "url": "https://opentelemetry.io/docs/concepts/signals/traces/",
+      "publisher": "OpenTelemetry",
+      "used_for": "Trace and span definitions, illustrative span JSON (name, context.trace_id, context.span_id, parent_id, start_time, end_time, attributes), root span, span kind, span status"
+    },
+    {
+      "id": "S8",
+      "title": "Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "AWS",
+      "used_for": "Management versus data events for Bedrock, InvokeAgent as data event, AWS::Bedrock::AgentAlias selector, sample records, eventSource bedrock.amazonaws.com"
+    },
+    {
+      "id": "S9",
+      "title": "Track agent's step-by-step reasoning process using trace",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/trace-events.html",
+      "publisher": "AWS",
+      "used_for": "Bedrock Agents trace structure: TracePart fields, trace types, rationale, invocationInput, observation, executionType"
+    },
+    {
+      "id": "S10",
+      "title": "CloudTrail userIdentity element",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html",
+      "publisher": "AWS",
+      "used_for": "userIdentity type values, assumed-role arn format, principalId, accessKeyId, sessionContext.sessionIssuer, invokedBy"
+    },
+    {
+      "id": "S11",
+      "title": "CloudTrail record contents for management, data, and network activity events",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html",
+      "publisher": "AWS",
+      "used_for": "Definitions of eventTime, eventSource, eventName, awsRegion, sourceIPAddress, userAgent, requestParameters, eventType, managementEvent, readOnly, resources, eventCategory"
+    },
+    {
+      "id": "S12",
+      "title": "Create a service role for Amazon Bedrock Agents",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/agents-permissions.html",
+      "publisher": "AWS",
+      "used_for": "Agent service role trust policy, recommended conditions, identity-based permissions"
+    },
+    {
+      "id": "S13",
+      "title": "InvokeAgent API reference",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent-runtime_InvokeAgent.html",
+      "publisher": "AWS",
+      "used_for": "enableTrace, sessionId, memoryId, returnControl, Agents Classic availability note"
+    },
+    {
+      "id": "S14",
+      "title": "UpdateAgentActionGroup API reference",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_UpdateAgentActionGroup.html",
+      "publisher": "AWS",
+      "used_for": "Request parameters agentId, agentVersion (DRAFT), actionGroupName, actionGroupState, parentActionGroupSignature"
+    },
+    {
+      "id": "S15",
+      "title": "UpdateAgent API reference",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_UpdateAgent.html",
+      "publisher": "AWS",
+      "used_for": "Request fields instruction, foundationModel, agentResourceRoleArn, guardrailConfiguration"
+    },
+    {
+      "id": "S16",
+      "title": "AgentAlias API reference",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_AgentAlias.html",
+      "publisher": "AWS",
+      "used_for": "agentAliasArn pattern, aliasInvocationState values"
+    },
+    {
+      "id": "S17",
+      "title": "Deploy an agent",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/deploy-agent.html",
+      "publisher": "AWS",
+      "used_for": "Working draft DRAFT, test alias TSTALIASID, versions as immutable snapshots, UpdateAgentAlias, pausing an alias"
+    },
+    {
+      "id": "S18",
+      "title": "Retain conversational context across multiple sessions using memory",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/agents-memory.html",
+      "publisher": "AWS",
+      "used_for": "Memory retention up to 365 days, configurable 1 to 365 days, memoryId"
+    },
+    {
+      "id": "S19",
+      "title": "MITRE ATLAS data, ATLAS.yaml version 5.6.0",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE",
+      "used_for": "Technique names, IDs and tactics for agent techniques"
+    },
+    {
+      "id": "S20",
+      "title": "LLM06:2025 Excessive Agency",
+      "url": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item name and number, recommendations on user context and on logging and monitoring"
+    },
+    {
+      "id": "S21",
+      "title": "OWASP Top 10 for Agentic Applications: announcement post listing ASI01 to ASI10",
+      "url": "https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item ASI03 Identity & Privilege Abuse and the document title"
+    },
+    {
+      "id": "S22",
+      "title": "Azure Monitor Logs reference: AWSCloudTrail",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/awscloudtrail",
+      "publisher": "Microsoft Learn",
+      "used_for": "Column names used in the KQL example"
+    },
+    {
+      "id": "S23",
+      "title": "SigmaHQ rule: AWS CloudTrail Important Change",
+      "url": "https://raw.githubusercontent.com/SigmaHQ/sigma/master/rules/cloud/aws/cloudtrail/aws_cloudtrail_disable_logging.yml",
+      "publisher": "SigmaHQ",
+      "used_for": "Sigma logsource product aws, service cloudtrail, and the eventSource and eventName field names in detections"
+    },
+    {
+      "id": "S24",
+      "title": "Okta Event Types reference",
+      "url": "https://developer.okta.com/docs/reference/api/event-types/",
+      "publisher": "Okta",
+      "used_for": "Event type app.oauth2.as.token.grant.access_token"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "OpenTelemetry describes an agent as a model with access to a set of external tools and the ability to plan and execute any task in a self-directed fashion",
+      "source": "S1",
+      "locator": "Introduction: 'the model must not only have access to a set of external tools, it needs the ability to plan and execute any task in a self-directed fashion'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The root span has a trace_id and no parent_id; children share the trace_id and carry a parent_id equal to the parent's span_id",
+      "source": "S7",
+      "locator": "Example spans: 'has no parent_id. That's how you know it's the root span' and 'it has a parent_id that matches the span_id of the hello span'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Span status values are Unset (default, completed without error), Error and Ok (explicitly marked successful)",
+      "source": "S7",
+      "locator": "Span Status section"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A client span is an outgoing remote call; an internal span does not cross a process boundary",
+      "source": "S7",
+      "locator": "Span Kind section: Client, Internal"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The JSON examples in the OpenTelemetry documentation do not represent a specific format",
+      "source": "S7",
+      "locator": "Note above the first example: 'The following JSON examples do not represent a specific format'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The GenAI agent, tool and client span conventions have status Development",
+      "source": "S1",
+      "locator": "Status: Development (also on S2, S3)"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "invoke_agent is used when an LLM drives the control flow through tool calls; invoke_workflow when the application defines the control flow; span name is {gen_ai.operation.name} {gen_ai.agent.name}",
+      "source": "S1",
+      "locator": "Invoke agent internal span"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The plan span has gen_ai.operation.name plan and represents an agent planning or task decomposition phase",
+      "source": "S1",
+      "locator": "Plan span"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "execute_tool span name is execute_tool {gen_ai.tool.name}; gen_ai.tool.type values function, extension, datastore; gen_ai.tool.call.arguments and gen_ai.tool.call.result are Opt-In",
+      "source": "S2",
+      "locator": "Span: gen_ai.execute_tool, attribute table and note 8"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Inference span name is {gen_ai.operation.name} {gen_ai.request.model}",
+      "source": "S5",
+      "locator": "Span name line"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Memory operations are create_memory, update_memory, search_memory, delete_memory (also upsert_memory and store lifecycle operations)",
+      "source": "S3",
+      "locator": "Memory section and the well-known values table of gen_ai.operation.name"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Content capture is opt-in; environment variable OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT with values NO_CONTENT (default), SPAN_ONLY, EVENT_ONLY, SPAN_AND_EVENT",
+      "source": "S3",
+      "locator": "Content capture configuration"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "gen_ai.agent.id for hosted agents should be the provider-assigned stable identifier such as an AWS Bedrock agent ARN; gen_ai.conversation.id is set only when the library has one readily available",
+      "source": "S1",
+      "locator": "Notes 4 and 4/5 on gen_ai.agent.id and gen_ai.conversation.id"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "gen_ai.transfer.mode values return_to_caller and pass_control; gen_ai.transfer.target.name names the target agent",
+      "source": "S2",
+      "locator": "Agent as a tool; examples in S6"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Amazon Bedrock Agents is now Amazon Bedrock Agents Classic and is no longer open to new customers; existing customers can continue to use it",
+      "source": "S13",
+      "locator": "Note at top of the InvokeAgent page"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "CloudTrail does not log data events by default and logs management events by default; Agents runtime operations such as InvokeAgent and InvokeInlineAgent are data events; InvokeAgent needs advanced event selectors for AWS::Bedrock::AgentAlias; additional charges apply for data events; CreateAgent is named as an action that generates CloudTrail entries",
+      "source": "S8",
+      "locator": "Amazon Bedrock data events in CloudTrail; Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "CloudTrail log files are not an ordered stack trace of the public API calls",
+      "source": "S8",
+      "locator": "Understanding Amazon Bedrock log file entries"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "requestParameters holds the parameters sent with the request, documented in the API reference of the service; eventCategory is Management or Data",
+      "source": "S11",
+      "locator": "requestParameters; eventCategory"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Agent alias ARN pattern arn:aws:bedrock:<region>:<account>:agent-alias/<agentId>/<aliasId>",
+      "source": "S16",
+      "locator": "agentAliasArn pattern"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Changes apply to the working draft (DRAFT); the test alias TSTALIASID points to the working draft; versions are immutable snapshots; an alias points to a version; UpdateAgentAlias points an alias to a new version",
+      "source": "S17",
+      "locator": "Deploy an agent; Aliases and Versions"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "UpdateAgent request fields include instruction, foundationModel, agentResourceRoleArn and guardrailConfiguration",
+      "source": "S15",
+      "locator": "Request Body"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "UpdateAgentActionGroup actionGroupState valid values ENABLED and DISABLED; agentVersion pattern DRAFT; parentActionGroupSignature can be AMAZON.CodeInterpreter",
+      "source": "S14",
+      "locator": "URI Request Parameters; Request Body"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "With enableTrace true each chunk of the InvokeAgent response is accompanied by a trace field; TracePart carries agentId, agentAliasId, agentVersion, sessionId, callerChain and trace",
+      "source": "S9",
+      "locator": "Structure of the trace"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Trace types PreProcessingTrace, OrchestrationTrace, FailureTrace, GuardrailTrace; invocationType values ACTION_GROUP, KNOWLEDGE_BASE, AGENT_COLLABORATOR, FINISH; action group input has actionGroupName, function or apiPath and verb, parameters, executionType LAMBDA or RETURN_CONTROL; GuardrailTrace action GUARDRAIL_INTERVENED or NONE",
+      "source": "S9",
+      "locator": "OrchestrationTrace, InvocationInput, GuardrailTrace"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "ModelInvocationInput text is the text from the prompt provided to the agent at this step",
+      "source": "S9",
+      "locator": "ModelInvocationInput field list"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "With memory enabled the agent retains sessions for up to 365 days; retention configurable between 1 and 365 days; memory is stored against a memoryId",
+      "source": "S18",
+      "locator": "Memory duration; paragraph on memoryId"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "AML.T0080 AI Agent Context Poisoning is under Persistence; AML.T0080.000 Memory specializes it",
+      "source": "S19",
+      "locator": "techniques AML.T0080 and AML.T0080.000 (specializes: AML.T0080)"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "AML.T0053 AI Agent Tool Invocation maps to Execution and Privilege Escalation and notes that agents may have access to tools not directly accessible by users",
+      "source": "S19",
+      "locator": "technique AML.T0053, tactics and description"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "LLM06:2025 Excessive Agency recommends executing extensions in the user's context and logging and monitoring the activity of LLM extensions and downstream systems",
+      "source": "S20",
+      "locator": "Prevention and mitigation strategies; damage-limiting options"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "The OWASP Top 10 for Agentic Applications for 2026 includes ASI03 Identity & Privilege Abuse",
+      "source": "S21",
+      "locator": "Section 'The OWASP Agentic Top 10'"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Agent service role trust policy: principal bedrock.amazonaws.com, action sts:AssumeRole, recommended conditions aws:SourceAccount and AWS:SourceArn; permissions include bedrock:InvokeModel on named foundation models",
+      "source": "S12",
+      "locator": "Trust relationship; Identity-based permissions for the Agents service role"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "userIdentity: assumed-role arn format, principalId includes the session name for temporary credentials, accessKeyId might not be present or might be an empty string, invokedBy is present only when a request is made by an AWS service including service roles",
+      "source": "S10",
+      "locator": "Examples; Fields: principalId, accessKeyId, invokedBy"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Okta event type app.oauth2.as.token.grant.access_token records an access token being granted",
+      "source": "S24",
+      "locator": "Event type list, app.oauth2.as.token.grant.access_token"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "AML.T0086 Exfiltration via AI Agent Tool Invocation (Exfiltration); AML.T0034.002 Agentic Resource Consumption specializes AML.T0034 Cost Harvesting (Impact); AML.T0081 Modify AI Agent Configuration (Persistence, Defense Evasion)",
+      "source": "S19",
+      "locator": "techniques AML.T0086, AML.T0034, AML.T0034.002, AML.T0081"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "AWSCloudTrail columns EventSource, EventName, ErrorCode, UserIdentityType, UserIdentityArn, SessionIssuerArn, SourceIpAddress, UserAgent, RequestParameters, TimeGenerated",
+      "source": "S22",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Sigma rules for CloudTrail use logsource product aws, service cloudtrail and the fields eventSource and eventName",
+      "source": "S23",
+      "locator": "logsource and detection blocks of the rule"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "server.address is the GenAI server address attribute on client spans; error.type is set only if the operation ended in an error",
+      "source": "S5",
+      "locator": "Attribute table: server.address, error.type"
+    },
+    {
+      "where": "room:agmon-r1",
+      "claim": "invoke_agent client spans are emitted for agent services outside the current process such as AWS Bedrock Agents; execute_tool spans cover tools executed by application code",
+      "source": "S4",
+      "locator": "Span: gen_ai.client.invoke_agent; S2 paragraph 'Tools are often executed directly by application code'"
+    },
+    {
+      "where": "room:agmon-r2",
+      "claim": "userIdentity.type AssumedRole is used for temporary role credentials; sessionContext.sessionIssuer.arn is the role that issued the session",
+      "source": "S10",
+      "locator": "userIdentity with temporary security credentials"
+    },
+    {
+      "where": "room:agmon-r3",
+      "claim": "Setting aliasInvocationState to REJECT_INVOCATIONS with UpdateAgentAlias pauses an agent, ACCEPT_INVOCATIONS starts it again, and no IAM policy modification is needed",
+      "source": "S17",
+      "locator": "Pausing a deployed agent"
+    },
+    {
+      "where": "room:agmon-ac2",
+      "claim": "The test alias identifier TSTALIASID appears as the alias ID of a Bedrock agent",
+      "source": "S16",
+      "locator": "agentAliasId pattern (TSTALIASID)"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "name",
+      "source": "S7",
+      "locator": "Example span JSON key name"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "context.trace_id",
+      "source": "S7",
+      "locator": "Example span JSON, context.trace_id"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "context.span_id",
+      "source": "S7",
+      "locator": "Example span JSON, context.span_id"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "parent_id",
+      "source": "S7",
+      "locator": "Example span JSON key parent_id"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "kind",
+      "source": "S7",
+      "locator": "Span Kind section; value INTERNAL per S2 'Span kind SHOULD be INTERNAL'. Flat key name is this platform's rendering"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "start_time",
+      "source": "S7",
+      "locator": "Example span JSON key start_time"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "end_time",
+      "source": "S7",
+      "locator": "Example span JSON key end_time"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "status",
+      "source": "S7",
+      "locator": "Span Status section (Unset, Error, Ok). Flat key name is this platform's rendering"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "attributes.gen_ai.operation.name",
+      "source": "S2",
+      "locator": "Attribute gen_ai.operation.name, Required"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "attributes.gen_ai.tool.name",
+      "source": "S2",
+      "locator": "Attribute gen_ai.tool.name, Required"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "attributes.gen_ai.tool.type",
+      "source": "S2",
+      "locator": "Attribute gen_ai.tool.type, Recommended"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "attributes.gen_ai.agent.name",
+      "source": "S2",
+      "locator": "Attribute gen_ai.agent.name, Conditionally Required"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "attributes.gen_ai.conversation.id",
+      "source": "S2",
+      "locator": "Attribute gen_ai.conversation.id, Conditionally Required"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "gen_ai.tool.call.arguments",
+      "source": "S2",
+      "locator": "Attribute gen_ai.tool.call.arguments, Opt-In (named in text, not used in raw)"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "gen_ai.agent.id",
+      "source": "S4",
+      "locator": "Attribute gen_ai.agent.id (named in lesson text)"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "gen_ai.provider.name",
+      "source": "S4",
+      "locator": "Attribute gen_ai.provider.name (named in lesson text)"
+    },
+    {
+      "vendor": "OpenTelemetry GenAI",
+      "field": "gen_ai.usage.input_tokens",
+      "source": "S5",
+      "locator": "Attribute gen_ai.usage.input_tokens (named in lesson text)"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventTime",
+      "source": "S11",
+      "locator": "eventTime"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventSource",
+      "source": "S11",
+      "locator": "eventSource; value bedrock.amazonaws.com in S8 sample records"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventName",
+      "source": "S11",
+      "locator": "eventName"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.awsRegion",
+      "source": "S11",
+      "locator": "awsRegion"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.sourceIPAddress",
+      "source": "S11",
+      "locator": "sourceIPAddress"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userAgent",
+      "source": "S11",
+      "locator": "userAgent; Boto3 value format from S8 sample"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.type",
+      "source": "S10",
+      "locator": "type"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.arn",
+      "source": "S10",
+      "locator": "arn; assumed-role example"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.arn",
+      "source": "S10",
+      "locator": "sessionContext.sessionIssuer.arn in the temporary credentials example"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.requestParameters.agentId",
+      "source": "S14",
+      "locator": "URI request parameter agentId; requestParameters defined in S11"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.requestParameters.agentVersion",
+      "source": "S14",
+      "locator": "URI request parameter agentVersion, pattern DRAFT"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.requestParameters.actionGroupName",
+      "source": "S14",
+      "locator": "Request body actionGroupName"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.requestParameters.actionGroupState",
+      "source": "S14",
+      "locator": "Request body actionGroupState, ENABLED or DISABLED"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventType",
+      "source": "S11",
+      "locator": "eventType, AwsApiCall"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventCategory",
+      "source": "S11",
+      "locator": "eventCategory, Management or Data"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.managementEvent",
+      "source": "S11",
+      "locator": "managementEvent"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.readOnly",
+      "source": "S11",
+      "locator": "readOnly"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.resources.type",
+      "source": "S8",
+      "locator": "ApplyGuardrail sample: resources[].type; selector field resources.type AWS::Bedrock::AgentAlias"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.resources.ARN",
+      "source": "S8",
+      "locator": "ApplyGuardrail sample: resources[].ARN; 'filter on the eventName and resources.ARN fields'"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "The fifth comes from the platform's audit log."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "The span with no parent is the root span."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "Capture is controlled by a setting whose environment variable is `OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT`, with the values `NO_CONTENT` (the default), `SPAN_ONLY`, `EVENT_ONLY` and `SPAN_AND_EVENT`."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "To record `InvokeAgent` you configure advanced event selectors for the resource type `AWS::Bedrock::AgentAlias`."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "This decides where to look for proof that the action happened: the Lambda's logs in the first case, the application's own logs and spans in the second."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "The session name is the part after the last slash of the `arn`."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "If a change record covers it and the configuration change came from the deployment identity, the verdict is benign true positive, not false positive."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "The application's trace store has nothing for those minutes, because the caller was not the application."
+    },
+    {
+      "q": "room:agmon-q1",
+      "taught_in": "room:agmon-r1",
+      "support": "The span with no parent is the root span."
+    },
+    {
+      "q": "room:agmon-la1#1",
+      "taught_in": "room:agmon-r1",
+      "support": "To rebuild a run, filter on one trace_id, find the root, attach every other span to the span whose span_id equals its parent_id, and sort spans that share a parent by start_time."
+    },
+    {
+      "q": "room:agmon-la1#2",
+      "taught_in": "room:agmon-r1",
+      "support": "The capture setting defaults to NO_CONTENT, and the attribute gen_ai.tool.call.arguments is Opt-In."
+    },
+    {
+      "q": "room:agmon-la1#3",
+      "taught_in": "room:agmon-r1",
+      "support": "Span status Unset is the default, and it means the operation completed without an error."
+    },
+    {
+      "q": "room:agmon-ord1",
+      "taught_in": "room:agmon-r1",
+      "support": "A normal rebooking is therefore a root span with five children in this order: invoke_agent, execute_tool search_flights, invoke_agent, execute_tool rebook_ticket, invoke_agent."
+    },
+    {
+      "q": "room:agmon-q2",
+      "taught_in": "room:agmon-r2",
+      "support": "Data events are data plane operations, such as InvokeAgent, and CloudTrail does not log data events by default."
+    },
+    {
+      "q": "room:agmon-la2#1",
+      "taught_in": "room:agmon-r2",
+      "support": "The session name is the part after the last slash of userIdentity.arn."
+    },
+    {
+      "q": "room:agmon-la2#2",
+      "taught_in": "room:agmon-r2",
+      "support": "A change to DRAFT does not change production until an alias is pointed at a new version, which is done with UpdateAgentAlias."
+    },
+    {
+      "q": "room:agmon-m1",
+      "taught_in": "room:agmon-r2",
+      "support": "The field eventCategory holds Management or Data, so one field tells you whether a record is a change to the agent or a run of it."
+    },
+    {
+      "q": "room:agmon-ac1",
+      "taught_in": "room:agmon-r3",
+      "support": "A benign true positive means the rule caught exactly the behaviour it targets, and the activity was authorised: for the new-tool rule, a tool added by an approved release."
+    },
+    {
+      "q": "room:agmon-ac2",
+      "taught_in": "room:agmon-r3",
+      "support": "If CloudTrail shows InvokeAgent calls for which the trace store has no spans, the caller was not the application."
+    },
+    {
+      "q": "room:agmon-f1",
+      "taught_in": "room:agmon-r3",
+      "support": "A loop that deserves an alert looks different: the same tool succeeds again and again in one trace."
+    },
+    {
+      "q": "room:agmon-q3",
+      "taught_in": "room:agmon-r3",
+      "support": "UpdateAgentAlias with aliasInvocationState set to REJECT_INVOCATIONS pauses the agent, and ACCEPT_INVOCATIONS starts it again."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0053",
+      "name": "AI Agent Tool Invocation",
+      "tactics": [
+        "Execution (AML.TA0005)",
+        "Privilege Escalation (AML.TA0012)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0080",
+      "name": "AI Agent Context Poisoning",
+      "tactics": [
+        "Persistence (AML.TA0006)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0080.000",
+      "name": "Memory",
+      "tactics": [
+        "Persistence (AML.TA0006), inherited: the entry specializes AML.T0080 and lists no tactics of its own"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0081",
+      "name": "Modify AI Agent Configuration",
+      "tactics": [
+        "Persistence (AML.TA0006)",
+        "Defense Evasion (AML.TA0007)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0086",
+      "name": "Exfiltration via AI Agent Tool Invocation",
+      "tactics": [
+        "Exfiltration (AML.TA0010)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0034",
+      "name": "Cost Harvesting",
+      "tactics": [
+        "Impact (AML.TA0011)"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "AML.T0034.002",
+      "name": "Agentic Resource Consumption",
+      "tactics": [
+        "Impact (AML.TA0011), inherited: the entry specializes AML.T0034 and lists no tactics of its own"
+      ],
+      "source": "S19"
+    }
+  ],
+  "new_vendor": {
+    "key": "opentelemetry-genai",
+    "label": "OpenTelemetry GenAI spans",
+    "aliases": [
+      "OpenTelemetry GenAI",
+      "OpenTelemetry GenAI spans",
+      "OTel GenAI spans"
+    ],
+    "exactFields": [
+      "name",
+      "context.trace_id",
+      "context.span_id",
+      "parent_id",
+      "kind",
+      "start_time",
+      "end_time",
+      "status"
+    ],
+    "prefixes": [
+      "attributes.gen_ai.",
+      "attributes.error.",
+      "attributes.server."
+    ],
+    "note": "A span rendered as a flat record. Envelope keys name, context.trace_id, context.span_id, parent_id, start_time, end_time and the attributes object follow the illustrative span JSON at opentelemetry.io/docs/concepts/signals/traces/ (which states it is not a specific export format; OTLP/JSON is more verbose). kind and status are flat renderings of the documented span kind and span status properties. attributes.gen_ai.* are the GenAI semantic convention attributes (status Development) from github.com/open-telemetry/semantic-conventions-genai, docs/gen-ai (gen-ai-agent-spans.md, execute-tool.md, client-invoke-agent.md, client-inference.md); error.type and server.address are the stable attributes those conventions reference. Checked 2026-11-26."
+  },
+  "unverified": [
+    {
+      "item": "Exact CloudTrail record contents for InvokeAgent and UpdateAgentActionGroup (eventSource value, what requestParameters holds, whether resources carries the agent alias ARN, readOnly value)",
+      "why": "AWS publishes sample records only for InvokeModel, ApplyGuardrail and ConverseStream. The Bedrock page shows eventSource bedrock.amazonaws.com on those samples, names resources.type AWS::Bedrock::AgentAlias and resources.ARN as selector fields, and the CloudTrail reference says requestParameters holds the request parameters documented in the service API reference",
+      "handled": "Kept, built only from generically documented CloudTrail fields plus request parameter names from the Bedrock API reference; the lesson tells the reader that AWS publishes no sample InvokeAgent record and to confirm against their own events. No requestParameters are shown on InvokeAgent records"
+    },
+    {
+      "item": "Whether a PrepareAgent call is required between a change to the working draft and a run through the test alias",
+      "why": "The PrepareAgent reference page could not be fetched (fetch blocked)",
+      "handled": "left out"
+    },
+    {
+      "item": "Flat key names kind and status for an OpenTelemetry span",
+      "why": "The OpenTelemetry illustrative JSON shows name, context, parent_id, times, attributes and events but no key for kind or status; both are documented span properties and every backend names them differently",
+      "handled": "Kept as this platform's flat rendering and declared in the new_vendor note; the lesson states that each backend stores spans in its own columns"
+    },
+    {
+      "item": "userAgent strings in room raw blocks (Boto3/1.34.0 Python/3.11.0 and the aws-cli value)",
+      "why": "The Boto3 string is copied from an AWS sample; the aws-cli string is an illustrative value in the documented aws-cli/version Python/version OS format",
+      "handled": "Kept as illustrative data; no question depends on the exact version"
+    },
+    {
+      "item": "Okta System Log record schema",
+      "why": "The Okta System Log reference pages returned only navigation text",
+      "handled": "No Okta raw event is used; the lesson names one event type only, taken from the Event Types reference"
+    },
+    {
+      "item": "Full text of the OWASP Top 10 for Agentic Applications for 2026",
+      "why": "The resource page offers the document as a download only; the item list was read from OWASP's announcement post",
+      "handled": "Only the document title and the name of ASI03 are cited"
+    },
+    {
+      "item": "Alert thresholds (cap of 8 tool spans at Ostrava, 20 in the lesson) and the retry limit of three",
+      "why": "They are illustrative values of the fictional organisations, not vendor defaults",
+      "handled": "Presented as examples derived from a stated baseline, with the method explained"
+    },
+    {
+      "item": "Retrieval method for OpenTelemetry, MITRE ATLAS and Sigma sources",
+      "why": "The opentelemetry.io GenAI pages now only say the conventions moved to the semantic-conventions-genai repository, so the raw Markdown and YAML files were downloaded from GitHub with curl and read directly instead of through WebFetch",
+      "handled": "Source URLs in the ledger are the raw GitHub URLs that were read"
+    }
+  ]
+}

@@ -1,0 +1,1000 @@
+{
+  "topic": "Writing detection rules for AI telemetry",
+  "slug": "ai-detection-rules",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Sigma Rules Specification v2.1.0",
+      "url": "https://raw.githubusercontent.com/SigmaHQ/sigma-specification/main/specification/sigma-rules-specification.md",
+      "publisher": "SigmaHQ",
+      "used_for": "Rule fields, mandatory fields, status and level values, map AND / list OR, case-insensitive values, condition with not, id as UUID v4, date format, tags format, custom fields"
+    },
+    {
+      "id": "S2",
+      "title": "Sigma Correlation Rules Specification",
+      "url": "https://raw.githubusercontent.com/SigmaHQ/sigma-specification/main/specification/sigma-correlation-rules-specification.md",
+      "publisher": "SigmaHQ",
+      "used_for": "Correlation types event_count, value_count, temporal, temporal_ordered; group-by, timespan units, condition operators, aliases, level on correlation rules, multi-document YAML, reference by name"
+    },
+    {
+      "id": "S3",
+      "title": "Sigma Tags Appendix",
+      "url": "https://raw.githubusercontent.com/SigmaHQ/sigma-specification/main/specification/sigma-appendix-tags.md",
+      "publisher": "SigmaHQ",
+      "used_for": "Tag namespaces (attack, car, cve, d3fend, detection, stp, tlp); no ATLAS namespace; tactic tags lower case with hyphens"
+    },
+    {
+      "id": "S4",
+      "title": "Sigma Modifiers Appendix",
+      "url": "https://raw.githubusercontent.com/SigmaHQ/sigma-specification/main/specification/sigma-appendix-modifiers.md",
+      "publisher": "SigmaHQ",
+      "used_for": "startswith modifier definition"
+    },
+    {
+      "id": "S5",
+      "title": "SigmaHQ rule: AWS CloudTrail Important Change",
+      "url": "https://raw.githubusercontent.com/SigmaHQ/sigma/master/rules/cloud/aws/cloudtrail/aws_cloudtrail_disable_logging.yml",
+      "publisher": "SigmaHQ",
+      "used_for": "Real rule showing logsource product aws / service cloudtrail, eventSource and eventName field names, tags attack.defense-impairment and attack.t1685.002"
+    },
+    {
+      "id": "S6",
+      "title": "Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "Amazon Web Services",
+      "used_for": "eventSource value, management versus data events for Bedrock operations, example InvokeModel record, stream-completion AwsServiceEvent records"
+    },
+    {
+      "id": "S7",
+      "title": "Monitor model invocation using CloudWatch Logs and Amazon S3",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html",
+      "publisher": "Amazon Web Services",
+      "used_for": "Model invocation logging disabled by default, destinations, Put/Get/Delete configuration API names, identity.arn format for assumed roles"
+    },
+    {
+      "id": "S8",
+      "title": "CloudTrail record contents for management, data, and network activity events",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html",
+      "publisher": "Amazon Web Services",
+      "used_for": "Definitions of CloudTrail record fields used in raw blocks"
+    },
+    {
+      "id": "S9",
+      "title": "Azure Monitor Logs reference: AWSCloudTrail",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/awscloudtrail",
+      "publisher": "Microsoft Learn",
+      "used_for": "Sentinel column names EventSource, EventName, EventTypeName, UserIdentityArn, SourceIpAddress, AWSRegion, UserIdentityAccessKeyId, UserIdentityType values"
+    },
+    {
+      "id": "S10",
+      "title": "Azure Monitor Logs reference: CopilotActivity",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/copilotactivity",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotActivity table and LLMEventData column"
+    },
+    {
+      "id": "S11",
+      "title": "Example log table queries for CopilotActivity",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/queries/copilotactivity",
+      "publisher": "Microsoft Learn",
+      "used_for": "LLMEventData.Messages JailbreakDetected and LLMEventData.AccessedResources as queryable properties"
+    },
+    {
+      "id": "S12",
+      "title": "CopilotInteraction audit schema",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/copilot-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "Operation CopilotInteraction, RecordType 261, CopilotEventData properties, MessageData has Id, Size, isPrompt and no text property, example record"
+    },
+    {
+      "id": "S13",
+      "title": "Audit logs for Copilot and AI applications",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn",
+      "used_for": "AccessedResources sub-properties, Messages JailbreakDetected definition, AppHost meaning"
+    },
+    {
+      "id": "S14",
+      "title": "Scheduled analytics rules in Microsoft Sentinel",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/scheduled-rules-overview",
+      "publisher": "Microsoft Learn",
+      "used_for": "Alert threshold applies per run, lookback and interval, results simulation over last 50 runs, severity definitions, entity mapping, custom details, alert details"
+    },
+    {
+      "id": "S15",
+      "title": "Handle ingestion delay in Microsoft Sentinel",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/ingestion-delay",
+      "publisher": "Microsoft Learn",
+      "used_for": "Missed events with a five-minute lookback and two-minute delay, the fix with ingestion_time(), sample query"
+    },
+    {
+      "id": "S16",
+      "title": "KQL summarize operator",
+      "url": "https://learn.microsoft.com/en-us/kusto/query/summarize-operator?view=microsoft-sentinel",
+      "publisher": "Microsoft Learn",
+      "used_for": "summarize grouping semantics, bin(), count(), dcount(), make_set(), no rows for empty groups"
+    },
+    {
+      "id": "S17",
+      "title": "KQL string operators",
+      "url": "https://learn.microsoft.com/en-us/kusto/query/datatypes-string-operators?view=microsoft-sentinel",
+      "publisher": "Microsoft Learn",
+      "used_for": "== is case-sensitive, =~ is not, in operator"
+    },
+    {
+      "id": "S18",
+      "title": "KQL join operator",
+      "url": "https://learn.microsoft.com/en-us/kusto/query/join-operator?view=microsoft-sentinel",
+      "publisher": "Microsoft Learn",
+      "used_for": "Default join kind innerunique with left side deduplication, kind=inner, smaller table on the left"
+    },
+    {
+      "id": "S19",
+      "title": "KQL percentile() and percentiles()",
+      "url": "https://learn.microsoft.com/en-us/kusto/query/percentiles-aggregation-function?view=microsoft-sentinel",
+      "publisher": "Microsoft Learn",
+      "used_for": "percentile() returns an estimate; percentiles() syntax"
+    },
+    {
+      "id": "S20",
+      "title": "Splunk SPL stats command",
+      "url": "https://help.splunk.com/en/splunk-enterprise/search/spl-search-reference/9.4/search-commands/stats",
+      "publisher": "Splunk",
+      "used_for": "stats with BY returns one row per distinct value combination; count and sum functions"
+    },
+    {
+      "id": "S21",
+      "title": "Splunk detection: AWS Bedrock Delete Model Invocation Logging Configuration",
+      "url": "https://research.splunk.com/cloud/9c5e3d62-f743-11ee-9f6e-acde48001124/",
+      "publisher": "Splunk Threat Research",
+      "used_for": "sourcetype aws:cloudtrail, detection watches the delete call, mapping to T1685.002, known false positives, Splunk Add-on for AWS"
+    },
+    {
+      "id": "S22",
+      "title": "Elastic prebuilt rule: AWS Bedrock Model Invocation Logging Disabled or Modified",
+      "url": "https://www.elastic.co/guide/en/security/current/aws-bedrock-model-invocation-logging-disabled-or-modified.html",
+      "publisher": "Elastic",
+      "used_for": "Rule watches both delete and put calls; put can redirect logs to an unmonitored destination; false positives from planned migrations and infrastructure-as-code pipelines; triage questions"
+    },
+    {
+      "id": "S23",
+      "title": "Google SecOps: Collect Zscaler Webproxy logs",
+      "url": "https://docs.cloud.google.com/chronicle/docs/ingestion/default-parsers/collect-zscaler-webproxy-logs",
+      "publisher": "Google Cloud",
+      "used_for": "Zscaler NSS web feed JSON key names (datetime, user, department, action, url, hostname, urlcategory, requestmethod, requestsize, responsesize, status, useragent, ClientIP, serverip, location, devicehostname), their NSS tokens, sourcetype zscalernss-web"
+    },
+    {
+      "id": "S24",
+      "title": "Elastic integration: Zscaler ZIA",
+      "url": "https://www.elastic.co/docs/reference/integrations/zscaler_zia",
+      "publisher": "Elastic",
+      "used_for": "Zscaler web log tokens, sample value action Allowed, feed is a template defined in the admin portal"
+    },
+    {
+      "id": "S25",
+      "title": "Zscaler blog: Make generative AI tools like ChatGPT safe and secure with Zscaler",
+      "url": "https://www.zscaler.com/blogs/product-insights/make-generative-ai-tools-chatgpt-safe-and-secure-zscaler",
+      "publisher": "Zscaler",
+      "used_for": "URL category named AI and ML Applications"
+    },
+    {
+      "id": "S26",
+      "title": "Palantir Alerting and Detection Strategy Framework",
+      "url": "https://raw.githubusercontent.com/palantir/alerting-detection-strategy-framework/master/ADS-Framework.md",
+      "publisher": "Palantir",
+      "used_for": "True positive validation requirement, blind spots and assumptions, false positives section"
+    },
+    {
+      "id": "S27",
+      "title": "MITRE ATT&CK T1685.002 Disable or Modify Cloud Log",
+      "url": "https://attack.mitre.org/techniques/T1685/002/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, parent, tactic Defense Impairment"
+    },
+    {
+      "id": "S28",
+      "title": "MITRE ATT&CK T1496.004 Cloud Service Hijacking",
+      "url": "https://attack.mitre.org/techniques/T1496/004/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, tactic Impact, LLMJacking mention"
+    },
+    {
+      "id": "S29",
+      "title": "MITRE ATLAS data (ATLAS.yaml, version 5.6.0)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE",
+      "used_for": "ATLAS technique names and tactics for AML.T0034, AML.T0040, AML.T0054"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "The documented InvokeModel CloudTrail record carries eventSource, eventName, userIdentity.arn, sourceIPAddress, userAgent and requestParameters.modelId, and no prompt",
+      "source": "S6",
+      "locator": "Understanding Amazon Bedrock log file entries, InvokeModel example"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The eventSource value for Bedrock is bedrock.amazonaws.com, and the bedrock-runtime host name appears in tlsDetails.clientProvidedHostHeader",
+      "source": "S6",
+      "locator": "InvokeModel example: eventSource bedrock.amazonaws.com; clientProvidedHostHeader bedrock-runtime.us-west-2.amazonaws.com"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "InvokeModel, InvokeModelWithResponseStream, Converse and ConverseStream are logged as management events",
+      "source": "S6",
+      "locator": "Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "CloudTrail logs management events by default; data events are high-volume activities not logged by default",
+      "source": "S6",
+      "locator": "Data events are often high-volume activities that CloudTrail doesn't log by default; CloudTrail logs management event API operations by default"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "InvokeAgent, Retrieve and ApplyGuardrail are logged as data events that need advanced event selectors",
+      "source": "S6",
+      "locator": "Amazon Bedrock data events in CloudTrail (AWS::Bedrock::AgentAlias, KnowledgeBase, Guardrail)"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A streaming invocation produces a second CloudTrail event with eventType AwsServiceEvent, and counts should be restricted to AwsApiCall",
+      "source": "S6",
+      "locator": "Stream-completion events for streaming invocations"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Model invocation logging is disabled by default, writes to CloudWatch Logs or Amazon S3, and is configured with PutModelInvocationLoggingConfiguration and DeleteModelInvocationLoggingConfiguration",
+      "source": "S7",
+      "locator": "Model invocation logging is disabled by default; Model invocation logging using the API"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A commonly used Zscaler NSS web feed template writes user, department, url, hostname, urlcategory, appname, action, requestmethod, requestsize, responsesize",
+      "source": "S23",
+      "locator": "NSS feed output format template and UDM mapping table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The Zscaler feed output format is defined by the administrator, so key names vary",
+      "source": "S24",
+      "locator": "Web log section: feed output format template configured in the ZIA admin portal"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Zscaler created a URL category called AI and ML Applications",
+      "source": "S25",
+      "locator": "created a URL category called 'AI and ML Applications'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Copilot audit records have Operation CopilotInteraction and RecordType 261",
+      "source": "S12",
+      "locator": "Audit log examples: RecordType: 261, Operation: CopilotInteraction"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "CopilotEventData holds AppHost, AccessedResources (Name, SiteUrl, Action, SensitivityLabelId) and Messages (Id, isPrompt); the message type has no text property",
+      "source": "S12",
+      "locator": "Schema example: ComplexType MessageData (Id, Size, isPrompt); SensitivityLabelIdData; EventData"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "JailbreakDetected is a boolean flag denoting whether a jailbreak attempt was made using the prompt message",
+      "source": "S13",
+      "locator": "Common properties: Messages row"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Sentinel documents a CopilotActivity table whose LLMEventData column holds the parsed event data",
+      "source": "S10",
+      "locator": "Columns table: LLMEventData dynamic"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "In Sentinel's AWSCloudTrail table the columns are EventName, EventTypeName and UserIdentityArn",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Sigma: all elements of a map are joined with a logical AND; list items are linked with a logical OR; all values are treated as case-insensitive strings",
+      "source": "S1",
+      "locator": "Detection section: Lists, Maps; All values are treated as case-insensitive strings"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Mandatory Sigma fields are title, logsource and detection; id is a random UUID version 4; status values include experimental, test, stable; dates are YYYY-MM-DD",
+      "source": "S1",
+      "locator": "Components; Rule Identification; Status; Date"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Sigma condition pattern selection and not filter",
+      "source": "S1",
+      "locator": "Special Field Values: condition: selection and not filter"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Sigma logsource for CloudTrail is product aws, service cloudtrail, with fields eventSource and eventName",
+      "source": "S5",
+      "locator": "logsource and detection blocks of the rule"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Splunk CloudTrail data uses sourcetype aws:cloudtrail collected with the Splunk Add-on for AWS",
+      "source": "S21",
+      "locator": "Data source and macros: cloudtrail = sourcetype=aws:cloudtrail; How to implement"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "stats with a BY clause returns one row for each distinct value in the BY clause fields",
+      "source": "S20",
+      "locator": "The BY clause returns one row for each distinct value in the BY clause fields"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Splunk's detection watches the delete call; Elastic's rule watches both the delete and the put call, and a put may redirect logs to an unmonitored destination",
+      "source": "S22",
+      "locator": "Rule description and triage guidance"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Expected false positives are planned logging migrations and infrastructure-as-code pipelines",
+      "source": "S22",
+      "locator": "False positive analysis"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ATT&CK T1496.004 Cloud Service Hijacking (Impact) mentions LLMJacking",
+      "source": "S28",
+      "locator": "they may engage in LLMJacking by leveraging reverse proxies to hijack the power of cloud-hosted AI models"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ATLAS AML.T0040 is AI Model Inference API Access",
+      "source": "S29",
+      "locator": "techniques: id AML.T0040"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Sigma event_count counts events in the time frame; value_count counts values in a field; timespan units are s, m, h, d; condition operators include gt",
+      "source": "S2",
+      "locator": "Correlation types; timespan; condition"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "summarize arranges input rows into groups with the same values of the by expressions; bin() reduces ranges to discrete values",
+      "source": "S16",
+      "locator": "Returns section"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "In Sentinel the alert threshold applies separately to each time the rule runs, not collectively",
+      "source": "S14",
+      "locator": "Alert threshold"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "percentile() calculates an estimate for the specified nearest-rank percentile",
+      "source": "S19",
+      "locator": "First paragraph"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "When a group expression is provided and the input is empty, summarize outputs no rows",
+      "source": "S16",
+      "locator": "Note under Parameters"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "requestsize maps to the bytes sent by the client; sourcetype for the feed is zscalernss-web",
+      "source": "S23",
+      "locator": "requestsize %d{reqsize} to network.sent_bytes; sourcetype zscalernss-web"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Sentinel's results simulation shows the results over the last 50 times the query would have run",
+      "source": "S14",
+      "locator": "Results simulation"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "temporal requires all referenced rules to occur in the timespan; temporal_ordered additionally requires the order given in the rules attribute; aliases map a name to a field per rule",
+      "source": "S2",
+      "locator": "temporal, temporal_ordered, aliases"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "The default KQL join kind is innerunique (inner join with left side deduplication); for best performance the smaller table goes on the left",
+      "source": "S18",
+      "locator": "Parameters: JoinFlavor default; Tip"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ATLAS AML.T0054 is LLM Jailbreak",
+      "source": "S29",
+      "locator": "techniques: id AML.T0054"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Correlation rules refer to rules by name or id and may sit in one multi-document YAML file; level is allowed on the correlation rule",
+      "source": "S2",
+      "locator": "rules attribute; Examples; Level"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Each alerting and detection strategy must have true positive validation: generate the scenario, generate the alert from a testing device, validate it was detected",
+      "source": "S26",
+      "locator": "Validation"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "In KQL == is case-sensitive and =~ is case-insensitive",
+      "source": "S17",
+      "locator": "Operators on strings table"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "With a five-minute interval and lookback and a two-minute ingestion delay the rule does not fire; fix by extending the lookback and restricting on ingestion_time()",
+      "source": "S15",
+      "locator": "Why delay is significant; How to handle delay; sample query"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Sigma levels informational, low, medium, high, critical and the wording for medium and high",
+      "source": "S1",
+      "locator": "Level section"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Sentinel alert details customise the alert name with query values; entity mapping maps entity types to query fields; custom details surface further fields",
+      "source": "S14",
+      "locator": "Alert enhancement"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Sigma tags are lower case, namespaced with dots, attack.t plus the technique number; sub-technique written attack.t1685.002 in a published rule",
+      "source": "S5",
+      "locator": "tags: attack.defense-impairment, attack.t1685.002"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "The Sigma tags appendix defines namespaces attack, car, cve, d3fend, detection, stp, tlp and none for ATLAS",
+      "source": "S3",
+      "locator": "Namespaces list"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "The Sigma rule file structure allows arbitrary custom fields",
+      "source": "S1",
+      "locator": "File structure block: [arbitrary custom fields]"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "T1685.002 is Disable or Modify Cloud Log under Disable or Modify Tools, tactic Defense Impairment",
+      "source": "S27",
+      "locator": "Technique header"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "ATLAS AML.T0034 is Cost Harvesting (tactic Impact)",
+      "source": "S29",
+      "locator": "techniques: id AML.T0034"
+    },
+    {
+      "where": "room:airule-r1",
+      "claim": "userIdentity.accessKeyId is the access key ID that was used to sign the request",
+      "source": "S9",
+      "locator": "UserIdentityAccessKeyId: The access key ID that was used to sign the request"
+    },
+    {
+      "where": "room:airule-r1",
+      "claim": "Sigma describes high as a relevant event that should trigger an internal alert and requires a prompt review",
+      "source": "S1",
+      "locator": "Level section"
+    },
+    {
+      "where": "room:airule-qf1",
+      "claim": "The startswith modifier expects the value at the beginning of the field's content",
+      "source": "S4",
+      "locator": "startswith"
+    },
+    {
+      "where": "room:airule-la1",
+      "claim": "An assumed-role caller appears as arn:aws:sts::account:assumed-role/RoleName/session-name and UserIdentityType can be AssumedRole",
+      "source": "S7",
+      "locator": "Log entry format: identity.arn example; S9 UserIdentityType values"
+    },
+    {
+      "where": "room:airule-r2",
+      "claim": "The Sentinel table for CloudTrail is AWSCloudTrail with columns EventSource, EventName, EventTypeName, UserIdentityArn, TimeGenerated",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "where": "room:airule-r2",
+      "claim": "The stream-completion record has eventType AwsServiceEvent and is not an API call",
+      "source": "S6",
+      "locator": "A stream-completion event isn't an API call"
+    },
+    {
+      "where": "room:airule-r2",
+      "claim": "Zscaler web log keys user, urlcategory, action, requestsize",
+      "source": "S23",
+      "locator": "NSS feed template keys"
+    },
+    {
+      "where": "room:airule-r3",
+      "claim": "Correlation types event_count, value_count, temporal, temporal_ordered and their requirements",
+      "source": "S2",
+      "locator": "Correlation types"
+    },
+    {
+      "where": "room:airule-r3",
+      "claim": "InvokeAgent is logged as a data event; InvokeModel as a management event",
+      "source": "S6",
+      "locator": "Data events and management events sections"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventVersion",
+      "source": "S8",
+      "locator": "eventVersion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventTime",
+      "source": "S8",
+      "locator": "eventTime"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventSource",
+      "source": "S8",
+      "locator": "eventSource"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventName",
+      "source": "S8",
+      "locator": "eventName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.awsRegion",
+      "source": "S8",
+      "locator": "awsRegion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.sourceIPAddress",
+      "source": "S8",
+      "locator": "sourceIPAddress"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userAgent",
+      "source": "S8",
+      "locator": "userAgent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.type",
+      "source": "S6",
+      "locator": "InvokeModel example: userIdentity.type"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.arn",
+      "source": "S6",
+      "locator": "InvokeModel example: userIdentity.arn"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accountId",
+      "source": "S6",
+      "locator": "InvokeModel example: userIdentity.accountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accessKeyId",
+      "source": "S6",
+      "locator": "InvokeModel example: userIdentity.accessKeyId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters",
+      "source": "S8",
+      "locator": "requestParameters"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.responseElements",
+      "source": "S8",
+      "locator": "responseElements"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestID",
+      "source": "S8",
+      "locator": "requestID"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventID",
+      "source": "S8",
+      "locator": "eventID"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.readOnly",
+      "source": "S8",
+      "locator": "readOnly"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventType",
+      "source": "S8",
+      "locator": "eventType"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.managementEvent",
+      "source": "S8",
+      "locator": "managementEvent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.recipientAccountId",
+      "source": "S8",
+      "locator": "recipientAccountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventCategory",
+      "source": "S8",
+      "locator": "eventCategory"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "datetime",
+      "source": "S23",
+      "locator": "NSS feed template: datetime"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "user",
+      "source": "S23",
+      "locator": "user = %s{elogin}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "department",
+      "source": "S23",
+      "locator": "department = %s{edepartment}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "action",
+      "source": "S23",
+      "locator": "action = %s{action}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "url",
+      "source": "S23",
+      "locator": "url = %s{eurl}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "hostname",
+      "source": "S23",
+      "locator": "hostname = %s{ehost}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "urlcategory",
+      "source": "S23",
+      "locator": "urlcategory = %s{urlcat}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "requestmethod",
+      "source": "S23",
+      "locator": "requestmethod = %s{reqmethod}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "requestsize",
+      "source": "S23",
+      "locator": "requestsize = %d{reqsize}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "responsesize",
+      "source": "S23",
+      "locator": "responsesize = %d{respsize}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "status",
+      "source": "S23",
+      "locator": "status = %s{respcode}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "useragent",
+      "source": "S23",
+      "locator": "useragent = %s{eua}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "ClientIP",
+      "source": "S23",
+      "locator": "ClientIP = %s{cip}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "serverip",
+      "source": "S23",
+      "locator": "serverip = %s{sip}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "location",
+      "source": "S23",
+      "locator": "location = %s{elocation}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "devicehostname",
+      "source": "S23",
+      "locator": "devicehostname = %s{devicehostname}"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "appname",
+      "source": "S23",
+      "locator": "appname = %s{appname} (named in the lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.AppHost",
+      "source": "S12",
+      "locator": "EventData: AppHost (named in the lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.AccessedResources",
+      "source": "S12",
+      "locator": "EventData: AccessedResources (named in the lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.Messages",
+      "source": "S12",
+      "locator": "EventData: Messages; JailbreakDetected from S13 (named in the lesson only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "LLMEventData",
+      "source": "S10",
+      "locator": "CopilotActivity columns (named in the lesson only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "EventTypeName",
+      "source": "S9",
+      "locator": "AWSCloudTrail columns (used in queries)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "UserIdentityArn",
+      "source": "S9",
+      "locator": "AWSCloudTrail columns (used in queries)"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "No single record is wrong, but the count is."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "Data events are high-volume activities that CloudTrail does not log by default."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "The event names are a list, and list items are joined with a logical OR."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "A streaming invocation writes an AwsApiCall record and, when the stream finishes, a second record whose eventType is AwsServiceEvent."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "A single global threshold of 400 sits above every maximum, so it would have produced no alerts in three weeks."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "The ordered type requires in addition that the events appear in the order in which the rules are listed."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "In KQL, the double equals operator is case-sensitive."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "Sigma's tag list defines no namespace for MITRE ATLAS."
+    },
+    {
+      "q": "room:airule-q1",
+      "taught_in": "room:airule-r1",
+      "support": "A block written as a map of field and value pairs matches only when all of its fields match."
+    },
+    {
+      "q": "room:airule-qf1",
+      "taught_in": "room:airule-r1",
+      "support": "For Bedrock the value is bedrock.amazonaws.com"
+    },
+    {
+      "q": "room:airule-la1#1",
+      "taught_in": "room:airule-r1",
+      "support": "It does not exclude the Delete call for anyone, and it does not exclude the role's other actions."
+    },
+    {
+      "q": "room:airule-la1#2",
+      "taught_in": "room:airule-r1",
+      "support": "Who made the call, with which access key, from which address and client?"
+    },
+    {
+      "q": "room:airule-la1#3",
+      "taught_in": "room:airule-r1",
+      "support": "Is there a change ticket or a pipeline run at that time?"
+    },
+    {
+      "q": "room:airule-qf2",
+      "taught_in": "room:airule-r2",
+      "support": "A rule that counts model invocations must keep only AwsApiCall, or every streamed call is counted twice and the rule fires at half the real volume."
+    },
+    {
+      "q": "room:airule-q2",
+      "taught_in": "room:airule-r2",
+      "support": "A threshold belongs above the highest normal hour, with a margin, and low enough to catch abuse."
+    },
+    {
+      "q": "room:airule-ac1",
+      "taught_in": "room:airule-r2",
+      "support": "A threshold rule that fires on real, authorised activity has worked correctly."
+    },
+    {
+      "q": "room:airule-qf3",
+      "taught_in": "room:airule-r3",
+      "support": "Pellham's sequence uses temporal_ordered, groups by userIdentity.arn and uses a timespan of 1h."
+    },
+    {
+      "q": "room:airule-m1",
+      "taught_in": "room:airule-r3",
+      "support": "In KQL the == operator is case-sensitive, so EventName == invokemodel finds no rows."
+    },
+    {
+      "q": "room:airule-o1",
+      "taught_in": "room:airule-r3",
+      "support": "Test with known-bad and known-good samples."
+    },
+    {
+      "q": "room:airule-q3",
+      "taught_in": "room:airule-r3",
+      "support": "Data events are not logged by default, and nobody had enabled them."
+    },
+    {
+      "q": "room:airule-f1",
+      "taught_in": "room:airule-r1",
+      "support": "The access key ID that was used to sign the request"
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "T1685.002",
+      "name": "Disable or Modify Tools: Disable or Modify Cloud Log",
+      "tactics": [
+        "Defense Impairment"
+      ],
+      "source": "S27"
+    },
+    {
+      "id": "T1496.004",
+      "name": "Resource Hijacking: Cloud Service Hijacking",
+      "tactics": [
+        "Impact"
+      ],
+      "source": "S28"
+    },
+    {
+      "id": "AML.T0040",
+      "name": "AI Model Inference API Access",
+      "tactics": [
+        "AI Model Access (AML.TA0000)"
+      ],
+      "source": "S29"
+    },
+    {
+      "id": "AML.T0034",
+      "name": "Cost Harvesting",
+      "tactics": [
+        "Impact (AML.TA0011)"
+      ],
+      "source": "S29"
+    },
+    {
+      "id": "AML.T0054",
+      "name": "LLM Jailbreak",
+      "tactics": [
+        "Privilege Escalation (AML.TA0012)",
+        "Defense Evasion (AML.TA0007)"
+      ],
+      "source": "S29"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "SPL base-search syntax in the lesson (sourcetype=..., field=value, parentheses with OR, a quoted value)",
+      "why": "The Splunk search-command reference could not be fetched (help.splunk.com search page blocked by the fetch tool, docs.splunk.com returned 403). Only the stats command page and Splunk's own published Bedrock detection were read.",
+      "handled": "softened to the minimal forms that Splunk's published detection uses (sourcetype=aws:cloudtrail, eventSource, eventName, stats count BY); the NOT exclusion with a wildcard and any time-bucketing command were left out"
+    },
+    {
+      "item": "Zscaler web log key names and the category value AI and ML Applications",
+      "why": "Zscaler's own NSS web-log format page returned an empty body to the fetch tool. Key names were read in Google SecOps and Elastic documentation that reproduce the feed template; the category name comes from a Zscaler blog dated May 2023 and Zscaler may have renamed or split it since.",
+      "handled": "lesson tells the reader that the feed is a template and to check the category names in their own tenant; urlsupercategory, urlclass, appname, appclass and reason values were left out of the raw block"
+    },
+    {
+      "item": "Sentinel table name for Copilot audit data",
+      "why": "The table reference page is titled CopilotActivity, but the sample queries on Microsoft's example-queries page for that table start from a table named LLMActivity.",
+      "handled": "lesson says the records are documented as the CopilotActivity table with the LLMEventData column and shows no KQL against that table"
+    },
+    {
+      "item": "ATLAS data file currency",
+      "why": "dist/ATLAS.yaml states version 5.6.0 and carries a comment that this version of the data is deprecated and no longer updated. Technique names and tactics for AML.T0034, AML.T0040 and AML.T0054 were read from it; a newer release may differ.",
+      "handled": "kept as read; integrator should confirm against the current ATLAS release"
+    },
+    {
+      "item": "ATT&CK tactic ID for Defense Impairment and ATT&CK content version",
+      "why": "The technique page gave the tactic name only. The page footer showed ATT&CK content v20.1, while the repo library is on v19.",
+      "handled": "no tactic ID is written in the content; T1685.002 and T1496.004 both exist in src/lib/mitre/attack.ts"
+    },
+    {
+      "item": "A Sigma custom field named atlas",
+      "why": "Not part of any standard. Sigma's tags appendix has no ATLAS namespace; the rule specification's file structure allows arbitrary custom fields.",
+      "handled": "presented in the lesson as the team's own convention"
+    },
+    {
+      "item": "Baseline guidance (two to four weeks of history, threshold above the highest normal hour with a margin, three times the 99th percentile per identity, 400 calls, 20 megabytes)",
+      "why": "Engineering method and illustrative numbers written by the author, not taken from a source.",
+      "handled": "presented as a method and as the fictional organisations' own choices, with example data"
+    },
+    {
+      "item": "Mapping of invocation bursts to ATLAS AML.T0034 Cost Harvesting",
+      "why": "The ATLAS description is about driving up a victim's costs; use of a stolen key for the attacker's own workload fits ATT&CK T1496.004 more directly.",
+      "handled": "softened to: the related ATLAS technique when the aim is to run up the victim's bill; the burst rule is tagged with AML.T0040"
+    },
+    {
+      "item": "Illustrative values in records (access key IDs, request IDs, user agent strings, session names, model ID)",
+      "why": "Invented in the documented formats.",
+      "handled": "kept as example data; domains end in .example and addresses are private or documentation ranges"
+    }
+  ]
+}

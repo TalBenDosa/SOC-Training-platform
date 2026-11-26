@@ -1,0 +1,1003 @@
+{
+  "topic": "Shadow AI detection",
+  "slug": "shadow-ai-detection",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Collect Zscaler Webproxy logs (default parser, NSS feed output format and UDM mapping)",
+      "url": "https://docs.cloud.google.com/chronicle/docs/ingestion/default-parsers/collect-zscaler-webproxy-logs",
+      "publisher": "Google Cloud (Google Security Operations documentation)",
+      "used_for": "Zscaler NSS web feed key names, sourcetype zscalernss-web, sample values (action Allowed, reason Allowed, protocol values, CONNECT sample)"
+    },
+    {
+      "id": "S2",
+      "title": "Make generative AI tools like ChatGPT safe and secure with Zscaler",
+      "url": "https://www.zscaler.com/blogs/product-insights/make-generative-ai-tools-chatgpt-safe-and-secure-zscaler",
+      "publisher": "Zscaler",
+      "used_for": "URL category name AI and ML Applications; block, caution and isolate access options; need for SSL inspection to see content"
+    },
+    {
+      "id": "S3",
+      "title": "Cloud app discovery overview",
+      "url": "https://learn.microsoft.com/en-us/defender-cloud-apps/set-up-cloud-discovery",
+      "publisher": "Microsoft Learn",
+      "used_for": "Catalogue size, risk factors, snapshot and continuous reports, feeds, update frequency, per-source data attributes"
+    },
+    {
+      "id": "S4",
+      "title": "Govern discovered apps",
+      "url": "https://learn.microsoft.com/en-us/defender-cloud-apps/governance-discovery",
+      "publisher": "Microsoft Learn",
+      "used_for": "Sanctioned and Unsanctioned tags, what blocks and what does not, block script"
+    },
+    {
+      "id": "S5",
+      "title": "View discovered apps on the Cloud discovery dashboard",
+      "url": "https://learn.microsoft.com/en-us/defender-cloud-apps/discovered-apps",
+      "publisher": "Microsoft Learn",
+      "used_for": "Discovered apps filters, top users and source IP addresses, 90 day retention period"
+    },
+    {
+      "id": "S6",
+      "title": "How do I discover AI apps and the sensitive data these use in my organization",
+      "url": "https://learn.microsoft.com/en-us/security/security-for-ai/discover",
+      "publisher": "Microsoft Learn",
+      "used_for": "Generative AI category in the Defender for Cloud Apps catalogue"
+    },
+    {
+      "id": "S7",
+      "title": "DeviceNetworkEvents table in the advanced hunting schema",
+      "url": "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicenetworkevents-table",
+      "publisher": "Microsoft Learn",
+      "used_for": "Column names and descriptions for endpoint network events"
+    },
+    {
+      "id": "S8",
+      "title": "DeviceTvmBrowserExtensions table in the advanced hunting schema",
+      "url": "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmbrowserextensions-table",
+      "publisher": "Microsoft Learn",
+      "used_for": "Extension inventory columns; table not ingested into Microsoft Sentinel"
+    },
+    {
+      "id": "S9",
+      "title": "Chrome Enterprise: set app and extension policies (ExtensionSettings)",
+      "url": "https://support.google.com/chrome/a/answer/7532015",
+      "publisher": "Google",
+      "used_for": "ExtensionSettings installation modes, default key, blocked_permissions, runtime_blocked_hosts, 32-character extension ID"
+    },
+    {
+      "id": "S10",
+      "title": "Overview of permissions and consent in the Microsoft identity platform",
+      "url": "https://learn.microsoft.com/en-us/entra/identity-platform/permissions-consent-overview",
+      "publisher": "Microsoft Learn",
+      "used_for": "Delegated versus application permissions, who can consent"
+    },
+    {
+      "id": "S11",
+      "title": "Configure how users consent to applications",
+      "url": "https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-user-consent",
+      "publisher": "Microsoft Learn",
+      "used_for": "Default user consent behaviour, verified publisher recommendation, admin consent workflow"
+    },
+    {
+      "id": "S12",
+      "title": "Detect and remediate illicit consent grants",
+      "url": "https://learn.microsoft.com/en-us/defender-office-365/detect-and-remediate-illicit-consent-grants",
+      "publisher": "Microsoft Learn",
+      "used_for": "Consent to application activity, IsAdminConsent check, password reset not effective, remediation options"
+    },
+    {
+      "id": "S13",
+      "title": "App consent grant investigation",
+      "url": "https://learn.microsoft.com/en-us/security/operations/incident-response-playbook-app-consent",
+      "publisher": "Microsoft Learn",
+      "used_for": "ConsentType values Principal and AllPrincipals, risky and lowest-risk permission lists, disable instead of delete"
+    },
+    {
+      "id": "S14",
+      "title": "Microsoft Entra audit log activity reference",
+      "url": "https://learn.microsoft.com/en-us/entra/identity/monitoring-health/reference-audit-activities",
+      "publisher": "Microsoft Learn",
+      "used_for": "Consent to application listed under the ApplicationManagement category"
+    },
+    {
+      "id": "S15",
+      "title": "Azure Monitor Logs reference: AuditLogs",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/auditlogs",
+      "publisher": "Microsoft Learn",
+      "used_for": "AuditLogs table columns"
+    },
+    {
+      "id": "S16",
+      "title": "Microsoft Sentinel analytic rule: Suspicious application consent for offline access",
+      "url": "https://raw.githubusercontent.com/Azure/Azure-Sentinel/master/Solutions/Microsoft%20Entra%20ID/Analytic%20Rules/SuspiciousOAuthApp_OfflineAccess.yaml",
+      "publisher": "Microsoft (Azure-Sentinel repository)",
+      "used_for": "KQL shape for consent events, LoggedByService Core Directory, ConsentAction.Permissions modified property, ConsentType and Scope tokens, offline access description"
+    },
+    {
+      "id": "S17",
+      "title": "Microsoft Sentinel analytic rule: Rare application consent",
+      "url": "https://raw.githubusercontent.com/Azure/Azure-Sentinel/master/Solutions/Microsoft%20Entra%20ID/Analytic%20Rules/RareApplicationConsent.yaml",
+      "publisher": "Microsoft (Azure-Sentinel repository)",
+      "used_for": "InitiatedBy.user.userPrincipalName and ipAddress, TargetResources type ServicePrincipal, AdditionalDetails key User-Agent"
+    },
+    {
+      "id": "S18",
+      "title": "directoryAudit resource type",
+      "url": "https://learn.microsoft.com/en-us/graph/api/resources/directoryaudit?view=graph-rest-1.0",
+      "publisher": "Microsoft Learn (Microsoft Graph)",
+      "used_for": "Audit record property names: activityDisplayName, activityDateTime, category, correlationId, initiatedBy, loggedByService, result, targetResources, additionalDetails"
+    },
+    {
+      "id": "S19",
+      "title": "targetResource resource type",
+      "url": "https://learn.microsoft.com/en-us/graph/api/resources/targetresource?view=graph-rest-1.0",
+      "publisher": "Microsoft Learn (Microsoft Graph)",
+      "used_for": "targetResource properties: id, displayName, type, modifiedProperties"
+    },
+    {
+      "id": "S20",
+      "title": "Corporate network controls in ChatGPT Enterprise",
+      "url": "https://help.openai.com/en/articles/20001323-corporate-network-controls-in-chatgpt-enterprise",
+      "publisher": "OpenAI",
+      "used_for": "ChatGPT-Allowed-Workspace-Id header, SSL inspection requirement, certificate pinning in apps, backend-anon prefix, 403 behaviour"
+    },
+    {
+      "id": "S21",
+      "title": "Enforce network-level access control with tenant restrictions",
+      "url": "https://support.claude.com/en/articles/13198485-enforce-network-level-access-control-with-tenant-restrictions",
+      "publisher": "Anthropic",
+      "used_for": "anthropic-allowed-org-ids header, overwrite rule, HTTP 400 on duplicates, 403 tenant_restriction_violation, plan availability"
+    },
+    {
+      "id": "S22",
+      "title": "Block access to consumer accounts",
+      "url": "https://knowledge.workspace.google.com/admin/security/block-access-to-consumer-accounts",
+      "publisher": "Google Workspace",
+      "used_for": "X-GoogApps-Allowed-Domains header, SSL interception, URL filter alone does not work"
+    },
+    {
+      "id": "S23",
+      "title": "ECS field reference: DNS fields",
+      "url": "https://www.elastic.co/guide/en/ecs/current/ecs-dns.html",
+      "publisher": "Elastic",
+      "used_for": "dns.* field names, meanings and example values"
+    },
+    {
+      "id": "S24",
+      "title": "ECS field reference: Source fields",
+      "url": "https://www.elastic.co/guide/en/ecs/current/ecs-source.html",
+      "publisher": "Elastic",
+      "used_for": "source.ip field"
+    },
+    {
+      "id": "S25",
+      "title": "Shadow IT guidance",
+      "url": "https://www.ncsc.gov.uk/guidance/shadow-it",
+      "publisher": "UK National Cyber Security Centre",
+      "used_for": "Definition of shadow IT, causes, no-blame approach, CASB limit on personal accounts"
+    },
+    {
+      "id": "S26",
+      "title": "NIST AI RMF Playbook: Govern",
+      "url": "https://airc.nist.gov/airmf-resources/playbook/govern/",
+      "publisher": "NIST",
+      "used_for": "GOVERN 1.6 AI system inventory, GOVERN 6.1 third-party AI systems"
+    },
+    {
+      "id": "S27",
+      "title": "LLM02:2025 Sensitive Information Disclosure",
+      "url": "https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item number and name, user guidance prevention item"
+    },
+    {
+      "id": "S28",
+      "title": "Exfiltration Over Web Service (T1567)",
+      "url": "https://attack.mitre.org/techniques/T1567/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, ID and tactic"
+    },
+    {
+      "id": "S29",
+      "title": "Software Extensions: Browser Extensions (T1176.001)",
+      "url": "https://attack.mitre.org/techniques/T1176/001/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, ID, tactic, description of extensions"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "NCSC describes shadow IT as unknown assets used within an organisation for business purposes, includes AI tools, and says it is rarely the result of malicious intent",
+      "source": "S25",
+      "locator": "Definition and 'rarely the result of malicious intent'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "OWASP Top 10 for LLM Applications 2025 item LLM02:2025 is Sensitive Information Disclosure and a prevention item is guidance on avoiding the input of sensitive information",
+      "source": "S27",
+      "locator": "Educate Users on Safe LLM Usage: 'Provide guidance on avoiding the input of sensitive information.'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Zscaler has a URL category named AI and ML Applications covering generative AI sites",
+      "source": "S2",
+      "locator": "Blog text: dedicated URL category 'AI and ML Applications'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Zscaler access options for AI apps include block, caution-based and isolated access, and allow",
+      "source": "S2",
+      "locator": "List: Block access, Caution-based access, Isolate access; FAQ: allow, restrict, or isolate"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "NSS web feed keys: user, department, devicehostname, ClientIP, hostname, url, urlcategory, appname, requestmethod, requestsize, responsesize, action, reason, status, protocol, datetime; sourcetype zscalernss-web",
+      "source": "S1",
+      "locator": "Feed Output Format template (event object) and sample log"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "action values Allowed and Blocked; reason Allowed on an allowed transaction",
+      "source": "S1",
+      "locator": "Sample log (reason Allowed, action Allowed) and UDM mapping Allowed to ALLOW, Blocked to BLOCK"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Without inspection a row can be a CONNECT to host and port",
+      "source": "S1",
+      "locator": "Sample log: requestmethod CONNECT, url dummyurl.com:443, urlcategory SSL - DNI - Bypass"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "SSL inspection is what gives the gateway visibility into what users post to an AI site",
+      "source": "S2",
+      "locator": "Inline SSL decryption gives visibility into the queries users post"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "T1567 is Exfiltration Over Web Service, tactic Exfiltration",
+      "source": "S28",
+      "locator": "Technique page header"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "ECS DNS fields dns.question.name, dns.question.type, dns.question.registered_domain, dns.response_code, dns.answers.data, dns.answers.ttl and their meanings (ttl is seconds the record may be cached; registered domain is without the subdomain)",
+      "source": "S23",
+      "locator": "DNS field details table"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Cloud discovery analyses traffic logs against a catalogue of over 31,000 cloud apps, ranked and scored on more than 90 risk factors",
+      "source": "S3",
+      "locator": "First paragraph"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "The catalogue includes a Generative AI category",
+      "source": "S6",
+      "locator": "Step 3: 'app catalog includes a Generative AI category'"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Snapshot reports are manual uploads; continuous reports come from Defender for Endpoint integration, a log collector over Syslog or FTP, or a secure web gateway integration including Zscaler; Defender for Endpoint extends discovery beyond the corporate network",
+      "source": "S3",
+      "locator": "Snapshot and continuous risk assessment reports"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Discovery data is analysed and updated four times a day",
+      "source": "S3",
+      "locator": "Note under Log process flow"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Per-source data attributes are target app URL, target app IP, username, origin IP, total traffic, uploaded bytes; Zscaler supplies all; several firewall sources lack URL and uploaded bytes",
+      "source": "S3",
+      "locator": "Data attributes table (Zscaler row all Yes; Check Point and Cisco ASA Syslog rows)"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Unsanctioning an app does not block use by itself; with Defender for Endpoint unsanctioned apps are blocked automatically; with Zscaler NSS they are also blocked; otherwise use a block script or export domains",
+      "source": "S4",
+      "locator": "Sanctioning/unsanctioning an app; Blocking apps with built-in streams; Block apps by exporting a block script"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Retention period for cloud discovery data is 90 days",
+      "source": "S5",
+      "locator": "Exclude entities note: 'retention period (90 days)'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "DeviceNetworkEvents columns RemoteUrl, InitiatingProcessFileName, InitiatingProcessAccountUpn, DeviceName, Timestamp and their meanings",
+      "source": "S7",
+      "locator": "Column table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "DeviceTvmBrowserExtensions columns (DeviceId, BrowserName, ExtensionId, ExtensionName, ExtensionDescription, ExtensionVendor, ExtensionRisk, IsActivated, InstallationTime); ExtensionRisk is based on requested permissions; the table is not ingested into Microsoft Sentinel",
+      "source": "S8",
+      "locator": "Column table and Important note"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "OpenAI desktop and mobile apps use certificate pinning; header injection works in apps only on managed devices with pinning exceptions deployed",
+      "source": "S20",
+      "locator": "SSL inspection and app pinning section"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "ExtensionSettings installation modes allowed, blocked, force_installed, normal_installed; the * key sets the default; blocked_permissions and runtime_blocked_hosts behaviour; 32-character extension ID constant across versions and devices",
+      "source": "S9",
+      "locator": "ExtensionSettings policy description"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "T1176.001 is Browser Extensions under Software Extensions, tactic Persistence; extensions are small programs that add functionality and generally inherit the browser's permissions",
+      "source": "S29",
+      "locator": "Technique page description"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Delegated permissions act on behalf of a signed-in user and are limited to what the user can access; application permissions act without a user and can only be consented by an admin",
+      "source": "S10",
+      "locator": "Types of permissions and comparison table"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "By default all users may consent to applications for permissions that do not require administrator consent, for example access to their mailbox",
+      "source": "S11",
+      "locator": "Second paragraph"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Consent event: OperationName Consent to application, Category ApplicationManagement, LoggedByService Core Directory, TargetResources type ServicePrincipal, modified property ConsentAction.Permissions containing ConsentType and Scope",
+      "source": "S16",
+      "locator": "query block"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "InitiatedBy.user.userPrincipalName and InitiatedBy.user.ipAddress identify who consented and from where",
+      "source": "S17",
+      "locator": "query block"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ConsentType accepted values: AllPrincipals (administrator, entire tenancy) and Principal (individual user, data related only to that account)",
+      "source": "S13",
+      "locator": "Consent types, Accepted values"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Check whether IsAdminConsent is set to True",
+      "source": "S12",
+      "locator": "How to find illicit consent grants, step 4"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Commonly misused delegated permission families include Mail.*, Contacts.*, Files.*, Notes.*; User.Read and offline_access (only if paired with other lowest-risk permissions) are on the lowest-risk list",
+      "source": "S13",
+      "locator": "Classifying risky permissions"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Offline access provides access to the listed resources without requiring two-factor authentication",
+      "source": "S16",
+      "locator": "description field"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Disable rather than delete: a deleted app might return if another user consents; a disabled app cannot obtain new tokens and others cannot consent",
+      "source": "S13",
+      "locator": "How to stop and remediate an illicit consent grant attack"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Password reset and MFA are not effective against consent grants because the apps are external to the organisation",
+      "source": "S12",
+      "locator": "Introduction, last sentence of second paragraph"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Microsoft recommends allowing user consent only for apps from verified publishers (and low impact permissions) and offers an admin consent workflow",
+      "source": "S11",
+      "locator": "Third paragraph, built-in policy microsoft-user-default-low, Tip"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "A URL filter alone will not work because authorised and unauthorised traffic use the same URLs",
+      "source": "S22",
+      "locator": "How it works section"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "ChatGPT-Allowed-Workspace-Id carries workspace UUIDs separated by commas with no spaces; SSL inspection required; unlisted workspaces filtered silently or 403 if none remain; anonymous use blocked via the chatgpt.com/backend-anon/ prefix; available to ChatGPT Enterprise",
+      "source": "S20",
+      "locator": "Whole article"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "anthropic-allowed-org-ids carries comma-delimited organisation UUIDs with no spaces; TLS inspection required; duplicate header gives HTTP 400; overwrite on every request; refused users get HTTP 403 tenant_restriction_violation; Enterprise plan and Console organisations",
+      "source": "S21",
+      "locator": "Whole article"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "X-GoogApps-Allowed-Domains carries a list of allowed domains and requires SSL interception on the proxy",
+      "source": "S22",
+      "locator": "Header format and proxy steps"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "NCSC advises a no-blame approach because punishing staff discourages reporting and reduces visibility",
+      "source": "S25",
+      "locator": "Organisational mitigations"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "GOVERN 1.6 suggested actions: policies that define the creation and maintenance of AI system inventories and a specific individual or team responsible; GOVERN 6.1 covers policies addressing third-party AI systems and data",
+      "source": "S26",
+      "locator": "GOVERN 1.6 and GOVERN 6.1 suggested actions"
+    },
+    {
+      "where": "room:shai-r1",
+      "claim": "Zscaler web feed fields and the AI and ML Applications category as used in the reading",
+      "source": "S1",
+      "locator": "Feed Output Format template; category name from S2"
+    },
+    {
+      "where": "room:shai-r2",
+      "claim": "Entra audit event Consent to application in category ApplicationManagement; ConsentAction.Permissions carries ConsentType and Scope; Principal versus AllPrincipals",
+      "source": "S16",
+      "locator": "query block; ConsentType values from S13"
+    },
+    {
+      "where": "room:shai-r2",
+      "claim": "Disable instead of delete; password reset not effective",
+      "source": "S13",
+      "locator": "How to stop and remediate; password statement from S12"
+    },
+    {
+      "where": "room:shai-r2",
+      "claim": "Header names ChatGPT-Allowed-Workspace-Id, anthropic-allowed-org-ids, X-GoogApps-Allowed-Domains, all needing TLS inspection",
+      "source": "S20",
+      "locator": "S20 header section; S21 and S22 for the other two headers"
+    },
+    {
+      "where": "room:shai-r2",
+      "claim": "offline_access keeps access without a new two-factor check",
+      "source": "S16",
+      "locator": "description field"
+    },
+    {
+      "where": "room:shai-r3",
+      "claim": "NIST AI RMF Playbook GOVERN 1.6 calls for inventory policies and a responsible person or team",
+      "source": "S26",
+      "locator": "GOVERN 1.6 suggested actions"
+    },
+    {
+      "where": "room:shai-r3",
+      "claim": "Unsanctioned tag does not block on its own; with Defender for Endpoint or Zscaler it blocks",
+      "source": "S4",
+      "locator": "Sanctioning/unsanctioning an app; Blocking apps with built-in streams"
+    },
+    {
+      "where": "room:shai-r3",
+      "claim": "NCSC: shadow IT rarely malicious; no-blame approach",
+      "source": "S25",
+      "locator": "Why it happens; organisational mitigations"
+    },
+    {
+      "where": "room:shai-la2",
+      "claim": "Disabled app cannot obtain new tokens and other users cannot grant consent to it",
+      "source": "S13",
+      "locator": "How to stop and remediate an illicit consent grant attack"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "datetime",
+      "source": "S1",
+      "locator": "Feed template key datetime"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "event_id",
+      "source": "S1",
+      "locator": "Feed template key event_id (%d{recordid})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "user",
+      "source": "S1",
+      "locator": "Feed template key user (%s{elogin})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "department",
+      "source": "S1",
+      "locator": "Feed template key department"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "devicehostname",
+      "source": "S1",
+      "locator": "Feed template key devicehostname"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "location",
+      "source": "S1",
+      "locator": "Feed template key location"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "ClientIP",
+      "source": "S1",
+      "locator": "Feed template key ClientIP (%s{cip})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "clientpublicIP",
+      "source": "S1",
+      "locator": "Feed template key clientpublicIP"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "serverip",
+      "source": "S1",
+      "locator": "Feed template key serverip (%s{sip})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "hostname",
+      "source": "S1",
+      "locator": "Feed template key hostname (%s{ehost})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "url",
+      "source": "S1",
+      "locator": "Feed template key url (%s{eurl})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "urlcategory",
+      "source": "S1",
+      "locator": "Feed template key urlcategory (%s{urlcat})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "appname",
+      "source": "S1",
+      "locator": "Feed template key appname"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "protocol",
+      "source": "S1",
+      "locator": "Feed template key protocol (%s{proto}); HTTPS listed in mapping logic"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "requestmethod",
+      "source": "S1",
+      "locator": "Feed template key requestmethod"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "requestsize",
+      "source": "S1",
+      "locator": "Feed template key requestsize (%d{reqsize}), mapped to network.sent_bytes"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "responsesize",
+      "source": "S1",
+      "locator": "Feed template key responsesize (%d{respsize}), mapped to network.received_bytes"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "transactionsize",
+      "source": "S1",
+      "locator": "Feed template key transactionsize (%d{totalsize})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "status",
+      "source": "S1",
+      "locator": "Feed template key status (%s{respcode})"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "action",
+      "source": "S1",
+      "locator": "Feed template key action"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "reason",
+      "source": "S1",
+      "locator": "Feed template key reason"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "useragent",
+      "source": "S1",
+      "locator": "Feed template key useragent (%s{eua})"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.operationName",
+      "source": "S15",
+      "locator": "AuditLogs column OperationName; value from S14"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.activityDisplayName",
+      "source": "S18",
+      "locator": "directoryAudit property activityDisplayName"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.activityDateTime",
+      "source": "S18",
+      "locator": "directoryAudit property activityDateTime"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.category",
+      "source": "S18",
+      "locator": "directoryAudit property category, example ApplicationManagement"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.loggedByService",
+      "source": "S18",
+      "locator": "directoryAudit property loggedByService, example Core Directory"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.result",
+      "source": "S18",
+      "locator": "directoryAudit property result, value success"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.correlationId",
+      "source": "S18",
+      "locator": "directoryAudit property correlationId"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.initiatedBy.user.userPrincipalName",
+      "source": "S18",
+      "locator": "initiatedBy filter properties user/userPrincipalName"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.initiatedBy.user.id",
+      "source": "S18",
+      "locator": "initiatedBy filter properties user/id"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.initiatedBy.user.ipAddress",
+      "source": "S17",
+      "locator": "query: InitiatedBy.user.ipAddress"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.targetResources[0].type",
+      "source": "S19",
+      "locator": "targetResource property type, example ServicePrincipal"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.targetResources[0].displayName",
+      "source": "S19",
+      "locator": "targetResource property displayName"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.targetResources[0].id",
+      "source": "S19",
+      "locator": "targetResource property id"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName",
+      "source": "S16",
+      "locator": "query: Properties.displayName =~ ConsentAction.Permissions"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue",
+      "source": "S16",
+      "locator": "query: Properties.newValue parsed for ConsentType and Scope"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.additionalDetails[0].key",
+      "source": "S17",
+      "locator": "query: AdditionalDetail.key =~ User-Agent"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.auditlogs.properties.additionalDetails[0].value",
+      "source": "S17",
+      "locator": "query: AdditionalDetail.value"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "@timestamp",
+      "source": "S23",
+      "locator": "ECS base timestamp used with DNS events (registry common field)"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "source.ip",
+      "source": "S24",
+      "locator": "source.ip: IP address of the source"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.question.name",
+      "source": "S23",
+      "locator": "dns.question.name"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.question.type",
+      "source": "S23",
+      "locator": "dns.question.type"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.question.class",
+      "source": "S23",
+      "locator": "dns.question.class, example IN"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.response_code",
+      "source": "S23",
+      "locator": "dns.response_code, example NOERROR"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.answers.data",
+      "source": "S23",
+      "locator": "dns.answers.data"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.answers.ttl",
+      "source": "S23",
+      "locator": "dns.answers.ttl"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.resolved_ip",
+      "source": "S23",
+      "locator": "dns.resolved_ip: array of IP addresses seen in answers.data"
+    },
+    {
+      "vendor": "infoblox-dns",
+      "field": "dns.question.registered_domain",
+      "source": "S23",
+      "locator": "dns.question.registered_domain (lesson text only)"
+    },
+    {
+      "vendor": "microsoft-defender-endpoint",
+      "field": "RemoteUrl",
+      "source": "S7",
+      "locator": "Column table (lesson text and KQL only)"
+    },
+    {
+      "vendor": "microsoft-defender-endpoint",
+      "field": "InitiatingProcessFileName",
+      "source": "S7",
+      "locator": "Column table (lesson text and KQL only)"
+    },
+    {
+      "vendor": "microsoft-defender-endpoint",
+      "field": "InitiatingProcessAccountUpn",
+      "source": "S7",
+      "locator": "Column table (lesson text and KQL only)"
+    },
+    {
+      "vendor": "microsoft-defender-endpoint",
+      "field": "ExtensionRisk",
+      "source": "S8",
+      "locator": "DeviceTvmBrowserExtensions column table (lesson text and KQL only)"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "The identity log sees a connected app that never crosses the gateway at all, because the AI service reads the mailbox from its own servers."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "A request of several megabytes is a file, or a very long paste."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "Match on the registered domain, or on an exact list of names, never on a substring."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "On its own, marking an app Unsanctioned does not block it."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "The same domain where the process is anything else is an installed client or a script."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "A value of Principal means an individual user consented for data related only to that account."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "The gateway adds an HTTP header to every request to the service, naming the organisations or workspaces that are allowed."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "The grant lets the supplier read every file r.hale can reach, at any time."
+    },
+    {
+      "q": "room:shai-q1",
+      "taught_in": "room:shai-r1",
+      "support": "a POST with data to a host that is not the sanctioned tool"
+    },
+    {
+      "q": "room:shai-la1#1",
+      "taught_in": "room:shai-r1",
+      "support": "Upload volume is the request size, not the response size."
+    },
+    {
+      "q": "room:shai-la1#2",
+      "taught_in": "room:shai-r1",
+      "support": "Finance, HR (human resources) and Legal handle the data that hurts most when it leaves."
+    },
+    {
+      "q": "room:shai-ac1",
+      "taught_in": "room:shai-r1",
+      "support": "When a rule catches exactly the behaviour it was written for and the activity is authorised, the verdict is benign true positive, not false positive."
+    },
+    {
+      "q": "room:shai-la2#1",
+      "taught_in": "room:shai-r2",
+      "support": "ConsentType Principal means one user consented for data related only to that account."
+    },
+    {
+      "q": "room:shai-la2#2",
+      "taught_in": "room:shai-r2",
+      "support": "To stop a connected app, disable it instead of deleting it: a deleted app can return when the next user consents."
+    },
+    {
+      "q": "room:shai-q2",
+      "taught_in": "room:shai-r2",
+      "support": "The fix is a tenant restriction: the gateway inserts an HTTP header naming the allowed organisation, and the service refuses every other account."
+    },
+    {
+      "q": "room:shai-m1",
+      "taught_in": "room:shai-r2",
+      "support": "Extensions make few connections of their own, so you find them in the extension inventory, not in network logs."
+    },
+    {
+      "q": "room:shai-ac2",
+      "taught_in": "room:shai-r2",
+      "support": "A substring rule fires on any unrelated domain that happens to contain the same letters."
+    },
+    {
+      "q": "room:shai-o1",
+      "taught_in": "room:shai-r3",
+      "support": "Attribution comes before assessment because you cannot judge a tool's risk without knowing who uses it and what they send."
+    },
+    {
+      "q": "room:shai-q3",
+      "taught_in": "room:shai-r3",
+      "support": "If people relied on the tool, pair the block with an approved replacement."
+    },
+    {
+      "q": "room:shai-f1",
+      "taught_in": "room:shai-r1",
+      "support": "Upload volume is the request size, not the response size."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "T1567",
+      "name": "Exfiltration Over Web Service",
+      "tactics": [
+        "Exfiltration"
+      ],
+      "source": "S28"
+    },
+    {
+      "id": "T1176.001",
+      "name": "Software Extensions: Browser Extensions",
+      "tactics": [
+        "Persistence"
+      ],
+      "source": "S29"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "Zscaler's own help pages (help.zscaler.com: NSS Feed Output Format for web logs, Policy Reasons, AI and ML Applications cloud app control rule)",
+      "why": "The help site returned an empty page to every fetch (content is loaded by script)",
+      "handled": "NSS web feed key names, sample values and sourcetype taken from Google Security Operations' documented Zscaler feed template (S1) instead; the expansion of NSS is left out"
+    },
+    {
+      "item": "Exact current spelling of the Zscaler category (AI and ML Applications versus AI & ML Applications)",
+      "why": "The Zscaler blog (2023) writes 'AI and ML Applications'; the help-site spelling with an ampersand was seen only in a search result title",
+      "handled": "used the spelling from the fetched blog (S2) everywhere"
+    },
+    {
+      "item": "Zscaler reason strings for blocked transactions, and urlsupercategory, urlclass and appclass values for the AI category",
+      "why": "Policy Reasons page could not be fetched",
+      "handled": "left out: no blocked row is shown in raw, and those three keys are not used"
+    },
+    {
+      "item": "appname values ScribePilot and Loadwise Assist, and all .example hostnames and URL paths",
+      "why": "Fictional services, so no real catalogue value exists",
+      "handled": "story data only; no real provider URL path is shown anywhere"
+    },
+    {
+      "item": "Full literal layout of the ConsentAction.Permissions newValue string",
+      "why": "Only the tokens 'ConsentType: ', ', Scope: ' and ', CreatedDateTime' are confirmed (from the parse patterns in Microsoft's Sentinel rules); the surrounding brackets and other members were not seen",
+      "handled": "raw value abbreviated to the three confirmed members"
+    },
+    {
+      "item": "The full modified-property name for the admin-consent flag (ConsentContext.IsAdminConsent)",
+      "why": "Microsoft's pages name it only as IsAdminConsent",
+      "handled": "text says IsAdminConsent; not used as a raw key"
+    },
+    {
+      "item": "NIST AI 600-1 (Generative AI Profile) suggested actions",
+      "why": "The PDF was fetched but could not be converted to text in this environment",
+      "handled": "left out; only the AI RMF Playbook GOVERN 1.6 and 6.1 are cited"
+    },
+    {
+      "item": "Typical size of a typed prompt ('a few kilobytes at most')",
+      "why": "Author's reasoning about text size, not a documented figure",
+      "handled": "softened with 'typically'; no threshold is presented as a product default"
+    },
+    {
+      "item": "DNS over HTTPS bypassing the internal resolver, TTL caching hiding repeat queries, DHCP for address-to-device mapping, embedded AI features calling provider APIs",
+      "why": "General networking knowledge; no source fetched specifically for these statements in this run",
+      "handled": "kept as general explanation without product names, numbers or field claims"
+    },
+    {
+      "item": "Statement that the gateway row is identical for personal and company accounts on the same service",
+      "why": "Supported for Google by S22 and for cloud services generally by NCSC (S25); not stated by Zscaler in a fetched page",
+      "handled": "kept, attributed to Google's documentation in the lesson"
+    },
+    {
+      "item": "event_type role_assignment for the consent event and severity values",
+      "why": "Platform enum choice, not a vendor field",
+      "handled": "closest EventType chosen; raw carries the real operation name"
+    },
+    {
+      "item": "Chrome version in user agent strings (Chrome/154.0.0.0)",
+      "why": "Illustrative format value",
+      "handled": "format only, not a claim about a release"
+    }
+  ]
+}

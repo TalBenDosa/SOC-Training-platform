@@ -1,0 +1,928 @@
+{
+  "topic": "Detecting anomalous function calling and tool use",
+  "slug": "anomalous-function-calling",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Function calling (OpenAI API guide)",
+      "url": "https://developers.openai.com/api/docs/guides/function-calling",
+      "publisher": "OpenAI",
+      "used_for": "Five-step flow, function_call item fields, function_call_output, tool_choice, parallel calls, strict mode, best-effort non-strict"
+    },
+    {
+      "id": "S2",
+      "title": "Tool use with Claude",
+      "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview",
+      "publisher": "Anthropic",
+      "used_for": "tool_use and tool_result blocks, stop_reason tool_use, client versus server tools, model inferring missing parameters"
+    },
+    {
+      "id": "S3",
+      "title": "How to use function calling with Microsoft Foundry Models",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/function-calling",
+      "publisher": "Microsoft Learn",
+      "used_for": "Chat Completions tool_calls shape, application executes functions, invalid JSON warning, calls to functions not provided, responsible use tips (validate, trusted data, least privilege, user confirmation)"
+    },
+    {
+      "id": "S4",
+      "title": "Model Context Protocol specification 2025-06-18: Tools",
+      "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/tools",
+      "publisher": "Model Context Protocol",
+      "used_for": "tools/call request and result shape, isError, list_changed notification, human in the loop and security considerations"
+    },
+    {
+      "id": "S5",
+      "title": "OpenTelemetry GenAI semantic conventions: Execute Tool",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/execute-tool.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "Execute tool span name, kind, attributes and requirement levels, gen_ai.tool.type values, duration metric"
+    },
+    {
+      "id": "S6",
+      "title": "OpenTelemetry GenAI semantic conventions: gen_ai attribute registry",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/registry/attributes/gen-ai.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "Attribute definitions and examples, absence of approval or user attributes in the gen_ai registry, development stability"
+    },
+    {
+      "id": "S7",
+      "title": "OpenTelemetry GenAI semantic conventions: spans and content capture",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/gen-ai-spans.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "Content capture default NO_CONTENT, OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT, gen_ai.tool.definitions opt-in"
+    },
+    {
+      "id": "S8",
+      "title": "OpenTelemetry protocol: trace.proto",
+      "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/main/opentelemetry/proto/trace/v1/trace.proto",
+      "publisher": "OpenTelemetry",
+      "used_for": "Consulted for span field names and enums; the staged content now follows the flat rendering of the traces concept page (S23)"
+    },
+    {
+      "id": "S9",
+      "title": "OpenTelemetry semantic conventions: user attributes",
+      "url": "https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/",
+      "publisher": "OpenTelemetry",
+      "used_for": "user.id and other user attributes"
+    },
+    {
+      "id": "S10",
+      "title": "OWASP Top 10 for LLM Applications 2025, LLM06:2025 Excessive Agency",
+      "url": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item name and number, mitigations (user approval, complete mediation, user context), rate limiting note, mail assistant scenario"
+    },
+    {
+      "id": "S11",
+      "title": "MITRE ATLAS data, dist/ATLAS.yaml (version 5.6.0)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE",
+      "used_for": "Technique to tactic mapping for AML.T0053, AML.T0085, AML.T0085.001, AML.T0086"
+    },
+    {
+      "id": "S12",
+      "title": "MITRE ATLAS data, dist/v6/ATLAS-2026.10.yaml",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.10.yaml",
+      "publisher": "MITRE",
+      "used_for": "Current technique names and descriptions, tactic id to name list"
+    },
+    {
+      "id": "S13",
+      "title": "MITRE ATT&CK T1657 Financial Theft",
+      "url": "https://attack.mitre.org/techniques/T1657/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, tactic, current status"
+    },
+    {
+      "id": "S14",
+      "title": "The confused deputy problem (AWS IAM User Guide)",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html",
+      "publisher": "Amazon Web Services",
+      "used_for": "Definition of the confused deputy problem"
+    },
+    {
+      "id": "S15",
+      "title": "Office 365 Management Activity API schema",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "Common schema fields, UserType enum, SharePoint file fields, Exchange mailbox fields, app@sharepoint"
+    },
+    {
+      "id": "S16",
+      "title": "Audit log activities (Microsoft Purview)",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-log-activities",
+      "publisher": "Microsoft Learn",
+      "used_for": "FileAccessed five-minute suppression, Send operation meaning"
+    },
+    {
+      "id": "S17",
+      "title": "sys.fn_get_audit_file (Transact-SQL)",
+      "url": "https://learn.microsoft.com/en-us/sql/relational-databases/system-functions/sys-fn-get-audit-file-transact-sql",
+      "publisher": "Microsoft Learn",
+      "used_for": "SQL Server Audit columns and their meaning, event_time UTC, succeeded semantics, session_context"
+    },
+    {
+      "id": "S18",
+      "title": "SQL Server Audit action groups and actions",
+      "url": "https://learn.microsoft.com/en-us/sql/relational-databases/security/auditing/sql-server-audit-action-groups-and-actions",
+      "publisher": "Microsoft Learn",
+      "used_for": "Database-level actions SELECT and EXECUTE, parameterised query note"
+    },
+    {
+      "id": "S19",
+      "title": "Add or delete tables and columns in Azure Monitor Logs",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/logs/create-custom-table",
+      "publisher": "Microsoft Learn",
+      "used_for": "_CL suffix, TimeGenerated column, custom column naming rules"
+    },
+    {
+      "id": "S20",
+      "title": "join operator (Kusto Query Language)",
+      "url": "https://learn.microsoft.com/en-us/kusto/query/join-operator",
+      "publisher": "Microsoft Learn",
+      "used_for": "join syntax and flavours (leftouter, leftanti, inner)"
+    },
+    {
+      "id": "S21",
+      "title": "summarize operator (Kusto Query Language)",
+      "url": "https://learn.microsoft.com/en-us/kusto/query/summarize-operator",
+      "publisher": "Microsoft Learn",
+      "used_for": "summarize syntax, count, make_set, percentile, bin"
+    },
+    {
+      "id": "S22",
+      "title": "OWASP Top 10 for Agentic Applications announcement",
+      "url": "https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Consulted for context only (ASI02 Tool Misuse, ASI03 Identity and Privilege Abuse); no statement in the content depends on it"
+    },
+    {
+      "id": "S23",
+      "title": "Traces (OpenTelemetry concepts)",
+      "url": "https://opentelemetry.io/docs/concepts/signals/traces/",
+      "publisher": "OpenTelemetry",
+      "used_for": "Illustrative span JSON keys (name, context.trace_id, context.span_id, parent_id, start_time, end_time, attributes), root and child spans, span kinds, span status values Unset, Error, Ok"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "OpenAI describes function calling as five steps: request with tools, tool call, application executes, second request with output, final response or more calls",
+      "source": "S1",
+      "locator": "Flow: send a request with tools, receive a tool call, execute the code on your side, send a second request with the output, receive a final response or more tool calls"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "The application, not the model, executes the function",
+      "source": "S1",
+      "locator": "When the model calls a function, you must execute it and return the result"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Microsoft: your application executes the functions, so you remain in control of the actions taken",
+      "source": "S3",
+      "locator": "Your application executes the functions and returns the results to the model, so you remain in control of the actions taken"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "OpenAI Responses API function call item has type function_call, call_id, name and arguments as a JSON-encoded string; result is returned as function_call_output with the same call_id",
+      "source": "S1",
+      "locator": "Function call item shape; Returning results"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Chat Completions returns a tool_calls array with id and function.arguments; the result is a message with role tool and tool_call_id",
+      "source": "S3",
+      "locator": "Code sample and the paragraph on tool_call_id referencing the id from tool_calls"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Anthropic responds with stop_reason tool_use and tool_use blocks (id, name, input); the result is sent in a tool_result block with tool_use_id",
+      "source": "S2",
+      "locator": "How tool use works; JSON example with type tool_use, id, name, input"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "MCP tools are invoked with a tools/call request carrying params.name and params.arguments; the result has content and isError",
+      "source": "S4",
+      "locator": "Protocol Messages: Calling Tools"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "The model may call multiple functions in one turn; assume there are several",
+      "source": "S1",
+      "locator": "assume there are several; The model may choose to call multiple functions in a single turn"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "tool_choice can be none or restricted to an allowed subset of tools",
+      "source": "S1",
+      "locator": "tool_choice options: none, allowed_tools"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Client tools run in your application; server tools such as web search run on Anthropic's infrastructure and you see results without handling execution",
+      "source": "S2",
+      "locator": "How tool use works: Client tools ... Server tools"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "A model can try to call a function that was not included",
+      "source": "S3",
+      "locator": "Reducing errors: try to call a function that you didn't include"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Execute tool span: name execute_tool {gen_ai.tool.name}, kind INTERNAL, gen_ai.operation.name execute_tool",
+      "source": "S5",
+      "locator": "Span gen_ai.execute_tool: span name, span kind, operation name"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "gen_ai.tool.name is required; gen_ai.tool.call.arguments and gen_ai.tool.call.result are opt-in and may contain sensitive information; gen_ai.tool.call.id only if the model or provider supplied one; error.type set when the operation ended in an error",
+      "source": "S5",
+      "locator": "Attributes table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The GenAI conventions are in Development status",
+      "source": "S6",
+      "locator": "Stability for all attributes: Development"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Content capture defaults to NO_CONTENT and the opt-in control is OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT",
+      "source": "S7",
+      "locator": "Content capture configuration"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The gen_ai attribute registry defines no attribute for human approval or user identity",
+      "source": "S6",
+      "locator": "Registry attribute list (no approval, user.id or enduser.id attribute present)"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "OpenTelemetry defines a general user.id attribute: a unique identifier for the user",
+      "source": "S9",
+      "locator": "user.id"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A span record has name, context.trace_id, context.span_id, parent_id, start_time, end_time and attributes; a child span's parent_id matches the span_id of its parent; span kinds include Internal; span status is one of Unset, Error, Ok",
+      "source": "S23",
+      "locator": "Sample span JSON (hello and child spans); Span Kind; Span Status"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "gen_ai.tool.type well-known values are function, extension and datastore",
+      "source": "S5",
+      "locator": "Well-known gen_ai.tool.type values"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "gen_ai.tool.definitions holds the tool definitions supplied to the model and is opt-in",
+      "source": "S7",
+      "locator": "gen_ai.tool.definitions (Opt-In)"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "MCP servers can send notifications/tools/list_changed when the list of tools changes",
+      "source": "S4",
+      "locator": "List Changed Notification"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "OTel defines the metric gen_ai.execute_tool.duration, a histogram in seconds",
+      "source": "S5",
+      "locator": "Metric gen_ai.execute_tool.duration"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Azure Monitor custom tables have the _CL suffix and column names allow only letters, digits and underscores",
+      "source": "S19",
+      "locator": "Custom tables have a suffix of _CL; column name rules"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "KQL summarize with count(), make_set(), percentile() and bin(); join kind=leftouter",
+      "source": "S21",
+      "locator": "Syntax; Default values of aggregations; examples"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "A model might infer a reasonable value for a missing required parameter",
+      "source": "S2",
+      "locator": "When required parameters are missing"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Non-strict function calling is best-effort; strict mode makes calls adhere to the schema",
+      "source": "S1",
+      "locator": "Strict mode"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "The JSON response might not always be valid",
+      "source": "S3",
+      "locator": "Important: The JSON response might not always be valid"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Untrusted data in a function's output could be used to instruct the model to write function calls in a way other than intended; validate function calls by checking parameters, function and alignment with intended action",
+      "source": "S3",
+      "locator": "Using function calling responsibly"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "AML.T0086 Exfiltration via AI Agent Tool Invocation: sensitive information can be encoded into the tool's input parameters and transmitted to an adversary-controlled location",
+      "source": "S12",
+      "locator": "AML.T0086 description"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "T1657 is Financial Theft in the Impact tactic and is not deprecated or revoked",
+      "source": "S13",
+      "locator": "Technique header"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "AML.T0085.001 AI Agent Tools is a sub-technique of AML.T0085 Data from AI Services (Collection); AML.T0086 is in Exfiltration; AML.T0053 AI Agent Tool Invocation maps to Execution and Privilege Escalation",
+      "source": "S11",
+      "locator": "tactics fields: AML.T0085 AML.TA0009; AML.T0086 AML.TA0010; AML.T0053 AML.TA0005 and AML.TA0012"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "LLM06:2025 Excessive Agency scenario: mail extension meant to summarise also has send functions; an injected email makes the LLM scan the inbox and forward information",
+      "source": "S10",
+      "locator": "Example attack scenario"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "OWASP: rate limiting and logging limit damage without preventing the issue",
+      "source": "S10",
+      "locator": "Measures that limit the level of damage"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "MCP: there SHOULD always be a human in the loop with the ability to deny tool invocations; clients SHOULD prompt for user confirmation on sensitive operations and show tool inputs before calling the server; the protocol does not mandate an interaction model",
+      "source": "S4",
+      "locator": "User Interaction Model; Security Considerations"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Microsoft recommends a step where the user confirms the action before execution for functions that take actions",
+      "source": "S3",
+      "locator": "Implement User Confirmation Steps"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "OWASP LLM06:2025 mitigations include require user approval, complete mediation, and execute extensions in user's context",
+      "source": "S10",
+      "locator": "Prevention and mitigation strategies 5, 6, 7"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "KQL leftanti join returns records from the left table that do not match records from the right table",
+      "source": "S20",
+      "locator": "Returns table: leftanti"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Confused deputy: an entity that doesn't have permission to perform an action can coerce a more-privileged entity to perform the action",
+      "source": "S14",
+      "locator": "First paragraph"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Microsoft 365 audit UserType 5 is Application and 6 is ServicePrincipal; app@sharepoint indicates an application acting on behalf of a user, admin or service; common fields UserId, ClientIP, AppAccessContext, ObjectId, Operation",
+      "source": "S15",
+      "locator": "Common schema; Enum: UserType"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "FileAccessed is not logged again for the same user and file for the next five minutes; Send means a message was sent, replied to or forwarded",
+      "source": "S16",
+      "locator": "Accessed file; Sent message"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "SQL Server Audit event_time is UTC; succeeded reports only the permission check for events other than login events; session_context holds key-value pairs of the current session context; server_principal_name is the current login",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "When the query processor parameterises the query, the parameter can appear in the audit event log instead of the column values",
+      "source": "S18",
+      "locator": "Database-level audit actions: Considerations"
+    },
+    {
+      "where": "room:fcall-r1",
+      "claim": "The application executes the call; arguments and results are opt-in; error.type is set only on error; the convention has no approval field",
+      "source": "S5",
+      "locator": "Attributes table"
+    },
+    {
+      "where": "room:fcall-r2",
+      "claim": "AML.T0086 is named Exfiltration via AI Agent Tool Invocation",
+      "source": "S12",
+      "locator": "AML.T0086 name"
+    },
+    {
+      "where": "room:fcall-r3",
+      "claim": "SQL Server Audit columns event_time (UTC), server_principal_name, application_name, client_ip, database_name, schema_name, object_name, statement, succeeded and their meanings",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "where": "room:fcall-r3",
+      "claim": "SELECT and EXECUTE are database-level audit actions; FileAccessed and Send are Microsoft 365 audit operations",
+      "source": "S18",
+      "locator": "Database-level audit actions"
+    },
+    {
+      "where": "room:fcall-r3",
+      "claim": "Definition of the confused deputy problem",
+      "source": "S14",
+      "locator": "First paragraph"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "name",
+      "source": "S23",
+      "locator": "Example span JSON key name"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "context.trace_id",
+      "source": "S23",
+      "locator": "Example span JSON, context.trace_id"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "context.span_id",
+      "source": "S23",
+      "locator": "Example span JSON, context.span_id"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "parent_id",
+      "source": "S23",
+      "locator": "Example span JSON key parent_id"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "kind",
+      "source": "S23",
+      "locator": "Span Kind section (Internal); execute tool span kind INTERNAL per S5. Flat key name is this platform's rendering"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "start_time",
+      "source": "S23",
+      "locator": "Example span JSON key start_time"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "end_time",
+      "source": "S23",
+      "locator": "Example span JSON key end_time"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "status",
+      "source": "S23",
+      "locator": "Span Status section (Unset, Error, Ok). Flat key name is this platform's rendering"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.operation.name",
+      "source": "S5",
+      "locator": "Attributes table (Required); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.tool.name",
+      "source": "S5",
+      "locator": "Attributes table (Required); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.tool.type",
+      "source": "S5",
+      "locator": "Attributes table (Recommended); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.tool.call.id",
+      "source": "S5",
+      "locator": "Attributes table (Conditionally Required); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.tool.call.arguments",
+      "source": "S5",
+      "locator": "Attributes table (Opt-In); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.tool.call.result",
+      "source": "S5",
+      "locator": "Attributes table (Opt-In); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.conversation.id",
+      "source": "S5",
+      "locator": "Attributes table (Conditionally Required if available); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.agent.name",
+      "source": "S5",
+      "locator": "Attributes table (Conditionally Required when applicable); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.gen_ai.tool.definitions",
+      "source": "S7",
+      "locator": "gen_ai.tool.definitions (Opt-In); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.error.type",
+      "source": "S5",
+      "locator": "Attributes table (Conditionally Required); shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "attributes.user.id",
+      "source": "S9",
+      "locator": "user.id; shown under the attributes. prefix of the flat record"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "event_time",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "sequence_number",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "succeeded",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "session_id",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "server_principal_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "database_principal_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "server_instance_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "database_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "schema_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "object_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "statement",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "client_ip",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "application_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "host_name",
+      "source": "S17",
+      "locator": "Tables returned"
+    },
+    {
+      "vendor": "microsoft-sql-audit",
+      "field": "session_context",
+      "source": "S17",
+      "locator": "Tables returned (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "UserId",
+      "source": "S15",
+      "locator": "Common schema (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "UserType",
+      "source": "S15",
+      "locator": "Common schema; Enum: UserType (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "AppAccessContext",
+      "source": "S15",
+      "locator": "Common schema (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ClientIP",
+      "source": "S15",
+      "locator": "Common schema (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "Operation",
+      "source": "S15",
+      "locator": "Common schema (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ObjectId",
+      "source": "S15",
+      "locator": "Common schema (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SourceFileName",
+      "source": "S15",
+      "locator": "SharePoint file operations (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SiteUrl",
+      "source": "S15",
+      "locator": "SharePoint file operations (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "MailboxOwnerUPN",
+      "source": "S15",
+      "locator": "Exchange mailbox schema (named in lesson text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ClientInfoString",
+      "source": "S15",
+      "locator": "Exchange mailbox schema (named in lesson text only)"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "The application executes the call, with the application's own credentials."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "With the default, a span tells you that `send_email` ran but not to whom."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "A tool name that appears in spans but not in the inventory is the first detection: either the inventory is stale or something offered the model a tool nobody reviewed."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "Strict mode makes the call follow the schema, but a schema only checks shape."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "Then add the condition that turns a common pattern into a rare one: the write goes to an external destination, or carries an attachment or body far larger than usual."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "The approval timestamp is later than the span start."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "Something used the assistant's identity without going through the assistant."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "The clerk could not have opened that file with their own account, so the assistant acted as a deputy."
+    },
+    {
+      "q": "room:fcall-q1",
+      "taught_in": "room:fcall-r1",
+      "support": "The application executes the call, with the application's own credentials."
+    },
+    {
+      "q": "room:fcall-la1#1",
+      "taught_in": "room:fcall-r1",
+      "support": "The person who asked is in attributes.user.id, and the assistant that ran the tool is in attributes.gen_ai.agent.name."
+    },
+    {
+      "q": "room:fcall-la1#2",
+      "taught_in": "room:fcall-r1",
+      "support": "A span without attributes.error.type did not end in an error."
+    },
+    {
+      "q": "room:fcall-q2",
+      "taught_in": "room:fcall-r1",
+      "support": "Arguments and results are opt-in attributes: by default the span records that a tool ran but not the values, so Larkspur switched content capture on for Ledgerline."
+    },
+    {
+      "q": "room:fcall-ac1",
+      "taught_in": "room:fcall-r2",
+      "support": "A clerk who reads a payroll file, then sends an email to a new external domain, with no approval record, has hit three of the four places at once."
+    },
+    {
+      "q": "room:fcall-o1",
+      "taught_in": "room:fcall-r1",
+      "support": "At Larkspur the steps for a payment are: the model returns a call to create_payment_batch, the application validates the arguments and checks for an approval, the application executes the tool as the service login svc_ledgerline, the payments database records the statement in its own audit log, and the result goes back to the model."
+    },
+    {
+      "q": "room:fcall-m1",
+      "taught_in": "room:fcall-r3",
+      "support": "You pair every tool call with its downstream record, like comparing the visitor book at reception with the lock log on the vault door."
+    },
+    {
+      "q": "room:fcall-la2#1",
+      "taught_in": "room:fcall-r3",
+      "support": "The row names the service login, not the person."
+    },
+    {
+      "q": "room:fcall-la2#2",
+      "taught_in": "room:fcall-r3",
+      "support": "Read succeeded with care: for most events it reports only whether the permission check succeeded, not whether the operation completed."
+    },
+    {
+      "q": "room:fcall-ac2",
+      "taught_in": "room:fcall-r3",
+      "support": "If the workflow system shows a change reference, a second-person approval given before execution, and values that match the arguments, the verdict is benign true positive."
+    },
+    {
+      "q": "room:fcall-q3",
+      "taught_in": "room:fcall-r3",
+      "support": "A downstream record with no call: something used the service login without going through the assistant."
+    },
+    {
+      "q": "room:fcall-f1",
+      "taught_in": "room:fcall-r3",
+      "support": "A call with no downstream record: the tool failed, a control blocked it, or the downstream log has a gap."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0053",
+      "name": "AI Agent Tool Invocation",
+      "tactics": [
+        "Execution (AML.TA0005)",
+        "Privilege Escalation (AML.TA0012)"
+      ],
+      "source": "S11"
+    },
+    {
+      "id": "AML.T0085.001",
+      "name": "AI Agent Tools (sub-technique of AML.T0085 Data from AI Services)",
+      "tactics": [
+        "Collection (AML.TA0009), inherited from AML.T0085"
+      ],
+      "source": "S11"
+    },
+    {
+      "id": "AML.T0086",
+      "name": "Exfiltration via AI Agent Tool Invocation",
+      "tactics": [
+        "Exfiltration (AML.TA0010)"
+      ],
+      "source": "S11"
+    },
+    {
+      "id": "T1657",
+      "name": "Financial Theft",
+      "tactics": [
+        "Impact (TA0040)"
+      ],
+      "source": "S13"
+    }
+  ],
+  "new_vendor": {
+    "key": "opentelemetry-genai",
+    "label": "OpenTelemetry GenAI spans",
+    "aliases": [
+      "OpenTelemetry GenAI",
+      "OpenTelemetry GenAI spans",
+      "OTel GenAI spans"
+    ],
+    "exactFields": [
+      "name",
+      "context.trace_id",
+      "context.span_id",
+      "parent_id",
+      "kind",
+      "start_time",
+      "end_time",
+      "status"
+    ],
+    "prefixes": [
+      "attributes.gen_ai.",
+      "attributes.error.",
+      "attributes.server.",
+      "attributes.user."
+    ],
+    "note": "Same key, label and rendering as topic 7 (ai-agent-activity-monitoring). A span rendered as a flat record: envelope keys follow the illustrative span JSON at opentelemetry.io/docs/concepts/signals/traces/; kind and status are flat renderings of the documented span kind and span status. attributes.gen_ai.* per github.com/open-telemetry/semantic-conventions-genai docs/gen-ai/execute-tool.md and docs/registry/attributes/gen-ai.md (Development); attributes.user.* per opentelemetry.io/docs/specs/semconv/registry/attributes/user/. Checked 2026-11-26."
+  },
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "ATLAS technique-to-tactic mapping in the current data format",
+      "why": "Tactics for AML.T0053, AML.T0085 and AML.T0086 were read from dist/ATLAS.yaml (5.6.0), which the repository README marks as deprecated. The current file (v6, 2026.10) confirmed the technique names and descriptions but the portions read carry no tactic field on technique entries.",
+      "handled": "Tactics stated as in the 5.6.0 file; names taken from the 2026.10 file. Re-check the mapping against the ATLAS site before integration."
+    },
+    {
+      "item": "SQL Server Audit action_id and class_type code values (for example EX for EXECUTE)",
+      "why": "The fetched pages list the columns and the action names but not the short codes.",
+      "handled": "left out of raw blocks and text"
+    },
+    {
+      "item": "KQL helper functions and operators ago(), between, isnull(), in, project, let in the lesson's example queries",
+      "why": "Only the join and summarize operator pages were fetched (they cover join flavours, count, make_set, percentile, bin). The other helpers were written from working knowledge.",
+      "handled": "kept, in example queries over a clearly labelled organisation-defined custom table; a KQL review at integration is advised"
+    },
+    {
+      "item": "Which built-in SIEM table receives execute_tool spans (for example Application Insights tables)",
+      "why": "The mapping from OTel spans to a specific vendor table was not confirmed in a fetched source.",
+      "handled": "left out; the lesson uses an organisation-defined custom table and says the column mapping is the team's own"
+    },
+    {
+      "item": "error.type value timeout in the room's flag table",
+      "why": "The convention says error.type should match the provider or client error code or the exception name; a specific value list was not fetched.",
+      "handled": "softened to a plain-text illustrative value in a table, not in a raw block"
+    },
+    {
+      "item": "Which message details (recipients) a Microsoft 365 Send audit record carries",
+      "why": "The schema page portion read confirmed MailboxOwnerUPN, ClientInfoString and the ExchangeItem Subject, ParentFolder and Attachments, but not recipient fields.",
+      "handled": "left out; the content only says a Send record confirms a message left the mailbox"
+    },
+    {
+      "item": "Amazon Bedrock Converse API tool-use field names",
+      "why": "The AWS documentation page returned no content when fetched.",
+      "handled": "left out"
+    },
+    {
+      "item": "OWASP Top 10 for Agentic Applications item definitions (ASI02 Tool Misuse)",
+      "why": "Only the announcement post with item names was read, not the full document.",
+      "handled": "left out of learner-facing text"
+    },
+    {
+      "item": "Thresholds in examples (three times the 95th percentile, ten-minute sequence window, 28-day lookback)",
+      "why": "These are the author's starting values, not taken from a source.",
+      "handled": "labelled in the lesson as the author's own starting points to tune"
+    }
+  ]
+}

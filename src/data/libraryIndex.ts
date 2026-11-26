@@ -1407,5 +1407,170 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "estimatedMinutes": 47,
     "sectionCount": 9,
     "blurb": "Federation is a trust arrangement in which one system, the identity provider (IdP), authenticates a user and hands a signed statement about that user to another system, the service provider (SP), which accepts it instead of checking a password itself. This lesson teaches how"
+  },
+  {
+    "id": "topic-lesson-ai-user-activity-monitoring",
+    "slug": "ai-user-activity-monitoring",
+    "title": "Monitoring User Activity in AI Assistants: Reading the Audit Trail",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 30,
+    "sectionCount": 8,
+    "blurb": "Monitoring user activity in AI services means reading the audit trail that a sanctioned AI assistant writes every time an employee uses it: a record of who prompted, when, from where, and which files or resources the assistant touched. After this lesson you can open a Microsoft",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-shadow-ai-detection",
+    "slug": "shadow-ai-detection",
+    "title": "Shadow AI Detection: Finding Unsanctioned AI Use in Gateway, DNS, Endpoint and Identity Logs",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 30,
+    "sectionCount": 8,
+    "blurb": "Shadow AI is the use of artificial intelligence (AI) tools for work without the organisation's approval or knowledge. After this lesson you will be able to find that use in web gateway, DNS, endpoint and identity logs, tell an approved use from an unapproved one, and turn what",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-enterprise-ai-anomalous-use",
+    "slug": "enterprise-ai-anomalous-use",
+    "title": "Detecting Anomalous Use of Enterprise AI Systems",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 28,
+    "sectionCount": 8,
+    "blurb": "Anomalous use of an enterprise AI (artificial intelligence) system is activity in the organisation's own AI assistant that does not fit the way that account, its team or its administrators normally behave. After this lesson you will be able to take the audit records of a",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-llm-api-access-monitoring",
+    "slug": "llm-api-access-monitoring",
+    "title": "Monitoring LLM API Access: Cloud Audit Records, Invocation Logs and AI Gateways",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 28,
+    "sectionCount": 8,
+    "blurb": "LLM API access monitoring is the practice of recording and reviewing every call that software makes to a large language model (LLM) through an application programming interface (API), the channel one program uses to ask another for a service. After this lesson you will be able",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-api-key-abuse",
+    "slug": "ai-api-key-abuse",
+    "title": "Detecting Abuse of AI API Keys: Leaks, LLMjacking and the Response",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 26,
+    "sectionCount": 8,
+    "blurb": "An AI API key is a secret string that lets a program call a large language model (LLM) service and charges every call to the account that owns the key. Detecting key abuse means noticing, from logs and usage data, that someone other than the owner is spending that key. After",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-prompt-injection-detection",
+    "slug": "prompt-injection-detection",
+    "title": "Detecting Prompt Injection Attempts in Telemetry",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 30,
+    "sectionCount": 8,
+    "blurb": "Prompt injection detection is the work of finding, in logs, the moments when text sent to an AI application tried to act as an instruction instead of as data. After this lesson you will be able to read a guardrail verdict, find the prompt, the retrieved content and the model's",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-agent-activity-monitoring",
+    "slug": "ai-agent-activity-monitoring",
+    "title": "Monitoring AI Agent Activity: Runs, Spans, Platform Audit Logs and Agent Identity",
+    "topic": "AI & LLM Security",
+    "difficulty": "advanced",
+    "estimatedMinutes": 26,
+    "sectionCount": 8,
+    "blurb": "AI agent activity monitoring is the practice of recording and reviewing what an AI agent did during each run: which model calls it made, which tools it used, under which identity, and what changed as a result. After this lesson you will be able to rebuild one agent run from its",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-anomalous-function-calling",
+    "slug": "anomalous-function-calling",
+    "title": "Detecting Anomalous Function Calling and Tool Use",
+    "topic": "AI & LLM Security",
+    "difficulty": "advanced",
+    "estimatedMinutes": 26,
+    "sectionCount": 8,
+    "blurb": "Function calling, also called tool use, is the mechanism that lets a large language model (LLM, the text-predicting model behind an AI assistant) ask an application to run a named function with arguments, such as sending an email or creating a payment. After this lesson you will",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-unauthorized-data-access",
+    "slug": "ai-unauthorized-data-access",
+    "title": "Detecting Unauthorized Data Access Through AI Assistants: Oversharing, Labels and Retrieval Logs",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 30,
+    "sectionCount": 8,
+    "blurb": "Unauthorized data access through AI is what happens when a person, or someone using that person's account, reaches information they should not see by asking an AI assistant instead of opening the file themselves. After this lesson you will be able to read the audit trail an",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-data-leakage-analysis",
+    "slug": "ai-data-leakage-analysis",
+    "title": "Analyzing AI Data Leakage Events",
+    "topic": "AI & LLM Security",
+    "difficulty": "intermediate",
+    "estimatedMinutes": 27,
+    "sectionCount": 8,
+    "blurb": "AI data leakage analysis is the work of deciding, from logs, whether sensitive information left the organization through an artificial intelligence (AI) tool, and how much damage that did. After this lesson you will be able to read a data loss prevention (DLP) alert for a",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-threat-use-cases",
+    "slug": "ai-threat-use-cases",
+    "title": "Building Detection Use Cases for AI Threats: Threat List, Inventory, Coverage Matrix and the Use-Case Card",
+    "topic": "AI & LLM Security",
+    "difficulty": "advanced",
+    "estimatedMinutes": 32,
+    "sectionCount": 8,
+    "blurb": "A detection use case for an AI threat is a documented agreement that says which adversary behaviour against an AI system the SOC (security operations centre) will look for, in which log, with which logic, and what the analyst does when it fires. After this lesson you will be",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-detection-rules",
+    "slug": "ai-detection-rules",
+    "title": "Writing Detection Rules for AI Telemetry",
+    "topic": "AI & LLM Security",
+    "difficulty": "advanced",
+    "estimatedMinutes": 30,
+    "sectionCount": 8,
+    "blurb": "A detection rule for AI telemetry is a saved query that runs on a schedule over the logs your AI services write, and raises an alert when it finds a pattern you described in advance. After this lesson you will be able to write three kinds of rule (a single-event match, a",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-siem-source-integration",
+    "slug": "ai-siem-source-integration",
+    "title": "Bringing AI Data Sources into the SIEM and Making Them Join",
+    "topic": "AI & LLM Security",
+    "difficulty": "advanced",
+    "estimatedMinutes": 26,
+    "sectionCount": 8,
+    "blurb": "AI SIEM source integration is the work of bringing every log that describes artificial intelligence (AI) use into the security information and event management system (SIEM, the platform that stores logs, searches them and raises alerts) and shaping those logs so that they can",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-incident-log-investigation",
+    "slug": "ai-incident-log-investigation",
+    "title": "Investigating an AI Incident Through Logs",
+    "topic": "AI & LLM Security",
+    "difficulty": "advanced",
+    "estimatedMinutes": 28,
+    "sectionCount": 8,
+    "blurb": "Investigating an AI incident through logs means reconstructing, from recorded evidence, what an artificial intelligence (AI) system was asked, what it read, what it answered and what it did, and then deciding why. After this lesson you will be able to take a report such as \"the",
+    "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-ai-incident-response-process",
+    "slug": "ai-incident-response-process",
+    "title": "Building Incident Response Processes for AI Incidents: From NIST SP 800-61 Revision 3 to a Working Playbook",
+    "topic": "AI & LLM Security",
+    "difficulty": "advanced",
+    "estimatedMinutes": 30,
+    "sectionCount": 8,
+    "blurb": "An incident response process for artificial intelligence (AI) incidents is the agreed set of roles, decisions and steps an organisation follows when one of its AI systems is attacked, abused or starts causing harm. After this lesson you will be able to map an AI incident onto",
+    "researchUsed": true
   }
 ];

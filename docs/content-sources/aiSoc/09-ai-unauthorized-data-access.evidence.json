@@ -1,0 +1,862 @@
+{
+  "topic": "Detecting unauthorized access to data through AI",
+  "slug": "ai-unauthorized-data-access",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Audit logs for Copilot and AI applications",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn (Purview), ms.date 2026-08-26",
+      "used_for": "CopilotInteraction record properties: AccessedResources sub-properties (ID, SiteUrl, ListItemUniqueId, Type, Name, SensitivityLabelId, Action, PolicyDetails, Status, XPIADetected), AppHost values, Messages, RecordType, Workload, ClientRegion"
+    },
+    {
+      "id": "S2",
+      "title": "CopilotInteraction (Office 365 Management API schema)",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/copilot-schema",
+      "publisher": "Microsoft Learn (Office 365 Management API)",
+      "used_for": "Schema XML (CopilotEventData, EventData, AccessedResources entry property spellings Id and listItemUniqueId, isPrompt), example AuditData JSON with RecordType 261, ClientIP, ClientRegion, ThreadId"
+    },
+    {
+      "id": "S3",
+      "title": "Data, Privacy, and Security for Microsoft Copilot",
+      "url": "https://learn.microsoft.com/en-us/copilot/microsoft-365/microsoft-365-copilot-privacy",
+      "publisher": "Microsoft Learn (Copilot)",
+      "used_for": "Copilot only surfaces organizational data to which individual users have at least view permissions; Semantic Index honours the user identity-based access boundary"
+    },
+    {
+      "id": "S4",
+      "title": "Restricted SharePoint Search",
+      "url": "https://learn.microsoft.com/en-us/sharepoint/restricted-sharepoint-search",
+      "publisher": "Microsoft Learn (SharePoint)",
+      "used_for": "Allow list of up to 100 sites, not a security boundary, retirement notice (new enablement blocked starting July 31, 2026)"
+    },
+    {
+      "id": "S5",
+      "title": "Restrict discovery of SharePoint sites and content (Restricted Content Discovery)",
+      "url": "https://learn.microsoft.com/en-us/sharepoint/restricted-content-discovery",
+      "publisher": "Microsoft Learn (SharePoint)",
+      "used_for": "RCD affects discovery not permissions, SharePoint sites only, temporary control, 500,000 item latency note, Set-SPOSite -RestrictContentOrgWideSearch, audit events"
+    },
+    {
+      "id": "S6",
+      "title": "Data access governance reports for SharePoint sites",
+      "url": "https://learn.microsoft.com/en-us/sharepoint/data-access-governance-reports",
+      "publisher": "Microsoft Learn (SharePoint)",
+      "used_for": "Oversharing causes the reports look for (EEEU, sharing link types, sites with thousands of users), snapshot and 28-day activity reports, EEEU definition"
+    },
+    {
+      "id": "S7",
+      "title": "MITRE ATLAS data file ATLAS.yaml (version 5.6.0 as read)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE ATLAS (mitre-atlas/atlas-data)",
+      "used_for": "AML.T0085 Data from AI Services and its sub-techniques, AML.T0012 Valid Accounts, names, descriptions and tactics"
+    },
+    {
+      "id": "S8",
+      "title": "Office 365 Management Activity API schema (documentation source file)",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/office-365-management-api/live/office-365-management-api/office-365-management-activity-api-schema.md",
+      "publisher": "Microsoft (MicrosoftDocs GitHub source of the Learn page)",
+      "used_for": "Common schema (Id, RecordType, CreationTime, Operation, UserId, UserType, Workload, ClientIP, ObjectId), SharePoint base schema (UserAgent, ListItemUniqueId, ItemType), SharePoint file operations (SiteUrl, SourceRelativeUrl, SourceFileName, SourceFileExtension, SensitivityLabelId), FileAccessed description, record type 6"
+    },
+    {
+      "id": "S9",
+      "title": "OfficeActivity table reference (Azure Monitor Logs)",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/officeactivity",
+      "publisher": "Microsoft Learn (Azure Monitor)",
+      "used_for": "OfficeActivity column names used in the KQL example"
+    },
+    {
+      "id": "S10",
+      "title": "CopilotActivity table reference (Azure Monitor Logs)",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/copilotactivity",
+      "publisher": "Microsoft Learn (Azure Monitor)",
+      "used_for": "CopilotActivity column names (ActorName, SrcIpAddr, AppHost, RecordType, LLMEventData, TimeGenerated)"
+    },
+    {
+      "id": "S11",
+      "title": "Use Microsoft Purview to manage data security and compliance for Microsoft 365 Copilot and Copilot Chat",
+      "url": "https://learn.microsoft.com/en-us/purview/ai-m365-copilot",
+      "publisher": "Microsoft Learn (Purview)",
+      "used_for": "Sensitivity labels and Copilot: EXTRACT plus VIEW for encrypted content, highest priority label displayed, activity explorer shows prompts to Content Explorer Content Viewer role group members"
+    },
+    {
+      "id": "S12",
+      "title": "Document-level access control (Azure AI Search)",
+      "url": "https://learn.microsoft.com/en-us/azure/search/search-document-level-access-overview",
+      "publisher": "Microsoft Learn (Azure AI Search)",
+      "used_for": "Document-level access control approaches, x-ms-query-source-authorization and Authorization headers, permission freshness and no immediate revocation"
+    },
+    {
+      "id": "S13",
+      "title": "LLM08:2025 Vector and Embedding Weaknesses",
+      "url": "https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/",
+      "publisher": "OWASP GenAI Security Project, Top 10 for LLM Applications 2025",
+      "used_for": "Item name and number, permission-aware vector stores, immutable logs of retrieval activities"
+    },
+    {
+      "id": "S14",
+      "title": "LLM02:2025 Sensitive Information Disclosure",
+      "url": "https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/",
+      "publisher": "OWASP GenAI Security Project, Top 10 for LLM Applications 2025",
+      "used_for": "Item name and number, least privilege access to sensitive data"
+    },
+    {
+      "id": "S15",
+      "title": "Data from Information Repositories: Sharepoint (T1213.002)",
+      "url": "https://attack.mitre.org/techniques/T1213/002/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, tactic Collection, detection strategy on bulk access by privileged or rarely used accounts in a short window"
+    },
+    {
+      "id": "S16",
+      "title": "Valid Accounts: Cloud Accounts (T1078.004)",
+      "url": "https://attack.mitre.org/techniques/T1078/004/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name and status (active, version 2.0)"
+    },
+    {
+      "id": "S17",
+      "title": "Microsoft Purview DLP for Microsoft 365 Copilot and Cowork",
+      "url": "https://learn.microsoft.com/en-us/purview/dlp-microsoft365-copilot-location-learn-about",
+      "publisher": "Microsoft Learn (Purview DLP)",
+      "used_for": "Content contains Sensitivity labels condition, items still appear in citations, prompts run in the user's security context, up to four hours for policy updates"
+    },
+    {
+      "id": "S18",
+      "title": "Considerations for Microsoft Purview to manage Microsoft 365 Copilot",
+      "url": "https://learn.microsoft.com/en-us/purview/ai-m365-copilot-considerations",
+      "publisher": "Microsoft Learn (Purview)",
+      "used_for": "VIEW without EXTRACT behaviour, EXTRACT is the copy right, container labels not inherited by items, auditing does not capture the prompt or response, device identity not in audit details"
+    },
+    {
+      "id": "S19",
+      "title": "Restrict SharePoint site access with Microsoft 365 groups and Microsoft Entra security groups",
+      "url": "https://learn.microsoft.com/en-us/sharepoint/restricted-access-control",
+      "publisher": "Microsoft Learn (SharePoint)",
+      "used_for": "Restricted access control behaviour, up to 10 groups, honoured by Copilot and search, PowerShell commands, audit events"
+    },
+    {
+      "id": "S20",
+      "title": "Security filter pattern (Azure AI Search)",
+      "url": "https://learn.microsoft.com/en-us/azure/search/search-security-trimming-for-azure-search",
+      "publisher": "Microsoft Learn (Azure AI Search)",
+      "used_for": "group_ids field, search.in filter expression, principal is just a string with no authentication, application must apply filters to every query"
+    },
+    {
+      "id": "S21",
+      "title": "Learn about auditing solutions in Microsoft Purview",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-solutions-overview",
+      "publisher": "Microsoft Learn (Purview Audit)",
+      "used_for": "180-day retention in Audit (Standard), one-year default in Audit (Premium) for the AzureActiveDirectory, Exchange, OneDrive and SharePoint workloads"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "Copilot only surfaces organisational data to which the individual user has at least view permissions",
+      "source": "S3",
+      "locator": "How does Microsoft Copilot use your proprietary organizational data?: 'Microsoft Copilot only surfaces organizational data to which individual users have at least view permissions.'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Every Copilot prompt runs in the security context of the user who started it",
+      "source": "S17",
+      "locator": "Supported conditions and actions, Note: 'All Microsoft 365 Copilot prompts run in the security context of the user who initiates the prompt.'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Everyone except external users is a built-in SharePoint group that automatically includes all internal users",
+      "source": "S6",
+      "locator": "What is the 'Everyone except external users' (EEEU) report?: 'EEEU is a built-in SharePoint group that automatically includes all internal users but excludes any external guests.'"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "Governance reports look for sites with thousands of users, EEEU permissions and sharing links of the types Anyone, People in the organization and Specific people",
+      "source": "S6",
+      "locator": "What are snapshot reports? and What are activity reports?"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "ATLAS AML.T0085 is named Data from AI Services and describes adversaries using access to a victim organisation's AI-enabled services to collect proprietary or otherwise sensitive information",
+      "source": "S7",
+      "locator": "ATLAS.yaml technique AML.T0085, name and description"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "ATT&CK T1213.002 is Data from Information Repositories: Sharepoint",
+      "source": "S15",
+      "locator": "Technique page title and ID"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Copilot interactions are logged with Operation CopilotInteraction and Workload Copilot, and the payload is in CopilotEventData",
+      "source": "S1",
+      "locator": "Common properties in Copilot audit logs: Operation, Workload rows; S2 schema EntityType CopilotInteractionAuditRecord property CopilotEventData"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AccessedResources is defined as references to all resources (files, documents, emails, etc.) which Copilot accessed in response to the user's request, with sub-properties ID, SiteUrl, ListItemUniqueId, Type, Name, SensitivityLabelId, Action, PolicyDetails, Status",
+      "source": "S1",
+      "locator": "Common properties in Copilot audit logs, AccessedResources row"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Action commonly has the values read, create, modify; Status says whether the action on a resource was a success or failure; PolicyDetails is used when access was blocked or restricted by a policy and can include PolicyId and PolicyName",
+      "source": "S1",
+      "locator": "AccessedResources row: Action, PolicyDetails and Status bullets"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AppHost identifies the hosting application; BizChat is the Microsoft 365 Copilot Chat client; Word and Teams are values",
+      "source": "S1",
+      "locator": "AppHost row and Common AppHost scenarios table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ThreadId is the ID of the Copilot and user interaction thread; Messages carries message IDs with isPrompt; ClientRegion is the user's region when they performed the operation",
+      "source": "S2",
+      "locator": "Audit Copilot schema definitions table and schema XML (MessageData isPrompt)"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Auditing captures the Copilot activity of search but not the actual user prompt or response; use eDiscovery or the AI interaction view in DSPM for AI; device identity is not included in audit details",
+      "source": "S18",
+      "locator": "Compliance management considerations for Microsoft 365 Copilot, bullets on auditing and device identity"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Prompts and responses in activity explorer are displayed to members of the Microsoft Purview Content Explorer Content Viewer role group",
+      "source": "S11",
+      "locator": "View data from your policies, step 2"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ClientIP can be the IP address of a trusted application calling the service on behalf of the user",
+      "source": "S8",
+      "locator": "Common schema, ClientIP row"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Audit (Standard) retains records 180 days; Audit (Premium) default policy retains records whose Workload is AzureActiveDirectory, Exchange, OneDrive or SharePoint for one year; other records 180 days by default",
+      "source": "S21",
+      "locator": "Audit (Standard) 180-day audit log retention; Audit (Premium) Long-term retention of audit logs; Audit log retention policies"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The numeric RecordType of a CopilotInteraction record is 261",
+      "source": "S2",
+      "locator": "Audit log examples of CopilotInteraction, Example 1: RecordType: 261"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "SensitivityLabelId is the ID of the sensitivity label assigned to the resource; example value f41ab342-8706-4188-bd11-ebb85995028c",
+      "source": "S1",
+      "locator": "AccessedResources row and its example"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "When a label applies encryption, users must have the EXTRACT usage right as well as VIEW for the AI app to return the data",
+      "source": "S11",
+      "locator": "Sensitivity labels and AI interactions, second bullet"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "With VIEW but not EXTRACT, Copilot will not summarise the content but can reference it with a link; EXTRACT is the right to copy text",
+      "source": "S18",
+      "locator": "Information protection considerations, first bullet; section Copilot honors existing protection with the EXTRACT usage right"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "A DLP policy for the Copilot location with the condition Content contains Sensitivity labels stops Copilot processing the item's content, but the item can still appear in citations",
+      "source": "S17",
+      "locator": "Block files and emails with sensitivity labels from being processed"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Sensitivity labels applied to containers (groups and sites) are not inherited by items in those containers",
+      "source": "S18",
+      "locator": "Information protection considerations, bullet on container labels"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "CopilotActivity has columns TimeGenerated, ActorName, SrcIpAddr, AppHost, RecordType and the dynamic column LLMEventData (parsed LLM event data)",
+      "source": "S10",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "OfficeActivity has columns Operation, UserId, ClientIP, UserAgent, Site_Url, SourceFileName, OfficeObjectId, SensitivityLabelId",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ATT&CK detection guidance for T1213.002 looks for privileged or rarely used accounts performing bulk access to SharePoint files within a short time window",
+      "source": "S15",
+      "locator": "Detection strategy DET0500, Detecting Abnormal SharePoint Data Mining by Privileged or Rare Users"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "JailbreakDetected is a flag on a prompt message and XPIADetected marks a detected cross prompt injection attack on an accessed resource",
+      "source": "S1",
+      "locator": "Messages row and AccessedResources row"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "ATLAS: AI agents may be configured to have access to tools and data sources that are not directly accessible by users; AML.T0085.000 is RAG Databases",
+      "source": "S7",
+      "locator": "ATLAS.yaml AML.T0085 description and AML.T0085.000 name"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "OWASP LLM08:2025 Vector and Embedding Weaknesses recommends permission-aware vector stores and detailed immutable logs of retrieval activities",
+      "source": "S13",
+      "locator": "Prevention and Mitigation Strategies: Permission and Access Control; Logging and Monitoring"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "OWASP LLM02:2025 Sensitive Information Disclosure: limit access to sensitive data based on the principle of least privilege",
+      "source": "S14",
+      "locator": "Prevention and Mitigation Strategies, Enforce Strict Access Controls"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Security filter pattern: a group_ids field and the filter group_ids/any(g:search.in(g, 'group_id1, group_id2')); the principal is just a string with no authentication through it; the application must apply filters to every query",
+      "source": "S20",
+      "locator": "About the security filter pattern; Apply the security filter in the query"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Native permission filtering: x-ms-query-source-authorization carries the delegated user's token, Authorization carries the caller's token; permission refresh does not provide immediate revocation",
+      "source": "S12",
+      "locator": "Pattern for native support for POSIX-like ACL and RBAC scope permissions; Permission freshness"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ATLAS AML.T0012 is Valid Accounts; ATT&CK T1078.004 is Valid Accounts: Cloud Accounts",
+      "source": "S7",
+      "locator": "ATLAS.yaml AML.T0012 name; ATT&CK page S16 title"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "FileAccessed: user or system account accesses a file on a SharePoint or OneDrive site; UserAgent is provided by the client or browser; ObjectId is the full path and equals SiteUrl plus SourceRelativeUrl plus SourceFileName; ListItemUniqueId identifies the list item; SharePointFileOperation is record type 6",
+      "source": "S8",
+      "locator": "SharePointAuditOperation enum FileAccessed; SharePoint Base schema; SharePoint file operations; AuditLogRecordType table"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Restricted access control: users not in the specified group cannot access the site or its content even if they had prior permissions or a shared link; up to 10 groups per site; Copilot and organisation-wide search honour it; PowerShell Set-SPOTenant -EnableRestrictedAccessControl, Set-SPOSite -RestrictedAccessControl and -AddRestrictedAccessControlGroups",
+      "source": "S19",
+      "locator": "Introduction; Restrict access to all SharePoint sites; Manage site access restriction by using PowerShell"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Restricted Content Discovery does not change permissions, applies to SharePoint sites and not OneDrive, is a temporary governance control, can take more than a week on sites with more than 500,000 items, is set with Set-SPOSite -RestrictContentOrgWideSearch",
+      "source": "S5",
+      "locator": "Note under introduction; Frequently asked questions; Use PowerShell"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Restricted SharePoint Search: allow list of up to 100 SharePoint sites, not a security boundary, retiring with new enablement blocked starting July 31, 2026",
+      "source": "S4",
+      "locator": "Important notice at top; How to use Restricted SharePoint Search; How does Restricted SharePoint Search work?"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Data access governance: the site permissions report is a snapshot highlighting sites with thousands of users or EEEU permissions; activity reports track the last 28 days of sharing link creation and sharing with everyone",
+      "source": "S6",
+      "locator": "What are snapshot reports?; What are activity reports?"
+    },
+    {
+      "where": "room:aidat-r1",
+      "claim": "CopilotInteraction record properties used in the room (AccessedResources Name, SiteUrl, listItemUniqueId, SensitivityLabelId, Action; UserId, CreationTime, ClientRegion, AppHost, ThreadId) and the absence of prompt and response text",
+      "source": "S1",
+      "locator": "Common properties in Copilot audit logs; S18 compliance considerations for the missing prompt text"
+    },
+    {
+      "where": "room:aidat-r2",
+      "claim": "A label without encryption does not restrict the assistant; site labels are not inherited by items; PolicyDetails and Status meaning",
+      "source": "S18",
+      "locator": "Information protection considerations (container labels; DLP bullet 'whether encrypted or not'); S1 AccessedResources row for PolicyDetails and Status"
+    },
+    {
+      "where": "room:aidat-r2",
+      "claim": "SharePoint FileAccessed records carry ClientIP, UserAgent and ListItemUniqueId",
+      "source": "S8",
+      "locator": "Common schema ClientIP; SharePoint Base schema UserAgent and ListItemUniqueId"
+    },
+    {
+      "where": "room:aidat-r3",
+      "claim": "Restricted access control changes access; Restricted Content Discovery changes discovery only and is temporary; the DLP policy for the Copilot location excludes labelled items from processing while they can still appear in citations",
+      "source": "S19",
+      "locator": "S19 introduction; S5 note and FAQ; S17 Block files and emails with sensitivity labels"
+    },
+    {
+      "where": "room:aidat-r3",
+      "claim": "In the security filter pattern the application adds a filter listing the caller's groups and must apply it to every query",
+      "source": "S20",
+      "locator": "About the security filter pattern"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Sensitivity labels have a priority order defined by compliance admins, and a higher priority number usually denotes higher sensitivity",
+      "source": "S11",
+      "locator": "Sensitivity labels and AI interactions, AI app-specific information"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CreationTime",
+      "source": "S8",
+      "locator": "Common schema: CreationTime"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Id",
+      "source": "S8",
+      "locator": "Common schema: Id"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Operation",
+      "source": "S8",
+      "locator": "Common schema: Operation; S1 Operation row (CopilotInteraction)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.RecordType",
+      "source": "S2",
+      "locator": "Example AuditData: RecordType 261"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Workload",
+      "source": "S1",
+      "locator": "Workload row: Copilot"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserId",
+      "source": "S8",
+      "locator": "Common schema: UserId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserType",
+      "source": "S8",
+      "locator": "Common schema: UserType; S2 example UserType 0"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientIP",
+      "source": "S2",
+      "locator": "Example AuditData: ClientIP; S8 Common schema ClientIP"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientRegion",
+      "source": "S2",
+      "locator": "Schema XML CopilotInteractionAuditRecord property ClientRegion"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AppHost",
+      "source": "S2",
+      "locator": "Schema XML EventData property AppHost"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.ThreadId",
+      "source": "S2",
+      "locator": "Schema XML EventData property ThreadId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.Messages",
+      "source": "S2",
+      "locator": "Schema XML EventData property Messages (MessageData: Id, isPrompt)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AccessedResources",
+      "source": "S2",
+      "locator": "Schema XML EventData property AccessedResources (Id, SiteUrl, listItemUniqueId, Type, Name, SensitivityLabelId, Action); S1 for Status and PolicyDetails"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.AccessedResources.Status",
+      "source": "S1",
+      "locator": "AccessedResources row: Status bullet"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.AccessedResources.PolicyDetails",
+      "source": "S1",
+      "locator": "AccessedResources row: PolicyDetails bullet (PolicyId, PolicyName)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.AccessedResources.XPIADetected",
+      "source": "S1",
+      "locator": "AccessedResources row: XPIADetected bullet"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.Messages.JailbreakDetected",
+      "source": "S1",
+      "locator": "Messages row: JailbreakDetected bullet"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "UserAgent",
+      "source": "S8",
+      "locator": "SharePoint Base schema: UserAgent"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ObjectId",
+      "source": "S8",
+      "locator": "Common schema: ObjectId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SiteUrl",
+      "source": "S8",
+      "locator": "SharePoint file operations: SiteUrl"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SourceRelativeUrl",
+      "source": "S8",
+      "locator": "SharePoint file operations: SourceRelativeUrl"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SourceFileName",
+      "source": "S8",
+      "locator": "SharePoint file operations: SourceFileName"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SourceFileExtension",
+      "source": "S8",
+      "locator": "SharePoint file operations: SourceFileExtension"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ItemType",
+      "source": "S8",
+      "locator": "SharePoint Base schema: ItemType (File)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ListItemUniqueId",
+      "source": "S8",
+      "locator": "SharePoint Base schema: ListItemUniqueId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SensitivityLabelId",
+      "source": "S8",
+      "locator": "SharePoint file operations: SensitivityLabelId"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "CopilotActivity.LLMEventData",
+      "source": "S10",
+      "locator": "Columns table: LLMEventData dynamic"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "CopilotActivity.ActorName",
+      "source": "S10",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "CopilotActivity.SrcIpAddr",
+      "source": "S10",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "CopilotActivity.AppHost",
+      "source": "S10",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "CopilotActivity.RecordType",
+      "source": "S10",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.Operation",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.UserId",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.ClientIP",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.UserAgent",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.Site_Url",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.SourceFileName",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.OfficeObjectId",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "OfficeActivity.SensitivityLabelId",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ai-search",
+      "field": "group_ids",
+      "source": "S20",
+      "locator": "Create security field: index schema example"
+    },
+    {
+      "vendor": "azure-ai-search",
+      "field": "x-ms-query-source-authorization",
+      "source": "S12",
+      "locator": "Pattern for native support: request header"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "Microsoft states that Copilot only surfaces organisational data to which the individual user has at least view permissions, and that every prompt runs in the security context of the user who started it."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "Microsoft says auditing captures the Copilot activity of search, but not the actual user prompt or response."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "The label is a marker only, and the item is read if permissions allow"
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "Owners and their teams reading their own labelled content."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "the application connects to the index with its own service identity, which can read everything, and returns whatever matches."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "A stolen account sweeps many themes in a dense burst, often from a new region and outside the user's normal hours."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "Users who already have access can still open the content directly."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "Region, network and hours matched his normal pattern, and nothing suggested another person."
+    },
+    {
+      "q": "room:aidat-q1",
+      "taught_in": "room:aidat-r1",
+      "support": "Microsoft states that Copilot only surfaces organisational data to which the individual user has at least view permissions."
+    },
+    {
+      "q": "room:aidat-la1#1",
+      "taught_in": "room:aidat-r1",
+      "support": "The ID of the sensitivity label on the resource"
+    },
+    {
+      "q": "room:aidat-la1#2",
+      "taught_in": "room:aidat-r1",
+      "support": "The record holds no prompt text and no answer text."
+    },
+    {
+      "q": "room:aidat-la1#3",
+      "taught_in": "room:aidat-r1",
+      "support": "ThreadId identifies the conversation, so records with the same ThreadId belong to one chat."
+    },
+    {
+      "q": "room:aidat-m1",
+      "taught_in": "room:aidat-r2",
+      "support": "An entry with PolicyDetails and a failure status means the control stopped the read."
+    },
+    {
+      "q": "room:aidat-ac1",
+      "taught_in": "room:aidat-r2",
+      "support": "A real user reached content they should not see, through a permission gap."
+    },
+    {
+      "q": "room:aidat-ac2",
+      "taught_in": "room:aidat-r2",
+      "support": "The rule fired on a user who is an authorised owner of the content, such as a member of the group that owns the site."
+    },
+    {
+      "q": "room:aidat-ac3",
+      "taught_in": "room:aidat-r2",
+      "support": "The evidence says the account may not be in its owner's hands."
+    },
+    {
+      "q": "room:aidat-f1",
+      "taught_in": "room:aidat-r2",
+      "support": "That last field is the unique identifier of the item, so it lets you connect a resource the assistant accessed to a file the same account later opened by hand."
+    },
+    {
+      "q": "room:aidat-ac4",
+      "taught_in": "room:aidat-r2",
+      "support": "The rule misfired, for example the entry shows the read was blocked."
+    },
+    {
+      "q": "room:aidat-q2",
+      "taught_in": "room:aidat-r3",
+      "support": "The exposure ends only when the permission changes."
+    },
+    {
+      "q": "room:aidat-o1",
+      "taught_in": "room:aidat-r3",
+      "support": "Work in this order, and do not skip the last step."
+    },
+    {
+      "q": "room:aidat-q3",
+      "taught_in": "room:aidat-r3",
+      "support": "A retrieval with an empty filter is the clearest sign of a broken control."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0085",
+      "name": "Data from AI Services",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S7"
+    },
+    {
+      "id": "AML.T0085.000",
+      "name": "RAG Databases",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S7"
+    },
+    {
+      "id": "AML.T0012",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Initial Access",
+        "Privilege Escalation"
+      ],
+      "source": "S7"
+    },
+    {
+      "id": "T1213.002",
+      "name": "Data from Information Repositories: Sharepoint",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S15"
+    },
+    {
+      "id": "T1078.004",
+      "name": "Valid Accounts: Cloud Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S16"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "The property path of the accessed resources inside the Sentinel column CopilotActivity.LLMEventData (written as LLMEventData.AccessedResources in the KQL example)",
+      "why": "The table reference documents LLMEventData only as a dynamic column of parsed LLM event data; its inner structure is not documented on the page fetched",
+      "handled": "softened to: the lesson text and a query comment tell the reader to confirm the exact property path in their own workspace"
+    },
+    {
+      "item": "Whether Copilot's own grounding read of a SharePoint file also writes a SharePoint FileAccessed audit record",
+      "why": "No Microsoft page fetched in this run states it either way",
+      "handled": "softened to: the lesson says the documentation does not promise a matching file record and tells the reader not to build a detection that depends on one; FileAccessed is used only for direct opens by the user"
+    },
+    {
+      "item": "Exact literal values and key casing of Status (written as failure) and of the PolicyDetails sub-keys PolicyId and PolicyName inside a live AccessedResources entry",
+      "why": "S1 names these properties and values in prose (success or failure; PolicyId, PolicyName, list of rules) but shows no example record containing them",
+      "handled": "used as named in the documentation prose, in one lesson example and one room event (aidat-ac4); integrator may wish to confirm casing against a real export"
+    },
+    {
+      "item": "T1078.004 tactic list",
+      "why": "The fetched ATT&CK page lists the tactics as Stealth, Persistence, Privilege Escalation, Initial Access (Stealth where older versions said Defense Evasion); the tactic is not named in learner-facing text",
+      "handled": "recorded in mitre_ids exactly as the page returned it; integrator should align src/lib/mitre/attack.ts with the current ATT&CK version"
+    },
+    {
+      "item": "Tactic of the ATLAS sub-technique AML.T0085.000",
+      "why": "ATLAS.yaml lists no tactic on the sub-technique itself; it is a sub-technique of AML.T0085, whose tactic is Collection",
+      "handled": "recorded as Collection (inherited from the parent); no tactic is stated in the learner-facing text"
+    },
+    {
+      "item": "An empty AccessedResources list means the assistant used no organisational resource",
+      "why": "Inferred from the documented example record (Copilot in Word with AccessedResources empty), not stated as a rule by Microsoft",
+      "handled": "softened to a neutral description in the pitfalls list"
+    },
+    {
+      "item": "Rendering of nested array values (Messages, AccessedResources) inside TelemetryEvent.raw in the room UI",
+      "why": "raw is typed Record<string, unknown> and the keys pass the registry through the data.office365. prefix, but no existing room with an array-of-objects raw value was found to confirm how it is displayed",
+      "handled": "kept as arrays because that is the real record structure; integrator should view the four room events in the UI"
+    },
+    {
+      "item": "NIST AI RMF and NIST AI 600-1",
+      "why": "Not fetched in this run",
+      "handled": "left out; no NIST statement appears in the content"
+    },
+    {
+      "item": "Fields of the identity provider sign-in log (Microsoft Entra)",
+      "why": "No Entra sign-in schema page was fetched in this run",
+      "handled": "left out; the content only says to check the identity provider's sign-in log, without naming fields"
+    },
+    {
+      "item": "Sibling references: prerequisite room ai-user-activity-monitoring and the lessons on AI user activity monitoring and AI data leakage",
+      "why": "They are other topics of this track and do not exist in the repo yet",
+      "handled": "referenced by topic name only; prerequisite id taken from the track plan"
+    }
+  ]
+}

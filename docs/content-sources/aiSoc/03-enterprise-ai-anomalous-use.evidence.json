@@ -1,0 +1,964 @@
+{
+  "topic": "Detecting anomalous use of enterprise AI systems",
+  "slug": "enterprise-ai-anomalous-use",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Azure Monitor Logs reference: SigninLogs",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/signinlogs",
+      "publisher": "Microsoft Learn",
+      "used_for": "SigninLogs column names, meanings and documented values (ResultType, IsInteractive, Location, RiskEventTypes_V2, RiskState, DeviceDetail)"
+    },
+    {
+      "id": "S2",
+      "title": "What are risk detections? Microsoft Entra ID Protection",
+      "url": "https://learn.microsoft.com/en-us/entra/id-protection/concept-identity-protection-risks",
+      "publisher": "Microsoft Learn",
+      "used_for": "Risk detections and riskEventType values, learning mode, non-interactive scrutiny, licence note"
+    },
+    {
+      "id": "S3",
+      "title": "MITRE ATLAS data, dist/ATLAS.yaml (version 5.6.0 as served)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE",
+      "used_for": "ATLAS technique IDs, names and tactics"
+    },
+    {
+      "id": "S4",
+      "title": "Query the Activity Feed",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-activity-feed.md",
+      "publisher": "Anthropic",
+      "used_for": "Activity object fields, actor types, viewed-record semantics, retention-deletion behaviour, RFC 3339 created_at"
+    },
+    {
+      "id": "S5",
+      "title": "Query compliance activities (API reference, activity_types enum)",
+      "url": "https://platform.claude.com/docs/en/api/compliance/activities/list",
+      "publisher": "Anthropic",
+      "used_for": "Exact activity type names"
+    },
+    {
+      "id": "S6",
+      "title": "Compliance API",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-api.md",
+      "publisher": "Anthropic",
+      "used_for": "What the Compliance API covers, key types, x-api-key header"
+    },
+    {
+      "id": "S7",
+      "title": "Advanced threat detection with User and Entity Behavior Analytics (UEBA) in Microsoft Sentinel",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/identify-threats-with-entity-behavior-analytics",
+      "publisher": "Microsoft Learn",
+      "used_for": "User, peers, organisation rings; UserPeerAnalytics; InvestigationPriority and AnomalyScore ranges"
+    },
+    {
+      "id": "S8",
+      "title": "Design your compliance integration",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-integration-patterns.md",
+      "publisher": "Anthropic",
+      "used_for": "SIEM join keys, user_id as primary key, compliance_api_accessed and api_key_id, calls that leave no activity"
+    },
+    {
+      "id": "S9",
+      "title": "Microsoft Sentinel UEBA reference",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/ueba-reference",
+      "publisher": "Microsoft Learn",
+      "used_for": "UEBA data sources, ActivityInsights enrichment names and baseline days, IsNewAccount, IdentityInfo fields"
+    },
+    {
+      "id": "S10",
+      "title": "Valid Accounts: Cloud Accounts (T1078.004)",
+      "url": "https://attack.mitre.org/techniques/T1078/004/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, ID, tactics, status"
+    },
+    {
+      "id": "S11",
+      "title": "Data from Information Repositories (T1213)",
+      "url": "https://attack.mitre.org/techniques/T1213/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, ID, tactic, status"
+    },
+    {
+      "id": "S12",
+      "title": "Audit logs for Copilot and AI applications",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn (Purview)",
+      "used_for": "CopilotInteraction properties (AccessedResources, AppHost, Messages), admin operation names, Workload value"
+    },
+    {
+      "id": "S13",
+      "title": "series_decompose_anomalies()",
+      "url": "https://learn.microsoft.com/en-us/kusto/query/series-decompose-anomalies-function?view=microsoft-sentinel",
+      "publisher": "Microsoft Learn (Kusto)",
+      "used_for": "Function parameters, defaults and outputs"
+    },
+    {
+      "id": "S14",
+      "title": "Retrieve and delete chats, files, and projects",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-content-data.md",
+      "publisher": "Anthropic",
+      "used_for": "Content retrieval scope, deleted_at behaviour for chats deleted in the app"
+    },
+    {
+      "id": "S15",
+      "title": "Investigate risk with Microsoft Entra ID Protection",
+      "url": "https://learn.microsoft.com/en-us/entra/id-protection/howto-identity-protection-investigate-risk",
+      "publisher": "Microsoft Learn",
+      "used_for": "Investigation steps, contacting the user, block and revoke tokens, named locations for VPN ranges"
+    },
+    {
+      "id": "S16",
+      "title": "Office 365 Management Activity API schema",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "Common schema fields (CreationTime, Operation, UserId, ClientIP, Workload, RecordType), record type 261"
+    },
+    {
+      "id": "S17",
+      "title": "deviceDetail resource type",
+      "url": "https://learn.microsoft.com/en-us/graph/api/resources/devicedetail?view=graph-rest-1.0",
+      "publisher": "Microsoft Graph",
+      "used_for": "DeviceDetail sub-properties"
+    },
+    {
+      "id": "S18",
+      "title": "signInLocation resource type",
+      "url": "https://learn.microsoft.com/en-us/graph/api/resources/signinlocation?view=graph-rest-1.0",
+      "publisher": "Microsoft Graph",
+      "used_for": "LocationDetails sub-properties"
+    },
+    {
+      "id": "S19",
+      "title": "signIn resource type",
+      "url": "https://learn.microsoft.com/en-us/graph/api/resources/signin?view=graph-rest-1.0",
+      "publisher": "Microsoft Graph",
+      "used_for": "Sign-in property descriptions and possible values, confirm compromised and confirm safe methods"
+    },
+    {
+      "id": "S20",
+      "title": "Joint Guidance on Deploying AI Systems Securely (alert page)",
+      "url": "https://www.cisa.gov/news-events/alerts/2024/04/15/joint-guidance-deploying-ai-systems-securely",
+      "publisher": "CISA",
+      "used_for": "Background only; no claim in the content rests on it"
+    },
+    {
+      "id": "S21",
+      "title": "Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile (NIST AI 600-1), publication page",
+      "url": "https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-generative-artificial-intelligence",
+      "publisher": "NIST",
+      "used_for": "Background only; no claim in the content rests on it"
+    },
+    {
+      "id": "S22",
+      "title": "Anomalies detected by the Microsoft Sentinel machine learning engine",
+      "url": "https://learn.microsoft.com/en-us/azure/sentinel/anomalies-reference",
+      "publisher": "Microsoft Learn",
+      "used_for": "Background only; no claim in the content rests on it"
+    },
+    {
+      "id": "S23",
+      "title": "Valid Accounts (T1078)",
+      "url": "https://attack.mitre.org/techniques/T1078/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Parent technique of T1078.004 (its ID appears in the reference URL); name, tactics and status"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "A Claude activity record has id, created_at, organization_id, organization_uuid, actor, type and type-specific fields such as claude_chat_id and claude_project_id",
+      "source": "S4",
+      "locator": "Understand the Activity object, field table and example response"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "The activity record carries no prompt or answer text; content is retrieved through separate endpoints",
+      "source": "S14",
+      "locator": "The list response carries chat metadata only. To pull the actual chat content ... follow up with the messages endpoint"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "T1078.004 is Valid Accounts: Cloud Accounts",
+      "source": "S10",
+      "locator": "Technique title and ID"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "T1213 is Data from Information Repositories",
+      "source": "S11",
+      "locator": "Technique title and ID"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "ATLAS lists Valid Accounts as AML.T0012 and Data from Information Repositories as AML.T0036",
+      "source": "S3",
+      "locator": "techniques AML.T0012 and AML.T0036"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A claude_*_viewed activity is recorded each time a Claude app loads content; repeated loads are not deduplicated; apps load at different moments, sometimes in the background; counts do not correspond to messages sent or screens viewed",
+      "source": "S4",
+      "locator": "A claude_*_viewed activity means a Claude app loaded content, not that a person viewed it"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Sentinel UEBA lookbacks: action uncommonly performed by user 10 days; first time browser or ISP 30 days; first time country 90 days; first time user performed action 180 days",
+      "source": "S9",
+      "locator": "ActivityInsights field tables, Baseline (days) column"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Entra ID Protection learning mode for unfamiliar sign-in properties has a minimum duration of five days",
+      "source": "S2",
+      "locator": "Unfamiliar sign-in properties: The minimum duration is five days"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Sentinel flags an account as new when created within the past 30 days (IsNewAccount)",
+      "source": "S9",
+      "locator": "UsersInsights field: Is new account"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Sentinel UEBA context rings are user, peers, organisation; scoring considers history, peer groups and organisation-wide patterns",
+      "source": "S7",
+      "locator": "How UEBA works, diagram description and bullet list"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "UserPeerAnalytics ranks the top 20 peers from security group membership, mailing lists and other associations; smaller groups carry higher weight",
+      "source": "S7",
+      "locator": "UEBA tables overview, UserPeerAnalytics row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Enrichment names ActionUncommonlyPerformedAmongPeers and ResourceUncommonlyAccessedAmongPeers exist",
+      "source": "S9",
+      "locator": "ActivityInsights tables"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The documented UEBA data sources are sign-in, audit, cloud and network tables and do not list a custom AI assistant feed",
+      "source": "S9",
+      "locator": "UEBA data sources table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "IdentityInfo has Department, JobTitle and AccountUPN fields and resynchronises every 14 days",
+      "source": "S9",
+      "locator": "IdentityInfo table schema and synchronisation notes"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "series_decompose_anomalies threshold defaults to 1.5 for mild or stronger anomalies; the documentation example raises it to 2.5",
+      "source": "S13",
+      "locator": "Parameters table, Threshold; Tweak the anomaly detection threshold"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Seasonality is autodetected by default; with 1h bins a weekly period is 168 bins",
+      "source": "S13",
+      "locator": "Parameters table, Seasonality"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ad_flag is a ternary series (+1, -1, 0) for up, down, no anomaly; ad_score and baseline are also returned",
+      "source": "S13",
+      "locator": "Returns"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "created_at is an RFC 3339 string and the documentation examples end in Z",
+      "source": "S4",
+      "locator": "Activity object table and example response"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "SigninLogs columns IPAddress, AutonomousSystemNumber, Location (2 letter country code), LocationDetails, DeviceDetail, ResultType (0 indicates success), IsInteractive, RiskEventTypes_V2, RiskLevelDuringSignIn",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "unfamiliarFeatures is the riskEventType of Unfamiliar sign-in properties; properties include IP, ASN, location, device, browser and tenant IP subnet",
+      "source": "S2",
+      "locator": "riskEventType table and Unfamiliar sign-in properties section"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "unlikelyTravel is Atypical travel; anonymizedIPAddress is Anonymous IP address (for example Tor browser or anonymous VPN)",
+      "source": "S2",
+      "locator": "riskEventType table; Atypical travel; Anonymous IP address"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Unfamiliar sign-in properties on non-interactive sign-ins deserve increased scrutiny due to the risk of token replay",
+      "source": "S2",
+      "locator": "Unfamiliar sign-in properties section"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Join actor.ip_address to network, VPN and endpoint logs, actor.user_agent to device inventory, actor.user_id to the IdP stable identifier; use user_id, not email_address, as the primary join key",
+      "source": "S8",
+      "locator": "Correlate with your SIEM"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "When contacting the user, email or Teams might be compromised; add corporate VPN ranges to named locations to reduce false positives",
+      "source": "S15",
+      "locator": "Investigation and risk remediation framework step 3; Mitigate future risks"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Activity types sso_login_succeeded, claude_chat_access_failed, claude_file_access_failed, claude_project_document_access_failed, claude_chat_deleted, claude_project_viewed exist",
+      "source": "S5",
+      "locator": "activity_types enum"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "CopilotInteraction is record type 261",
+      "source": "S16",
+      "locator": "AuditLogRecordType table"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "AccessedResources entries carry Name, SiteUrl, Type, Action (read, create, modify), SensitivityLabelId, Status; AppHost identifies the host application; Messages carry ID and isPrompt",
+      "source": "S12",
+      "locator": "Common properties in Copilot audit logs"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Chat content retrieval needs a Compliance Access Key with read:compliance_user_data; a chat deleted in the app is still listed with deleted_at populated and messages are returned without content",
+      "source": "S14",
+      "locator": "Required scope; introduction paragraph"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Activity types org_data_export_started, org_data_export_completed, org_data_export_accessed, audit_log_export_started, api_key_created, admin_api_key_created, compliance_api_accessed, org_sso_toggled, org_domain_sso_enforcement_updated, org_ip_restriction_deleted, integration_user_connected, claude_gdrive_integration_created, claude_user_role_updated, role_assignment_granted exist",
+      "source": "S5",
+      "locator": "activity_types enum"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "A retention-policy deletion records no claude_chat_deleted; a policy change is recorded as a data_retention_periods update in claude_organization_settings_updated",
+      "source": "S4",
+      "locator": "A missing *_deleted activity does not mean the content still exists"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Most Compliance API calls emit compliance_api_accessed with an api_actor; actor.api_key_id attributes the access; some calls leave no activity",
+      "source": "S8",
+      "locator": "Correlate with your SIEM, last paragraphs"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Copilot admin operations include UpdateTenantSettings, CreatePlugin, DeletePlugin, EnablePromptBook",
+      "source": "S12",
+      "locator": "Common properties table, Operation row"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Actor types user_actor, api_actor, admin_api_key_actor, scim_directory_sync_actor, system_actor, anthropic_actor and their meanings",
+      "source": "S4",
+      "locator": "actor.type table"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "InvestigationPriority ranges 0 to 10 for a single event; AnomalyScore ranges 0 to 1 for behaviour across events",
+      "source": "S7",
+      "locator": "UEBA scoring table"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "If an intruder may impersonate the user, block the user and revoke all refresh and access tokens; mark the sign-in as confirmed compromised",
+      "source": "S15",
+      "locator": "Initial triage, last paragraph; framework step 4"
+    },
+    {
+      "where": "room:aianu-r1",
+      "claim": "Viewed records are written on each app load and are not deduplicated",
+      "source": "S4",
+      "locator": "A claude_*_viewed activity means a Claude app loaded content"
+    },
+    {
+      "where": "room:aianu-r1",
+      "claim": "Record fields actor.ip_address, actor.user_agent, created_at, type, claude_project_id, claude_file_id",
+      "source": "S4",
+      "locator": "Activity object and actor tables"
+    },
+    {
+      "where": "room:aianu-r2",
+      "claim": "ResultType 0 means success; IsInteractive true when the user provides an authentication factor; Location is a 2 letter country code",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "where": "room:aianu-r2",
+      "claim": "DeviceDetail has deviceId, operatingSystem, browser, isManaged, isCompliant",
+      "source": "S17",
+      "locator": "Properties table"
+    },
+    {
+      "where": "room:aianu-r2",
+      "claim": "unfamiliarFeatures and anonymizedIPAddress meanings",
+      "source": "S2",
+      "locator": "Unfamiliar sign-in properties; Anonymous IP address"
+    },
+    {
+      "where": "room:aianu-r2",
+      "claim": "actor.user_id is the recommended primary join key and does not change when email or display name changes",
+      "source": "S8",
+      "locator": "Correlate with your SIEM"
+    },
+    {
+      "where": "room:aianu-r3",
+      "claim": "Activity type names in the standing-rule table",
+      "source": "S5",
+      "locator": "activity_types enum"
+    },
+    {
+      "where": "room:aianu-r3",
+      "claim": "api_actor carries api_key_id; compliance_api_accessed attributes Compliance API access to a key",
+      "source": "S8",
+      "locator": "Correlate with your SIEM"
+    },
+    {
+      "where": "room:aianu-r3",
+      "claim": "Retention-policy removal records no claude_chat_deleted; setting changes including data_retention_periods are recorded in claude_organization_settings_updated",
+      "source": "S4",
+      "locator": "A missing *_deleted activity does not mean the content still exists"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "id",
+      "source": "S4",
+      "locator": "Activity object table"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "created_at",
+      "source": "S4",
+      "locator": "Activity object table"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "type",
+      "source": "S4",
+      "locator": "Activity object table"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "organization_id",
+      "source": "S4",
+      "locator": "Activity object table"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "organization_uuid",
+      "source": "S4",
+      "locator": "Activity object table"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.type",
+      "source": "S4",
+      "locator": "actor.type table"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.email_address",
+      "source": "S4",
+      "locator": "user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.user_id",
+      "source": "S4",
+      "locator": "user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.ip_address",
+      "source": "S4",
+      "locator": "user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.user_agent",
+      "source": "S4",
+      "locator": "user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.api_key_id",
+      "source": "S4",
+      "locator": "api_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.admin_api_key_id",
+      "source": "S4",
+      "locator": "admin_api_key_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "claude_chat_id",
+      "source": "S4",
+      "locator": "additional fields row and example response"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "claude_project_id",
+      "source": "S4",
+      "locator": "example response"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "claude_file_id",
+      "source": "S4",
+      "locator": "additional fields row"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "TimeGenerated",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "CreatedDateTime",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "UserPrincipalName",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "AppDisplayName",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "ResourceDisplayName",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "IPAddress",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "AutonomousSystemNumber",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "Location",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "LocationDetails",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "LocationDetails.city",
+      "source": "S18",
+      "locator": "Properties table: city"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "LocationDetails.countryOrRegion",
+      "source": "S18",
+      "locator": "Properties table: countryOrRegion"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "UserAgent",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "DeviceDetail",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "DeviceDetail.deviceId",
+      "source": "S17",
+      "locator": "Properties table: deviceId"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "DeviceDetail.operatingSystem",
+      "source": "S17",
+      "locator": "Properties table: operatingSystem"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "DeviceDetail.browser",
+      "source": "S17",
+      "locator": "Properties table: browser"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "DeviceDetail.isManaged",
+      "source": "S17",
+      "locator": "Properties table: isManaged"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "DeviceDetail.isCompliant",
+      "source": "S17",
+      "locator": "Properties table: isCompliant"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "ResultType",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "IsInteractive",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "ConditionalAccessStatus",
+      "source": "S1",
+      "locator": "Columns table: success, failure, or notApplied"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "RiskLevelDuringSignIn",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "RiskEventTypes_V2",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "RiskState",
+      "source": "S1",
+      "locator": "Columns table: atRisk among possible values"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "CorrelationId",
+      "source": "S1",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CreationTime",
+      "source": "S16",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "Operation",
+      "source": "S16",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "RecordType",
+      "source": "S16",
+      "locator": "Common schema; CopilotInteraction 261"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "Workload",
+      "source": "S12",
+      "locator": "Common properties: Workload Copilot"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "UserId",
+      "source": "S16",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ClientIP",
+      "source": "S16",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "AppHost",
+      "source": "S12",
+      "locator": "Common properties"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "AccessedResources",
+      "source": "S12",
+      "locator": "Common properties"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "Messages",
+      "source": "S12",
+      "locator": "Common properties"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "InvestigationPriority",
+      "source": "S9",
+      "locator": "BehaviorAnalytics table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "AnomalyScore",
+      "source": "S7",
+      "locator": "UEBA scoring table"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "Department",
+      "source": "S9",
+      "locator": "IdentityInfo schema"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "JobTitle",
+      "source": "S9",
+      "locator": "IdentityInfo schema"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "AccountUPN",
+      "source": "S9",
+      "locator": "IdentityInfo schema"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "An **anomaly** is an event, or a group of events, that differs from an expected pattern."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "A baseline built on viewed events measures the app, not the person."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "The account is new, so there is nothing to compare with."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "The output `ad_flag` is +1 for a spike, -1 for a dip and 0 for no anomaly, next to `ad_score` and the predicted `baseline`."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "when unfamiliar properties are detected on a non-interactive sign-in, it deserves increased scrutiny because of the risk of token replay, where a stolen session token is reused from the intruder's machine."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "It is how many distinct projects appeared that this account had never loaded before."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "When the organisation's retention policy removes a chat, the feed records no `claude_chat_deleted` at all."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "Had the sign-in come from her managed laptop on the office network, with the peers also rising, the same 58 chats would have been closed as benign activity before a deadline."
+    },
+    {
+      "q": "room:aianu-q1",
+      "taught_in": "room:aianu-r1",
+      "support": "For volume, count claude_chat_created and claude_file_uploaded, because a person causes those directly."
+    },
+    {
+      "q": "room:aianu-ac1",
+      "taught_in": "room:aianu-r1",
+      "support": "Repeated loads are not deduplicated, and the mobile, desktop and web apps load at different moments, sometimes in the background."
+    },
+    {
+      "q": "room:aianu-f1",
+      "taught_in": "room:aianu-r1",
+      "support": "A simple measure is the ratio: today's count divided by the account's own median."
+    },
+    {
+      "q": "room:aianu-ac2",
+      "taught_in": "room:aianu-r1",
+      "support": "A volume alert with a confirmed business reason, from the usual network and device, is a benign true positive."
+    },
+    {
+      "q": "room:aianu-m1",
+      "taught_in": "room:aianu-r1",
+      "support": "If the peers rose together, look for a deadline or a rollout."
+    },
+    {
+      "q": "room:aianu-la1#1",
+      "taught_in": "room:aianu-r2",
+      "support": "| ResultType | 0 means success, any other value is a failure |"
+    },
+    {
+      "q": "room:aianu-la1#2",
+      "taught_in": "room:aianu-r2",
+      "support": "The value unfamiliarFeatures means the sign-in had properties this user has not shown before, such as IP, ASN, location, device or browser."
+    },
+    {
+      "q": "room:aianu-la1#3",
+      "taught_in": "room:aianu-r2",
+      "support": "A machine the firm does not know appears with those fields empty or false."
+    },
+    {
+      "q": "room:aianu-ac3",
+      "taught_in": "room:aianu-r2",
+      "support": "Several deviations at once, with no business reason, are a true positive: a new country, an unmanaged device, a burst of chats, projects from other practice groups and deletions do not happen together by accident."
+    },
+    {
+      "q": "room:aianu-q2",
+      "taught_in": "room:aianu-r2",
+      "support": "Check the address against the firm's known ranges."
+    },
+    {
+      "q": "room:aianu-q3",
+      "taught_in": "room:aianu-r3",
+      "support": "The same activity type from any other key is a finding."
+    },
+    {
+      "q": "room:aianu-o1",
+      "taught_in": "room:aianu-r3",
+      "support": "The firm's procedure for an anomalous-use alert has six steps, always in this order:"
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S23"
+    },
+    {
+      "id": "T1078.004",
+      "name": "Valid Accounts: Cloud Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S10"
+    },
+    {
+      "id": "T1213",
+      "name": "Data from Information Repositories",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S11"
+    },
+    {
+      "id": "AML.T0012",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Initial Access",
+        "Privilege Escalation"
+      ],
+      "source": "S3"
+    },
+    {
+      "id": "AML.T0036",
+      "name": "Data from Information Repositories",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S3"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "ATLAS tactic lists for AML.T0012 and AML.T0036",
+      "why": "Read from dist/ATLAS.yaml, which reported version 5.6.0 and carried a notice that the file is deprecated in favour of the repository's current data; only the first 100000 characters were read, so a later tactic mapping could have been missed",
+      "handled": "IDs and names are cited in the lesson; no tactic is named for the ATLAS techniques in learner-facing text"
+    },
+    {
+      "item": "ATT&CK tactic shown as Stealth (TA0005) for T1078 and T1078.004",
+      "why": "Both fetched pages list Stealth, Persistence, Privilege Escalation, Initial Access; the label differs from the older Defense Evasion name, and the repo MITRE library may still use the older label",
+      "handled": "recorded as fetched in mitre_ids; the lesson names no tactic for these techniques; integrate should use the label the repo gate expects"
+    },
+    {
+      "item": "Per-type field lists of Compliance API activities (which IDs each activity type carries)",
+      "why": "The API reference page is very large and only its activity_types enum was read; the activity feed page confirms claude_chat_id on chat events and claude_file_id on file events only in general terms",
+      "handled": "room raw blocks use claude_chat_id only on chat events and claude_file_id only on the file event; claude_project_id on viewed records is described in text as the field to count, per the documented example of a chat event"
+    },
+    {
+      "item": "Exact meaning of several activity types beyond their names (org_data_export_*, audit_log_export_started, org_sso_toggled, integration_user_connected, claude_gdrive_integration_created, role_assignment_granted)",
+      "why": "The reference lists the names without descriptions in the portion read",
+      "handled": "the content states that the grouping and the reasons are the author's, and describes each only as far as its name says"
+    },
+    {
+      "item": "Nesting of Copilot properties inside the audit record (for example under CopilotEventData) and the CreationTime text format",
+      "why": "The Copilot schema page was not fetched; the Purview article lists the properties without the envelope",
+      "handled": "the lesson example is labelled as selected properties with nesting omitted"
+    },
+    {
+      "item": "Custom table name ClaudeActivity_CL and its column layout in the KQL examples",
+      "why": "There is no vendor-defined Sentinel table for this feed that was confirmed in this run",
+      "handled": "the lesson states that the name is the lesson's own and that table and column names depend on the pipeline"
+    },
+    {
+      "item": "Peer-group size rule (fall back to the department under about ten active members) and the multipliers and ratio thresholds used in rules (three times the 95th percentile, ratio of 4)",
+      "why": "Author heuristics, not taken from a source",
+      "handled": "presented as working rules to tune, and in the room as the fictional firm's own rule"
+    },
+    {
+      "item": "User agent string of the Claude mobile app",
+      "why": "No documentation of the app's user agent was read",
+      "handled": "the room uses a generic iPhone in-app browser string as a data value and the scenario text says only that the client is her phone"
+    },
+    {
+      "item": "NIST AI 600-1 full text",
+      "why": "The PDF could not be parsed by the fetch tool; only the NIST publication page was read",
+      "handled": "left out: no NIST statement appears in the content"
+    },
+    {
+      "item": "Documentation ASN values 64500 and 64511 and the AppDisplayName value Claude",
+      "why": "Illustrative data values chosen by the author (reserved documentation ASN range recalled from memory, application name is tenant-defined)",
+      "handled": "used only as values inside example log rows"
+    }
+  ]
+}

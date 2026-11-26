@@ -64,6 +64,14 @@ export const TACTICS: MitreTactic[] = [
 
 export const TECHNIQUES: MitreTechnique[] = [
   // Reconnaissance
+  { id: "T1593.003", name: "Search Open Websites/Domains: Code Repositories", tactic: "TA0043",
+    description: "Searching public code repositories for information about a victim, such as leaked credentials or API keys.",
+    platforms: ["PRE"],
+    data_sources: ["Secret scanning alerts","Repository audit log"],
+    detection_hint: "The search itself happens outside the organisation and leaves no log there; watch for the leak instead: a secret scanning alert on a pushed credential, then first use of that key from a new network.",
+    whatAttackerDoes: "Searches public repositories on code hosting sites for source code, configuration files and commit history that contain credentials or API keys pushed by mistake, then tests what each key can reach.",
+    logIndicators: ["Secret scanning alert for a cloud access key or API key in a public repository", "A repository changed from private to public shortly before a key is first used from an unknown address", "First API calls with the exposed key from a network the organisation has never used"],
+  },
   { id: "T1589", name: "Gather Victim Identity Information", tactic: "TA0043",
     description: "Collecting usernames, email addresses, credentials and employee names before an attack.",
     platforms: ["PRE"],

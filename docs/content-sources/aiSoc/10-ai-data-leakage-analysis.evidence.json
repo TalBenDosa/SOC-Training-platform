@@ -1,0 +1,944 @@
+{
+  "topic": "Analyzing AI data leakage events (Tal's topic: ניתוח אירועי Data Leakage)",
+  "slug": "ai-data-leakage-analysis",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Learn about Endpoint data loss prevention",
+      "url": "https://learn.microsoft.com/en-us/purview/endpoint-dlp-learn-about",
+      "publisher": "Microsoft Learn",
+      "used_for": "Endpoint DLP activities (Paste to supported browsers, Upload to a restricted cloud service domain), onboarding, unsaved-file limit, audited attributes"
+    },
+    {
+      "id": "S2",
+      "title": "Office 365 Management Activity API schema",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "DLP schema: operations, record types, UserKey, EndpointMetaData, PolicyDetails, Rules, SensitiveInformation, EnforcementMode values"
+    },
+    {
+      "id": "S3",
+      "title": "Configure endpoint DLP settings",
+      "url": "https://learn.microsoft.com/en-us/purview/dlp-configure-endpoint-settings",
+      "publisher": "Microsoft Learn",
+      "used_for": "Sensitive service domain groups, Generative AI Websites group, browser support table, justification options, evidence collection, advanced classification limit for paste"
+    },
+    {
+      "id": "S4",
+      "title": "Considerations for deploying Microsoft Purview Data Security Posture Management (DSPM) for AI",
+      "url": "https://learn.microsoft.com/en-us/purview/dspm-for-ai-considerations",
+      "publisher": "Microsoft Learn",
+      "used_for": "DSPM for AI default policy names and modes, Activity explorer AI events, prompt capture conditions, network collection policy scope"
+    },
+    {
+      "id": "S5",
+      "title": "Learn about investigating data loss prevention alerts",
+      "url": "https://learn.microsoft.com/en-us/purview/dlp-alert-investigation-learn",
+      "publisher": "Microsoft Learn",
+      "used_for": "Six-step alert lifecycle, retention of incidents (six months) and alerts (30 days)"
+    },
+    {
+      "id": "S6",
+      "title": "Help prevent leakage of sensitive content by restricting paste actions into browsers",
+      "url": "https://learn.microsoft.com/en-us/purview/endpoint-dlp-create-policy-restrict-paste-in-browsers",
+      "publisher": "Microsoft Learn",
+      "used_for": "Paste to browser evaluation independent of source classification; Audit, Block with override, Block; supported browsers"
+    },
+    {
+      "id": "S7",
+      "title": "Supported AI sites by Microsoft Purview for data security and compliance protections",
+      "url": "https://learn.microsoft.com/en-us/purview/ai-microsoft-purview-supported-sites",
+      "publisher": "Microsoft Learn",
+      "used_for": "The site list behind the Generative AI Websites group (includes chatgpt.com and gemini.google.com)"
+    },
+    {
+      "id": "S8",
+      "title": "Learn about Data Loss Prevention for Cloud Apps in Edge for Business",
+      "url": "https://learn.microsoft.com/en-us/purview/dlp-browser-dlp-learn",
+      "publisher": "Microsoft Learn",
+      "used_for": "Browser DLP without device onboarding, Upload text and Upload file activities, 4 MB and 3 MB limits, consumer and enterprise versions sharing a URL, encoded content"
+    },
+    {
+      "id": "S9",
+      "title": "Export-ActivityExplorerData",
+      "url": "https://learn.microsoft.com/en-us/powershell/module/exchange/export-activityexplorerdata",
+      "publisher": "Microsoft Learn",
+      "used_for": "Activity explorer export columns, Activity and Workload filter values, 30 days of data, UTC, cmdlet syntax"
+    },
+    {
+      "id": "S10",
+      "title": "LLM02:2025 Sensitive Information Disclosure",
+      "url": "https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item number, name and listed examples"
+    },
+    {
+      "id": "S11",
+      "title": "MITRE ATLAS data (ATLAS.yaml)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml",
+      "publisher": "MITRE",
+      "used_for": "AML.T0057 and AML.T0024 names, tactic and descriptions"
+    },
+    {
+      "id": "S12",
+      "title": "Exfiltration Over Web Service, T1567",
+      "url": "https://attack.mitre.org/techniques/T1567/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, ID, tactic, not deprecated"
+    },
+    {
+      "id": "S13",
+      "title": "NIST AI 600-1, Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile",
+      "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+      "publisher": "NIST",
+      "used_for": "Data Privacy risk definition, data memorization, suggested action MG-4.3-003"
+    },
+    {
+      "id": "S14",
+      "title": "Art. 33 GDPR, Notification of a personal data breach to the supervisory authority",
+      "url": "https://gdpr-info.eu/art-33-gdpr/",
+      "publisher": "gdpr-info.eu (text of Regulation (EU) 2016/679)",
+      "used_for": "72 hour rule, exception, required content of the notification"
+    },
+    {
+      "id": "S15",
+      "title": "Enterprise privacy at OpenAI",
+      "url": "https://openai.com/enterprise-privacy/",
+      "publisher": "OpenAI",
+      "used_for": "Business data not used for training by default, deleted conversations removed within 30 days, API retention up to 30 days"
+    },
+    {
+      "id": "S16",
+      "title": "How your data is used to improve model performance",
+      "url": "https://help.openai.com/en/articles/5722486-how-your-data-is-used-to-improve-model-performance",
+      "publisher": "OpenAI Help Center",
+      "used_for": "Individual accounts: content may be used for training, the opt-out setting, Temporary Chats"
+    },
+    {
+      "id": "S17",
+      "title": "Zscaler and Splunk Deployment Guide",
+      "url": "https://help.zscaler.com/downloads/zscaler-technology-partners/operations/zscaler-and-splunk-deployment-guide/Zscaler-Splunk-Deployment-Guide-FINAL.pdf",
+      "publisher": "Zscaler",
+      "used_for": "JSON web feed template: key names and the Zscaler variable behind each, sourcetype zscalernss-web"
+    },
+    {
+      "id": "S18",
+      "title": "Zscaler Internet Access integration README",
+      "url": "https://raw.githubusercontent.com/elastic/integrations/main/packages/zscaler_zia/docs/README.md",
+      "publisher": "Elastic (integrations repository)",
+      "used_for": "A second published template with different key names (reqsize, dlpeng, dlpdict, prompt_req) and sample values (Credit Cards, Yes)"
+    },
+    {
+      "id": "S19",
+      "title": "Make generative AI tools like ChatGPT safe and secure with Zscaler",
+      "url": "https://www.zscaler.com/blogs/product-insights/make-generative-ai-tools-chatgpt-safe-and-secure-zscaler",
+      "publisher": "Zscaler blog (17 May 2023)",
+      "used_for": "Inline SSL decryption for visibility, DLP on uploads, DLP rule without content inspection capturing POST requests, predefined ChatGPT cloud application"
+    },
+    {
+      "id": "S20",
+      "title": "AI content filtering governance practices with Zscaler",
+      "url": "https://www.zscaler.com/resources/white-papers/ai-content-filtering-governance-practices-zscaler.pdf",
+      "publisher": "Zscaler white paper",
+      "used_for": "SSL/TLS inspection as the single most critical enabler, DLP on POST requests that carry prompts and uploads, Generative AI and ML category wording"
+    },
+    {
+      "id": "S99",
+      "title": "MITRE ATLAS data, release 2026.10 (ATLAS-2026.10.yaml)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.10.yaml",
+      "publisher": "MITRE",
+      "used_for": "Orchestrator re-check: AML.T0024 exists with this name; AML.T0057 is absent from the current release"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "OWASP Top 10 for LLM Applications 2025 item LLM02:2025 is named Sensitive Information Disclosure; its examples are PII Leakage, Proprietary Algorithm Exposure, Sensitive Business Data Disclosure",
+      "source": "S10",
+      "locator": "Page title and section Common Examples of Vulnerability"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "AML.T0024 Exfiltration via AI Inference API: adversaries may exfiltrate private information via AI model inference API access",
+      "source": "S11",
+      "locator": "techniques: AML.T0024, tactics: AML.TA0010"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "T1567 Exfiltration Over Web Service: use of an existing, legitimate external web service to exfiltrate data; tactic Exfiltration; not deprecated",
+      "source": "S12",
+      "locator": "Technique page header and first paragraph"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "NIST AI 600-1 Data Privacy risk: impacts due to leakage and unauthorized use, disclosure, or de-anonymization of biometric, health, location, or other personally identifiable information or sensitive data",
+      "source": "S13",
+      "locator": "Section 2, risk 4 Data Privacy"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "LLMs have revealed sensitive information that was included in their training data; the problem is referred to as data memorization",
+      "source": "S13",
+      "locator": "Section 2.4 Data Privacy, second paragraph"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Paste to supported browsers: evaluation is performed on the content being pasted, independent of how the source item is classified",
+      "source": "S1",
+      "locator": "Table Endpoint activities you can monitor and take action on, row Paste to supported browsers"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Devices onboarded through Microsoft Defender for Endpoint show up automatically in the device list for Endpoint DLP",
+      "source": "S1",
+      "locator": "Section Enabling Device management"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "If data is never saved to a file on the local device, Endpoint DLP cannot scan or classify it",
+      "source": "S1",
+      "locator": "Section Endpoint DLP and Unsaved Files"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Paste and upload are supported in Microsoft Edge, and in Chrome and Firefox with the Microsoft Purview extension",
+      "source": "S3",
+      "locator": "Section Sensitive service domain groups, browser table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Actions for sensitive service domains are audit, block with override, or block; a preconfigured group named Generative AI websites exists and cannot be edited or deleted",
+      "source": "S3",
+      "locator": "Section Sensitive service domain groups"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Browser DLP in Edge for Business needs no device onboarding; activities Upload text and Upload file apply to unmanaged apps; up to 4 MB evaluated for uploadText and files up to 3 MB for uploadFile; some apps send content in encoded form which can impact enforcement; unmanaged app policies apply on Intune-managed Windows devices",
+      "source": "S8",
+      "locator": "Intro paragraph, Activities table, Considerations for unmanaged cloud apps policies"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "SSL/TLS inspection is the single most critical enabler of AI content governance; for POST requests, which include prompts and uploads, DLP is the primary enforcement mechanism",
+      "source": "S20",
+      "locator": "Section SSL/TLS Inspection and the paragraph on request evaluation"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A network-layer (SASE or SSE) integration detects sensitive information shared with AI apps in browsers, applications, APIs and add-ins",
+      "source": "S4",
+      "locator": "Collection policy DSPM for AI - Detect sensitive info shared with AI via network"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "DLP events always have UserKey DlpAgent; Operation is DlpRuleMatch, DlpRuleUndo or DlpInfo; DlpRuleUndo and DlpInfo are SharePoint and OneDrive only",
+      "source": "S2",
+      "locator": "Section DLP schema, opening paragraph and bullet list"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "RecordType 63 is DLPEndpoint, 11 is ComplianceDLPSharePoint, 13 is ComplianceDLPExchange",
+      "source": "S2",
+      "locator": "Enum AuditLogRecordType"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "EndpointMetaData.EnforcementMode values 1/2/3/4/5 depict audit / warn (block with override) / warn and bypass / block / allow (audit without alerts)",
+      "source": "S2",
+      "locator": "EndpointMetadata complex type, EnforcementMode row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Rules.Severity is Low, Medium or High; Rules.RuleMode indicates Enforce, Audit with Notify, or Audit only",
+      "source": "S2",
+      "locator": "Rules complex type"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "SensitiveInformation.Count is the total number of sensitive instances detected; UniqueCount is the unique count; Confidence is the aggregated confidence of all pattern matches",
+      "source": "S2",
+      "locator": "SensitiveInformation complex type"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "SensitiveInfoDetectionIsIncluded indicates whether the event contains the detected value and surrounding context; reading sensitive data needs a dedicated permission",
+      "source": "S2",
+      "locator": "DLP schema parameters table and SensitiveInformationDetections complex type"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Activity explorer reports on up to 30 days of data; Export-ActivityExplorerData outputs Json or Csv; exported date-time is UTC",
+      "source": "S9",
+      "locator": "Opening description, OutputFormat parameter, Notes"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Valid Activity values include PastedToBrowser, FileUploadedToCloud, UploadText, UploadFile, DLPRuleMatch, AIAppInteraction, CopilotInteraction, FileCopiedToClipboard; Workload value Endpoint",
+      "source": "S9",
+      "locator": "Description: valid activity filters and valid workload filters"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Exported columns include User, DeviceName, ClientIP, Application, TargetDomain, FilePath, FileSize, Sha256, PolicyName, RuleName, EnforcementMode, Justification, Happened",
+      "source": "S9",
+      "locator": "Notes: the cmdlet exports following data columns"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Default justification options: This is part of an established business workflow; My manager has approved this action; The information in these files is not sensitive (false positive option)",
+      "source": "S3",
+      "locator": "Section Customizing the options in the drop-down menu"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "DSPM for AI: Detect sensitive info added to AI sites discovers sensitive content pasted or uploaded in Edge, Chrome and Firefox to AI sites, all users, audit mode only; DSPM for AI - Block sensitive info from AI sites gives block-with-override to elevated risk users and is created in test mode",
+      "source": "S4",
+      "locator": "Sections Default policies for data discovery and Default policies from data security"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "The AI interaction event includes prompts and responses; for non-Copilot AI apps this needs a collection policy with content capture selected",
+      "source": "S4",
+      "locator": "Table Activity explorer events, row AI interaction"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Splunk guide JSON web feed template keys: requestsize=%d{reqsize}, responsesize=%d{respsize}, transactionsize=%d{totalsize}, urlcategory=%s{urlcat}, appname, requestmethod=%s{reqmethod}, dlpengine=%s{dlpeng}, dlpdictionaries=%s{dlpdict}, ssldecrypted, action, user=%s{elogin}, department, devicehostname, hostname=%s{ehost}, url=%s{eurl}; sourcetype zscalernss-web",
+      "source": "S17",
+      "locator": "Configure cloud NSS feed (web): Feed Output Format block, page 63"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Another published template uses the key names reqsize, dlpeng, dlpdict and carries a prompt_req key",
+      "source": "S18",
+      "locator": "Web log template and exported fields table (zscaler_zia.web.prompt_req)"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Zscaler described a DLP rule without content inspection that captures any HTTP POST request greater than 0 bytes made to the ChatGPT application and sends it to the Zscaler Incident Receiver; a predefined ChatGPT cloud application exists; DLP can block uploading credit card numbers to ChatGPT",
+      "source": "S19",
+      "locator": "Blog body, sections on DLP and on logging queries"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Policies that target unmanaged apps can capture interactions from both the consumer and enterprise versions of an app when the URL is shared (example: ChatGPT consumer and ChatGPT enterprise)",
+      "source": "S8",
+      "locator": "Considerations for unmanaged cloud apps policies"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Individual ChatGPT accounts: content may be used to train models unless the user turns off Improve the model for everyone; Temporary chats are not used to improve models while they remain temporary",
+      "source": "S16",
+      "locator": "Article body, sections on individual services and Temporary Chats"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ChatGPT Business, Enterprise, Edu and the API are not used for training by default; Enterprise deleted conversations are removed within 30 days unless legally required to retain",
+      "source": "S15",
+      "locator": "Sections on model training, data retention and API"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "DLP can copy matched items to an Azure storage account (evidence collection)",
+      "source": "S3",
+      "locator": "Section Set up evidence collection for file activities on devices"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "GDPR Article 33(1): notify the supervisory authority without undue delay and, where feasible, not later than 72 hours after having become aware, unless the breach is unlikely to result in a risk to rights and freedoms; Article 33(3): nature of the breach, contact point, likely consequences, measures taken",
+      "source": "S14",
+      "locator": "Art. 33 paragraphs 1 and 3"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "NIST AI 600-1 suggested action MG-4.3-003: report GAI incidents in compliance with legal and regulatory requirements",
+      "source": "S13",
+      "locator": "MANAGE 4.3 table, MG-4.3-003"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "The Defender portal retains incidents for six months and the DLP alert management dashboard retains alerts for 30 days",
+      "source": "S5",
+      "locator": "Note under Notify"
+    },
+    {
+      "where": "room:ailk-r1",
+      "claim": "Same record facts as the lesson: Operation DlpRuleMatch, RecordType 63 DLPEndpoint, UserKey DlpAgent, EnforcementMode 1 to 5 meanings, Count and UniqueCount definitions",
+      "source": "S2",
+      "locator": "DLP schema, EndpointMetadata and SensitiveInformation complex types"
+    },
+    {
+      "where": "room:ailk-r1",
+      "claim": "Activity values PastedToBrowser and FileUploadedToCloud; columns TargetDomain and Justification; Activity explorer covers up to 30 days",
+      "source": "S9",
+      "locator": "Description and Notes"
+    },
+    {
+      "where": "room:ailk-r1",
+      "claim": "Built-in justification option text: This is part of an established business workflow",
+      "source": "S3",
+      "locator": "Section Customizing the options in the drop-down menu, option 1"
+    },
+    {
+      "where": "room:ailk-r2",
+      "claim": "Endpoint DLP needs the Microsoft Purview extension in Chrome and Firefox; unsaved data cannot be scanned",
+      "source": "S1",
+      "locator": "Sections Endpoint activities and Endpoint DLP and Unsaved Files; extension requirement also in S3 browser table"
+    },
+    {
+      "where": "room:ailk-r2",
+      "claim": "Browser DLP in Edge for Business works without device onboarding and evaluates up to 4 MB of text and files up to 3 MB",
+      "source": "S8",
+      "locator": "Intro and Considerations for unmanaged cloud apps policies"
+    },
+    {
+      "where": "room:ailk-r2",
+      "claim": "Zscaler web feed keys user, department, devicehostname, hostname, appname, urlcategory, requestmethod, requestsize, responsesize, dlpdictionaries, ssldecrypted, action",
+      "source": "S17",
+      "locator": "Feed Output Format block, page 63"
+    },
+    {
+      "where": "room:ailk-r2",
+      "claim": "Credit Cards is a Zscaler DLP dictionary value and ssldecrypted carries Yes",
+      "source": "S18",
+      "locator": "Sample web event: dlp.dictionaries.name Credit Cards, ssl_decrypted Yes"
+    },
+    {
+      "where": "room:ailk-r2",
+      "claim": "Matched items can be copied to an Azure storage account as evidence",
+      "source": "S3",
+      "locator": "Section Set up evidence collection for file activities on devices"
+    },
+    {
+      "where": "room:ailk-r3",
+      "claim": "Individual ChatGPT accounts may have content used for training unless the setting Improve the model for everyone is turned off; business offerings are not used for training by default",
+      "source": "S16",
+      "locator": "Article body"
+    },
+    {
+      "where": "room:ailk-r3",
+      "claim": "GDPR Article 33: where feasible not later than 72 hours after becoming aware, unless unlikely to result in a risk",
+      "source": "S14",
+      "locator": "Art. 33 paragraph 1"
+    },
+    {
+      "where": "room:ailk-r3",
+      "claim": "DLP alert dashboard retains alerts 30 days, Defender portal retains incidents six months, Activity explorer reports on up to 30 days",
+      "source": "S5",
+      "locator": "Note under Notify; Activity explorer figure from S9 opening description"
+    },
+    {
+      "where": "room:ailk-la2",
+      "claim": "The gateway has a predefined ChatGPT cloud application (appname value)",
+      "source": "S19",
+      "locator": "Blog body: pre-defined ChatGPT Cloud Application"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "A preconfigured sensitive service domain group for Generative AI websites exists; its site list is published by Microsoft and includes chatgpt.com, gemini.google.com and claude.ai",
+      "source": "S7",
+      "locator": "Section Supported AI sites (list entries *.chatgpt.com, *.gemini.google.com, *.claude.ai)"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "AML.T0024 Exfiltration via AI Inference API exists in ATLAS 2026.10; AML.T0057 does not",
+      "source": "S99",
+      "locator": "techniques: AML.T0024; no AML.T0057 key"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.CreationTime",
+      "source": "S2",
+      "locator": "Common schema: CreationTime"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.Operation",
+      "source": "S2",
+      "locator": "Common schema: Operation; DLP schema: DlpRuleMatch"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.RecordType",
+      "source": "S2",
+      "locator": "AuditLogRecordType: 63 DLPEndpoint"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.UserKey",
+      "source": "S2",
+      "locator": "DLP schema: UserKey=DlpAgent"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.UserId",
+      "source": "S2",
+      "locator": "Common schema: UserId"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.EndpointMetaData.DeviceName",
+      "source": "S2",
+      "locator": "EndpointMetadata complex type: DeviceName"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.EndpointMetaData.EnforcementMode",
+      "source": "S2",
+      "locator": "EndpointMetadata complex type: EnforcementMode"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.PolicyName",
+      "source": "S2",
+      "locator": "PolicyDetails complex type: PolicyName"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.Rules.RuleName",
+      "source": "S2",
+      "locator": "Rules complex type: RuleName"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.Rules.RuleMode",
+      "source": "S2",
+      "locator": "Rules complex type: RuleMode"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.Rules.Severity",
+      "source": "S2",
+      "locator": "Rules complex type: Severity"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationTypeName",
+      "source": "S2",
+      "locator": "SensitiveInformation complex type: SensitiveInformationTypeName"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Count",
+      "source": "S2",
+      "locator": "SensitiveInformation complex type: Count"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.UniqueCount",
+      "source": "S2",
+      "locator": "SensitiveInformation complex type: UniqueCount"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Confidence",
+      "source": "S2",
+      "locator": "SensitiveInformation complex type: Confidence"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "data.office365.SensitiveInfoDetectionIsIncluded",
+      "source": "S2",
+      "locator": "DLP schema parameters: SensitiveInfoDetectionIsIncluded"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.Activity",
+      "source": "S9",
+      "locator": "Exported data columns: Activity"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.Workload",
+      "source": "S9",
+      "locator": "Exported data columns: Workload; valid value Endpoint"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.Happened",
+      "source": "S9",
+      "locator": "Exported data columns: Happened"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.User",
+      "source": "S9",
+      "locator": "Exported data columns: User"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.DeviceName",
+      "source": "S9",
+      "locator": "Exported data columns: DeviceName"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.Application",
+      "source": "S9",
+      "locator": "Exported data columns: Application"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.TargetDomain",
+      "source": "S9",
+      "locator": "Exported data columns: TargetDomain"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.FilePath",
+      "source": "S9",
+      "locator": "Exported data columns: FilePath"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.FileSize",
+      "source": "S9",
+      "locator": "Exported data columns: FileSize"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.Sha256",
+      "source": "S9",
+      "locator": "Exported data columns: Sha256"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.PolicyName",
+      "source": "S9",
+      "locator": "Exported data columns: PolicyName"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.RuleName",
+      "source": "S9",
+      "locator": "Exported data columns: RuleName"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.Justification",
+      "source": "S9",
+      "locator": "Exported data columns: Justification"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.ClientIP",
+      "source": "S9",
+      "locator": "Exported data columns: ClientIP (named in the lesson only)"
+    },
+    {
+      "vendor": "microsoft-purview-dlp",
+      "field": "purview.EnforcementMode",
+      "source": "S9",
+      "locator": "Exported data columns: EnforcementMode (named in the lesson only)"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "user",
+      "source": "S17",
+      "locator": "Web feed template: \"user\":\"%s{elogin}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "department",
+      "source": "S17",
+      "locator": "Web feed template: \"department\":\"%s{edepartment}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "devicehostname",
+      "source": "S17",
+      "locator": "Web feed template: \"devicehostname\":\"%s{devicehostname}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "ClientIP",
+      "source": "S17",
+      "locator": "Web feed template: \"ClientIP\":\"%s{cip}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "hostname",
+      "source": "S17",
+      "locator": "Web feed template: \"hostname\":\"%s{ehost}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "url",
+      "source": "S17",
+      "locator": "Web feed template: \"url\":\"%s{eurl}\" (named in the lesson only)"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "appname",
+      "source": "S17",
+      "locator": "Web feed template: \"appname\":\"%s{appname}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "urlcategory",
+      "source": "S17",
+      "locator": "Web feed template: \"urlcategory\":\"%s{urlcat}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "requestmethod",
+      "source": "S17",
+      "locator": "Web feed template: \"requestmethod\":\"%s{reqmethod}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "requestsize",
+      "source": "S17",
+      "locator": "Web feed template: \"requestsize\":\"%d{reqsize}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "responsesize",
+      "source": "S17",
+      "locator": "Web feed template: \"responsesize\":\"%d{respsize}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "transactionsize",
+      "source": "S17",
+      "locator": "Web feed template: \"transactionsize\":\"%d{totalsize}\" (lesson only)"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "clienttranstime",
+      "source": "S17",
+      "locator": "Web feed template: \"clienttranstime\":\"%d{ctime}\" (lesson quiz distractor only)"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "status",
+      "source": "S17",
+      "locator": "Web feed template: \"status\":\"%s{respcode}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "action",
+      "source": "S17",
+      "locator": "Web feed template: \"action\":\"%s{action}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "dlpengine",
+      "source": "S17",
+      "locator": "Web feed template: \"dlpengine\":\"%s{dlpeng}\" (lesson only)"
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "dlpdictionaries",
+      "source": "S17",
+      "locator": "Web feed template: \"dlpdictionaries\":\"%s{dlpdict}\""
+    },
+    {
+      "vendor": "zscaler-internet-access",
+      "field": "ssldecrypted",
+      "source": "S17",
+      "locator": "Web feed template: \"ssldecrypted\":\"%s{ssldecrypted}\""
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "A sanctioned assistant puts sensitive data into an answer for a person who should not see it"
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "Both work in Microsoft Edge, and in Google Chrome and Mozilla Firefox when the Microsoft Purview extension is installed."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "Mode 4 is block, so the action was stopped on the device."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "PastedToBrowser records content pasted into a web page under a paste rule."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "requestsize is the upload: bytes sent from the client to the server."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "The DLP row names a domain, not an account."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "A false positive is a match on content that is not what the rule exists to protect."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "The SOC cannot verify deletion on a consumer service, so the key is treated as exposed and rotated."
+    },
+    {
+      "q": "room:ailk-q1",
+      "taught_in": "room:ailk-r1",
+      "support": "A sanctioned assistant shows sensitive data to the wrong reader"
+    },
+    {
+      "q": "room:ailk-la1#1",
+      "taught_in": "room:ailk-r1",
+      "support": "Only mode 4 stops the action on the device."
+    },
+    {
+      "q": "room:ailk-la1#2",
+      "taught_in": "room:ailk-r1",
+      "support": "Use UniqueCount to estimate how many people are affected, because one identifier repeated on many rows inflates Count."
+    },
+    {
+      "q": "room:ailk-la1#3",
+      "taught_in": "room:ailk-r1",
+      "support": "TargetDomain names the website that received the content, which the audit record's documented endpoint fields do not."
+    },
+    {
+      "q": "room:ailk-ac1",
+      "taught_in": "room:ailk-r1",
+      "support": "A filled Justification means the user was warned and chose to continue."
+    },
+    {
+      "q": "room:ailk-q2",
+      "taught_in": "room:ailk-r2",
+      "support": "The gateway inspects content only when ssldecrypted is Yes."
+    },
+    {
+      "q": "room:ailk-la2#1",
+      "taught_in": "room:ailk-r2",
+      "support": "Bytes sent from the client to the server, the upload"
+    },
+    {
+      "q": "room:ailk-la2#2",
+      "taught_in": "room:ailk-r2",
+      "support": "It records the user who authenticated to the gateway, never the account signed in on the AI site."
+    },
+    {
+      "q": "room:ailk-ac2",
+      "taught_in": "room:ailk-r2",
+      "support": "A false positive is a match on content that is not what the rule exists to protect."
+    },
+    {
+      "q": "room:ailk-m1",
+      "taught_in": "room:ailk-r2",
+      "support": "The endpoint record gives the sensitive information type and the unique count."
+    },
+    {
+      "q": "room:ailk-q3",
+      "taught_in": "room:ailk-r3",
+      "support": "Deleting the conversation helps, but on a personal account the SOC cannot verify it."
+    },
+    {
+      "q": "room:ailk-o1",
+      "taught_in": "room:ailk-r3",
+      "support": "Work through the worksheet in this order, because each answer feeds the next."
+    },
+    {
+      "q": "room:ailk-f1",
+      "taught_in": "room:ailk-r3",
+      "support": "Pull every row for the same user and destination in the session and add up only the rows that went through."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0024",
+      "name": "Exfiltration via AI Inference API",
+      "tactics": [
+        "Exfiltration (AML.TA0010)"
+      ],
+      "source": "S11"
+    },
+    {
+      "id": "T1567",
+      "name": "Exfiltration Over Web Service",
+      "tactics": [
+        "Exfiltration"
+      ],
+      "source": "S12"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "Exact label of Zscaler's URL category for generative AI (raw value 'Generative AI and ML Applications')",
+      "why": "Zscaler help-center pages (URL categories, release summary, NSS web log format) returned empty content (JavaScript-rendered). The 2023 Zscaler blog names the category 'AI and ML Applications'; the white paper speaks of 'Generative AI and ML applications' and of separate Generative and General AI categories.",
+      "handled": "kept as a raw value only, matching the platform's existing Zscaler schema doc; never asked about or stated as a fact in teaching text"
+    },
+    {
+      "item": "Zscaler value strings: action 'Allowed' / 'Blocked' (capitalisation), status '200'",
+      "why": "The Splunk guide gives the template keys but its populated example is an image; the Elastic sample shows event.action 'allowed', policy reason 'Blocked', ssl_decrypted 'Yes', dictionary 'Credit Cards'.",
+      "handled": "used as raw values; the reading says 'Allowed or Blocked'. The reason field and file type labels were left out of raw because their strings could not be confirmed"
+    },
+    {
+      "item": "Meaning of requestsize / responsesize / transactionsize",
+      "why": "Taken from the variable names behind the keys in the Splunk guide (reqsize, respsize, totalsize); the Zscaler definitions table did not load.",
+      "handled": "stated as request bytes (client to server), response bytes and total; no finer claim (for example whether headers are included) is made as fact"
+    },
+    {
+      "item": "A newer Zscaler feed template carries a prompt field",
+      "why": "Seen as key prompt_req in the Elastic integration README, not in Zscaler's own documentation.",
+      "handled": "softened to 'A newer feed template also carries a prompt field' with the advice to ask whether it is deployed"
+    },
+    {
+      "item": "Whether EnforcementMode 3 ('warn and bypass') means the user actively bypassed the warning",
+      "why": "The schema gives only the phrase 'warn and bypass'.",
+      "handled": "content quotes the documented phrase and says the content 'may well have left'; confirmation is taught as coming from the Activity explorer row and the gateway"
+    },
+    {
+      "item": "Literal value of Rules.RuleMode inside a record ('Enforce')",
+      "why": "The schema describes the modes as Enforce, Audit with Notify, or Audit only without showing a sample record.",
+      "handled": "used 'Enforce' as the raw value; no question depends on the literal string"
+    },
+    {
+      "item": "Value formats in Activity explorer export rows (Application 'chrome.exe' / 'msedge.exe', Happened timestamp shape, FileSize in bytes, Justification holding the option text)",
+      "why": "The cmdlet page documents column names, Activity and Workload values and that times are UTC, but shows no sample row.",
+      "handled": "values are illustrative and labelled so in the lesson's example; questions rely on column meaning only. The EnforcementMode column was left out of the room's Activity explorer row because its value format there is not documented"
+    },
+    {
+      "item": "The 'purview.' and 'data.office365.' key prefixes and the flattening of PolicyDetails / Rules / SensitiveInformation arrays into dotted keys",
+      "why": "These are the platform's registry representation, not Microsoft field names; in the real record PolicyDetails, Rules and SensitiveInformation are collections.",
+      "handled": "kept to satisfy the log-field registry; the lesson's codeExample shows the native nested JSON"
+    },
+    {
+      "item": "Where an endpoint record carries the destination website and the user's override",
+      "why": "The Management Activity API schema's EndpointMetadata lists only SensitiveInformation, EnforcementMode, FileExtension, FileType and DeviceName; fields such as a target domain are not documented there. ExceptionInfo.Justification is documented, but the page says override information is included for Exchange and I could not confirm it is populated for endpoint events.",
+      "handled": "destination and justification are taught from the Activity explorer export columns (TargetDomain, Justification), which are documented; they were left out of the audit-record raw block"
+    },
+    {
+      "item": "MITRE ATLAS version",
+      "why": "The fetched dist/ATLAS.yaml reports version 5.6.0 and carries a notice that this distribution file is no longer updated; the newer data layout in the repository was not read.",
+      "handled": "only AML.T0057 and AML.T0024 are cited, with the name and tactic read from that file; integrate mode should re-check them against the current ATLAS release"
+    },
+    {
+      "item": "Retention or purge period for deleted conversations on individual (consumer) ChatGPT accounts",
+      "why": "The 30 day figure read on OpenAI's enterprise privacy page applies to ChatGPT Enterprise, Edu and Healthcare.",
+      "handled": "left out; the content says deletion on a personal account cannot be verified, and a quiz distractor that promises a thirty day purge is marked wrong for that reason"
+    },
+    {
+      "item": "Size reasoning in lesson section 5 (a request slightly larger than the file is consistent with the file going up in one piece)",
+      "why": "General HTTP reasoning by the author, not read in a source.",
+      "handled": "phrased as 'is consistent with' and 'suggests', as an investigative heuristic and not as a product fact"
+    },
+    {
+      "item": "Titles of the two Zscaler references (blog and white paper)",
+      "why": "The white paper PDF's title page did not extract cleanly and the blog title was not quoted by the fetch.",
+      "handled": "descriptive titles used in references; URLs are the ones fetched"
+    },
+    {
+      "item": "AML.T0057 LLM Data Leakage",
+      "why": "Read from the deprecated 5.6.0 file; absent from ATLAS 2026.10",
+      "handled": "removed from the lesson by the orchestrator; AML.T0024 kept"
+    }
+  ]
+}

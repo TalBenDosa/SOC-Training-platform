@@ -1,0 +1,1056 @@
+{
+  "topic": "Building detection use cases for AI threats",
+  "slug": "ai-threat-use-cases",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "MITRE ATLAS data, ATLAS-2026.10.yaml (format-version 6.1.0, collection version 2026.10, modified 2026-10-28)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.10.yaml",
+      "publisher": "MITRE",
+      "used_for": "ATLAS tactic and technique names, IDs, technique-to-tactic relationships (achieves), technique descriptions, mitigation AML.M0024"
+    },
+    {
+      "id": "S2",
+      "title": "OWASP Top 10 for LLM Applications 2025",
+      "url": "https://genai.owasp.org/llm-top-10/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Exact item numbers and names LLM01:2025 to LLM10:2025"
+    },
+    {
+      "id": "S3",
+      "title": "LLM10:2025 Unbounded Consumption",
+      "url": "https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Denial of Wallet example, logging and monitoring mitigation, basis for pairing LLM10 with cost techniques"
+    },
+    {
+      "id": "S4",
+      "title": "LLM06:2025 Excessive Agency",
+      "url": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Three root causes: excessive functionality, permissions, autonomy"
+    },
+    {
+      "id": "S5",
+      "title": "NIST AI RMF 1.0 Core (AI Resource Center)",
+      "url": "https://airc.nist.gov/airmf-resources/airmf/5-sec-core/",
+      "publisher": "NIST",
+      "used_for": "Descriptions of GOVERN, MAP, MEASURE, MANAGE and subcategories GOVERN 1.6, MEASURE 2.7, MANAGE 4.1"
+    },
+    {
+      "id": "S6",
+      "title": "NIST AI 600-1, Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile (July 2024)",
+      "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+      "publisher": "NIST",
+      "used_for": "Twelve GAI risks, Information Security risk text, actions GV-1.6-001, GV-1.6-002, GV-1.6-003, MS-2.7-004, MG-4.1-002, MG-4.3-002, voluntary use, January 2023 release of AI RMF"
+    },
+    {
+      "id": "S7",
+      "title": "Alerting and Detection Strategy Framework (repository README)",
+      "url": "https://github.com/palantir/alerting-detection-strategy-framework",
+      "publisher": "Palantir",
+      "used_for": "List of ADS sections"
+    },
+    {
+      "id": "S8",
+      "title": "ADS-Framework.md",
+      "url": "https://raw.githubusercontent.com/palantir/alerting-detection-strategy-framework/master/ADS-Framework.md",
+      "publisher": "Palantir",
+      "used_for": "Definitions of Goal, Categorization, Blind Spots and Assumptions, False Positives, Validation, Priority, Response; singular-event guidance"
+    },
+    {
+      "id": "S9",
+      "title": "CopilotInteraction (Office 365 Management Activity API schema)",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/copilot-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotInteraction record fields, RecordType 261, example records, MessageData properties (Id, Size, isPrompt)"
+    },
+    {
+      "id": "S10",
+      "title": "Audit logs for Copilot and AI applications",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn",
+      "used_for": "Audit (Standard) automatic logging, AccessedResources sub-properties, AppHost BizChat, JailbreakDetected, XPIADetected, AIAppInteraction and ConnectedAIAppInteraction, pay-as-you-go and 180 days"
+    },
+    {
+      "id": "S11",
+      "title": "Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "AWS",
+      "used_for": "Management versus data events for Bedrock, advanced event selector resource types, InvokeModel record example, stream-completion events"
+    },
+    {
+      "id": "S12",
+      "title": "Monitor model invocation using CloudWatch Logs and Amazon S3",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html",
+      "publisher": "AWS",
+      "used_for": "Model invocation logging disabled by default, destinations, log entry fields, logging configuration operations"
+    },
+    {
+      "id": "S13",
+      "title": "CloudTrail record contents for management, data, and network activity events",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html",
+      "publisher": "AWS",
+      "used_for": "Record field definitions: eventTime, eventSource, eventName, awsRegion, sourceIPAddress, userAgent, errorCode, requestParameters, responseElements, requestID, eventID, eventType, readOnly, managementEvent, recipientAccountId, eventCategory, resources, serviceEventDetails"
+    },
+    {
+      "id": "S14",
+      "title": "CloudTrail userIdentity element",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html",
+      "publisher": "AWS",
+      "used_for": "userIdentity fields and the IAMUser and AssumedRole examples, sessionContext.sessionIssuer"
+    },
+    {
+      "id": "S15",
+      "title": "Amazon Bedrock API Reference: actions supported by Amazon Bedrock",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_Operations_Amazon_Bedrock.html",
+      "publisher": "AWS",
+      "used_for": "Existence and exact names of PutModelInvocationLoggingConfiguration, GetModelInvocationLoggingConfiguration, DeleteModelInvocationLoggingConfiguration"
+    },
+    {
+      "id": "S16",
+      "title": "Resource Hijacking: Cloud Service Hijacking (T1496.004)",
+      "url": "https://attack.mitre.org/techniques/T1496/004/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, Impact tactic, LLMJacking mention"
+    },
+    {
+      "id": "S17",
+      "title": "Valid Accounts: Cloud Accounts (T1078.004)",
+      "url": "https://attack.mitre.org/techniques/T1078/004/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, tactics, not deprecated or revoked"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "AML.T0012 is named Valid Accounts and serves Initial Access, Privilege Escalation and Lateral Movement",
+      "source": "S1",
+      "locator": "techniques AML.T0012; relationships AML.T0012 achieves AML.TA0004, AML.TA0012, AML.TA0015"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "The ATLAS data file used is version 2026.10",
+      "source": "S1",
+      "locator": "collection.version: '2026.10'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ATLAS lists sixteen tactics, among them AI Model Access",
+      "source": "S1",
+      "locator": "tactics AML.TA0000 to AML.TA0015; AML.TA0000 name AI Model Access"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0051 LLM Prompt Injection achieves Execution; AML.T0051.001 is named Indirect",
+      "source": "S1",
+      "locator": "techniques AML.T0051, AML.T0051.001; relationship achieves AML.TA0005"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0054 LLM Jailbreak achieves Defense Evasion and Privilege Escalation",
+      "source": "S1",
+      "locator": "relationships AML.T0054 achieves AML.TA0007, AML.TA0012"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0055 Unsecured Credentials achieves Credential Access",
+      "source": "S1",
+      "locator": "relationships AML.T0055 achieves AML.TA0013"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0053 AI Agent Tool Invocation achieves Execution, Privilege Escalation and Lateral Movement",
+      "source": "S1",
+      "locator": "relationships AML.T0053 achieves AML.TA0005, AML.TA0012, AML.TA0015"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0086 Exfiltration via AI Agent Tool Invocation achieves Exfiltration; data is encoded into the tool's input parameters, for example sending emails",
+      "source": "S1",
+      "locator": "AML.T0086 description: 'Sensitive information can be encoded into the tool's input parameters'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0085 Data from AI Services achieves Collection and AML.T0085.000 is RAG Databases",
+      "source": "S1",
+      "locator": "techniques AML.T0085, AML.T0085.000"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0070 RAG Poisoning achieves Persistence",
+      "source": "S1",
+      "locator": "relationships AML.T0070 achieves AML.TA0006"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AML.T0034 Cost Harvesting achieves Impact and its text separates it from resource hijacking",
+      "source": "S1",
+      "locator": "AML.T0034 description: 'Unlike resource hijacking, where adversaries may leverage AI resources ... for their own purposes, cost harvesting focuses on ... financial harm to the victim'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ATLAS mentions LLMJacking under AML.T0139 Compromise Accounts, a Resource Development technique",
+      "source": "S1",
+      "locator": "AML.T0139 description: 'Adversaries may compromise AI service accounts for LLMJacking'; achieves AML.TA0003"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ATT&CK describes LLMJacking under T1496.004 Cloud Service Hijacking (tactic Impact)",
+      "source": "S16",
+      "locator": "Technique description and header: Resource Hijacking: Cloud Service Hijacking, Tactic Impact"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "T1078.004 is Valid Accounts: Cloud Accounts and is current",
+      "source": "S17",
+      "locator": "Technique header; no deprecation or revocation notice"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "OWASP 2025 item names and numbers: LLM01:2025 Prompt Injection, LLM02:2025 Sensitive Information Disclosure, LLM06:2025 Excessive Agency, LLM10:2025 Unbounded Consumption",
+      "source": "S2",
+      "locator": "Top 10 list on the page"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The AI RMF was released in January 2023 and is intended for voluntary use; NIST AI 600-1 is dated July 2024",
+      "source": "S6",
+      "locator": "Section 1 Introduction: 'The AI RMF was released in January 2023, and is intended for voluntary use'; title page 'July 2024'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Descriptions of the four functions GOVERN, MAP, MEASURE, MANAGE",
+      "source": "S5",
+      "locator": "AI RMF Core: 'govern is a cross-cutting function that is infused throughout AI risk management'; 'The map function establishes the context to frame risks related to an AI system'; 'The measure function employs quantitative, qualitative, or mixed-method tools'; 'The manage function entails allocating risk resources to mapped and measured risks on a regular basis'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "GOVERN 1.6, MEASURE 2.7 and MANAGE 4.1 subcategory texts",
+      "source": "S5",
+      "locator": "GOVERN 1.6: 'Mechanisms are in place to inventory AI systems'; MEASURE 2.7: 'AI system security and resilience ... are evaluated and documented'; MANAGE 4.1: 'Post-deployment AI system monitoring plans are implemented'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The profile names twelve risks unique to or exacerbated by generative AI, one of them Information Security, whose text names prompt injection and data poisoning",
+      "source": "S6",
+      "locator": "Section 2 list items 1 to 12; section 2.9 Information Security"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Action texts for GV-1.6-001, MS-2.7-004, MG-4.1-002, MG-4.3-002",
+      "source": "S6",
+      "locator": "Section 3 tables: GOVERN 1.6, MEASURE 2.7, MANAGE 4.1, MANAGE 4.3"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Confabulation is the production of confidently stated but erroneous or false content",
+      "source": "S6",
+      "locator": "Section 2 list item 2 Confabulation"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "GV-1.6-003 lists inventory entry items including human oversight roles and responsibilities and underlying foundation models, versions and access modes; GV-1.6-002 covers inventory exemptions for GAI systems embedded into application software",
+      "source": "S6",
+      "locator": "GOVERN 1.6 action table"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "LLM06:2025 Excessive Agency root causes are excessive functionality, excessive permissions and excessive autonomy",
+      "source": "S4",
+      "locator": "Description paragraph listing the three root causes"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Management events are logged by default; data events are high-volume and not logged by default; additional charges apply for data events",
+      "source": "S11",
+      "locator": "Sections 'Amazon Bedrock data events in CloudTrail' and 'Amazon Bedrock management events in CloudTrail'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Bedrock logs InvokeModel, InvokeModelWithResponseStream, Converse and ConverseStream as management events",
+      "source": "S11",
+      "locator": "'Amazon Bedrock logs Amazon Bedrock Runtime API operations (InvokeModel, InvokeModelWithResponseStream, Converse, and ConverseStream) as management events'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "InvokeAgent, Retrieve and RetrieveAndGenerate are data events that need advanced event selectors for AWS::Bedrock::AgentAlias and AWS::Bedrock::KnowledgeBase",
+      "source": "S11",
+      "locator": "Bulleted list under data events"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Model invocation logging collects full request data, response data and metadata, is disabled by default, and delivers to CloudWatch Logs or S3 in the same account and Region",
+      "source": "S12",
+      "locator": "Opening paragraphs: 'Model invocation logging is disabled by default'; 'Only destinations from the same account and Region are supported'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "A CopilotInteraction record is generated automatically as part of Audit (Standard) and lists accessed resources with sensitivity label IDs",
+      "source": "S10",
+      "locator": "Intro paragraph and AccessedResources row of the common properties table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "The Copilot record's Messages property holds an Id and isPrompt per message; the schema defines no property for prompt text",
+      "source": "S9",
+      "locator": "ComplexType MessageData: Id, Size, isPrompt; EventData properties"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Non-Microsoft AI application interactions use record types ConnectedAIAppInteraction and AIAppInteraction, pay-as-you-go billing, retained 180 days",
+      "source": "S10",
+      "locator": "Section 'Billing for auditing non-Microsoft AI applications'"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ADS sections: Goal, Categorization, Strategy Abstract, Technical Context, Blind Spots and Assumptions, False Positives, Validation, Priority, Response",
+      "source": "S7",
+      "locator": "README list of ADS sections"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ADS says a strategy should target a singular event, and that no ADS is perfect and listing assumptions helps others understand how it may fail to fire",
+      "source": "S8",
+      "locator": "'should be targeting a singular event'; 'No ADS is perfect and identifying assumptions and blind spots can help other engineers understand how an ADS may fail to fire'"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "ADS defines validation as the steps required to generate a representative true positive event which triggers the alert, similar to a unit test; if no true positive can be generated the alert may need to be broken down, refactored or discarded",
+      "source": "S8",
+      "locator": "Section Validation"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Streaming calls produce an extra stream-completion event with eventType AwsServiceEvent carrying token counts; same eventName, eventSource, userIdentity, sourceIPAddress and userAgent; counting both overstates volume; restrict to AwsApiCall; serviceEventDetails.parentRequestId joins back",
+      "source": "S11",
+      "locator": "Section 'Stream-completion events for streaming invocations'"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "errorCode is the AWS service error if the request returns an error",
+      "source": "S13",
+      "locator": "errorCode field definition"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "JailbreakDetected is a boolean on a prompt message and XPIADetected a boolean on an accessed resource; XPIA means Cross Prompt Injection Attack",
+      "source": "S10",
+      "locator": "Messages and AccessedResources rows of the common properties table"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "MS-2.7-004 asks to identify metrics that reflect the effectiveness of security measures, such as the number of unauthorized access attempts",
+      "source": "S6",
+      "locator": "MEASURE 2.7 action table, MS-2.7-004"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "eventSource for Bedrock records is bedrock.amazonaws.com and the caller is in userIdentity.arn",
+      "source": "S11",
+      "locator": "InvokeModel example log entry"
+    },
+    {
+      "where": "room:aiuc-r1",
+      "claim": "Technique-to-tactic rows for AML.T0012, AML.T0085, AML.T0053, AML.T0070, AML.T0051",
+      "source": "S1",
+      "locator": "relationships 'achieves' for each technique"
+    },
+    {
+      "where": "room:aiuc-r1",
+      "claim": "MANAGE 4.1 and GOVERN 1.6 subcategory texts; four function names",
+      "source": "S5",
+      "locator": "AI RMF Core tables"
+    },
+    {
+      "where": "room:aiuc-r1",
+      "claim": "Bedrock model invocation logs hold request and response data",
+      "source": "S12",
+      "locator": "'collect the full request data, response data, and metadata'; log entry fields input.inputBodyJson, output.outputBodyJson"
+    },
+    {
+      "where": "room:aiuc-r2",
+      "claim": "Bedrock management versus data events and the advanced event selector resource types",
+      "source": "S11",
+      "locator": "Sections on data events and management events"
+    },
+    {
+      "where": "room:aiuc-r2",
+      "claim": "CopilotInteraction is generated automatically; AppHost identifies the host application; AccessedResources lists resources with SensitivityLabelId; Messages holds Id and isPrompt",
+      "source": "S10",
+      "locator": "Common properties table"
+    },
+    {
+      "where": "room:aiuc-r3",
+      "claim": "ADS section names and the definition of validation",
+      "source": "S8",
+      "locator": "Section headings; section Validation"
+    },
+    {
+      "where": "room:aiuc-r3",
+      "claim": "Stream-completion event behaviour and the eventType distinction; parentRequestId holds the requestID of the producing API call",
+      "source": "S11",
+      "locator": "Section 'Stream-completion events for streaming invocations'"
+    },
+    {
+      "where": "room:aiuc-r3",
+      "claim": "Model invocation logging is configured with PutModelInvocationLoggingConfiguration, GetModelInvocationLoggingConfiguration and DeleteModelInvocationLoggingConfiguration",
+      "source": "S12",
+      "locator": "Section 'Model invocation logging using the API'"
+    },
+    {
+      "where": "room:aiuc-la1",
+      "claim": "CopilotInteraction RecordType is 261, Workload Copilot, AppHost BizChat is the Microsoft 365 Copilot Chat client",
+      "source": "S9",
+      "locator": "Audit log examples (RecordType 261); S10 AppHost row for BizChat"
+    },
+    {
+      "where": "room:aiuc-ac1",
+      "claim": "DeleteModelInvocationLoggingConfiguration exists as a Bedrock API operation and non-runtime Bedrock operations are logged as management events",
+      "source": "S15",
+      "locator": "Action list; S11 'Amazon Bedrock logs the remainder of Amazon Bedrock API operations as management events'"
+    },
+    {
+      "where": "room:aiuc-ac2",
+      "claim": "A stream-completion record has eventType AwsServiceEvent, no requestParameters, serviceEventDetails.parentRequestId, token counts under serviceEventDetails.AdditionalEventData.additionalEntries and the model in resources with type AWS::Bedrock::Model",
+      "source": "S11",
+      "locator": "ConverseStream stream-completion example and the note below it"
+    },
+    {
+      "where": "room:aiuc-ac2",
+      "claim": "Model ID anthropic.claude-sonnet-4-20250514-v1:0 is a Bedrock model ID as shown in AWS documentation",
+      "source": "S12",
+      "locator": "Log entry format example, modelId"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CreationTime",
+      "source": "S9",
+      "locator": "AuditData example 1: CreationTime"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Id",
+      "source": "S9",
+      "locator": "AuditData example 1: Id"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Operation",
+      "source": "S9",
+      "locator": "AuditData example 1: Operation CopilotInteraction"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.OrganizationId",
+      "source": "S9",
+      "locator": "AuditData example 1: OrganizationId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.RecordType",
+      "source": "S9",
+      "locator": "AuditData example 1: RecordType 261"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserKey",
+      "source": "S9",
+      "locator": "AuditData example 1: UserKey"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserType",
+      "source": "S9",
+      "locator": "AuditData example 1: UserType 0"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Version",
+      "source": "S9",
+      "locator": "AuditData example 1: Version 1"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Workload",
+      "source": "S9",
+      "locator": "AuditData example 1: Workload Copilot"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientIP",
+      "source": "S9",
+      "locator": "AuditData example 1: ClientIP"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientRegion",
+      "source": "S9",
+      "locator": "Schema: CopilotInteractionAuditRecord property ClientRegion"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserId",
+      "source": "S9",
+      "locator": "AuditData example 1: UserId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AppHost",
+      "source": "S9",
+      "locator": "Schema EventData property AppHost; value BizChat per S10 AppHost row"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.ThreadId",
+      "source": "S9",
+      "locator": "Schema EventData property ThreadId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.Contexts",
+      "source": "S9",
+      "locator": "Schema EventData property Contexts; empty array in example 2"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AISystemPlugin",
+      "source": "S9",
+      "locator": "Schema EventData property AISystemPlugin; empty array in example 1"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.Messages",
+      "source": "S9",
+      "locator": "Schema EventData property Messages; MessageData Id, isPrompt"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AccessedResources",
+      "source": "S9",
+      "locator": "Schema EventData property AccessedResources; example 2 entry with Action, Id, Name, SensitivityLabelId, SiteUrl, Type, listItemUniqueId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SensitivityLabelId",
+      "source": "S10",
+      "locator": "AccessedResources row: SensitivityLabelId is the ID of the sensitivity label assigned to the resource"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "isPrompt",
+      "source": "S9",
+      "locator": "ComplexType MessageData property isPrompt"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "JailbreakDetected",
+      "source": "S10",
+      "locator": "Messages row of the common properties table"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "XPIADetected",
+      "source": "S10",
+      "locator": "AccessedResources row of the common properties table"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventVersion",
+      "source": "S11",
+      "locator": "InvokeModel example: eventVersion 1.08"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.type",
+      "source": "S14",
+      "locator": "userIdentity examples: type IAMUser, AssumedRole"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.principalId",
+      "source": "S14",
+      "locator": "userIdentity examples: principalId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.arn",
+      "source": "S14",
+      "locator": "userIdentity examples: arn"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accountId",
+      "source": "S14",
+      "locator": "userIdentity examples: accountId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.accessKeyId",
+      "source": "S14",
+      "locator": "userIdentity examples: accessKeyId; S11 example AKIAIOSFODNN7EXAMPLE"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.userName",
+      "source": "S14",
+      "locator": "IAM user example: userName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.type",
+      "source": "S14",
+      "locator": "AssumedRole example: sessionContext.sessionIssuer.type Role"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.arn",
+      "source": "S14",
+      "locator": "AssumedRole example: sessionContext.sessionIssuer.arn"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.userName",
+      "source": "S14",
+      "locator": "AssumedRole example: sessionContext.sessionIssuer.userName"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventTime",
+      "source": "S13",
+      "locator": "eventTime field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventSource",
+      "source": "S13",
+      "locator": "eventSource field definition; S11 value bedrock.amazonaws.com"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventName",
+      "source": "S13",
+      "locator": "eventName field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.awsRegion",
+      "source": "S13",
+      "locator": "awsRegion field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.sourceIPAddress",
+      "source": "S13",
+      "locator": "sourceIPAddress field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.userAgent",
+      "source": "S13",
+      "locator": "userAgent field definition; S11 stream-completion example value Boto3/1.34.0 Python/3.11.0"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestParameters",
+      "source": "S13",
+      "locator": "requestParameters field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.responseElements",
+      "source": "S13",
+      "locator": "responseElements field definition; null in S11 InvokeModel example"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.requestID",
+      "source": "S13",
+      "locator": "requestID field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventID",
+      "source": "S13",
+      "locator": "eventID field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.readOnly",
+      "source": "S13",
+      "locator": "readOnly field definition; true in S11 stream-completion example"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventType",
+      "source": "S13",
+      "locator": "eventType field definition: AwsApiCall, AwsServiceEvent"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.managementEvent",
+      "source": "S13",
+      "locator": "managementEvent field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.recipientAccountId",
+      "source": "S13",
+      "locator": "recipientAccountId field definition"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.eventCategory",
+      "source": "S13",
+      "locator": "eventCategory field definition: Management, Data"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.parentRequestId",
+      "source": "S11",
+      "locator": "Stream-completion example and text: serviceEventDetails.parentRequestId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.AdditionalEventData.additionalEntries.inferenceRegion",
+      "source": "S11",
+      "locator": "Stream-completion example: additionalEntries.inferenceRegion"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.AdditionalEventData.additionalEntries.inputTokens",
+      "source": "S11",
+      "locator": "Stream-completion example: additionalEntries.inputTokens"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.serviceEventDetails.AdditionalEventData.additionalEntries.outputTokens",
+      "source": "S11",
+      "locator": "Stream-completion example: additionalEntries.outputTokens"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "aws.cloudtrail.resources",
+      "source": "S11",
+      "locator": "Stream-completion example: resources with type AWS::Bedrock::Model and ARN"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "requestParameters.modelId",
+      "source": "S11",
+      "locator": "InvokeModel example: requestParameters.modelId"
+    },
+    {
+      "vendor": "aws-cloudtrail",
+      "field": "errorCode",
+      "source": "S13",
+      "locator": "errorCode field definition"
+    },
+    {
+      "vendor": "amazon-bedrock-model-invocation-log",
+      "field": "identity.arn",
+      "source": "S12",
+      "locator": "Log entry format table"
+    },
+    {
+      "vendor": "amazon-bedrock-model-invocation-log",
+      "field": "modelId",
+      "source": "S12",
+      "locator": "Log entry format table"
+    },
+    {
+      "vendor": "amazon-bedrock-model-invocation-log",
+      "field": "operation",
+      "source": "S12",
+      "locator": "Log entry format table"
+    },
+    {
+      "vendor": "amazon-bedrock-model-invocation-log",
+      "field": "input.inputTokenCount",
+      "source": "S12",
+      "locator": "Log entry format table"
+    },
+    {
+      "vendor": "amazon-bedrock-model-invocation-log",
+      "field": "output.outputTokenCount",
+      "source": "S12",
+      "locator": "Log entry format table"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "A threat with no observable is a risk to accept or prevent, not something to detect."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "A card for stolen-key abuse therefore tags AML.T0012 and T1496.004, and it does not tag AML.T0034 unless the goal really is to hurt the victim's budget."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "| MS-2.7-004 | Identify metrics for the effectiveness of security measures, such as the number of unauthorised access attempts | Metrics |"
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "A high-scoring system with no telemetry produces a logging request first and a use case second."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "It does not cover an agent run or a knowledge-base retrieval until data events are on, and it never covers prompt content."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "If the logic counts something, the card records where the number came from."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "Any use case that counts invocations must keep only `eventType` equal to `AwsApiCall`."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "AIUC-03, AIUC-05 and AIUC-06 become logging requests with named owners, even though RosterAgent scores as high as the public chatbot."
+    },
+    {
+      "q": "room:aiuc-q1",
+      "taught_in": "room:aiuc-r1",
+      "support": "An observable with no data source is a logging request, not a use case."
+    },
+    {
+      "q": "room:aiuc-m1",
+      "taught_in": "room:aiuc-r1",
+      "support": "Kasia picks the techniques that fit Vantor's systems and writes the data source next to each."
+    },
+    {
+      "q": "room:aiuc-q2",
+      "taught_in": "room:aiuc-r2",
+      "support": "InvokeAgent, Retrieve and RetrieveAndGenerate are data events: they appear only after advanced event selectors are configured for resource types such as AWS::Bedrock::AgentAlias and AWS::Bedrock::KnowledgeBase."
+    },
+    {
+      "q": "room:aiuc-la1#1",
+      "taught_in": "room:aiuc-r2",
+      "support": "It names the user, the time and the host application in AppHost, and it lists the files Copilot used in AccessedResources."
+    },
+    {
+      "q": "room:aiuc-la1#2",
+      "taught_in": "room:aiuc-r2",
+      "support": "The record has no property for the prompt text."
+    },
+    {
+      "q": "room:aiuc-la1#3",
+      "taught_in": "room:aiuc-r2",
+      "support": "To judge an alert the analyst needs enrichment: a lookup table that turns the identifier into a label name such as Restricted."
+    },
+    {
+      "q": "room:aiuc-q3",
+      "taught_in": "room:aiuc-r2",
+      "support": "Model invocation logging is disabled by default."
+    },
+    {
+      "q": "room:aiuc-f1",
+      "taught_in": "room:aiuc-r2",
+      "support": "One rule is applied before the score: a use case can be built now only if its data source is collected now."
+    },
+    {
+      "q": "room:aiuc-o1",
+      "taught_in": "room:aiuc-r3",
+      "support": "The inventory comes before the logic because the row supplies the allow-list: GridAssist calls one model through one role."
+    },
+    {
+      "q": "room:aiuc-ac1",
+      "taught_in": "room:aiuc-r3",
+      "support": "An action by an identity that never performs that operation, from an address outside the known ranges, with no change record, is treated as real."
+    },
+    {
+      "q": "room:aiuc-ac2",
+      "taught_in": "room:aiuc-r3",
+      "support": "A use case that counts invocations must keep only records where eventType is AwsApiCall."
+    },
+    {
+      "q": "room:aiuc-q4",
+      "taught_in": "room:aiuc-r3",
+      "support": "**Benign true positive**: the rule caught its behaviour and the activity was authorised, for example a validation test or a ticketed change."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0012",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Initial Access",
+        "Privilege Escalation",
+        "Lateral Movement"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0034",
+      "name": "Cost Harvesting",
+      "tactics": [
+        "Impact"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0051",
+      "name": "LLM Prompt Injection",
+      "tactics": [
+        "Execution"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0051.001",
+      "name": "LLM Prompt Injection: Indirect",
+      "tactics": [
+        "Execution"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0053",
+      "name": "AI Agent Tool Invocation",
+      "tactics": [
+        "Execution",
+        "Privilege Escalation",
+        "Lateral Movement"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0054",
+      "name": "LLM Jailbreak",
+      "tactics": [
+        "Defense Evasion",
+        "Privilege Escalation"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0055",
+      "name": "Unsecured Credentials",
+      "tactics": [
+        "Credential Access"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0070",
+      "name": "RAG Poisoning",
+      "tactics": [
+        "Persistence"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0085",
+      "name": "Data from AI Services",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0085.000",
+      "name": "Data from AI Services: RAG Databases",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0086",
+      "name": "Exfiltration via AI Agent Tool Invocation",
+      "tactics": [
+        "Exfiltration"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "AML.T0139",
+      "name": "Compromise Accounts",
+      "tactics": [
+        "Resource Development"
+      ],
+      "source": "S1"
+    },
+    {
+      "id": "T1078.004",
+      "name": "Valid Accounts: Cloud Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S17"
+    },
+    {
+      "id": "T1496.004",
+      "name": "Resource Hijacking: Cloud Service Hijacking",
+      "tactics": [
+        "Impact"
+      ],
+      "source": "S16"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "Zscaler Internet Access web log fields and the URL category for generative AI sites",
+      "why": "Both Zscaler help pages (NSS feed output format for web logs, About URL categories) returned empty content to the fetch tool",
+      "handled": "left out: no web-proxy record, field or category name is used; the lesson only names 'unsanctioned tool' as a surface type"
+    },
+    {
+      "item": "NSA and CISA joint guidance 'Deploying AI Systems Securely' (April 2024) recommendations on logging and monitoring",
+      "why": "The PDF on media.defense.gov returned HTTP 403; only the CISA announcement page loaded, which lists no specific recommendations",
+      "handled": "left out: the document is neither quoted nor listed as a source"
+    },
+    {
+      "item": "Priority score (exposure + data reach + agency, each 1 to 3) and the rule 'build now only what is collected now'",
+      "why": "This is the author's own working convention; no source prescribes a formula",
+      "handled": "kept, and stated in the lesson and the room as a convention of the SOC, not attributed to any framework"
+    },
+    {
+      "item": "Pairing of OWASP 2025 items with ATLAS techniques, and of card fields with ADS sections",
+      "why": "Author's own mapping; neither OWASP, MITRE nor Palantir publishes these pairings in the pages read",
+      "handled": "kept, and labelled in the lesson as 'this lesson's own working map, not an official crosswalk'; ADS column is headed 'Closest ADS section'"
+    },
+    {
+      "item": "Statement that the CopilotInteraction record carries no prompt text",
+      "why": "Microsoft's pages describe what the record contains but no sentence says the text is absent; the claim is read from the published schema (MessageData has only Id, Size, isPrompt)",
+      "handled": "worded as 'the schema has no property for the prompt text' and 'the record has no property for the prompt text'"
+    },
+    {
+      "item": "Whether Bedrock model invocation logging also captures model calls made inside an agent run",
+      "why": "The invocation logging page lists Converse, ConverseStream, InvokeModel and InvokeModelWithResponseStream but does not address agent-internal calls",
+      "handled": "left out: the coverage matrices give no content source for agent runs, and in both stories invocation logging is disabled anyway"
+    },
+    {
+      "item": "ATLAS IDs AML.T0057 (LLM Data Leakage) and AML.T0056 used elsewhere on the platform",
+      "why": "Neither ID exists in ATLAS-2026.10.yaml; the data-collection behaviour is now AML.T0085 Data from AI Services",
+      "handled": "not cited here; flagged to the orchestrator because existing platform content and sibling topics may still use the retired IDs"
+    },
+    {
+      "item": "Mapping of LLMjacking to AML.T0034 Cost Harvesting in the existing scenario ai-llmjacking-bedrock",
+      "why": "The current ATLAS text for AML.T0034 explicitly separates cost harvesting from resource hijacking and mentions LLMJacking under AML.T0139",
+      "handled": "this topic tags stolen-key abuse AML.T0012 plus T1496.004 and teaches the distinction; the older scenario was not edited"
+    },
+    {
+      "item": "eventVersion value 1.08 in the two CloudTrail raw blocks",
+      "why": "The CloudTrail reference says the current event version is 1.11, while the Bedrock documentation examples (including the 2026 stream-completion example) show 1.08",
+      "handled": "kept 1.08 to match the Bedrock examples the records are modelled on"
+    }
+  ]
+}

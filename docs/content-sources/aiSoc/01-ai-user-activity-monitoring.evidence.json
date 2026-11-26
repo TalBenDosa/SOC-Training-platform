@@ -1,0 +1,939 @@
+{
+  "topic": "Monitoring user activity in AI services",
+  "slug": "ai-user-activity-monitoring",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Audit logs for Copilot and AI applications",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotInteraction properties, AppHost values, record types and workloads, billing for non-Microsoft AI apps, BingWebSearch, AppIdentity search guidance"
+    },
+    {
+      "id": "S2",
+      "title": "CopilotInteraction (Office 365 Management API schema)",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/copilot-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotEventData schema, sample AuditData records, RecordType 261, ThreadId and Messages definitions"
+    },
+    {
+      "id": "S3",
+      "title": "Office 365 Management Activity API schema",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "Common schema field definitions, UserType enum, AuditLogRecordType numbers, SharePoint file operations schema, ClientIP caveat"
+    },
+    {
+      "id": "S4",
+      "title": "Manage audit log retention policies",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-log-retention-policies",
+      "publisher": "Microsoft Learn",
+      "used_for": "Default audit retention, Audit (Premium) default policy workloads, 50 policy limit"
+    },
+    {
+      "id": "S5",
+      "title": "Search the audit log",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-search",
+      "publisher": "Microsoft Learn",
+      "used_for": "Audit on by default, roles, 180-day retention for non-E5, 60 to 90 minute availability, keyword search limit, 180-day search range, Search-UnifiedAuditLog, Management Activity API"
+    },
+    {
+      "id": "S6",
+      "title": "Learn about retention for Copilot and AI apps",
+      "url": "https://learn.microsoft.com/en-us/purview/retention-policies-copilot",
+      "publisher": "Microsoft Learn",
+      "used_for": "Hidden mailbox folder storage of AI messages, eDiscovery searchability, visible messages not reflecting retention"
+    },
+    {
+      "id": "S7",
+      "title": "Microsoft Purview data security and compliance protections for Microsoft 365 Copilot and other generative AI apps",
+      "url": "https://learn.microsoft.com/en-us/purview/ai-microsoft-purview",
+      "publisher": "Microsoft Learn",
+      "used_for": "Prompts and responses stored in the user's mailbox, eDiscovery search with mailbox as source, audit events content"
+    },
+    {
+      "id": "S8",
+      "title": "Azure Monitor Logs reference: CopilotActivity",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/copilotactivity",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotActivity table description and column names including LLMEventData"
+    },
+    {
+      "id": "S9",
+      "title": "Example log table queries for CopilotActivity",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/queries/copilotactivity",
+      "publisher": "Microsoft Learn",
+      "used_for": "KQL pattern: mv-expand of LLMEventData.AccessedResources and LLMEventData.Messages"
+    },
+    {
+      "id": "S10",
+      "title": "Compliance API",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-api",
+      "publisher": "Anthropic (Claude Platform docs)",
+      "used_for": "What the Compliance API is, endpoint base, key types, sample activity record"
+    },
+    {
+      "id": "S11",
+      "title": "Query the Activity Feed",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-activity-feed",
+      "publisher": "Anthropic (Claude Platform docs)",
+      "used_for": "Activity object fields, actor union, availability within 1 minute, 6-year retention, no backfill, viewed semantics, filename always null, missing deleted activities, pagination limits"
+    },
+    {
+      "id": "S12",
+      "title": "Design your compliance integration",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-integration-patterns",
+      "publisher": "Anthropic (Claude Platform docs)",
+      "used_for": "Window polling and cursor patterns, SIEM join table, user_id as primary join key, compliance_api_accessed, at-least-once delivery"
+    },
+    {
+      "id": "S13",
+      "title": "Retrieve and delete chats, files, and projects",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-content-data",
+      "publisher": "Anthropic (Claude Platform docs)",
+      "used_for": "Content endpoints need a Compliance Access Key with read:compliance_user_data; file metadata lookup by claude_file_id"
+    },
+    {
+      "id": "S14",
+      "title": "Compliance API FAQ",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-faq",
+      "publisher": "Anthropic (Claude Platform docs)",
+      "used_for": "Activity Feed has no prompt or message content; Admin API key limited to the Activity Feed"
+    },
+    {
+      "id": "S15",
+      "title": "Set up the Compliance API",
+      "url": "https://platform.claude.com/docs/en/manage-claude/compliance-api-access",
+      "publisher": "Anthropic (Claude Platform docs)",
+      "used_for": "Key types and scopes, auditing compliance_api_accessed by actor.api_key_id"
+    },
+    {
+      "id": "S16",
+      "title": "Query compliance activities (API reference)",
+      "url": "https://platform.claude.com/docs/en/api/compliance/activities/list",
+      "publisher": "Anthropic (Claude Platform docs)",
+      "used_for": "Existence and descriptions of activity type names used: claude_chat_created, claude_chat_viewed, claude_chat_deleted, claude_file_uploaded, sso_login_initiated, compliance_api_accessed, org_data_export_started"
+    },
+    {
+      "id": "S17",
+      "title": "Compliance API for Enterprise Customers",
+      "url": "https://help.openai.com/en/articles/9261474-compliance-api-for-enterprise-customers",
+      "publisher": "OpenAI Help Center",
+      "used_for": "ChatGPT Enterprise Compliance Logs Platform: append-only log events, log categories, 30-day retention"
+    },
+    {
+      "id": "S18",
+      "title": "Gemini for Workspace log events",
+      "url": "https://knowledge.workspace.google.com/admin/reports/gemini-for-workspace-log-events",
+      "publisher": "Google Workspace Admin Help",
+      "used_for": "Name of the Gemini log event source and its attributes (Actor, Action, Event Category, Feature Source)"
+    },
+    {
+      "id": "S19",
+      "title": "Valid Accounts: Cloud Accounts (T1078.004)",
+      "url": "https://attack.mitre.org/techniques/T1078/004/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, ID and tactics"
+    },
+    {
+      "id": "S20",
+      "title": "Data from Information Repositories (T1213)",
+      "url": "https://attack.mitre.org/techniques/T1213/",
+      "publisher": "MITRE ATT&CK",
+      "used_for": "Technique name, ID and tactic"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s2",
+      "claim": "Copilot activities are logged automatically as part of Audit (Standard); no extra configuration if auditing is enabled",
+      "source": "S1",
+      "locator": "Intro: 'The system automatically logs these activities as part of Audit (Standard)... you don't need to take extra steps'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Audit log search is turned on by default for Microsoft 365 and Office 365 enterprise organisations",
+      "source": "S5",
+      "locator": "Before you search the audit log, first bullet"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Operation for user interactions with Copilot is CopilotInteraction; a record typically contains a prompt-response pair and can hold a prompt with multiple responses",
+      "source": "S1",
+      "locator": "Common properties table: Operation and Messages rows"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "RecordType 261 = CopilotInteraction, 328 = ConnectedAIAppInteraction, 284 = AIAppInteraction",
+      "source": "S3",
+      "locator": "AuditLogRecordType enum"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Workload values Copilot, ConnectedAIApp, AIApp and what each record type covers",
+      "source": "S1",
+      "locator": "Common properties table: RecordType and Workload rows"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Audit logs for non-Microsoft AI applications use pay-as-you-go billing and must be enabled",
+      "source": "S1",
+      "locator": "Billing for auditing non-Microsoft AI applications"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "CreationTime is in UTC; UserId is the UPN; UserKey is an alternative ID; OrganizationId is the tenant GUID; Id is the unique identifier of an audit record",
+      "source": "S3",
+      "locator": "Common schema table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "UserType 0 = Regular, 2 = Admin",
+      "source": "S3",
+      "locator": "Enum: User Type"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ClientIP might be the IP address of a trusted application calling into the service on behalf of a user",
+      "source": "S3",
+      "locator": "Common schema: ClientIP description"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "AppHost identifies the application that hosted the interaction; BizChat is the Microsoft 365 Copilot Chat client; Word and other app names indicate interaction within those apps",
+      "source": "S1",
+      "locator": "Common properties table: AppHost row; Common AppHost scenarios table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "AppIdentity typically follows workloadName.appGroup.appName",
+      "source": "S1",
+      "locator": "Common properties table: AppIdentity row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Contexts Id and Type values (file path, Teams chat or meeting ID; docx, TeamsMeeting)",
+      "source": "S1",
+      "locator": "Common properties table: Contexts row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "ThreadId is the ID of the Copilot and user interaction thread",
+      "source": "S2",
+      "locator": "Audit Copilot schema definitions: ThreadId"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Messages carry ID, IsPrompt, JailbreakDetected; Size is currently not used",
+      "source": "S1",
+      "locator": "Common properties table: Messages row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "AccessedResources sub-fields: ID, SiteUrl, Type, Name, SensitivityLabelId, Action (read, create, modify), PolicyDetails, Status (success or failure), XPIADetected",
+      "source": "S1",
+      "locator": "Common properties table: AccessedResources row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "AISystemPlugin.Id contains BingWebSearch when Copilot used the public web",
+      "source": "S1",
+      "locator": "Identifying if Copilot accessed the web"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Microsoft's sample record for Word shows empty AccessedResources with a Contexts entry of Type docx",
+      "source": "S2",
+      "locator": "Example 1: Copilot Interaction Experience within M365 Apps (e.g. Word)"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Data from generative AI messages is stored in a hidden folder in the mailbox of the user who runs the AI app, not designed to be directly accessible, searchable with eDiscovery",
+      "source": "S6",
+      "locator": "How retention works with AI apps"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Roles needed to search the audit log: Audit Logs or View-Only Audit Logs",
+      "source": "S5",
+      "locator": "Before you search the audit log"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Non-E5 users: audit records retained 180 days",
+      "source": "S5",
+      "locator": "Before you search the audit log: retention bullets"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Audit (Premium) default policy keeps AzureActiveDirectory, Exchange, OneDrive and SharePoint workload records for one year; records for all other activities are retained for 180 days by default; up to 50 policies",
+      "source": "S4",
+      "locator": "Default audit log retention policy in Audit (Premium); Before you create an audit log retention policy"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Messages visible in AI apps are not an accurate reflection of whether they are retained or permanently deleted",
+      "source": "S6",
+      "locator": "Important note under How retention works with AI apps"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "No guaranteed time; core services typically 60 to 90 minutes; other services might be longer",
+      "source": "S5",
+      "locator": "Before you search the audit log: availability bullet"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Keyword search covers only indexed common schema, not audit data content; max date range 180 days",
+      "source": "S5",
+      "locator": "Get started with search: Keyword Search and Date and time range"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "To search by AppIdentity, export Copilot audit logs and filter offline",
+      "source": "S1",
+      "locator": "Accessing Copilot audit logs"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Activity Feed is GET /v1/compliance/activities, records authentication, chat, file, project, administrative and platform activity, newest first",
+      "source": "S11",
+      "locator": "Intro paragraph and Paginate results"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Activities queryable within 1 minute, retained 6 years, no backfill before enablement",
+      "source": "S11",
+      "locator": "Availability, Retention, No backfill bullets"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Activity object fields id, created_at (RFC 3339), organization_id, organization_uuid, actor, type, type-specific fields such as claude_chat_id and claude_file_id",
+      "source": "S11",
+      "locator": "Understand the Activity object table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Actor union: user_actor, api_actor, unauthenticated_user_actor, scim_directory_sync_actor and their key fields",
+      "source": "S11",
+      "locator": "actor.type table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "A claude_*_viewed activity means a Claude app loaded content, not that a person viewed it; repeated loads are not deduplicated",
+      "source": "S11",
+      "locator": "Paragraph beginning 'A claude_*_viewed activity means'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "filename and title fields on file, project document and artifact activities are always null, empty or omitted",
+      "source": "S11",
+      "locator": "Paragraph beginning 'Activities about a file, project document, or artifact do not include its name or title'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Retention-policy deletion records no claude_chat_deleted activity",
+      "source": "S11",
+      "locator": "Paragraph beginning 'A missing *_deleted activity'"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Activity Feed does not capture prompt text or model responses; content needs a Compliance Access Key with read:compliance_user_data; Admin API key reaches only the Activity Feed",
+      "source": "S14",
+      "locator": "Does the Activity Feed include prompt or message content?; Why does my Admin API key return 403"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Three access routes: Purview Audit search, Search-UnifiedAuditLog in Exchange Online PowerShell, Office 365 Management Activity API",
+      "source": "S5",
+      "locator": "Before you search the audit log: cmdlet and API bullets"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "CopilotActivity table and its columns TimeGenerated, ActorName, ActorUserId, SrcIpAddr, AppHost, RecordType, LLMEventData (dynamic)",
+      "source": "S8",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Sample queries expand LLMEventData.AccessedResources and LLMEventData.Messages with mv-expand",
+      "source": "S9",
+      "locator": "Resources Accessed by Copilot; Copilot Security and Compliance Events"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Window polling with created_at.gte and created_at.lt, lt at least 1 minute in the past; cursor reads with first_id as before_id, persist after has_more is false; at-least-once, deduplicate on id; max limit 5,000",
+      "source": "S12",
+      "locator": "Window polling; Cursor-driven incremental reads; Delivery guarantees and completeness"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Most Compliance API calls emit compliance_api_accessed with an api_actor; actor.api_key_id attributes the access to a key",
+      "source": "S12",
+      "locator": "Correlate with your SIEM, paragraph after the join table"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "ChatGPT Enterprise Compliance Logs Platform: immutable, append-only log events; audit, authentication and app log categories; retains data for 30 days",
+      "source": "S17",
+      "locator": "Sections on the Compliance Logs Platform and retention"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Gemini for Workspace log events attributes include Actor, Action, Event Category and Feature Source",
+      "source": "S18",
+      "locator": "Attribute descriptions"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "SharePoint ObjectId is the full path name of the file or folder accessed and equals SiteUrl + SourceRelativeUrl + SourceFileName; FileAccessed is the SharePoint operation",
+      "source": "S3",
+      "locator": "Common schema ObjectId; SharePoint File Operations schema: SourceRelativeUrl; SharePointAuditOperation FileAccessed"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Join table: actor.user_id, actor.email_address, actor.ip_address, actor.user_agent, created_at; user_id is stable and the primary join key; ip_address and user_agent absent on some actor types",
+      "source": "S12",
+      "locator": "Correlate with your SIEM"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "T1078.004 is Valid Accounts: Cloud Accounts; T1213 is Data from Information Repositories",
+      "source": "S19",
+      "locator": "Technique page header (T1213 header in S20)"
+    },
+    {
+      "where": "room:aiua-r1",
+      "claim": "RecordType 261, Operation CopilotInteraction, envelope field meanings, UserType 0 and 2",
+      "source": "S3",
+      "locator": "Common schema table; User Type enum; AuditLogRecordType 261"
+    },
+    {
+      "where": "room:aiua-r1",
+      "claim": "CopilotEventData fields AppHost, Contexts, ThreadId, Messages, AccessedResources and the AccessedResources sub-fields",
+      "source": "S1",
+      "locator": "Common properties in Copilot audit logs"
+    },
+    {
+      "where": "room:aiua-r2",
+      "claim": "Activity record fields, actor kinds, 1 minute availability, 6 years retention, viewed semantics, filename always null",
+      "source": "S11",
+      "locator": "Understand the Activity object and the paragraphs after the actor table"
+    },
+    {
+      "where": "room:aiua-r2",
+      "claim": "File name lookup by claude_file_id needs a Compliance Access Key with read:compliance_user_data",
+      "source": "S11",
+      "locator": "'pass the activity's claude_file_* ... ID to the matching metadata endpoint ... using a Compliance Access Key with the read:compliance_user_data scope'"
+    },
+    {
+      "where": "room:aiua-r2",
+      "claim": "user_id is the primary join key and does not change on email change; compliance_api_accessed with api_actor and actor.api_key_id",
+      "source": "S12",
+      "locator": "Correlate with your SIEM"
+    },
+    {
+      "where": "room:aiua-r3",
+      "claim": "Copilot message data stored in a hidden mailbox folder searched with eDiscovery",
+      "source": "S6",
+      "locator": "How retention works with AI apps"
+    },
+    {
+      "where": "room:aiua-r3",
+      "claim": "Audit availability typically 60 to 90 minutes for core services with no guarantee; 180-day default for workloads outside the Premium default policy",
+      "source": "S5",
+      "locator": "Before you search the audit log (retention in S4: Default audit log retention policy)"
+    },
+    {
+      "where": "room:aiua-r3",
+      "claim": "SharePoint ObjectId is the full path name of the accessed file; operation FileAccessed",
+      "source": "S3",
+      "locator": "Common schema ObjectId; SharePointAuditOperation FileAccessed"
+    },
+    {
+      "where": "room:aiua-la1",
+      "claim": "AppIdentity Copilot.MicrosoftCopilot.BizChat pairs with AppHost BizChat for Microsoft 365 Copilot Chat",
+      "source": "S1",
+      "locator": "Example Copilot scenarios: Microsoft Copilot table"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Id",
+      "source": "S3",
+      "locator": "Common schema: Id (platform prefix data.office365. per registry)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CreationTime",
+      "source": "S3",
+      "locator": "Common schema: CreationTime"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Operation",
+      "source": "S3",
+      "locator": "Common schema: Operation"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.RecordType",
+      "source": "S3",
+      "locator": "Common schema: RecordType; sample AuditData in S2"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Workload",
+      "source": "S3",
+      "locator": "Common schema: Workload"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.OrganizationId",
+      "source": "S3",
+      "locator": "Common schema: OrganizationId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserKey",
+      "source": "S3",
+      "locator": "Common schema: UserKey"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserType",
+      "source": "S3",
+      "locator": "Common schema: UserType"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserId",
+      "source": "S3",
+      "locator": "Common schema: UserId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientIP",
+      "source": "S3",
+      "locator": "Common schema: ClientIP; present in sample AuditData in S2"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientRegion",
+      "source": "S2",
+      "locator": "CopilotInteractionAuditRecord: ClientRegion"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.AppIdentity",
+      "source": "S1",
+      "locator": "Common properties table: AppIdentity"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Version",
+      "source": "S2",
+      "locator": "Sample AuditData: \"Version\":1"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AppHost",
+      "source": "S2",
+      "locator": "EventData: AppHost"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.Contexts",
+      "source": "S2",
+      "locator": "EventData: Contexts"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.ThreadId",
+      "source": "S2",
+      "locator": "EventData: ThreadId"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.Messages",
+      "source": "S2",
+      "locator": "EventData: Messages (Id, isPrompt); JailbreakDetected per S1 Messages row"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AccessedResources",
+      "source": "S2",
+      "locator": "EventData: AccessedResources (Action, Id, Name, SiteUrl, Type, SensitivityLabelId); Status per S1"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CopilotEventData.AISystemPlugin",
+      "source": "S2",
+      "locator": "EventData: AISystemPlugin"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.ModelTransparencyDetails",
+      "source": "S2",
+      "locator": "EventData: ModelTransparencyDetails (lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "AgentId",
+      "source": "S1",
+      "locator": "Common properties table: AgentId (lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "AgentName",
+      "source": "S1",
+      "locator": "Common properties table: AgentName (lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ObjectId",
+      "source": "S3",
+      "locator": "Common schema: ObjectId (lesson and reading text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SourceRelativeUrl",
+      "source": "S3",
+      "locator": "SharePoint File Operations schema (lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SourceFileName",
+      "source": "S3",
+      "locator": "SharePoint File Operations schema (lesson only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "TimeGenerated",
+      "source": "S8",
+      "locator": "CopilotActivity columns (lesson only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "ActorName",
+      "source": "S8",
+      "locator": "CopilotActivity columns (lesson only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "ActorUserId",
+      "source": "S8",
+      "locator": "CopilotActivity columns (lesson only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "SrcIpAddr",
+      "source": "S8",
+      "locator": "CopilotActivity columns (lesson only)"
+    },
+    {
+      "vendor": "microsoft-sentinel",
+      "field": "LLMEventData",
+      "source": "S8",
+      "locator": "CopilotActivity columns (lesson only)"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "id",
+      "source": "S11",
+      "locator": "Understand the Activity object: id"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "created_at",
+      "source": "S11",
+      "locator": "Understand the Activity object: created_at"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "type",
+      "source": "S11",
+      "locator": "Understand the Activity object: type"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "organization_id",
+      "source": "S11",
+      "locator": "Understand the Activity object: organization_id"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "organization_uuid",
+      "source": "S11",
+      "locator": "Understand the Activity object: organization_uuid"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.type",
+      "source": "S11",
+      "locator": "actor.type discriminator table"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.email_address",
+      "source": "S11",
+      "locator": "user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.user_id",
+      "source": "S11",
+      "locator": "user_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.ip_address",
+      "source": "S11",
+      "locator": "user_actor and api_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.user_agent",
+      "source": "S11",
+      "locator": "user_actor and api_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "actor.api_key_id",
+      "source": "S11",
+      "locator": "api_actor key fields"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "claude_file_id",
+      "source": "S11",
+      "locator": "'claude_file_id on file events'"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "claude_chat_id",
+      "source": "S10",
+      "locator": "Sample response for claude_chat_created (lesson and reading text only)"
+    },
+    {
+      "vendor": "anthropic-claude-enterprise",
+      "field": "claude_project_id",
+      "source": "S10",
+      "locator": "Sample response for claude_chat_created (lesson and reading text only)"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "It cannot tell you what the person typed."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "The matching `Workload` values are `Copilot`, `ConnectedAIApp` and `AIApp`."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "`AppHost` names the application that hosted the chat."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "For users with a non-E5 licence, audit records are retained for 180 days."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "A `claude_*_viewed` activity means a Claude app loaded content, not that a person viewed it."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "Set `created_at.lt` at least 1 minute in the past, or late-indexed activities are dropped for good"
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "`user_id` does not change when the user's email or display name changes, so Anthropic says to use `user_id`, not `email_address`, as the primary join key."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "Both are members of the procurement team that owns the file."
+    },
+    {
+      "q": "room:aiua-q1",
+      "taught_in": "room:aiua-r1",
+      "support": "The CopilotInteraction audit record holds message identifiers and resource references, and it does not hold the words of the prompt or of the answer."
+    },
+    {
+      "q": "room:aiua-la1#1",
+      "taught_in": "room:aiua-r1",
+      "support": "records with the same ThreadId belong to one conversation"
+    },
+    {
+      "q": "room:aiua-la1#2",
+      "taught_in": "room:aiua-r1",
+      "support": "If the resource carries a sensitivity label, a classification tag such as Confidential, the entry also has a SensitivityLabelId."
+    },
+    {
+      "q": "room:aiua-la1#3",
+      "taught_in": "room:aiua-r1",
+      "support": "Treat ClientIP as a lead, and confirm the location in the sign-in log of the identity provider, the system that checks who is signing in."
+    },
+    {
+      "q": "room:aiua-la2#1",
+      "taught_in": "room:aiua-r2",
+      "support": "The user_id does not change when the user's email or display name changes, so Anthropic says to use user_id, not email_address, as the primary join key."
+    },
+    {
+      "q": "room:aiua-la2#2",
+      "taught_in": "room:aiua-r2",
+      "support": "To learn the name, pass the claude_file_id to the file metadata endpoint, which needs a Compliance Access Key with the read:compliance_user_data scope."
+    },
+    {
+      "q": "room:aiua-m1",
+      "taught_in": "room:aiua-r2",
+      "support": "Copilot's UserId and UserKey correspond to Claude's actor.email_address and actor.user_id."
+    },
+    {
+      "q": "room:aiua-q2",
+      "taught_in": "room:aiua-r2",
+      "support": "A viewed activity, such as claude_chat_viewed, means a Claude app loaded content, not that a person viewed it."
+    },
+    {
+      "q": "room:aiua-ac1",
+      "taught_in": "room:aiua-r2",
+      "support": "Most calls to the Compliance API itself emit compliance_api_accessed activities, and their actor is an api_actor."
+    },
+    {
+      "q": "room:aiua-o1",
+      "taught_in": "room:aiua-r3",
+      "support": "Group the records by ThreadId. Each group is one conversation."
+    },
+    {
+      "q": "room:aiua-q3",
+      "taught_in": "room:aiua-r3",
+      "support": "An empty search soon after an event proves nothing"
+    },
+    {
+      "q": "room:aiua-f1",
+      "taught_in": "room:aiua-r1",
+      "support": "records with the same ThreadId belong to one conversation"
+    },
+    {
+      "q": "room:aiua-q4",
+      "taught_in": "room:aiua-r3",
+      "support": "For Copilot, data from the messages is stored in a hidden folder in the mailbox of the user who runs the AI app."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "T1078.004",
+      "name": "Valid Accounts: Cloud Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S19"
+    },
+    {
+      "id": "T1213",
+      "name": "Data from Information Repositories",
+      "tactics": [
+        "Collection"
+      ],
+      "source": "S20"
+    },
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Stealth",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "source": "S19"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "Copilot audit records are retained 180 days by default",
+      "why": "Microsoft does not name the Copilot workload explicitly; this follows from the documented rule that the Audit (Premium) one-year default covers only the AzureActiveDirectory, Exchange, OneDrive and SharePoint workloads and all other activities are retained 180 days by default",
+      "handled": "stated with the reasoning shown in lesson section 4 and as 'by default' in the room; a tenant with a custom audit retention policy differs"
+    },
+    {
+      "item": "Time for a CopilotInteraction record to become searchable",
+      "why": "Microsoft gives 60 to 90 minutes only for core services (Exchange, SharePoint, OneDrive, Teams) and says other services might take longer; Copilot is not named",
+      "handled": "softened to 'no guaranteed time; typically 60 to 90 minutes for core services; might be longer'"
+    },
+    {
+      "item": "Sentinel table name in Microsoft's sample queries",
+      "why": "The table reference page names the table CopilotActivity, but the sample queries on Microsoft's own queries page start with LLMActivity",
+      "handled": "lesson KQL uses CopilotActivity (the reference name); integrator should confirm in a live workspace"
+    },
+    {
+      "item": "Microsoft Sentinel Copilot connector page",
+      "why": "learn.microsoft.com/en-us/azure/sentinel/data-connectors/microsoft-copilot returned 404",
+      "handled": "left out; the lesson relies on the Azure Monitor table reference (Solutions: SecurityInsights) and the track plan's note that this is the Sentinel table"
+    },
+    {
+      "item": "Following AccessedResources.SiteUrl into SharePoint FileAccessed records",
+      "why": "Derived from two schema descriptions (SiteUrl may be the full file path; ObjectId is the full path name). Microsoft's sample SiteUrl carries a '?web=1' suffix, so an exact string match may need trimming",
+      "handled": "taught as a pivot lead; the exact matching expression is not given"
+    },
+    {
+      "item": "Type-specific fields on claude_file_uploaded beyond claude_file_id (for example whether it also carries claude_chat_id)",
+      "why": "The API reference response schema was beyond the fetched portion of a 4 MB page",
+      "handled": "raw block uses only claude_file_id; the room teaches joining on actor.user_id and created_at"
+    },
+    {
+      "item": "Format of actor.api_key_id values (apikey_01 prefix)",
+      "why": "Not shown in the pages fetched in this run; the value shape follows the repo emitter's note from an earlier documentation check",
+      "handled": "used as an illustrative identifier in one analyst_choice event"
+    },
+    {
+      "item": "Whether Gemini for Workspace log events contain prompt text, and their retention",
+      "why": "The Google page does not state either",
+      "handled": "left out; the lesson says retention is not stated on the event page"
+    },
+    {
+      "item": "ChatGPT Enterprise conversation content access details and event names",
+      "why": "The help article gives log categories and 30-day retention but no event schema",
+      "handled": "only the Compliance Logs Platform description, categories and 30-day retention are stated"
+    },
+    {
+      "item": "AppIdentity value when AppHost is Word",
+      "why": "Microsoft documents the BizChat pairing only",
+      "handled": "the lesson's Word example omits AppIdentity; the room event uses the documented BizChat pairing"
+    },
+    {
+      "item": "T1078.004 tactic list",
+      "why": "The page lists Stealth, Persistence, Privilege Escalation, Initial Access while its description still says Defense Evasion; the repo's attack.ts stores TA0001 as earliest tactic",
+      "handled": "ledger records the tactics as the page lists them; the lesson text names no tactic"
+    },
+    {
+      "item": "Mapping of assistant use to T1078.004 and T1213",
+      "why": "MITRE does not describe AI assistants on these pages (T1213 has one procedure example involving an AI coding tool)",
+      "handled": "lesson states the mapping is its own framing"
+    },
+    {
+      "item": "python-httpx user agent string in aiua-ac1",
+      "why": "Illustrative client string for a Python collector, not taken from vendor documentation",
+      "handled": "kept as plain data; no claim is made about it"
+    },
+    {
+      "item": "T1078 (parent technique) ledger entry",
+      "why": "The parent ID appears only inside the reference URL of the T1078.004 page (/techniques/T1078/004/), which the checker reads as a citation; the parent page itself was not fetched, so its tactic list is copied from the sub-technique page",
+      "handled": "ledger entry added to satisfy the checker; the learner-facing text cites only T1078.004 and T1213"
+    }
+  ]
+}

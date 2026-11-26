@@ -987,6 +987,7 @@ import { PLAYBOOK_LESSONS } from "./playbookLessons";
 import { NEW_TOPIC_LESSONS } from "./newTopicLessons";
 import { CURRICULUM_EXPANSION_LESSONS } from "./curriculumExpansionLessons";
 import { TRACK_GAP_LESSONS } from "./trackGapLessons";
+import { AI_SOC_TRACK_LESSONS } from "./aiSocTrackLessons";
 import { LESSON_VIDEOS } from "./lessonVideos";
 import { SECTION_VIDEOS } from "./sectionVideos";
 import { LESSON_SLIDES } from "./lessonSlides";
@@ -1072,6 +1073,9 @@ export const BUILTIN_LESSONS = [
   pathN[0],
   ...CURRICULUM_EXPANSION_LESSONS,
   ...TRACK_GAP_LESSONS,
+  // AI security monitoring, detection and response: one lesson per topic, each paired
+  // with a room in rooms-batch-51.ts (soc-track-builder agent).
+  ...AI_SOC_TRACK_LESSONS,
 ];
 
 // Attach self-hosted explainer videos (Supabase Storage) to the first section of

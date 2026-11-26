@@ -1,0 +1,1079 @@
+{
+  "topic": "Monitoring access to LLM APIs",
+  "slug": "llm-api-access-monitoring",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "AWS",
+      "used_for": "Which Bedrock operations are management or data events, data event resource types, InvokeModel example record, stream-completion events"
+    },
+    {
+      "id": "S2",
+      "title": "Monitor model invocation using CloudWatch Logs and Amazon S3",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html",
+      "publisher": "AWS",
+      "used_for": "Model invocation logging: default state, destinations, operations, entry format, 100 KB limit, configuration APIs, Logs Insights query"
+    },
+    {
+      "id": "S3",
+      "title": "CloudTrail record contents for management, data, and network activity events",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html",
+      "publisher": "AWS",
+      "used_for": "Definitions of CloudTrail record fields"
+    },
+    {
+      "id": "S4",
+      "title": "CloudTrail userIdentity element",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html",
+      "publisher": "AWS",
+      "used_for": "userIdentity fields, identity types, AssumedRole example, sessionContext"
+    },
+    {
+      "id": "S5",
+      "title": "Working with CloudTrail event history",
+      "url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/view-cloudtrail-events.html",
+      "publisher": "AWS",
+      "used_for": "Event history: 90 days, management events only, per Region"
+    },
+    {
+      "id": "S6",
+      "title": "IAM identifiers",
+      "url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html",
+      "publisher": "AWS",
+      "used_for": "AKIA and ASIA unique ID prefixes, assumed-role ARN format"
+    },
+    {
+      "id": "S7",
+      "title": "Amazon Bedrock API Reference: Converse",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html",
+      "publisher": "AWS",
+      "used_for": "Converse request path POST /model/{modelId}/converse used in the gateway BackendUrl and Url values"
+    },
+    {
+      "id": "S8",
+      "title": "Azure Monitor Logs reference: AWSCloudTrail",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/awscloudtrail",
+      "publisher": "Microsoft",
+      "used_for": "Column names of the Microsoft Sentinel AWSCloudTrail table used in the KQL examples"
+    },
+    {
+      "id": "S9",
+      "title": "Azure Monitor Logs reference: ApiManagementGatewayLogs",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/apimanagementgatewaylogs",
+      "publisher": "Microsoft",
+      "used_for": "Column names of the gateway log table"
+    },
+    {
+      "id": "S10",
+      "title": "Azure Monitor Logs reference: ApiManagementGatewayLlmLog",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/apimanagementgatewayllmlog",
+      "publisher": "Microsoft",
+      "used_for": "Column names and descriptions of the gateway LLM log table, CorrelationId relation"
+    },
+    {
+      "id": "S11",
+      "title": "Monitoring data reference for Azure OpenAI",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/monitor-openai-reference",
+      "publisher": "Microsoft",
+      "used_for": "Azure OpenAI metric names and dimensions, resource log categories, AzureDiagnostics table"
+    },
+    {
+      "id": "S12",
+      "title": "Monitor Azure OpenAI in Microsoft Foundry Models",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/monitor-openai",
+      "publisher": "Microsoft",
+      "used_for": "Automatic collection of metrics and activity log, resource logs need a diagnostic setting, starter Kusto queries"
+    },
+    {
+      "id": "S13",
+      "title": "Disable local authentication in Foundry Tools",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-services/disable-local-auth",
+      "publisher": "Microsoft",
+      "used_for": "disableLocalAuth property, propagation delay, HTTP 401 after disabling"
+    },
+    {
+      "id": "S14",
+      "title": "Set up logging for language model APIs in Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-llm-logs",
+      "publisher": "Microsoft",
+      "used_for": "Diagnostic category for AI gateway logs, optional prompt logging, 32 KB chunks, CorrelationId correlation, token usage caveat"
+    },
+    {
+      "id": "S15",
+      "title": "AI gateway capabilities in Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/genai-gateway-capabilities",
+      "publisher": "Microsoft",
+      "used_for": "Definition of the AI gateway, providers it can front, managed identity, token limit and metric capabilities"
+    },
+    {
+      "id": "S16",
+      "title": "Azure API Management policy reference: llm-token-limit",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/llm-token-limit-policy",
+      "publisher": "Microsoft",
+      "used_for": "429 on token rate limit, 403 on quota, counter-key"
+    },
+    {
+      "id": "S17",
+      "title": "Azure API Management policy reference: llm-emit-token-metric",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/llm-emit-token-metric-policy",
+      "publisher": "Microsoft",
+      "used_for": "Background on token metrics and the streaming accuracy caveat; read, not quoted in learner text"
+    },
+    {
+      "id": "S18",
+      "title": "Subscriptions in Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/api-management-subscriptions",
+      "publisher": "Microsoft",
+      "used_for": "Definition of a subscription and subscription key, 401 when the key is missing or invalid"
+    },
+    {
+      "id": "S19",
+      "title": "Authenticate and authorize to LLM APIs in Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/api-management-authenticate-authorize-ai-apis",
+      "publisher": "Microsoft",
+      "used_for": "api-key header as a default authentication method, managed identity alternative"
+    },
+    {
+      "id": "S20",
+      "title": "Import an Amazon Bedrock passthrough API in Azure API Management",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/amazon-bedrock-passthrough-llm-api",
+      "publisher": "Microsoft",
+      "used_for": "API Management in front of Amazon Bedrock authenticates with IAM user access keys; bedrock-runtime backend URL"
+    },
+    {
+      "id": "S21",
+      "title": "MITRE ATLAS data, ATLAS-2026.10.yaml",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.10.yaml",
+      "publisher": "MITRE",
+      "used_for": "AML.T0040 name, description and tactic (downloaded with curl and read locally)"
+    },
+    {
+      "id": "S22",
+      "title": "OWASP Top 10 for LLM Applications 2025, LLM10:2025 Unbounded Consumption",
+      "url": "https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item name and number, mitigation themes of rate limiting, logging and monitoring"
+    },
+    {
+      "id": "S23",
+      "title": "MITRE ATT&CK T1078.004 Valid Accounts: Cloud Accounts",
+      "url": "https://attack.mitre.org/techniques/T1078/004/",
+      "publisher": "MITRE",
+      "used_for": "Read as background; not cited in the content because the worked cases are not credential-abuse stories"
+    },
+    {
+      "id": "S24",
+      "title": "mitre-atlas/atlas-data repository README",
+      "url": "https://github.com/mitre-atlas/atlas-data",
+      "publisher": "MITRE",
+      "used_for": "Location of the current ATLAS data file; dist/ATLAS.yaml is deprecated"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "ATLAS technique AML.T0040 is named AI Model Inference API Access and belongs to the tactic AI Model Access",
+      "source": "S21",
+      "locator": "AML.T0040 name; relationship AML.T0040 achieves AML.TA0000; AML.TA0000 name: AI Model Access"
+    },
+    {
+      "where": "lesson:s1",
+      "claim": "OWASP Top 10 for LLM Applications 2025 item LLM10:2025 is Unbounded Consumption and recommends rate limiting, logging and monitoring",
+      "source": "S22",
+      "locator": "Title LLM10:2025 Unbounded Consumption; Prevention: Rate Limiting; Comprehensive Logging, Monitoring and Anomaly Detection"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "CloudTrail logs management event API operations by default; data events are often high-volume activities that CloudTrail does not log by default; additional charges apply for data events",
+      "source": "S1",
+      "locator": "Amazon Bedrock data events in CloudTrail; Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Bedrock logs InvokeModel, InvokeModelWithResponseStream, Converse and ConverseStream as management events",
+      "source": "S1",
+      "locator": "Amazon Bedrock logs Amazon Bedrock Runtime API operations (InvokeModel, InvokeModelWithResponseStream, Converse, and ConverseStream) as management events"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "InvokeAgent needs AWS::Bedrock::AgentAlias, Retrieve and RetrieveAndGenerate need AWS::Bedrock::KnowledgeBase, InvokeFlow needs AWS::Bedrock::FlowAlias, ApplyGuardrail needs AWS::Bedrock::Guardrail data event selectors",
+      "source": "S1",
+      "locator": "Bulleted list under Amazon Bedrock data events in CloudTrail"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "CloudTrail Event history keeps the past 90 days of management events in an AWS Region and shows management events only",
+      "source": "S5",
+      "locator": "Intro paragraph; Limitations of Event history"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "The Azure activity log holds subscription-level events and is collected automatically; resource logs are not collected and stored until a diagnostic setting is created",
+      "source": "S12",
+      "locator": "Azure activity log; Azure Monitor resource logs, Collection"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Definitions of eventSource, eventName, awsRegion, sourceIPAddress, userAgent, errorCode; for services in AWS only the DNS name is displayed; console actions report the underlying customer resource address",
+      "source": "S3",
+      "locator": "Field definitions eventSource, eventName, awsRegion, sourceIPAddress, userAgent, errorCode"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "userIdentity.arn is the ARN of the principal that made the call; accessKeyId is the access key ID that was used to sign the request; type values include IAMUser and AssumedRole",
+      "source": "S4",
+      "locator": "Fields: type, arn, accessKeyId; example userIdentity with temporary security credentials"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "AKIA is the prefix of an access key and ASIA the prefix of temporary (AWS STS) access key IDs; assumed-role ARN format arn:aws:sts::account:assumed-role/role-name/role-session-name",
+      "source": "S6",
+      "locator": "Understanding unique ID prefixes table; IAM ARNs syntax"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "In the documented InvokeModel example requestParameters holds only modelId and responseElements is null; eventSource is bedrock.amazonaws.com; tlsDetails.clientProvidedHostHeader is bedrock-runtime.us-west-2.amazonaws.com",
+      "source": "S1",
+      "locator": "Understanding Amazon Bedrock log file entries, InvokeModel example"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The session name in an assumed-role identity is the one passed to AssumeRole",
+      "source": "S4",
+      "locator": "principalId: includes the session name that is passed to the AssumeRole ... API call"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "Streaming calls produce an additional stream-completion event with eventType AwsServiceEvent that carries token counts; serviceEventDetails.parentRequestId holds the requestID of the API call; it has no requestParameters and names the model in resources",
+      "source": "S1",
+      "locator": "Stream-completion events for streaming invocations"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "A stream-completion event has the same eventName, eventSource, userIdentity, sourceIPAddress and userAgent as the API call, eventType is the only distinguishing field, and invocation counts should be restricted to eventType AwsApiCall",
+      "source": "S1",
+      "locator": "Important note under Stream-completion events"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "inferenceRegion can differ from awsRegion when the request used a cross-Region inference profile",
+      "source": "S1",
+      "locator": "Note after the ConverseStream stream-completion example"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "The Sentinel AWSCloudTrail table has columns EventName, EventSource, EventTypeName, UserIdentityArn, SourceIpAddress, RequestParameters, UserAgent, UserIdentityType, UserIdentityAccessKeyId, SessionIssuerUserName, TimeGenerated",
+      "source": "S8",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Model invocation logging is disabled by default, covers Converse, ConverseStream, InvokeModel and InvokeModelWithResponseStream, supports CloudWatch Logs and S3 destinations in the same account and Region, and only the bedrock-runtime endpoint",
+      "source": "S2",
+      "locator": "Introductory paragraphs and note"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Entry fields schemaType, timestamp, accountId, region, requestId, operation, modelId, identity.arn, input.inputTokenCount, output.outputTokenCount, input.inputBodyJson, output.outputBodyJson; bodies up to 100 KB inline; requestMetadata is the only caller-supplied field",
+      "source": "S2",
+      "locator": "Log entry format table and notes"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Logging is configured with PutModelInvocationLoggingConfiguration, GetModelInvocationLoggingConfiguration and DeleteModelInvocationLoggingConfiguration; logs are stored until the logging configuration is deleted; data types text, image, embedding, video",
+      "source": "S2",
+      "locator": "Model invocation logging using the API; console steps"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Bedrock logs the remainder of its API operations as management events, so the logging configuration operations appear in CloudTrail",
+      "source": "S1",
+      "locator": "Amazon Bedrock logs the remainder of Amazon Bedrock API operations as management events"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Azure OpenAI metric names AzureOpenAIRequests, ProcessedPromptTokens, GeneratedTokens, TokenTransaction and dimensions ModelDeploymentName, ModelName, Region, StatusCode",
+      "source": "S11",
+      "locator": "Category: Azure OpenAI - HTTP Requests; Category: Azure OpenAI - Usage"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Resource log categories Audit, RequestResponse, Trace, AzureOpenAIRequestUsage, ManagedNetworkEvent land in AzureDiagnostics",
+      "source": "S11",
+      "locator": "Supported resource logs for Microsoft.CognitiveServices/accounts"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Platform metrics and the activity log are collected automatically; the starter query projects TimeGenerated, _ResourceId, Category, OperationName, DurationMs, ResultSignature, properties_s",
+      "source": "S12",
+      "locator": "Data collection and routing in Azure Monitor; Kusto queries"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "A default way to authenticate to an AI API is an API key; Azure OpenAI APIs use the api-key header; managed identity is the alternative",
+      "source": "S19",
+      "locator": "Authenticate by using API key; Authenticate with managed identity"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Local authentication can be disabled with disableLocalAuth set to true; disabling does not take effect immediately, typically minutes and up to several hours; afterwards a request with the old key gets HTTP 401",
+      "source": "S13",
+      "locator": "How to disable local authentication; Verify local authentication status"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "The AI gateway is a set of capabilities that extends the existing API gateway and is not a separate offering; it can manage models in Microsoft Foundry or providers such as Amazon Bedrock; it can use managed identities to authenticate to AI services",
+      "source": "S15",
+      "locator": "Opening paragraphs and Note; Security and safety"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "A subscription is a named container for a pair of subscription keys and is not the same as an Azure subscription; a request without a valid key is denied with 401",
+      "source": "S18",
+      "locator": "What are subscriptions?; How API Management handles requests with or without subscription keys"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "ApiManagementGatewayLogs has columns CallerIpAddress, ApimSubscriptionId, ApiId, ResponseCode, BackendUrl, CorrelationId, TotalTime, BackendTime",
+      "source": "S9",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "ApiManagementGatewayLlmLog has columns ModelName, DeploymentName, PromptTokens, CompletionTokens, TotalTokens, SequenceNumber, and CorrelationId is a unique id corresponding with the same field in ApiManagementGatewayLogs",
+      "source": "S10",
+      "locator": "Columns table, CorrelationId description"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "The diagnostic category is Logs related to generative AI gateway; prompts and completions are optional; messages up to 32 KB are sent in a single entry and larger ones split into 32 KB chunks with sequence numbers; token usage may be missing or inaccurate on a broken stream",
+      "source": "S14",
+      "locator": "Enable diagnostic setting for language model API logs; Note on 32 KB; Note on token usage"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "llm-token-limit returns 429 Too Many Requests when the token rate limit is exceeded and 403 Forbidden when a quota is exceeded",
+      "source": "S16",
+      "locator": "First paragraph of the policy reference"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "API Management in front of Amazon Bedrock authenticates with IAM user access keys stored as named values, so CloudTrail sees an IAM user principal for gateway calls",
+      "source": "S20",
+      "locator": "Create IAM user access keys; Configure policies to authenticate requests to the Amazon Bedrock API"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Model IDs anthropic.claude-sonnet-4-20250514-v1:0 and anthropic.claude-opus-4-7 and the user agent string Boto3/1.34.0 Python/3.11.0 are values that appear in AWS documentation examples",
+      "source": "S1",
+      "locator": "Stream-completion example (userAgent, resources ARN); S2 log entry format example for the Sonnet model ID"
+    },
+    {
+      "where": "room:llmapi-r1",
+      "claim": "CloudTrail logs management events by default and not data events; Bedrock invocation operations are management events",
+      "source": "S1",
+      "locator": "Amazon Bedrock data events in CloudTrail; Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "room:llmapi-r1",
+      "claim": "AKIA is a long-term access key prefix and ASIA a temporary key prefix",
+      "source": "S6",
+      "locator": "Understanding unique ID prefixes table"
+    },
+    {
+      "where": "room:llmapi-r2",
+      "claim": "A subscription is a named container for a pair of subscription keys; gateway tables and columns ApimSubscriptionId, CallerIpAddress, BackendUrl, ResponseCode, CorrelationId, ModelName, PromptTokens, CompletionTokens, TotalTokens",
+      "source": "S9",
+      "locator": "Columns table (S9); S10 Columns table; S18 What are subscriptions?"
+    },
+    {
+      "where": "room:llmapi-r2",
+      "claim": "Behind an API Management gateway, Bedrock is called with the gateway's IAM user access keys",
+      "source": "S20",
+      "locator": "Create IAM user access keys"
+    },
+    {
+      "where": "room:llmapi-r3",
+      "claim": "429 Too Many Requests on token rate limit and 403 Forbidden on quota",
+      "source": "S16",
+      "locator": "First paragraph of the policy reference"
+    },
+    {
+      "where": "room:llmapi-r3",
+      "claim": "Stream-completion event: eventType AwsServiceEvent, same eventName, userIdentity, sourceIPAddress and userAgent, carries token counts; count only AwsApiCall",
+      "source": "S1",
+      "locator": "Stream-completion events for streaming invocations"
+    },
+    {
+      "where": "room:llmapi-r3",
+      "claim": "Model invocation logging is disabled by default and is configured with PutModelInvocationLoggingConfiguration and DeleteModelInvocationLoggingConfiguration",
+      "source": "S2",
+      "locator": "Introductory paragraphs; Model invocation logging using the API"
+    },
+    {
+      "where": "room:llmapi-la2",
+      "claim": "The Converse API path is POST /model/{modelId}/converse on the bedrock-runtime endpoint",
+      "source": "S7",
+      "locator": "Request Syntax"
+    },
+    {
+      "where": "room:llmapi-ac2",
+      "claim": "readOnly false marks a write operation; eventType AwsApiCall; eventCategory Management for management events",
+      "source": "S3",
+      "locator": "readOnly, eventType, eventCategory definitions"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventTime",
+      "source": "S3",
+      "locator": "eventTime"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventSource",
+      "source": "S3",
+      "locator": "eventSource"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventName",
+      "source": "S3",
+      "locator": "eventName"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventType",
+      "source": "S3",
+      "locator": "eventType"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventCategory",
+      "source": "S3",
+      "locator": "eventCategory"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.managementEvent",
+      "source": "S3",
+      "locator": "managementEvent"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.readOnly",
+      "source": "S3",
+      "locator": "readOnly"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.awsRegion",
+      "source": "S3",
+      "locator": "awsRegion"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.type",
+      "source": "S4",
+      "locator": "Fields: type"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.arn",
+      "source": "S4",
+      "locator": "Fields: arn"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.accountId",
+      "source": "S4",
+      "locator": "Fields: accountId"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.accessKeyId",
+      "source": "S4",
+      "locator": "Fields: accessKeyId"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.userName",
+      "source": "S4",
+      "locator": "Fields: userName"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.userName",
+      "source": "S4",
+      "locator": "sessionContext, sessionIssuer, userName"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.sourceIPAddress",
+      "source": "S3",
+      "locator": "sourceIPAddress"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.userAgent",
+      "source": "S3",
+      "locator": "userAgent"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.requestParameters",
+      "source": "S3",
+      "locator": "requestParameters"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.requestParameters.modelId",
+      "source": "S1",
+      "locator": "InvokeModel example: requestParameters.modelId"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.responseElements",
+      "source": "S3",
+      "locator": "responseElements"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.requestID",
+      "source": "S3",
+      "locator": "requestID"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.eventID",
+      "source": "S3",
+      "locator": "eventID"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.recipientAccountId",
+      "source": "S3",
+      "locator": "recipientAccountId"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "aws.cloudtrail.tlsDetails.clientProvidedHostHeader",
+      "source": "S3",
+      "locator": "tlsDetails: clientProvidedHostHeader"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "serviceEventDetails.parentRequestId",
+      "source": "S1",
+      "locator": "Stream-completion events"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "serviceEventDetails.AdditionalEventData.additionalEntries.inputTokens",
+      "source": "S1",
+      "locator": "Stream-completion example"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "serviceEventDetails.AdditionalEventData.additionalEntries.outputTokens",
+      "source": "S1",
+      "locator": "Stream-completion example"
+    },
+    {
+      "vendor": "AWS CloudTrail",
+      "field": "serviceEventDetails.AdditionalEventData.additionalEntries.inferenceRegion",
+      "source": "S1",
+      "locator": "Stream-completion example"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "TimeGenerated",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "Type",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "_ResourceId",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "ApimSubscriptionId",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "ApiId",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "OperationId",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "Method",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "Url",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "CallerIpAddress",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "ResponseCode",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "BackendResponseCode",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "IsRequestSuccess",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "RequestSize",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "ResponseSize",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "TotalTime",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "BackendTime",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "CorrelationId",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "Region",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "BackendUrl",
+      "source": "S9",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "ModelName",
+      "source": "S10",
+      "locator": "Columns (ApiManagementGatewayLlmLog)"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "DeploymentName",
+      "source": "S10",
+      "locator": "Columns (ApiManagementGatewayLlmLog)"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "PromptTokens",
+      "source": "S10",
+      "locator": "Columns (ApiManagementGatewayLlmLog)"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "CompletionTokens",
+      "source": "S10",
+      "locator": "Columns (ApiManagementGatewayLlmLog)"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "TotalTokens",
+      "source": "S10",
+      "locator": "Columns (ApiManagementGatewayLlmLog)"
+    },
+    {
+      "vendor": "Azure API Management",
+      "field": "SequenceNumber",
+      "source": "S10",
+      "locator": "Columns (ApiManagementGatewayLlmLog)"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "schemaType",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "timestamp",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "requestId",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "operation",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "modelId",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "identity.arn",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "requestMetadata",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "input.inputTokenCount",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "output.outputTokenCount",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "input.inputBodyJson",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Amazon Bedrock model invocation log",
+      "field": "output.outputBodyJson",
+      "source": "S2",
+      "locator": "Log entry format"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "EventName",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "EventSource",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "EventTypeName",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "UserIdentityArn",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "UserIdentityType",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "UserIdentityAccessKeyId",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "SessionIssuerUserName",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "SourceIpAddress",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "UserAgent",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Microsoft Sentinel AWSCloudTrail table",
+      "field": "RequestParameters",
+      "source": "S8",
+      "locator": "Columns"
+    },
+    {
+      "vendor": "Azure Monitor (Azure OpenAI)",
+      "field": "AzureOpenAIRequests",
+      "source": "S11",
+      "locator": "Category: Azure OpenAI - HTTP Requests"
+    },
+    {
+      "vendor": "Azure Monitor (Azure OpenAI)",
+      "field": "ProcessedPromptTokens",
+      "source": "S11",
+      "locator": "Category: Azure OpenAI - Usage"
+    },
+    {
+      "vendor": "Azure Monitor (Azure OpenAI)",
+      "field": "GeneratedTokens",
+      "source": "S11",
+      "locator": "Category: Azure OpenAI - Usage"
+    },
+    {
+      "vendor": "Azure Monitor (Azure OpenAI)",
+      "field": "TokenTransaction",
+      "source": "S11",
+      "locator": "Category: Azure OpenAI - Usage"
+    },
+    {
+      "vendor": "Azure Monitor (Azure OpenAI)",
+      "field": "properties_s",
+      "source": "S12",
+      "locator": "Kusto queries, AzureDiagnostics starter query"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "The key names a resource or an account, not a person."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "So a trail that records only management events already contains the model calls."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "AWS documents `AKIA` as the prefix of an access key, the long-term kind that belongs to an IAM user, and `ASIA` as the prefix of temporary access key IDs issued by the AWS Security Token Service (STS)."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "`eventType` is the only field that distinguishes the two."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "To answer 'from where' you still need CloudTrail."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "Resource logs are not collected and stored until you create a diagnostic setting, a rule that routes a resource's logs to a destination such as a Log Analytics workspace."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "When the token rate limit is exceeded the caller receives `429 Too Many Requests`."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "An unknown source address, a long-term `AKIA` key or a session name that matches no employee would change the verdict."
+    },
+    {
+      "q": "room:llmapi-q1",
+      "taught_in": "room:llmapi-r1",
+      "support": "The control plane is the set of operations that manage resources: create a model deployment, change a logging setting, grant a permission."
+    },
+    {
+      "q": "room:llmapi-la1#1",
+      "taught_in": "room:llmapi-r1",
+      "support": "An ID that starts with AKIA is a long-term access key of an IAM user."
+    },
+    {
+      "q": "room:llmapi-la1#2",
+      "taught_in": "room:llmapi-r1",
+      "support": "requestParameters.modelId is the model that was asked."
+    },
+    {
+      "q": "room:llmapi-la1#3",
+      "taught_in": "room:llmapi-r1",
+      "support": "The prompt and the answer are not in a CloudTrail record, and AWS's example of an ordinary call shows no token count either."
+    },
+    {
+      "q": "room:llmapi-q2",
+      "taught_in": "room:llmapi-r1",
+      "support": "A trail that records only management events therefore already holds every model call."
+    },
+    {
+      "q": "room:llmapi-la2#1",
+      "taught_in": "room:llmapi-r2",
+      "support": "ApimSubscriptionId is the subscription whose key was used."
+    },
+    {
+      "q": "room:llmapi-la2#2",
+      "taught_in": "room:llmapi-r2",
+      "support": "Pair them by three things together: the time, within a few seconds; the model; and the gateway's identity as the CloudTrail principal."
+    },
+    {
+      "q": "room:llmapi-m1",
+      "taught_in": "room:llmapi-r2",
+      "support": "Join the two tables on CorrelationId and one row answers all four questions."
+    },
+    {
+      "q": "room:llmapi-ac1",
+      "taught_in": "room:llmapi-r2",
+      "support": "When the rule fires and the activity turns out to be approved, the verdict is benign true positive: the rule caught exactly what it looks for, and the activity was authorised."
+    },
+    {
+      "q": "room:llmapi-qf1",
+      "taught_in": "room:llmapi-r3",
+      "support": "To rank Brightwater's applications, first take one token value per request, then join to ApiManagementGatewayLogs on CorrelationId, then sum by ApimSubscriptionId."
+    },
+    {
+      "q": "room:llmapi-o1",
+      "taught_in": "room:llmapi-r3",
+      "support": "Confirm the record is an API call, not a stream-completion event."
+    },
+    {
+      "q": "room:llmapi-ac2",
+      "taught_in": "room:llmapi-r3",
+      "support": "A delete with no change ticket and no new Put event after it means the only record of prompt content has been switched off."
+    },
+    {
+      "q": "room:llmapi-f1",
+      "taught_in": "room:llmapi-r2",
+      "support": "Pair them by three things together: the time, within a few seconds; the model; and the gateway's identity as the CloudTrail principal."
+    },
+    {
+      "q": "room:llmapi-q3",
+      "taught_in": "room:llmapi-r3",
+      "support": "So a count of every ConverseStream record counts each streaming call twice."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "AML.T0040",
+      "name": "AI Model Inference API Access",
+      "tactics": [
+        "AI Model Access (AML.TA0000)"
+      ],
+      "source": "S21"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [],
+  "unverified": [
+    {
+      "item": "ATT&CK T1562.008 (disabling or modifying cloud logs) for the deleted invocation logging setting",
+      "why": "attack.mitre.org/techniques/T1562/008/ returned an empty page on two fetches, so the ID, its current name and status could not be read in this run",
+      "handled": "left out; the content teaches the DeleteModelInvocationLoggingConfiguration signal without an ATT&CK ID"
+    },
+    {
+      "item": "ATT&CK T1078.004",
+      "why": "page was fetched (S23) but the room and lesson cases are a policy bypass and an approved job, not credential abuse, so the ID does not fit the stories",
+      "handled": "left out"
+    },
+    {
+      "item": "Meaning and units of ApiManagementGatewayLogs columns (ApimSubscriptionId, CallerIpAddress, BackendUrl, TotalTime, BackendTime)",
+      "why": "the Microsoft table reference lists these columns with empty descriptions",
+      "handled": "meanings taken from the column names and the LLM logging how-to (usage segmented by subscription ID or IP address); no units stated; lesson tells the reader to confirm the timing columns on their own data"
+    },
+    {
+      "item": "Whether ApiManagementGatewayLlmLog is populated, and what ModelName contains, for an Amazon Bedrock passthrough API and for Azure OpenAI (the room's flag table shows the Bedrock model ID and gpt-4o as ModelName)",
+      "why": "Microsoft documents the table and that token policies can be configured for the Bedrock API, but gives no sample rows",
+      "handled": "kept as illustrative values in the flag prompt; the flag is solvable from the backend host and the time alone"
+    },
+    {
+      "item": "Whether TotalTokens repeats on every chunk row of one request in ApiManagementGatewayLlmLog",
+      "why": "the how-to says large messages are split into several entries but does not show the token columns of each entry",
+      "handled": "queries take max(TotalTokens) per CorrelationId before summing, which is correct in either case"
+    },
+    {
+      "item": "Whether the Bedrock invocation log requestId equals the CloudTrail requestID of the same call",
+      "why": "both are documented as request identifiers but no source read in this run states they are equal",
+      "handled": "left out; no join between the two is taught"
+    },
+    {
+      "item": "Inner layout of Azure OpenAI resource log records (fields inside properties_s, caller address)",
+      "why": "the monitoring reference lists categories and the AzureDiagnostics table only",
+      "handled": "left out; lesson says to open a sample before building a rule"
+    },
+    {
+      "item": "Whether a 429 from llm-token-limit means the request was never forwarded to the model",
+      "why": "the policy reference says prompts may still be sent when prompt estimation is off",
+      "handled": "left out"
+    },
+    {
+      "item": "userAgent seen by CloudTrail for calls forwarded by API Management, and the readOnly value of a Converse API call",
+      "why": "not documented in the sources read",
+      "handled": "both fields omitted from the gateway-originated CloudTrail record in the room; the aws-cli user agent value in llmapi-ac2 is an illustrative value in the documented aws-cli/x Python/y OS/z style"
+    },
+    {
+      "item": "A shared ID between an API Management gateway row and the CloudTrail record of the forwarded call",
+      "why": "ApiManagementGatewayLogs has a BackendResponseHeaders column that could carry an AWS request ID header if header logging is enabled; not confirmed",
+      "handled": "room states that in Brightwater's setup backend response headers are not logged, and teaches pairing on time, model and principal"
+    },
+    {
+      "item": "ATLAS source file",
+      "why": "the first fetch read dist/ATLAS.yaml (5.6.0), which the repository README marks as deprecated",
+      "handled": "re-verified AML.T0040 and AML.TA0000 in dist/v6/ATLAS-2026.10.yaml (collection version 2026.10), which is the cited source"
+    }
+  ]
+}

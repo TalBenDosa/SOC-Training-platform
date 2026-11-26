@@ -1,0 +1,1189 @@
+{
+  "topic": "Investigating AI incidents through logs",
+  "slug": "ai-incident-log-investigation",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "NIST SP 800-61 Revision 3, Incident Response Recommendations and Considerations for Cybersecurity Risk Management",
+      "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r3.pdf",
+      "publisher": "NIST",
+      "used_for": "RS.AN-06 and RS.AN-07 outcomes on recording investigation actions and preserving integrity and provenance"
+    },
+    {
+      "id": "S2",
+      "title": "NIST SP 800-86, Guide to Integrating Forensic Techniques into Incident Response",
+      "url": "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-86.pdf",
+      "publisher": "NIST",
+      "used_for": "Four-phase forensic process, message digests, chain of custody"
+    },
+    {
+      "id": "S3",
+      "title": "NIST AI 600-1, AI RMF Generative AI Profile",
+      "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+      "publisher": "NIST",
+      "used_for": "Background only: direct and indirect prompt injection wording, Appendix A.1.8 on logging and recording GAI incidents"
+    },
+    {
+      "id": "S4",
+      "title": "MITRE ATLAS data, release 2026.10 (ATLAS-2026.10.yaml)",
+      "url": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.10.yaml",
+      "publisher": "MITRE",
+      "used_for": "ATLAS technique names, descriptions and technique-to-tactic relationships"
+    },
+    {
+      "id": "S5",
+      "title": "MITRE ATT&CK T1078 Valid Accounts",
+      "url": "https://attack.mitre.org/techniques/T1078/",
+      "publisher": "MITRE",
+      "used_for": "Technique name, ID and tactics"
+    },
+    {
+      "id": "S6",
+      "title": "OWASP Top 10 for LLM Applications 2025, LLM01:2025 Prompt Injection",
+      "url": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Direct and indirect injection definitions, not human-visible, stochastic influence"
+    },
+    {
+      "id": "S7",
+      "title": "OWASP Top 10 for LLM Applications 2025, LLM06:2025 Excessive Agency",
+      "url": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+      "publisher": "OWASP GenAI Security Project",
+      "used_for": "Item name and the three root causes"
+    },
+    {
+      "id": "S8",
+      "title": "Audit logs for Copilot and AI applications",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-copilot",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotInteraction properties: AccessedResources, Messages, XPIADetected, JailbreakDetected, AppHost"
+    },
+    {
+      "id": "S9",
+      "title": "Office 365 Management Activity API schema",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "Common schema, AppAccessContext, Exchange mailbox audit schema, ExchangeItem, SharePoint file operations, RecordType and LogonType enums"
+    },
+    {
+      "id": "S10",
+      "title": "Copilot schema",
+      "url": "https://learn.microsoft.com/en-us/office/office-365-management-api/copilot-schema",
+      "publisher": "Microsoft Learn",
+      "used_for": "CopilotEventData, ThreadId, Messages sample record"
+    },
+    {
+      "id": "S11",
+      "title": "Manage mailbox auditing",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-mailboxes",
+      "publisher": "Microsoft Learn",
+      "used_for": "Mailbox auditing on by default, Send action definition"
+    },
+    {
+      "id": "S12",
+      "title": "Manage audit log retention policies",
+      "url": "https://learn.microsoft.com/en-us/purview/audit-log-retention-policies",
+      "publisher": "Microsoft Learn",
+      "used_for": "Audit (Standard) default retention of 180 days"
+    },
+    {
+      "id": "S13",
+      "title": "Learn about retention for Copilot and AI apps",
+      "url": "https://learn.microsoft.com/en-us/purview/retention-policies-copilot",
+      "publisher": "Microsoft Learn",
+      "used_for": "Prompts and responses stored in a hidden mailbox folder, searchable by eDiscovery, holds suspend deletion"
+    },
+    {
+      "id": "S14",
+      "title": "Azure Monitor Logs reference: ApiManagementGatewayLlmLog",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/apimanagementgatewayllmlog",
+      "publisher": "Microsoft Learn",
+      "used_for": "Column names and descriptions of the gateway LLM log table"
+    },
+    {
+      "id": "S15",
+      "title": "Azure Monitor Logs reference: ApiManagementGatewayLogs",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/apimanagementgatewaylogs",
+      "publisher": "Microsoft Learn",
+      "used_for": "Column names of the gateway request table"
+    },
+    {
+      "id": "S16",
+      "title": "Log token usage, prompts, and completions for language model APIs",
+      "url": "https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-llm-logs",
+      "publisher": "Microsoft Learn",
+      "used_for": "Optional prompt and completion logging, 32 KB chunks, 2 MB cap, CorrelationId join"
+    },
+    {
+      "id": "S17",
+      "title": "Azure Monitor Logs reference: SigninLogs",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/signinlogs",
+      "publisher": "Microsoft Learn",
+      "used_for": "Sign-in columns and their meanings, ResultType 0, ConditionalAccessStatus values, SessionId"
+    },
+    {
+      "id": "S18",
+      "title": "signIn resource type (Microsoft Graph v1.0) and its deviceDetail, signInStatus and signInLocation types",
+      "url": "https://learn.microsoft.com/en-us/graph/api/resources/signin?view=graph-rest-1.0",
+      "publisher": "Microsoft Learn",
+      "used_for": "camelCase property names of sign-in records used in the room's raw block"
+    },
+    {
+      "id": "S19",
+      "title": "Prompt Shields in Azure AI Content Safety",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection",
+      "publisher": "Microsoft Learn",
+      "used_for": "User prompt and document attacks, limits of a no-attack result, false positives from system prompts"
+    },
+    {
+      "id": "S20",
+      "title": "Quickstart: Use Prompt Shields",
+      "url": "https://learn.microsoft.com/en-us/azure/ai-services/content-safety/quickstart-jailbreak",
+      "publisher": "Microsoft Learn",
+      "used_for": "Response structure: userPromptAnalysis, documentsAnalysis, attackDetected"
+    },
+    {
+      "id": "S21",
+      "title": "Monitor model invocation using CloudWatch Logs and Amazon S3",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html",
+      "publisher": "AWS",
+      "used_for": "Model invocation log entry format, disabled by default, 100 KB inline limit"
+    },
+    {
+      "id": "S22",
+      "title": "Monitor Amazon Bedrock API calls using CloudTrail",
+      "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+      "publisher": "AWS",
+      "used_for": "InvokeModel and Converse as management events, InvokeAgent as data event, event fields"
+    },
+    {
+      "id": "S23",
+      "title": "Semantic conventions for generative AI spans",
+      "url": "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/main/docs/gen-ai/gen-ai-spans.md",
+      "publisher": "OpenTelemetry",
+      "used_for": "gen_ai attribute names, execute_tool operation, content capture opt-in"
+    },
+    {
+      "id": "S24",
+      "title": "Access the Compliance API",
+      "url": "https://support.claude.com/en/articles/13015708-access-the-compliance-api",
+      "publisher": "Anthropic",
+      "used_for": "What the Compliance API returns"
+    }
+  ],
+  "claims": [
+    {
+      "where": "lesson:s1",
+      "claim": "NIST SP 800-86 describes a four-phase forensic process: collection, examination, analysis, reporting",
+      "source": "S2",
+      "locator": "Section 3: 'four-phase forensic process, with collection, examination, analysis, and reporting phases'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "SigninLogs columns UserPrincipalName, IPAddress, AppDisplayName, ResultType, ConditionalAccessStatus, SessionId exist",
+      "source": "S17",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ResultType 0 indicates success",
+      "source": "S17",
+      "locator": "ResultType: '0 indicates success; other values are failures'"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ConditionalAccessStatus possible values are success, failure, notApplied",
+      "source": "S17",
+      "locator": "ConditionalAccessStatus description"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "AppAccessContext.ClientAppId is the Id of the Entra app that performed the access on behalf of the user; AADSessionId is the Entra SessionId of the sign-in performed by the app on behalf of the user",
+      "source": "S9",
+      "locator": "Complex Type AppAccessContext"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "Bedrock invocation log identity.arn is the STS or IAM ARN of the principal that made the request",
+      "source": "S21",
+      "locator": "Log entry format, field table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ApiManagementGatewayLogs has ApimSubscriptionId and CallerIpAddress columns",
+      "source": "S15",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ATT&CK T1078 is Valid Accounts",
+      "source": "S5",
+      "locator": "Page title and ID field"
+    },
+    {
+      "where": "lesson:s2",
+      "claim": "ATLAS AML.T0012 is Valid Accounts",
+      "source": "S4",
+      "locator": "techniques: AML.T0012 name"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Copilot audit Messages carries message ID, isPrompt flag and JailbreakDetected",
+      "source": "S8",
+      "locator": "Common properties table, Messages row"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Copilot and AI app messages are stored in a hidden folder in the user's mailbox and are searchable by eDiscovery tools",
+      "source": "S13",
+      "locator": "How retention works with AI apps: 'stored in a hidden folder in the mailbox of the user who runs the AI app'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "ApiManagementGatewayLlmLog has RequestMessages, ResponseMessages, SequenceNumber, PromptTokens, CompletionTokens, ModelName, DeploymentName, CorrelationId columns",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Prompt and completion logging in API Management is optional and enabled with Log prompts and Log completions",
+      "source": "S16",
+      "locator": "'Optionally, the request and response messages: prompt and completion'; enable steps"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Messages up to 32 KB are sent in a single entry, larger ones are split into 32 KB chunks with sequence numbers, and request and response messages cannot exceed 2 MB each",
+      "source": "S16",
+      "locator": "Note under the enable steps"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "CorrelationId in the LLM log corresponds to the same field in ApiManagementGatewayLogs",
+      "source": "S14",
+      "locator": "CorrelationId: 'Unique id corresponding with the same field in ApiManagementGatewayLogs'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Bedrock model invocation logging is disabled by default",
+      "source": "S21",
+      "locator": "'Model invocation logging is disabled by default.'"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Bedrock log entry carries input.inputBodyJson and output.outputBodyJson up to 100 KB; larger bodies go to Amazon S3",
+      "source": "S21",
+      "locator": "Field table and note on bodies larger than 100 KB"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Bedrock logs InvokeModel and Converse as CloudTrail management events",
+      "source": "S22",
+      "locator": "Amazon Bedrock management events in CloudTrail"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "OpenTelemetry gen_ai.input.messages and gen_ai.output.messages are gated by explicit opt-in",
+      "source": "S23",
+      "locator": "Content capture configuration"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "The Claude Compliance API lets an organisation pull activity feed events, chat data and file content",
+      "source": "S24",
+      "locator": "First paragraph"
+    },
+    {
+      "where": "lesson:s3",
+      "claim": "Audit (Standard) default retention is 180 days",
+      "source": "S12",
+      "locator": "'default retention period for Audit (Standard) changed from 90 days to 180 days'"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "AccessedResources entries can carry ID, SiteUrl, Name, Type, SensitivityLabelId, Action (read, create, modify), Status and XPIADetected",
+      "source": "S8",
+      "locator": "Common properties table, AccessedResources row"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "XPIADetected is a boolean denoting whether a cross prompt injection attack was detected from a resource Copilot accessed",
+      "source": "S8",
+      "locator": "AccessedResources row, XPIADetected"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ObjectId for SharePoint equals the combination of SiteUrl, SourceRelativeUrl and SourceFileName",
+      "source": "S9",
+      "locator": "SharePoint file operations, SourceRelativeUrl description"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "gen_ai.operation.name has the value execute_tool; gen_ai.tool.call.arguments and gen_ai.tool.call.result are covered by the content capture opt-in",
+      "source": "S23",
+      "locator": "gen_ai.operation.name values table; Content capture configuration list"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "InvokeAgent is logged as a CloudTrail data event and needs advanced event selectors for AWS::Bedrock::AgentAlias",
+      "source": "S22",
+      "locator": "Amazon Bedrock data events in CloudTrail"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "ATLAS AML.T0053 is AI Agent Tool Invocation",
+      "source": "S4",
+      "locator": "techniques: AML.T0053 name"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "LLM06:2025 Excessive Agency root causes: excessive functionality, excessive permissions, excessive autonomy",
+      "source": "S7",
+      "locator": "Description: 'The root cause of Excessive Agency is typically one or more of'"
+    },
+    {
+      "where": "lesson:s4",
+      "claim": "CopilotInteraction RecordType is 261 and the sample record carries CopilotEventData with AppHost, ThreadId, Messages, AccessedResources",
+      "source": "S10",
+      "locator": "Example audit record; RecordType 261 also in S9 AuditLogRecordType table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Mailbox audit logging is on by default and Send is logged when the user sends, replies to or forwards a message",
+      "source": "S11",
+      "locator": "'Mailbox audit logging is turned on by default in all organizations'; mailbox actions table, Send"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "Exchange mailbox audit fields MailboxOwnerUPN, LogonType, ClientIPAddress, ClientInfoString and ExchangeItem properties Subject, Attachments, InternetMessageId, SizeInBytes",
+      "source": "S9",
+      "locator": "Exchange Mailbox schema; ExchangeItem complex type"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "LogonType 0 is Owner, 1 is Admin, 2 is Delegated",
+      "source": "S9",
+      "locator": "Enum: LogonType"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "RecordType 2 is ExchangeItem and 6 is SharePointFileOperation",
+      "source": "S9",
+      "locator": "AuditLogRecordType table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "FileAccessed, FileDownloaded and FileUploaded are SharePoint operations",
+      "source": "S9",
+      "locator": "SharePoint operations table"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "A Bedrock CloudTrail event carries eventName, eventSource, sourceIPAddress, a userIdentity arn and requestID",
+      "source": "S22",
+      "locator": "Understanding Amazon Bedrock log file entries, InvokeModel example"
+    },
+    {
+      "where": "lesson:s5",
+      "claim": "ATLAS AML.T0086 is Exfiltration via AI Agent Tool Invocation; the invoked tool itself may be legitimate",
+      "source": "S4",
+      "locator": "techniques: AML.T0086 name and description"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "SigninLogs has UniqueTokenIdentifier; AppAccessContext has UniqueTokenId, a unique per-token identifier",
+      "source": "S9",
+      "locator": "Complex Type AppAccessContext, UniqueTokenId; SigninLogs column in S17"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "TimeGenerated in ApiManagementGatewayLlmLog is the date and time when request processing started",
+      "source": "S14",
+      "locator": "TimeGenerated description"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Microsoft 365 audit CreationTime is in UTC; SigninLogs CreatedDateTime is always UTC",
+      "source": "S9",
+      "locator": "Common schema CreationTime; S17 CreatedDateTime description"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "NIST SP 800-61r3 lists RS.AN-06 (investigation actions recorded, records' integrity and provenance preserved) and RS.AN-07 (incident data and metadata collected, integrity and provenance preserved)",
+      "source": "S1",
+      "locator": "Table of Respond recommendations, RS.AN-06 and RS.AN-07"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "A message digest changes completely if a single bit changes; computing and comparing digests of original and copy verifies integrity",
+      "source": "S2",
+      "locator": "Section 5.2.1 footnote text on message digests"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "Chain of custody means keeping a log of every person who had custody of the evidence, the actions they performed and when",
+      "source": "S2",
+      "locator": "Section 4.2: 'keeping a log of every person who had physical custody of the evidence'"
+    },
+    {
+      "where": "lesson:s6",
+      "claim": "An eDiscovery hold on the mailbox suspends permanent deletion of retained AI app messages",
+      "source": "S13",
+      "locator": "'permanent deletion from the SubstrateHolds folder is always suspended if ... an eDiscovery hold is applied'"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "OWASP LLM01:2025 defines direct injection (user's prompt input alters behaviour) and indirect injection (LLM accepts input from external sources such as websites or files)",
+      "source": "S6",
+      "locator": "Types of Prompt Injection Vulnerabilities"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "ATLAS AML.T0051 is LLM Prompt Injection and AML.T0051.001 is Indirect",
+      "source": "S4",
+      "locator": "techniques: AML.T0051, AML.T0051.001"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Prompt Shields response reports attackDetected under userPromptAnalysis and per entry of documentsAnalysis",
+      "source": "S20",
+      "locator": "Output JSON and field table"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "A 'No document attack' result does not establish that the document is trustworthy",
+      "source": "S19",
+      "locator": "Prompt Shields for documents, Examples table"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Sending the system prompt to Prompt Shields causes false positives because system prompts include rules and examples that look like attacks",
+      "source": "S19",
+      "locator": "User scenarios, Important note"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "Prompt injections do not need to be human-visible or readable as long as the content is parsed by the model",
+      "source": "S6",
+      "locator": "Description, first paragraph"
+    },
+    {
+      "where": "lesson:s7",
+      "claim": "OWASP refers to the stochastic influence at the heart of the way models work",
+      "source": "S6",
+      "locator": "Prevention and Mitigation Strategies, opening sentence"
+    },
+    {
+      "where": "lesson:s8",
+      "claim": "Bedrock invocation log entry fields schemaType, schemaVersion, timestamp, accountId, region, requestId, operation, modelId, identity.arn, input and output token counts",
+      "source": "S21",
+      "locator": "Log entry format"
+    },
+    {
+      "where": "room:aiinv-r1",
+      "claim": "Sign-in properties userPrincipalName, ipAddress, appDisplayName, conditionalAccessStatus exist; status.errorCode 0 is success",
+      "source": "S18",
+      "locator": "signIn properties table; signInStatus errorCode; ResultType 0 in S17"
+    },
+    {
+      "where": "room:aiinv-r1",
+      "claim": "The Exchange Send record's documented item properties do not list recipients",
+      "source": "S9",
+      "locator": "ExchangeItem complex type: Id, Subject, ParentFolder, ParentMessage, Attachments, ImmutableId, InternetMessageId, ComplianceLabel, IsRecord, IsPriorityCleanup, SizeInBytes, Sensitivity"
+    },
+    {
+      "where": "room:aiinv-r2",
+      "claim": "ATLAS AML.T0051.001 Indirect and AML.T0086 Exfiltration via AI Agent Tool Invocation",
+      "source": "S4",
+      "locator": "techniques section"
+    },
+    {
+      "where": "room:aiinv-r2",
+      "claim": "Messages above 32 KB are split into chunks ordered by SequenceNumber",
+      "source": "S16",
+      "locator": "Note under the enable steps"
+    },
+    {
+      "where": "room:aiinv-r2",
+      "claim": "BackendResponseBody is a column of ApiManagementGatewayLogs holding the backend response body",
+      "source": "S15",
+      "locator": "Columns table"
+    },
+    {
+      "where": "room:aiinv-r3",
+      "claim": "Audit (Standard) keeps records 180 days by default",
+      "source": "S12",
+      "locator": "Default retention paragraph"
+    },
+    {
+      "where": "room:aiinv-r3",
+      "claim": "A changed bit produces a completely different message digest; chain of custody is a log of who held evidence, what they did and when",
+      "source": "S2",
+      "locator": "Sections 4.2 and 5.2.1"
+    }
+  ],
+  "log_fields": [
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.createdDateTime",
+      "source": "S18",
+      "locator": "signIn: createdDateTime"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.userPrincipalName",
+      "source": "S18",
+      "locator": "signIn: userPrincipalName"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.userDisplayName",
+      "source": "S18",
+      "locator": "signIn: userDisplayName"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.appDisplayName",
+      "source": "S18",
+      "locator": "signIn: appDisplayName"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.appId",
+      "source": "S18",
+      "locator": "signIn: appId"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.ipAddress",
+      "source": "S18",
+      "locator": "signIn: ipAddress"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.location.city",
+      "source": "S18",
+      "locator": "signInLocation: city"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.location.countryOrRegion",
+      "source": "S18",
+      "locator": "signInLocation: countryOrRegion"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.isInteractive",
+      "source": "S18",
+      "locator": "signIn: isInteractive"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.conditionalAccessStatus",
+      "source": "S18",
+      "locator": "signIn: conditionalAccessStatus"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.status.errorCode",
+      "source": "S18",
+      "locator": "signInStatus: errorCode"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.deviceDetail.displayName",
+      "source": "S18",
+      "locator": "deviceDetail: displayName"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.deviceDetail.operatingSystem",
+      "source": "S18",
+      "locator": "deviceDetail: operatingSystem"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.deviceDetail.browser",
+      "source": "S18",
+      "locator": "deviceDetail: browser"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.deviceDetail.isManaged",
+      "source": "S18",
+      "locator": "deviceDetail: isManaged"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.deviceDetail.isCompliant",
+      "source": "S18",
+      "locator": "deviceDetail: isCompliant"
+    },
+    {
+      "vendor": "azure-ad",
+      "field": "azure.signinlogs.properties.sessionId",
+      "source": "S17",
+      "locator": "SigninLogs column SessionId: 'Id of the session that was generated during the signIn' (camelCase form follows the repo's existing convention; see unverified)"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "TimeGenerated",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "Type",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "CorrelationId",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "Region",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "DeploymentName",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ModelName",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "SequenceNumber",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "PromptTokens",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "CompletionTokens",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "TotalTokens",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "RequestMessages",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ResponseMessages",
+      "source": "S14",
+      "locator": "Columns table"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "CallerIpAddress",
+      "source": "S15",
+      "locator": "Columns table (named in text only)"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ApimSubscriptionId",
+      "source": "S15",
+      "locator": "Columns table (named in text only)"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "BackendResponseBody",
+      "source": "S15",
+      "locator": "Columns table (named in text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.CreationTime",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Id",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Operation",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.OrganizationId",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.RecordType",
+      "source": "S9",
+      "locator": "Common schema; value 2 = ExchangeItem"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ResultStatus",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserType",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Workload",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.UserId",
+      "source": "S9",
+      "locator": "Common schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.MailboxOwnerUPN",
+      "source": "S9",
+      "locator": "Exchange Mailbox schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.LogonType",
+      "source": "S9",
+      "locator": "Exchange Mailbox schema; Enum LogonType 0 = Owner"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ExternalAccess",
+      "source": "S9",
+      "locator": "Exchange Mailbox schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientIPAddress",
+      "source": "S9",
+      "locator": "Exchange Mailbox schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.ClientInfoString",
+      "source": "S9",
+      "locator": "Exchange Mailbox schema"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.AppAccessContext.ClientAppId",
+      "source": "S9",
+      "locator": "Complex Type AppAccessContext"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.AppAccessContext.AADSessionId",
+      "source": "S9",
+      "locator": "Complex Type AppAccessContext"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.AppAccessContext.ClientAppName",
+      "source": "S9",
+      "locator": "Complex Type AppAccessContext (named in the flag table only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Item.Subject",
+      "source": "S9",
+      "locator": "ExchangeItem complex type"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Item.Attachments",
+      "source": "S9",
+      "locator": "ExchangeItem complex type"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Item.InternetMessageId",
+      "source": "S9",
+      "locator": "ExchangeItem complex type"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "data.office365.Item.SizeInBytes",
+      "source": "S9",
+      "locator": "ExchangeItem complex type"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "SourceFileName",
+      "source": "S9",
+      "locator": "SharePoint file operations (named in text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "ObjectId",
+      "source": "S9",
+      "locator": "Common schema (named in text only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.AccessedResources.XPIADetected",
+      "source": "S8",
+      "locator": "AccessedResources row (named in lesson only)"
+    },
+    {
+      "vendor": "microsoft-365",
+      "field": "CopilotEventData.Messages.JailbreakDetected",
+      "source": "S8",
+      "locator": "Messages row (named in lesson only)"
+    },
+    {
+      "vendor": "aws-bedrock-invocation-log",
+      "field": "identity.arn",
+      "source": "S21",
+      "locator": "Log entry format (named in lesson only)"
+    },
+    {
+      "vendor": "aws-bedrock-invocation-log",
+      "field": "input.inputBodyJson",
+      "source": "S21",
+      "locator": "Log entry format (named in lesson only)"
+    },
+    {
+      "vendor": "aws-bedrock-invocation-log",
+      "field": "output.outputBodyJson",
+      "source": "S21",
+      "locator": "Log entry format (named in lesson only)"
+    },
+    {
+      "vendor": "aws-bedrock-invocation-log",
+      "field": "requestId",
+      "source": "S21",
+      "locator": "Log entry format (named in lesson only)"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "gen_ai.operation.name",
+      "source": "S23",
+      "locator": "Attributes tables (named in lesson only)"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "gen_ai.tool.call.arguments",
+      "source": "S23",
+      "locator": "Content capture configuration (named in lesson only)"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "gen_ai.tool.call.result",
+      "source": "S23",
+      "locator": "Content capture configuration (named in lesson only)"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "gen_ai.input.messages",
+      "source": "S23",
+      "locator": "Content capture configuration (named in lesson only)"
+    },
+    {
+      "vendor": "opentelemetry-genai",
+      "field": "gen_ai.output.messages",
+      "source": "S23",
+      "locator": "Content capture configuration (named in lesson only)"
+    }
+  ],
+  "quiz_map": [
+    {
+      "q": "lesson:q1",
+      "taught_in": "lesson:s1",
+      "support": "\"Unanswerable\" is a real result: if prompt logging was off, question 2 may have no evidence at all, and the report has to say so."
+    },
+    {
+      "q": "lesson:q2",
+      "taught_in": "lesson:s2",
+      "support": "Microsoft documents `AppAccessContext.ClientAppId` as the ID of the Entra app that performed the access on behalf of the user, and `AADSessionId` as the Entra session ID of the sign-in performed by the app on behalf of the user."
+    },
+    {
+      "q": "lesson:q3",
+      "taught_in": "lesson:s3",
+      "support": "Larger messages are split into 32 KB chunks, and `SequenceNumber` gives the order for reassembly."
+    },
+    {
+      "q": "lesson:q4",
+      "taught_in": "lesson:s4",
+      "support": "It therefore sits inside `RequestMessages` or `input.inputBodyJson` of the following call."
+    },
+    {
+      "q": "lesson:q5",
+      "taught_in": "lesson:s5",
+      "support": "A call with no matching record did not take effect, or took effect somewhere you are not logging."
+    },
+    {
+      "q": "lesson:q6",
+      "taught_in": "lesson:s6",
+      "support": "`TimeGenerated` in the gateway LLM log is the date and time when request processing started."
+    },
+    {
+      "q": "lesson:q7",
+      "taught_in": "lesson:s7",
+      "support": "Microsoft's documentation is direct about the limit: a result of no document attack does not establish that the document is trustworthy."
+    },
+    {
+      "q": "lesson:q8",
+      "taught_in": "lesson:s8",
+      "support": "Link 1 of the proof fails: no instruction was present in anything the model received, and the complete input is on record."
+    },
+    {
+      "q": "room:aiinv-q1",
+      "taught_in": "room:aiinv-r1",
+      "support": "ApiManagementGatewayLlmLog holds the content: RequestMessages is what was sent to the model and answers questions 2 and 3, and ResponseMessages is what the model returned and answers questions 4 and 5."
+    },
+    {
+      "q": "room:aiinv-m1",
+      "taught_in": "room:aiinv-r1",
+      "support": "A SharePoint FileAccessed record names the file in ObjectId."
+    },
+    {
+      "q": "room:aiinv-la1#1",
+      "taught_in": "room:aiinv-r1",
+      "support": "A clean sign-in removes one explanation, account takeover."
+    },
+    {
+      "q": "room:aiinv-la1#2",
+      "taught_in": "room:aiinv-r1",
+      "support": "Compare the sessionId on the sign-in with AppAccessContext.AADSessionId on the audit record: equal values mean the action belongs to that sign-in."
+    },
+    {
+      "q": "room:aiinv-f1",
+      "taught_in": "room:aiinv-r1",
+      "support": "Compare the sessionId on the sign-in with AppAccessContext.AADSessionId on the audit record: equal values mean the action belongs to that sign-in."
+    },
+    {
+      "q": "room:aiinv-la2#1",
+      "taught_in": "room:aiinv-r2",
+      "support": "So the RequestMessages of the second call is the one place where you can read exactly what the model was shown."
+    },
+    {
+      "q": "room:aiinv-la2#2",
+      "taught_in": "room:aiinv-r2",
+      "support": "Injection is proven as the cause only when four links hold, each backed by its own record:"
+    },
+    {
+      "q": "room:aiinv-la2#3",
+      "taught_in": "room:aiinv-r2",
+      "support": "MITRE ATLAS, a knowledge base of attacks on AI systems, lists it as AML.T0051.001, Indirect, under LLM Prompt Injection."
+    },
+    {
+      "q": "room:aiinv-q2",
+      "taught_in": "room:aiinv-r2",
+      "support": "The vendor's documentation says that a result of no document attack does not establish that the document is trustworthy."
+    },
+    {
+      "q": "room:aiinv-o1",
+      "taught_in": "room:aiinv-r3",
+      "support": "The first model call started at 09:12:40 with her prompt."
+    },
+    {
+      "q": "room:aiinv-ac1",
+      "taught_in": "room:aiinv-r3",
+      "support": "An alert on that send caught real, authorised activity, which is a benign true positive, not a false positive."
+    },
+    {
+      "q": "room:aiinv-ac2",
+      "taught_in": "room:aiinv-r3",
+      "support": "One poisoned file can steer many sessions."
+    },
+    {
+      "q": "room:aiinv-q3",
+      "taught_in": "room:aiinv-r3",
+      "support": "Confirmed: every link is supported by a record you preserved."
+    }
+  ],
+  "mitre_ids": [
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Initial Access",
+        "Persistence",
+        "Privilege Escalation",
+        "Stealth"
+      ],
+      "source": "S5"
+    },
+    {
+      "id": "AML.T0012",
+      "name": "Valid Accounts",
+      "tactics": [
+        "Initial Access",
+        "Privilege Escalation",
+        "Lateral Movement"
+      ],
+      "source": "S4"
+    },
+    {
+      "id": "AML.T0051",
+      "name": "LLM Prompt Injection",
+      "tactics": [
+        "Execution"
+      ],
+      "source": "S4"
+    },
+    {
+      "id": "AML.T0051.001",
+      "name": "Indirect",
+      "tactics": [
+        "Execution"
+      ],
+      "source": "S4"
+    },
+    {
+      "id": "AML.T0053",
+      "name": "AI Agent Tool Invocation",
+      "tactics": [
+        "Execution",
+        "Privilege Escalation",
+        "Lateral Movement"
+      ],
+      "source": "S4"
+    },
+    {
+      "id": "AML.T0086",
+      "name": "Exfiltration via AI Agent Tool Invocation",
+      "tactics": [
+        "Exfiltration"
+      ],
+      "source": "S4"
+    }
+  ],
+  "new_vendor": null,
+  "registry_additions": [
+    {
+      "vendor": "azure-api-management",
+      "field": "DeploymentName",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns: 'Deployment name used by client.'"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ModelName",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns: 'Model name used by the request.'"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "SequenceNumber",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns: 'The index of this entry in the message exchange.'"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "PromptTokens",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "CompletionTokens",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "TotalTokens",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "RequestMessages",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns: 'Contents of the request messages.'"
+    },
+    {
+      "vendor": "azure-api-management",
+      "field": "ResponseMessages",
+      "source": "S14",
+      "locator": "ApiManagementGatewayLlmLog columns: 'Contents of the response messages.'"
+    }
+  ],
+  "unverified": [
+    {
+      "item": "Raw key azure.signinlogs.properties.sessionId (camelCase)",
+      "why": "SessionId is a documented SigninLogs column (S17), but the Graph v1.0 signIn page (S18) does not list sessionId. The camelCase key follows the repo's existing convention for Entra sign-in raw blocks.",
+      "handled": "Kept, with the SigninLogs column as the cited source; room text calls it sessionId"
+    },
+    {
+      "item": "Inner JSON layout of RequestMessages and ResponseMessages",
+      "why": "The table reference types both columns as dynamic and describes them only as contents of the request and response messages. The exact inner shape was not documented on the pages fetched.",
+      "handled": "Shown as a chat-style list of role and content entries with tool calls; the lesson and room make no claim about the exact inner keys"
+    },
+    {
+      "item": "Converse message body shape inside input.inputBodyJson (lesson section 8 code example)",
+      "why": "The invocation logging page shows inputBodyJson as an empty object. The Converse request format page was not fetched in this run.",
+      "handled": "Illustrative only; text refers to 'the user turn' and 'a tool result' and names no inner key"
+    },
+    {
+      "item": "Value formats of ClientInfoString and Item.Attachments",
+      "why": "The schema documents the fields and their meaning ('a list of the names and file size of all items that are attached') but shows no sample value.",
+      "handled": "Plausible values used; no question depends on the format"
+    },
+    {
+      "item": "Joining SigninLogs UniqueTokenIdentifier to AppAccessContext.UniqueTokenId",
+      "why": "Both are documented as per-token identifiers, but no fetched page states that the two values are equal.",
+      "handled": "Softened to 'both per-token identifiers' in the join table; no quiz or task depends on it"
+    },
+    {
+      "item": "Recipients are absent from the Exchange Send audit record",
+      "why": "Inferred from the documented ExchangeItem property list, which has no recipient property. A statement that recipients are never logged was not found.",
+      "handled": "Worded as 'the documented item properties do not include the recipient list'"
+    },
+    {
+      "item": "Mail delivery records (message trace) joined on InternetMessageId",
+      "why": "No message trace documentation was fetched in this run.",
+      "handled": "Mentioned generically as 'the mail system's delivery records'; no field names given"
+    },
+    {
+      "item": "Claude Enterprise content availability",
+      "why": "The track plan says Claude Enterprise activity records carry no prompt or response text. The fetched Anthropic help page says the Compliance API returns activity feed events, chat data and file content. The detailed API reference was not fetched.",
+      "handled": "Lesson states both: activity feed events as the metadata record, and that the same API can also return chat data and file content. Orchestrator may want to align sibling topics"
+    },
+    {
+      "item": "ATT&CK T1078 tactic list",
+      "why": "attack.mitre.org currently lists the tactics as Stealth, Persistence, Privilege Escalation, Initial Access (Stealth is the current name shown on the page). The repo's attack.ts may still use an older tactic name.",
+      "handled": "Content cites only the ID and name; tactic names are in the ledger only"
+    },
+    {
+      "item": "NIST AI 600-1",
+      "why": "Fetched and read for background; no specific claim in the lesson or room is attributed to it.",
+      "handled": "Listed as a reference for provenance only"
+    }
+  ]
+}
