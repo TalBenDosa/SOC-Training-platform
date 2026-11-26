@@ -38,7 +38,7 @@ export function TrackDetail({ trackId }: { trackId: string }) {
 
   return (
     <div>
-      <Topbar title="Recommended Tracks" subtitle={`Level ${track.rank} · ${track.title}`} />
+      <Topbar title="Recommended Tracks" subtitle={track.specialty ? `Specialist track · ${track.title}` : `Level ${track.rank} · ${track.title}`} />
 
       <div className="container mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
         <Link href="/tracks" className="inline-flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-cyber-300">
@@ -48,7 +48,7 @@ export function TrackDetail({ trackId }: { trackId: string }) {
         {/* ── Track header ── */}
         <section className="grid grid-cols-1 gap-6 rounded-xl border border-border-strong bg-bg-panel p-5 sm:p-6 lg:grid-cols-[1fr_300px]">
           <div className="min-w-0 space-y-3">
-            <LevelChip level={track.level} rank={track.rank} />
+            <LevelChip level={track.level} rank={track.rank} specialty={track.specialty} />
             <h1 className="text-2xl font-bold text-white text-balance sm:text-3xl">{track.title}</h1>
             <p className="text-[13px] font-medium text-cyber-200">Prepares you for: {track.role}</p>
             <p className="max-w-3xl text-[14px] leading-relaxed text-slate-300">{track.summary}</p>

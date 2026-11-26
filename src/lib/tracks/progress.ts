@@ -115,7 +115,8 @@ export function buildTrackView(track: RecommendedTrack, rec: LearnerRecords, has
  * finished steps count.
  */
 export function recommendedTrack(views: TrackView[]): TrackView | null {
-  const open = [...views].sort((a, b) => a.track.rank - b.track.rank).filter(v => !v.complete);
+  // Specialist tracks are a choice, never the default: only the ladder is recommended.
+  const open = [...views].filter(v => !v.track.specialty).sort((a, b) => a.track.rank - b.track.rank).filter(v => !v.complete);
   if (!open.length) return null;
   return open.reduce((best, v) => (v.done > best.done ? v : best), open[0]);
 }

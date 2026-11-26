@@ -19,10 +19,30 @@ function placements() {
 }
 
 describe("recommended tracks: content", () => {
-  it("one track per level, in ladder order", () => {
-    expect(RECOMMENDED_TRACKS.map(t => t.level)).toEqual(["beginner", "intermediate", "advanced"]);
-    expect(RECOMMENDED_TRACKS.map(t => t.rank)).toEqual([1, 2, 3]);
+  it("one track per level, in ladder order, then the specialist tracks", () => {
+    const ladder = RECOMMENDED_TRACKS.filter(t => !t.specialty);
+    expect(ladder.map(t => t.level)).toEqual(["beginner", "intermediate", "advanced"]);
+    expect(ladder.map(t => t.rank)).toEqual([1, 2, 3]);
+    // Specialist tracks come after the ladder, so their rooms can rely on ladder rooms.
+    const firstSpecialist = RECOMMENDED_TRACKS.findIndex(t => t.specialty);
+    if (firstSpecialist >= 0) expect(RECOMMENDED_TRACKS.slice(firstSpecialist).every(t => t.specialty)).toBe(true);
+    expect(RECOMMENDED_TRACKS.map(t => t.rank)).toEqual(RECOMMENDED_TRACKS.map((_, i) => i + 1));
     expect(new Set(RECOMMENDED_TRACKS.map(t => t.id)).size).toBe(RECOMMENDED_TRACKS.length);
+  });
+
+  it("the AI security track holds every AI lesson, room and scenario", () => {
+    const ai = RECOMMENDED_TRACKS.find(t => t.id === "ai-security");
+    expect(ai?.specialty).toBeTruthy();
+    const inAi = new Set(ai!.stages.flatMap(s => [...s.steps, ...(s.deeper ?? [])]).map(stepKey));
+    // AI rooms are the AI-attacks series and the AI security track rooms; AI lessons carry an AI topic.
+    const aiRoom = /^(ai-|shadow-ai-|enterprise-ai-|llm-|prompt-injection-|anomalous-function-)/;
+    const expected = [
+      ...ROOMS_META.filter(r => aiRoom.test(r.id)).map(r => `room:${r.id}`),
+      ...LIBRARY_INDEX.filter(l => /^AI /.test(l.topic)).map(l => `read:${l.id}`),
+      ...SCENARIOS_META.filter(s => /^ai-/.test(s.slug)).map(s => `scenario:${s.slug}`),
+    ];
+    expect(expected.length).toBeGreaterThan(30);
+    expect(expected.filter(k => !inAi.has(k))).toEqual([]);
   });
 
   it("every step points at real content", () => {

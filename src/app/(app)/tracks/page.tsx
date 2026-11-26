@@ -40,6 +40,8 @@ export default function TracksPage() {
     [records, features],
   );
   const rec = ready ? recommendedTrack(views) : null;
+  const ladder = views.filter(v => !v.track.specialty);
+  const specialist = views.filter(v => v.track.specialty);
 
   return (
     <div>
@@ -82,50 +84,24 @@ export default function TracksPage() {
         <section aria-labelledby="ladder-h" className="space-y-3">
           <h2 id="ladder-h" className="text-sm font-bold uppercase tracking-widest text-slate-300">The three tracks</h2>
           <ol className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            {views.map(v => {
-              const s = trackStats(v);
-              const isRec = rec?.track.id === v.track.id;
-              return (
-                <li key={v.track.id} className="min-w-0">
-                  <Link
-                    href={`/tracks/${v.track.id}`}
-                    className={cn(
-                      "flex h-full flex-col gap-4 rounded-xl border bg-bg-panel p-5 transition-colors hover:border-cyber-500/50",
-                      isRec ? "border-cyber-500/40" : "border-border-strong",
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <LevelChip level={v.track.level} rank={v.track.rank} />
-                      {v.complete && <span className="text-[11px] font-semibold text-neon-green">Completed</span>}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white">{v.track.title}</h3>
-                      <p className="mt-1 text-[13px] font-medium text-cyber-200">Prepares you for: {v.track.role}</p>
-                    </div>
-                    <p className="text-[13px] leading-relaxed text-slate-300">{v.track.summary}</p>
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] text-slate-400">
-                      <Stat icon={Layers} label="Stages" value={s.stages} />
-                      <Stat icon={Clock} label="Core time" value={s.hours} />
-                      <Stat icon={Presentation} label="Slide decks" value={s.decks} />
-                      <Stat icon={KIND_ICON.room} label="Rooms" value={s.rooms} />
-                      <Stat icon={KIND_ICON.scenario} label="Investigations" value={s.investigations} />
-                    </dl>
-                    <p className="text-[12px] leading-relaxed text-slate-400">
-                      <span className="font-semibold text-slate-300">Start here if: </span>{v.track.startHere}
-                    </p>
-                    <div className="mt-auto space-y-1.5">
-                      <div className="flex items-baseline justify-between text-[12px]">
-                        <span className="text-slate-400">{ready ? `${v.done} of ${v.total} core steps` : "Loading progress"}</span>
-                        <span className="font-semibold tabular-nums text-slate-200">{ready ? `${v.pct}%` : ""}</span>
-                      </div>
-                      <ProgressBar pct={ready ? v.pct : 0} label={`${v.track.title} progress`} />
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
+            {ladder.map(v => <TrackCard key={v.track.id} v={v} rec={rec} ready={ready} />)}
           </ol>
         </section>
+
+        {/* Specialist tracks: one subject end to end, outside the ladder. */}
+        {specialist.length > 0 && (
+          <section aria-labelledby="specialist-h" className="space-y-3">
+            <div className="max-w-3xl space-y-1">
+              <h2 id="specialist-h" className="text-sm font-bold uppercase tracking-widest text-slate-300">Specialist tracks</h2>
+              <p className="text-[13px] leading-relaxed text-slate-400">
+                One subject from first principles to incident response, gathered in one route. Take it alongside or after the ladder.
+              </p>
+            </div>
+            <ol className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+              {specialist.map(v => <TrackCard key={v.track.id} v={v} rec={rec} ready={ready} />)}
+            </ol>
+          </section>
+        )}
 
         <section aria-labelledby="method-h" className="space-y-3">
           <h2 id="method-h" className="text-sm font-bold uppercase tracking-widest text-slate-300">How every stage works</h2>
@@ -148,6 +124,49 @@ export default function TracksPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function TrackCard({ v, rec, ready }: { v: TrackView; rec: TrackView | null; ready: boolean }) {
+  const s = trackStats(v);
+  const isRec = rec?.track.id === v.track.id;
+  return (
+    <li key={v.track.id} className="min-w-0">
+      <Link
+        href={`/tracks/${v.track.id}`}
+        className={cn(
+          "flex h-full flex-col gap-4 rounded-xl border bg-bg-panel p-5 transition-colors hover:border-cyber-500/50",
+          isRec ? "border-cyber-500/40" : "border-border-strong",
+        )}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <LevelChip level={v.track.level} rank={v.track.rank} specialty={v.track.specialty} />
+          {v.complete && <span className="text-[11px] font-semibold text-neon-green">Completed</span>}
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-white">{v.track.title}</h3>
+          <p className="mt-1 text-[13px] font-medium text-cyber-200">Prepares you for: {v.track.role}</p>
+        </div>
+        <p className="text-[13px] leading-relaxed text-slate-300">{v.track.summary}</p>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] text-slate-400">
+          <Stat icon={Layers} label="Stages" value={s.stages} />
+          <Stat icon={Clock} label="Core time" value={s.hours} />
+          <Stat icon={Presentation} label="Slide decks" value={s.decks} />
+          <Stat icon={KIND_ICON.room} label="Rooms" value={s.rooms} />
+          <Stat icon={KIND_ICON.scenario} label="Investigations" value={s.investigations} />
+        </dl>
+        <p className="text-[12px] leading-relaxed text-slate-400">
+          <span className="font-semibold text-slate-300">Start here if: </span>{v.track.startHere}
+        </p>
+        <div className="mt-auto space-y-1.5">
+          <div className="flex items-baseline justify-between text-[12px]">
+            <span className="text-slate-400">{ready ? `${v.done} of ${v.total} core steps` : "Loading progress"}</span>
+            <span className="font-semibold tabular-nums text-slate-200">{ready ? `${v.pct}%` : ""}</span>
+          </div>
+          <ProgressBar pct={ready ? v.pct : 0} label={`${v.track.title} progress`} />
+        </div>
+      </Link>
+    </li>
   );
 }
 

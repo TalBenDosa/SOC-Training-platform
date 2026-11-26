@@ -16,10 +16,10 @@ const LEVEL_CLS: Record<TrackLevel, string> = {
   advanced: "border-orange-500/40 bg-orange-500/15 text-orange-300",
 };
 
-export function LevelChip({ level, rank }: { level: TrackLevel; rank: number }) {
+export function LevelChip({ level, rank, specialty }: { level: TrackLevel; rank: number; specialty?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider", LEVEL_CLS[level])}>
-      Level {rank} · {LEVEL_LABEL[level]}
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider", specialty ? "border-violet-500/40 bg-violet-500/15 text-violet-300" : LEVEL_CLS[level])}>
+      {specialty ? `Specialist track · ${specialty}` : `Level ${rank} · ${LEVEL_LABEL[level]}`}
     </span>
   );
 }

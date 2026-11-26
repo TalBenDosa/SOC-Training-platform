@@ -40,8 +40,13 @@ export interface TrackStage {
 export interface RecommendedTrack {
   id: string;
   level: TrackLevel;
-  /** 1, 2, 3: the order of the ladder. */
+  /** 1, 2, 3: the order of the ladder. Specialist tracks continue the numbering and sit after it. */
   rank: number;
+  /**
+   * Set on a specialist track: one subject end to end (for example AI security), outside the
+   * Level 1 to 3 ladder. It is listed apart from the ladder and is never the default recommendation.
+   */
+  specialty?: string;
   title: string;
   /** The job this track prepares for. */
   role: string;
@@ -508,15 +513,11 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
         ],
       },
       {
-        id: "t2-ai-ot",
-        title: "AI attacks and the plant floor",
-        goal: "Recognise prompt injection, agent abuse and AI-made phishing, and know what changes when the alert comes from an OT network.",
-        skills: ["Prompt injection and attacks on LLM apps", "Agents, output handling and jailbreaks", "Deepfakes, AI phishing and shadow AI", "OT and ICS basics for the SOC"],
+        id: "t2-ot",
+        title: "The plant floor: OT and ICS",
+        goal: "Know what changes when an alert comes from an OT network: which devices and protocols are there, what normal looks like and what you must not touch.",
+        skills: ["OT and ICS basics for the SOC", "Industrial protocols in the logs", "Safety first on a plant network"],
         steps: [
-          read("topic-lesson-working-with-llms-and-prompt-engineering"),
-          room("ai-attacks-soc-detection"),
-          room("ai-attacks-soc-llm-risks"),
-          room("ai-attacks-soc-social"),
           read("topic-lesson-ot-ics-security-for-soc-analysts"),
           room("ot-ics-security"),
         ],
@@ -634,9 +635,9 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
       },
       {
         id: "t3-web",
-        title: "Web applications and AI systems",
-        goal: "Reconstruct a web attack from WAF and server logs to the web shell, and detect attacks on AI systems.",
-        skills: ["Injection to web shell", "Reading IIS and WAF logs together", "Edge-device exploitation", "Detecting attacks on LLM applications"],
+        title: "Web applications",
+        goal: "Reconstruct a web attack from WAF and server logs to the web shell, and investigate exploitation of exposed edge devices.",
+        skills: ["Injection to web shell", "Reading IIS and WAF logs together", "Edge-device exploitation"],
         steps: [
           read("attack-lesson-3"),
           room("web-attacks-practice"),
@@ -644,11 +645,6 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
           scenario("web-shell-sqli"),
           scenario("sqli-db-exfil"),
           scenario("edge-vpn-cve-exploit"),
-        ],
-        deeper: [
-          read("topic-lesson-ai-attacks-detection"),
-          read("topic-lesson-ai-attacks-detection-2"),
-          scenario("ai-llmjacking-bedrock"),
         ],
       },
       {
@@ -706,60 +702,6 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
           lesson("detection-engineer--cloudtrail-for-detection"),
           lesson("detection-engineer--tiered-severities"),
           quiz("lp-telemetry-sources"),
-        ],
-      },
-      {
-        id: "t3-ai-visibility",
-        title: "AI monitoring: people, APIs and keys",
-        goal: "Read the audit trails of AI assistants and model APIs, find unsanctioned AI use, and tell normal use from a compromised account or a stolen key.",
-        skills: ["Assistant audit records","Shadow AI discovery","Baselines for AI use","Model API and gateway logs","API key abuse"],
-        steps: [
-          read("topic-lesson-ai-user-activity-monitoring"),
-          room("ai-user-activity-monitoring"),
-          read("topic-lesson-shadow-ai-detection"),
-          room("shadow-ai-detection"),
-          read("topic-lesson-enterprise-ai-anomalous-use"),
-          room("enterprise-ai-anomalous-use"),
-          read("topic-lesson-llm-api-access-monitoring"),
-          room("llm-api-access-monitoring"),
-          read("topic-lesson-ai-api-key-abuse"),
-          room("ai-api-key-abuse"),
-        ],
-      },
-      {
-        id: "t3-ai-attacks",
-        title: "Detecting attacks on AI applications and agents",
-        goal: "Detect prompt injection, follow an agent run and its tool calls, and scope data that was reached or leaked through an AI system.",
-        skills: ["Prompt injection telemetry","Agent traces","Tool-call anomalies","Oversharing through assistants","Scoping an AI data leak"],
-        steps: [
-          read("topic-lesson-prompt-injection-detection"),
-          room("prompt-injection-detection"),
-          read("topic-lesson-ai-agent-activity-monitoring"),
-          room("ai-agent-activity-monitoring"),
-          read("topic-lesson-anomalous-function-calling"),
-          room("anomalous-function-calling"),
-          read("topic-lesson-ai-unauthorized-data-access"),
-          room("ai-unauthorized-data-access"),
-          read("topic-lesson-ai-data-leakage-analysis"),
-          room("ai-data-leakage-analysis"),
-        ],
-      },
-      {
-        id: "t3-ai-engineering",
-        title: "AI detection engineering, investigation and response",
-        goal: "Turn AI threats into use cases and working rules, join the AI sources in the SIEM, investigate an AI incident from its logs and run the response.",
-        skills: ["AI use-case design with ATLAS","Rules for AI telemetry","Joining AI sources in the SIEM","AI incident timelines","AI incident playbooks"],
-        steps: [
-          read("topic-lesson-ai-threat-use-cases"),
-          room("ai-threat-use-cases"),
-          read("topic-lesson-ai-detection-rules"),
-          room("ai-detection-rules"),
-          read("topic-lesson-ai-siem-source-integration"),
-          room("ai-siem-source-integration"),
-          read("topic-lesson-ai-incident-log-investigation"),
-          room("ai-incident-log-investigation"),
-          read("topic-lesson-ai-incident-response-process"),
-          room("ai-incident-response-process"),
         ],
       },
       {
@@ -823,6 +765,107 @@ export const RECOMMENDED_TRACKS: RecommendedTrack[] = [
           quiz("lp-adversary-emulation"),
           quiz("lp-detection-validation"),
           quiz("lp-reporting-and-roi"),
+        ],
+      },
+    ],
+  },
+
+  // ─── Specialist track: AI security ────────────────────────────────────────
+  // Every AI lesson, room and scenario on the platform, in one route: how LLM systems work and
+  // how they are attacked, then the telemetry, detection engineering, investigation and response.
+  {
+    id: "ai-security",
+    level: "intermediate",
+    rank: 4,
+    specialty: "AI Security",
+    title: "AI Threat Detection & Response",
+    role: "SOC analyst for AI systems and AI threats",
+    summary:
+      "Everything the platform teaches about AI in one route. How LLM applications and agents work and how they are attacked, then the logs they leave, the detections you build on those logs, and how you investigate and respond when an AI system is misused.",
+    startHere: "You can already triage SIEM alerts and read cloud and identity logs (Level 2), and your organisation uses AI assistants, model APIs or agents.",
+    outcomes: [
+      "Explain how an LLM application, a RAG pipeline and an agent work, and how each is attacked",
+      "Read the audit trails of AI assistants, model APIs, gateways and agents field by field",
+      "Find shadow AI, abused API keys, prompt injection, risky tool calls and data leaving through AI",
+      "Turn AI threats into use cases and working detection rules, and join the AI sources in the SIEM",
+      "Investigate an AI incident from its logs and run the response from a written playbook",
+    ],
+    stages: [
+      {
+        id: "ai-foundations",
+        title: "How AI systems work and how they are attacked",
+        goal: "Explain how LLMs, RAG and agents work and recognise the main attacks on them: prompt injection, agent abuse, jailbreaks, deepfakes and AI-made phishing.",
+        skills: ["LLMs, prompts, grounding and tools","Prompt injection and attacks on LLM apps","Agents, output handling and jailbreaks","Deepfakes, AI phishing and shadow AI"],
+        steps: [
+          read("topic-lesson-working-with-llms-and-prompt-engineering"),
+          read("topic-lesson-ai-attacks-detection"),
+          room("ai-attacks-soc-detection"),
+          read("topic-lesson-ai-attacks-detection-2"),
+          room("ai-attacks-soc-llm-risks"),
+          room("ai-attacks-soc-social"),
+        ],
+      },
+      {
+        id: "ai-visibility",
+        title: "Who uses AI and how: assistants, APIs and keys",
+        goal: "Read the audit trails of AI assistants and model APIs, find unsanctioned AI use, and tell normal use from a compromised account or a stolen key.",
+        skills: ["Assistant audit records","Shadow AI discovery","Baselines for AI use","Model API and gateway logs","API key abuse"],
+        steps: [
+          read("topic-lesson-ai-user-activity-monitoring"),
+          room("ai-user-activity-monitoring"),
+          read("topic-lesson-shadow-ai-detection"),
+          room("shadow-ai-detection"),
+          read("topic-lesson-enterprise-ai-anomalous-use"),
+          room("enterprise-ai-anomalous-use"),
+          read("topic-lesson-llm-api-access-monitoring"),
+          room("llm-api-access-monitoring"),
+          read("topic-lesson-ai-api-key-abuse"),
+          room("ai-api-key-abuse"),
+        ],
+      },
+      {
+        id: "ai-attacks",
+        title: "Detecting attacks on AI applications and agents",
+        goal: "Detect prompt injection, follow an agent run and its tool calls, and scope data that was reached or leaked through an AI system.",
+        skills: ["Prompt injection telemetry","Agent traces","Tool-call anomalies","Oversharing through assistants","Scoping an AI data leak"],
+        steps: [
+          read("topic-lesson-prompt-injection-detection"),
+          room("prompt-injection-detection"),
+          read("topic-lesson-ai-agent-activity-monitoring"),
+          room("ai-agent-activity-monitoring"),
+          read("topic-lesson-anomalous-function-calling"),
+          room("anomalous-function-calling"),
+          read("topic-lesson-ai-unauthorized-data-access"),
+          room("ai-unauthorized-data-access"),
+          read("topic-lesson-ai-data-leakage-analysis"),
+          room("ai-data-leakage-analysis"),
+        ],
+      },
+      {
+        id: "ai-engineering",
+        title: "Detection engineering for AI",
+        goal: "Turn AI threats into use cases and working rules, and bring the AI sources into the SIEM so they join on user, session and key.",
+        skills: ["AI use-case design with ATLAS","Rules for AI telemetry","Joining AI sources in the SIEM"],
+        steps: [
+          read("topic-lesson-ai-threat-use-cases"),
+          room("ai-threat-use-cases"),
+          read("topic-lesson-ai-detection-rules"),
+          room("ai-detection-rules"),
+          read("topic-lesson-ai-siem-source-integration"),
+          room("ai-siem-source-integration"),
+        ],
+      },
+      {
+        id: "ai-response",
+        title: "Investigating and responding to AI incidents",
+        goal: "Investigate an AI incident from its logs, build its timeline, run the response from a written playbook, then work a full AI case on your own.",
+        skills: ["AI incident timelines","AI incident playbooks","Containment for AI systems","A full AI investigation"],
+        steps: [
+          read("topic-lesson-ai-incident-log-investigation"),
+          room("ai-incident-log-investigation"),
+          read("topic-lesson-ai-incident-response-process"),
+          room("ai-incident-response-process"),
+          scenario("ai-llmjacking-bedrock"),
         ],
       },
     ],
