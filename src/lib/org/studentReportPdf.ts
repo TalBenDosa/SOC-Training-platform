@@ -4,24 +4,38 @@
  * (GET /api/org/students/[id] and its /plan), so it holds nothing the admin cannot already
  * see, and no answer key: mistakes list the question and the learner's answer only.
  *
- * jsPDF's built-in font covers Latin text; a name in Hebrew (or any other script) is drawn
- * through src/lib/certificate/pdfText.ts, which renders it on a canvas.
+ * It looks like the platform: the same dark surfaces, panels with a hairline border, the cyan
+ * accent, uppercase tracked labels and the green / amber / red status colours (globals.css and
+ * tailwind.config.ts are the source of every colour below).
+ *
+ * jsPDF's built-in font covers Latin text; any text in Hebrew (a name, an organisation, a
+ * sentence that starts with a name) is drawn through src/lib/certificate/pdfText.ts, which
+ * renders it on a canvas, so nothing prints as "????".
  */
 import type { jsPDF } from "jspdf";
 import type { StudentDetail } from "@/app/api/org/students/[id]/route";
 import type { PersonalPlanResponse } from "@/app/api/org/students/[id]/plan/route";
 import { pdfText, needsCanvas } from "@/lib/certificate/pdfText";
-import { metricsOf, reportNarrative, type Narrative, type ReportMetrics } from "./reportMetrics";
+import { lastSeenAt, metricsOf, reportNarrative, type Narrative, type ReportMetrics } from "./reportMetrics";
 import type { ReportSnapshotResponse } from "@/app/api/org/students/[id]/report-snapshot/route";
 
-const PAGE_W = 210, PAGE_H = 297, M = 14, BOTTOM = PAGE_H - 16;
-const INK: [number, number, number] = [20, 28, 40];
-const MUTED: [number, number, number] = [96, 108, 124];
-const ACCENT: [number, number, number] = [8, 145, 178];
-const LINE: [number, number, number] = [214, 220, 228];
-const GOOD: [number, number, number] = [22, 128, 61];
-const WARN: [number, number, number] = [180, 110, 0];
-const BAD: [number, number, number] = [185, 28, 28];
+type RGB = [number, number, number];
+const PAGE_W = 210, PAGE_H = 297, M = 14, W = PAGE_W - 2 * M, BOTTOM = PAGE_H - 16;
+
+// ── The platform's palette (globals.css :root, tailwind.config.ts) ──
+const BG: RGB = [7, 11, 20];            // --bg
+const PANEL: RGB = [11, 18, 32];        // --bg-elevated
+const BORDER: RGB = [30, 41, 59];       // --border
+const WHITE: RGB = [255, 255, 255];
+const INK: RGB = [226, 232, 240];       // slate-200, body text
+const MUTED: RGB = [148, 163, 184];     // slate-400
+const DIM: RGB = [129, 144, 165];       // slate-500 (lifted for contrast)
+const ACCENT: RGB = [34, 211, 238];     // cyber-400
+const ACCENT_SOFT: RGB = [103, 232, 249]; // cyber-300
+const GOOD: RGB = [0, 255, 157];        // neon green
+const WARN: RGB = [255, 176, 32];       // neon amber
+const BAD: RGB = [255, 107, 53];        // severity high
+
 const MIN_ITEMS = 5;
 const VERDICT: Record<string, string> = { true_positive: "True positive", benign_true_positive: "Benign true positive", false_positive: "False positive", escalate: "Escalate", benign: "Benign", malicious: "Malicious", informational: "Informational" };
 
@@ -35,122 +49,261 @@ export interface ReportInput {
   previous?: { created_at: string; metrics: ReportMetrics } | null;
 }
 
+const DAY = 86_400_000;
 const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "n/a");
+const fmtShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 const fmtMs = (ms: number | null) => (ms === null ? "n/a" : ms < 60_000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`);
 const pct = (n: number | null | undefined) => (n === null || n === undefined ? "n/a" : `${Math.round(n)}%`);
-const ascii = (s: string) => (needsCanvas(s) ? s.replace(/[^\x20-\x7E\xA0-\xFF]/g, "?") : s);
 const nameOf = (s: StudentDetail) => s.display_name || s.handle || s.user_id.slice(0, 8);
+const agoLabel = (iso: string, now = Date.now()) => { const d = Math.floor((now - Date.parse(iso)) / DAY); return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; };
+/** A colour at `a` opacity over the page background (the platform's `bg-x/10`, `border-x/40`). */
+const tint = (c: RGB, a: number, over: RGB = BG): RGB => [0, 1, 2].map(i => Math.round(c[i] * a + over[i] * (1 - a))) as RGB;
+/** Same length, Latin only: lets jsPDF measure a line that will be drawn on a canvas. */
+const measurable = (s: string) => (needsCanvas(s) ? s.replace(/[^\x20-\x7E\xA0-\xFF]/g, "x") : s);
+const statusRgb = (st: Narrative["status"]): RGB => (st === "on track" ? GOOD : st === "needs attention" ? WARN : st === "inactive" ? BAD : MUTED);
 
-function levelOf(acc: number | null, items: number): { label: string; rgb: [number, number, number] } {
-  if (acc === null || items < MIN_ITEMS) return { label: "Not enough answers", rgb: MUTED };
+function levelOf(acc: number | null, items: number): { label: string; rgb: RGB } {
+  if (acc === null || items < MIN_ITEMS) return { label: "Not enough answers", rgb: DIM };
   if (acc >= 80) return { label: "Strong", rgb: GOOD };
   if (acc >= 60) return { label: "Developing", rgb: WARN };
   return { label: "Weak", rgb: BAD };
 }
 
+interface TextStyle { size: number; rgb: RGB; bold?: boolean; align?: "left" | "right" | "center" }
+interface CardItem { label: string; value: string; hint?: string; tone?: RGB }
+
 class Writer {
   y = M;
-  constructor(public pdf: jsPDF, private brand: string, private student: string) {}
+  constructor(public pdf: jsPDF, private brand: string, private subject: string) {}
+
+  /** The dark page: background, a faint grid at the top like the app shell, the accent line. */
+  paint(grid = false) {
+    const p = this.pdf;
+    p.setFillColor(...BG); p.rect(0, 0, PAGE_W, PAGE_H, "F");
+    if (grid) this.grid();
+    p.setFillColor(...ACCENT); p.rect(0, 0, PAGE_W, 1.4, "F");
+    p.setLineWidth(0.2);
+  }
+
+  private grid() {
+    const p = this.pdf;
+    // The grid fades into the page, band by band.
+    const bands = 5, step = 8.5;
+    p.setLineWidth(0.1);
+    for (let r = 0; r < bands; r++) {
+      p.setDrawColor(...tint(BORDER, 0.5 * (1 - r / bands)));
+      for (let x = 0; x <= PAGE_W; x += step) p.line(x, r * step, x, (r + 1) * step);
+      p.line(0, (r + 1) * step, PAGE_W, (r + 1) * step);
+    }
+  }
 
   ensure(h: number) { if (this.y + h > BOTTOM) this.page(); }
-  page() { this.pdf.addPage(); this.y = M + 6; this.runningHeader(); }
+  page() { this.pdf.addPage(); this.paint(); this.y = M + 8; this.runningHeader(); }
 
   runningHeader() {
+    this.text(`${this.brand.toUpperCase()}  ·  PROGRESS REPORT  ·  ${this.subject}`, M, M - 2, { size: 7, rgb: DIM, bold: true });
+    this.pdf.setDrawColor(...BORDER); this.pdf.line(M, M + 1, PAGE_W - M, M + 1);
+  }
+
+  /** Text with its baseline at (x, y). Anything jsPDF's font cannot draw goes through a canvas. */
+  text(s: string, x: number, y: number, st: TextStyle) {
     const p = this.pdf;
-    p.setFont("helvetica", "normal"); p.setFontSize(8); p.setTextColor(...MUTED);
-    p.text(`${this.brand} · Student progress report · ${ascii(this.student)}`, M, M);
-    p.setDrawColor(...LINE); p.line(M, M + 2, PAGE_W - M, M + 2);
+    if (needsCanvas(s)) {
+      // pdfText aligns left or centre; a right-aligned canvas line is placed by its measured width.
+      p.setFont("helvetica", st.bold ? "bold" : "normal"); p.setFontSize(st.size);
+      const left = st.align === "right" ? x - p.getTextWidth(measurable(s)) : x;
+      pdfText(p, s, left, y, { size: st.size, rgb: st.rgb, bold: st.bold, align: st.align === "center" ? "center" : "left" });
+      return;
+    }
+    p.setFont("helvetica", st.bold ? "bold" : "normal"); p.setFontSize(st.size); p.setTextColor(...st.rgb);
+    p.text(s, x, y, st.align && st.align !== "left" ? { align: st.align } : undefined);
+  }
+
+  /** Word wrap that also works for a line with Hebrew in it. */
+  wrap(s: string, width: number, size: number, bold = false): string[] {
+    const p = this.pdf;
+    p.setFont("helvetica", bold ? "bold" : "normal"); p.setFontSize(size);
+    const out: string[] = [];
+    for (const block of String(s ?? "").split("\n")) {
+      let line = "";
+      for (const word of block.split(/\s+/).filter(Boolean)) {
+        const next = line ? `${line} ${word}` : word;
+        if (line && p.getTextWidth(measurable(next)) > width) { out.push(line); line = word; } else line = next;
+      }
+      out.push(line);
+    }
+    return out.length ? out : [""];
+  }
+
+  /** A panel like the app's cards: elevated surface, hairline border. */
+  panel(x: number, y: number, w: number, h: number, fill: RGB = PANEL, border: RGB = BORDER) {
+    const p = this.pdf;
+    p.setFillColor(...fill); p.setDrawColor(...border); p.setLineWidth(0.2);
+    p.roundedRect(x, y, w, h, 1.6, 1.6, "FD");
+  }
+
+  /** Uppercase tracked label, as on the app's metric tiles. */
+  label(s: string, x: number, y: number, rgb: RGB = MUTED, size = 6.2, align: "left" | "right" = "left") {
+    this.tracked(s.toUpperCase(), x, y, { size, rgb, bold: true, align }, 0.25);
+  }
+
+  /** Letter-spaced text; returns its width. jsPDF does not count the spacing when it aligns or
+   *  measures, so the width is worked out here and a right-aligned line is placed by hand. */
+  tracked(s: string, x: number, y: number, st: TextStyle, space: number): number {
+    const p = this.pdf;
+    if (needsCanvas(s)) { this.text(s, x, y, st); p.setFont("helvetica", st.bold ? "bold" : "normal"); p.setFontSize(st.size); return p.getTextWidth(measurable(s)); }
+    p.setFont("helvetica", st.bold ? "bold" : "normal"); p.setFontSize(st.size); p.setTextColor(...st.rgb);
+    const width = p.getTextWidth(s) + Math.max(0, s.length - 1) * space;
+    p.setCharSpace(space);
+    p.text(s, st.align === "right" ? x - width : x, y);
+    p.setCharSpace(0);
+    return width;
   }
 
   heading(text: string) {
-    this.ensure(14);
-    this.y += 4;
-    const p = this.pdf;
-    p.setFont("helvetica", "bold"); p.setFontSize(12); p.setTextColor(...ACCENT);
-    p.text(text, M, this.y);
-    this.y += 2;
-    p.setDrawColor(...ACCENT); p.setLineWidth(0.4); p.line(M, this.y, M + 30, this.y); p.setLineWidth(0.2);
+    this.ensure(16);
     this.y += 5;
+    const p = this.pdf;
+    p.setFillColor(...ACCENT); p.roundedRect(M, this.y - 3.1, 1.1, 4, 0.5, 0.5, "F");
+    this.text(text, M + 3.2, this.y, { size: 11, rgb: WHITE, bold: true });
+    p.setFont("helvetica", "bold"); p.setFontSize(11);
+    const end = M + 3.2 + p.getTextWidth(measurable(text)) + 3;
+    p.setDrawColor(...BORDER); p.line(end, this.y - 1.2, PAGE_W - M, this.y - 1.2);
+    this.y += 6.5;
   }
 
-  para(text: string, size = 9, rgb: [number, number, number] = INK) {
-    const p = this.pdf;
-    p.setFont("helvetica", "normal"); p.setFontSize(size); p.setTextColor(...rgb);
-    const lines = p.splitTextToSize(ascii(text), PAGE_W - 2 * M) as string[];
-    for (const l of lines) { this.ensure(5); p.text(l, M, this.y); this.y += size * 0.45; }
+  para(text: string, size = 9, rgb: RGB = INK, x = M, width = W) {
+    const lh = size * 0.47;
+    for (const l of this.wrap(text, width, size)) { this.ensure(lh + 1); this.text(l, x, this.y, { size, rgb }); this.y += lh; }
     this.y += 1.5;
   }
 
-  /** A simple table: header row, wrapped cells, page breaks that repeat the header. */
-  table(cols: { label: string; w: number; align?: "left" | "right" }[], rows: { cells: string[]; rgb?: ([number, number, number] | null)[] }[], empty = "Nothing recorded yet.") {
+  /** A pill like the app's status badges: tinted fill, coloured border and text. */
+  chip(label: string, rgb: RGB, x: number, y: number): number {
     const p = this.pdf;
-    const x0 = M;
+    p.setFont("helvetica", "bold"); p.setFontSize(6.6);
+    const w = p.getTextWidth(label.toUpperCase()) + Math.max(0, label.length - 1) * 0.2 + 5.6;
+    p.setFillColor(...tint(rgb, 0.12)); p.setDrawColor(...tint(rgb, 0.45)); p.setLineWidth(0.2);
+    p.roundedRect(x, y - 3.4, w, 5, 2.5, 2.5, "FD");
+    this.tracked(label.toUpperCase(), x + 2.8, y, { size: 6.6, rgb, bold: true }, 0.2);
+    return w;
+  }
+
+  /** A titled paragraph in its own panel with an accent edge (the written summary). */
+  note(title: string, text: string, accent: RGB = ACCENT) {
+    const p = this.pdf;
+    const lines = this.wrap(text, W - 11, 8.8);
+    const h = 8.5 + lines.length * 4.1 + 2;
+    this.ensure(h + 2);
+    this.panel(M, this.y, W, h);
+    p.setFillColor(...accent); p.roundedRect(M + 1.4, this.y + 1.6, 0.8, h - 3.2, 0.4, 0.4, "F");
+    this.label(title, M + 5, this.y + 5.2, accent);
+    let ty = this.y + 9.8;
+    for (const l of lines) { this.text(l, M + 5, ty, { size: 8.8, rgb: INK }); ty += 4.1; }
+    this.y += h + 2.2;
+  }
+
+  /** Metric tiles: tracked label, big value, small hint. */
+  cards(items: CardItem[], per = 4) {
+    const gap = 2.4, w = (W - gap * (per - 1)) / per, h = 19;
+    for (let i = 0; i < items.length; i += per) {
+      this.ensure(h + 3);
+      items.slice(i, i + per).forEach((f, j) => {
+        const x = M + j * (w + gap);
+        this.panel(x, this.y, w, h);
+        this.label(f.label, x + 3, this.y + 5);
+        const size = f.value.length > 16 ? 9 : f.value.length > 11 ? 10.5 : 13.5;
+        this.text(f.value, x + 3, this.y + 11.6, { size, rgb: f.tone ?? WHITE, bold: true });
+        if (f.hint) this.text(this.wrap(f.hint, w - 6, 6.6)[0], x + 3, this.y + 16, { size: 6.6, rgb: DIM });
+      });
+      this.y += h + gap;
+    }
+    this.y += 1;
+  }
+
+  /** The last 30 days as bars: lit when the learner was active, height = graded answers. */
+  days(days: NonNullable<NonNullable<StudentDetail["activity"]>["days"]>, caption: string) {
+    const p = this.pdf;
+    const h = 31;
+    this.ensure(h + 3);
+    this.panel(M, this.y, W, h);
+    this.label("Last 30 days", M + 4, this.y + 5.4);
+    this.text(caption, PAGE_W - M - 4, this.y + 5.4, { size: 6.6, rgb: DIM, align: "right" });
+    const x0 = M + 4, base = this.y + h - 7.5, top = this.y + 9, span = W - 8, gap = 0.9;
+    const bw = (span - gap * (days.length - 1)) / days.length;
+    const max = Math.max(1, ...days.map(d => d.answers));
+    days.forEach((d, i) => {
+      const x = x0 + i * (bw + gap);
+      if (!d.active) { p.setFillColor(...BORDER); p.roundedRect(x, base - 0.9, bw, 0.9, 0.3, 0.3, "F"); return; }
+      const bh = Math.max(3, (d.answers / max) * (base - top));
+      p.setFillColor(...(d.answers > 0 ? ACCENT : tint(ACCENT, 0.5, PANEL)));
+      p.roundedRect(x, base - bh, bw, bh, 0.5, 0.5, "F");
+    });
+    this.text(fmtShort(`${days[0].date}T12:00:00Z`), x0, this.y + h - 2.6, { size: 6.2, rgb: DIM });
+    this.text("today", PAGE_W - M - 4, this.y + h - 2.6, { size: 6.2, rgb: DIM, align: "right" });
+    this.y += h + 3;
+  }
+
+  /** One skill area: name, a bar filled to the right-first-try share, the figures, the level. */
+  skill(label: string, items: number, accuracy: number | null) {
+    const p = this.pdf;
+    const l = levelOf(accuracy, items);
+    this.ensure(8);
+    this.text(this.wrap(label, 58, 8.6)[0], M + 1, this.y, { size: 8.6, rgb: INK });
+    const bx = M + 62, bw = 62;
+    p.setFillColor(...BORDER); p.roundedRect(bx, this.y - 2.3, bw, 2.2, 1.1, 1.1, "F");
+    if (accuracy !== null && accuracy > 0) { p.setFillColor(...l.rgb); p.roundedRect(bx, this.y - 2.3, Math.max(2.2, (bw * Math.min(100, accuracy)) / 100), 2.2, 1.1, 1.1, "F"); }
+    this.text(pct(accuracy), bx + bw + 13, this.y, { size: 8.6, rgb: WHITE, bold: true, align: "right" });
+    this.text(`${items} answered`, bx + bw + 16, this.y, { size: 7, rgb: DIM });
+    this.text(l.label, PAGE_W - M - 1, this.y, { size: 7.4, rgb: l.rgb, bold: true, align: "right" });
+    this.y += 4;
+    p.setDrawColor(...tint(BORDER, 0.6)); p.line(M, this.y - 1.4, PAGE_W - M, this.y - 1.4);
+    this.y += 2.6;
+  }
+
+  /** A table like the app's: uppercase muted header between hairlines, divided rows. */
+  table(cols: { label: string; w: number; align?: "left" | "right" }[], rows: { cells: string[]; rgb?: (RGB | null)[] }[], empty = "Nothing recorded yet.") {
+    const p = this.pdf;
     const header = () => {
-      this.ensure(8);
-      p.setFillColor(240, 244, 248); p.rect(x0, this.y - 4, PAGE_W - 2 * M, 6.5, "F");
-      p.setFont("helvetica", "bold"); p.setFontSize(8); p.setTextColor(...MUTED);
-      let x = x0 + 1.5;
-      for (const c of cols) { p.text(c.label, c.align === "right" ? x + c.w - 3 : x, this.y, c.align === "right" ? { align: "right" } : undefined); x += c.w; }
-      this.y += 5;
+      this.ensure(9);
+      p.setDrawColor(...BORDER); p.line(M, this.y - 4.2, PAGE_W - M, this.y - 4.2); p.line(M, this.y + 1.8, PAGE_W - M, this.y + 1.8);
+      let x = M + 1.5;
+      for (const c of cols) {
+        this.label(c.label, c.align === "right" ? x + c.w - 3 : x, this.y, MUTED, 6.2, c.align ?? "left");
+        x += c.w;
+      }
+      this.y += 6.3;
     };
-    if (rows.length === 0) { this.para(empty, 9, MUTED); return; }
+    if (rows.length === 0) { this.para(empty, 8.6, DIM); return; }
     header();
     for (const r of rows) {
-      p.setFont("helvetica", "normal"); p.setFontSize(8.5);
-      const wrapped = r.cells.map((c, i) => p.splitTextToSize(ascii(c || "-"), cols[i].w - 3) as string[]);
-      const h = Math.max(...wrapped.map(w => w.length)) * 3.8 + 1.6;
+      const wrapped = r.cells.map((c, i) => this.wrap(c || "-", cols[i].w - 3, 8.3));
+      const h = Math.max(...wrapped.map(w => w.length)) * 3.8 + 2.2;
       if (this.y + h > BOTTOM) { this.page(); header(); }
-      let x = x0 + 1.5;
+      let x = M + 1.5;
       wrapped.forEach((lines, i) => {
-        p.setTextColor(...(r.rgb?.[i] ?? INK));
-        lines.forEach((l, k) => p.text(l, cols[i].align === "right" ? x + cols[i].w - 3 : x, this.y + k * 3.8, cols[i].align === "right" ? { align: "right" } : undefined));
+        const st: TextStyle = { size: 8.3, rgb: r.rgb?.[i] ?? INK, align: cols[i].align };
+        lines.forEach((l, k) => this.text(l, cols[i].align === "right" ? x + cols[i].w - 3 : x, this.y + k * 3.8, st));
         x += cols[i].w;
       });
       this.y += h;
-      p.setDrawColor(...LINE); p.line(x0, this.y - 3, PAGE_W - M, this.y - 3);
+      p.setDrawColor(...tint(BORDER, 0.6)); p.line(M, this.y - 3.2, PAGE_W - M, this.y - 3.2);
     }
     this.y += 2;
   }
 
-  /** The learner's standing as a coloured chip. */
-  status(status: Narrative["status"]) {
-    const p = this.pdf;
-    const rgb = status === "on track" ? GOOD : status === "needs attention" ? WARN : BAD;
-    this.ensure(9);
-    p.setFont("helvetica", "bold"); p.setFontSize(8);
-    const label = status.toUpperCase();
-    p.setFillColor(...rgb); p.roundedRect(M, this.y - 4, p.getTextWidth(label) + 6, 6, 1.5, 1.5, "F");
-    p.setTextColor(255, 255, 255);
-    p.text(label, M + 3, this.y);
-    this.y += 6;
-  }
-
-  /** A bold label, then wrapped text. */
-  labelled(title: string, text: string) {
-    const p = this.pdf;
-    this.ensure(10);
-    p.setFont("helvetica", "bold"); p.setFontSize(9); p.setTextColor(...INK);
-    p.text(title, M, this.y);
-    this.y += 4.2;
-    this.para(text, 9, INK);
-  }
-
-  /** A row of key figures: big value, small label. */
-  figures(items: { value: string; label: string }[]) {
-    const p = this.pdf;
-    const per = 4, w = (PAGE_W - 2 * M) / per;
-    for (let i = 0; i < items.length; i += per) {
-      this.ensure(16);
-      items.slice(i, i + per).forEach((f, j) => {
-        const x = M + j * w;
-        p.setDrawColor(...LINE); p.roundedRect(x + 0.5, this.y - 4, w - 2, 14, 1.5, 1.5, "S");
-        p.setFont("helvetica", "bold"); p.setFontSize(f.value.length > 12 ? 10 : 13); p.setTextColor(...INK);
-        p.text(f.value, x + 3, this.y + 3);
-        p.setFont("helvetica", "normal"); p.setFontSize(7.5); p.setTextColor(...MUTED);
-        p.text(f.label, x + 3, this.y + 7.5);
-      });
-      this.y += 17;
-    }
+  /** The top of a report: brand line, generated date, big title, sub lines. */
+  masthead(brand: string, orgName: string | null | undefined, title: string, sub: string[]) {
+    this.paint(true);
+    const bw = this.tracked(brand.toUpperCase(), M, 12, { size: 8.5, rgb: ACCENT, bold: true }, 0.35);
+    if (orgName) this.text(`·  ${orgName}`, M + bw + 2.5, 12, { size: 8.5, rgb: MUTED });
+    this.text(`Generated ${new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, PAGE_W - M, 12, { size: 7.4, rgb: DIM, align: "right" });
+    this.label("Progress report", M, 19.5, DIM);
+    this.text(title, M, 28.5, { size: 21, rgb: WHITE, bold: true });
+    let y = 34.5;
+    for (const line of sub) { this.text(line, M, y, { size: 8.2, rgb: MUTED }); y += 4.2; }
+    this.y = y + 2.5;
   }
 }
 
@@ -159,71 +312,71 @@ export function drawStudentReport(pdf: jsPDF, input: ReportInput): void {
   const s = input.student;
   const name = nameOf(s);
   const w = new Writer(pdf, input.brand, name);
+  const story = reportNarrative(s, input.plan, input.previous ?? null);
+  const act = s.activity;
+  const seen = lastSeenAt(s);
 
-  // ── Title block ──
-  pdf.setFillColor(...ACCENT); pdf.rect(0, 0, PAGE_W, 4, "F");
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(...ACCENT);
-  pdf.text(`${input.brand.toUpperCase()}${input.orgName ? ` · ${ascii(input.orgName)}` : ""}`, M, 14);
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(...MUTED);
-  pdf.text(`Generated ${new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, PAGE_W - M, 14, { align: "right" });
-  pdfText(pdf, name, M, 26, { size: 20, rgb: INK, bold: true });
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(...MUTED);
-  const affDays = s.affiliation_expires_at ? Math.ceil((Date.parse(s.affiliation_expires_at) - Date.now()) / 86_400_000) : null;
-  pdf.text([
-    `${s.handle ? `@${ascii(s.handle)} · ` : ""}${s.role} · ${s.status}`,
-    `Joined ${fmtDate(s.joined_at)} · last active ${fmtDate(s.last_active_at)}${affDays !== null ? ` · ${affDays < 0 ? "enrolment lapsed" : `enrolment ends in ${affDays} days`}` : ""}`,
-  ], M, 33);
-  w.y = 46;
+  // ── Masthead ──
+  const affDays = s.affiliation_expires_at ? Math.ceil((Date.parse(s.affiliation_expires_at) - Date.now()) / DAY) : null;
+  w.masthead(input.brand, input.orgName, name, [
+    `${s.handle ? `@${s.handle}  ·  ` : ""}${s.role}  ·  ${s.status}  ·  joined ${fmtDate(s.joined_at)}${affDays !== null ? `  ·  ${affDays < 0 ? "enrolment lapsed" : `enrolment ends in ${affDays} days`}` : ""}`,
+  ]);
+  w.chip(story.status, statusRgb(story.status), M, w.y + 1.5);
+  w.y += 8;
+
+  // ── Presence: when the learner was really here ──
+  const stale = seen ? (Date.now() - Date.parse(seen)) / DAY > 14 : false;
+  const tracked = typeof act?.visits_30 === "number";
+  w.cards([
+    { label: "Last seen", value: seen ? fmtDate(seen) : "Never", hint: seen ? `${agoLabel(seen)} at ${fmtTime(seen)}` : "has not opened the platform", tone: !seen ? BAD : stale ? WARN : ACCENT_SOFT },
+    { label: "Active days (last 30)", value: act ? `${act.active_days_30} / 30` : "n/a", hint: act ? `${act.active_days_7} in the last 7 days` : undefined },
+    { label: "Visits (last 30 days)", value: tracked ? String(act?.visits_30) : "n/a", hint: tracked ? `${act?.active_minutes_30 ?? 0} active minutes` : "recorded from the next visit on" },
+    { label: "Password sign-in", value: act?.last_sign_in_at ? fmtDate(act.last_sign_in_at) : "Never", hint: "start of the current session", tone: MUTED },
+  ]);
+  if (act?.days?.length) w.days(act.days, `${act.answered_30} graded answers  ·  bar height = answers that day`);
 
   // ── Written summary ──
-  const story = reportNarrative(s, input.plan, input.previous ?? null);
   w.heading("Overview");
-  w.status(story.status);
-  for (const p of story.paragraphs) w.labelled(p.title, p.text);
+  for (const p of story.paragraphs) {
+    w.note(p.title, p.text, p.title === "Needs action" ? WARN : p.title === "Strengths and topics to strengthen" ? GOOD : ACCENT);
+  }
 
   // ── Key figures, with the change since the previous report ──
   const ft = s.summary.first_try;
   const cur = metricsOf(s, input.plan);
   const prev = input.previous?.metrics;
   const delta = (a: number | null, b: number | null | undefined, unit = "") => (prev && a !== null && b !== null && b !== undefined && a !== b ? ` (${a > b ? "+" : ""}${Math.round((a - b) * 10) / 10}${unit})` : "");
-  w.heading(prev && input.previous ? `Key figures (change since ${fmtDate(input.previous.created_at)})` : "Key figures");
-  w.figures([
-    { value: s.xp.toLocaleString() + delta(cur.xp, prev?.xp), label: `XP · level ${s.level}` },
-    { value: pct(ft.accuracy) + delta(cur.first_try_pct, prev?.first_try_pct, " pts"), label: `Right first try (${ft.firstTryCorrect}/${ft.items})` },
-    { value: `${s.summary.rooms_completed}/${s.summary.rooms_started}` + delta(cur.rooms_completed, prev?.rooms_completed), label: "Rooms completed / started" },
-    { value: String(s.activity?.active_days_30 ?? "n/a") + delta(cur.active_days_30, prev?.active_days_30), label: "Active days (last 30)" },
-    { value: String(s.summary.scenarios_completed) + delta(cur.scenarios_completed, prev?.scenarios_completed), label: `Scenarios · avg ${pct(s.summary.scenario_avg_score)}` },
-    { value: String(s.summary.sessions) + delta(cur.sessions, prev?.sessions), label: `Live SOC shifts · detect ${pct(s.summary.avg_detect_rate)}` },
-    { value: fmtMs(s.summary.median_decision_latency_ms), label: "Median time to decide" },
-    { value: String(cur.open_mistakes) + delta(cur.open_mistakes, prev?.open_mistakes), label: "Mistakes not yet corrected" },
+  w.heading(prev && input.previous ? `Key figures  ·  change since ${fmtDate(input.previous.created_at)}` : "Key figures");
+  w.cards([
+    { label: "XP", value: s.xp.toLocaleString() + delta(cur.xp, prev?.xp), hint: `level ${s.level}`, tone: ACCENT_SOFT },
+    { label: "Right first try", value: pct(ft.accuracy) + delta(cur.first_try_pct, prev?.first_try_pct, " pts"), hint: `${ft.firstTryCorrect} of ${ft.items} questions`, tone: levelOf(ft.accuracy, ft.items).rgb === DIM ? WHITE : levelOf(ft.accuracy, ft.items).rgb },
+    { label: "Rooms", value: `${s.summary.rooms_completed} / ${s.summary.rooms_started}` + delta(cur.rooms_completed, prev?.rooms_completed), hint: "completed / started" },
+    { label: "Open mistakes", value: String(cur.open_mistakes) + delta(cur.open_mistakes, prev?.open_mistakes), hint: "not yet corrected", tone: cur.open_mistakes > 0 ? WARN : GOOD },
+    { label: "Scenarios", value: String(s.summary.scenarios_completed) + delta(cur.scenarios_completed, prev?.scenarios_completed), hint: `average score ${pct(s.summary.scenario_avg_score)}` },
+    { label: "Live SOC shifts", value: String(s.summary.sessions) + delta(cur.sessions, prev?.sessions), hint: `detection ${pct(s.summary.avg_detect_rate)}` },
+    { label: "Median time to decide", value: fmtMs(s.summary.median_decision_latency_ms), hint: `${s.summary.tasks_answered} tasks timed` },
+    { label: "Answers (30 days)", value: act ? String(act.answered_30) : "n/a", hint: act ? `${act.answered_7} in the last 7 days` : undefined },
   ]);
 
   // ── Skills ──
   w.heading("Skills by area");
-  const judged = s.skills.filter(a => a.items >= MIN_ITEMS);
-  const strong = judged.filter(a => (a.accuracy ?? 0) >= 80).map(a => a.label);
-  const weak = judged.filter(a => (a.accuracy ?? 100) < 60).map(a => a.label);
-  if (strong.length || weak.length) {
-    w.para(`Strong: ${strong.join(", ") || "none yet"}. Needs work: ${weak.join(", ") || "none"}.`);
+  const answered = s.skills.filter(a => a.items > 0);
+  if (answered.length === 0) w.para("No graded answers yet.", 8.6, DIM);
+  else {
+    w.y += 1;
+    for (const a of [...answered].sort((x, y) => (y.accuracy ?? -1) - (x.accuracy ?? -1))) w.skill(a.label, a.items, a.accuracy);
   }
-  w.table(
-    [{ label: "Area", w: 78 }, { label: "Answered", w: 26, align: "right" }, { label: "Right first try", w: 34, align: "right" }, { label: "Level", w: 44 }],
-    s.skills.filter(a => a.items > 0).map(a => {
-      const l = levelOf(a.accuracy, a.items);
-      return { cells: [a.label, String(a.items), pct(a.accuracy), l.label], rgb: [null, null, null, l.rgb] };
-    }),
-    "No graded answers yet.",
-  );
-  if (s.recommendations.length) w.para(`Recommended next rooms: ${s.recommendations.map(r => `${r.title} (${r.area_label})`).join("; ")}.`, 8.5, MUTED);
+  if (s.recommendations.length) w.para(`Recommended next rooms: ${s.recommendations.map(r => `${r.title} (${r.area_label})`).join("; ")}.`, 8.2, MUTED);
 
   // ── Learning plan, with time against target ──
   if (input.plan) {
     const plans = [...(input.plan.personal ? [{ title: `Personal plan: ${input.plan.personal.title}`, due: input.plan.personal.due_at, items: input.plan.personal.items }] : []),
       ...input.plan.assigned.map(p => ({ title: p.title, due: p.due_at, items: p.items }))];
     w.heading("Learning plan");
-    if (plans.length === 0) w.para("No learning plan assigned.", 9, MUTED);
+    if (plans.length === 0) w.para("No learning plan assigned.", 8.6, DIM);
     for (const p of plans) {
-      w.para(`${p.title}${p.due ? ` · due ${fmtDate(p.due)}` : ""}`, 9.5, INK);
+      w.para(`${p.title}${p.due ? `  ·  due ${fmtDate(p.due)}` : ""}`, 9.2, WHITE);
+      w.y += 2;
       w.table(
         [{ label: "Item", w: 86 }, { label: "Kind", w: 20 }, { label: "Status", w: 26 }, { label: "Time / target", w: 50 }],
         p.items.map(it => {
@@ -233,7 +386,7 @@ export function drawStudentReport(pdf: jsPDF, input: ReportInput): void {
           const time = !target ? "-" : spent === null || spent === undefined ? `not measured / ${target} min` : `${Math.round(spent)} / ${target} min`;
           return {
             cells: [it.title, it.kind, status, time],
-            rgb: [null, MUTED, it.status === "done" ? GOOD : null, target && spent !== null && spent !== undefined ? (spent >= target ? GOOD : WARN) : MUTED],
+            rgb: [null, MUTED, it.status === "done" ? GOOD : it.status === "in_progress" ? WARN : MUTED, target && spent !== null && spent !== undefined ? (spent >= target ? GOOD : WARN) : MUTED],
           };
         }),
       );
@@ -242,46 +395,56 @@ export function drawStudentReport(pdf: jsPDF, input: ReportInput): void {
 
   // ── Rooms ──
   w.heading("Learning rooms");
+  w.y += 1;
   w.table(
     [{ label: "Room", w: 92 }, { label: "Status", w: 26 }, { label: "Tasks", w: 16, align: "right" }, { label: "XP", w: 16, align: "right" }, { label: "Completed", w: 32 }],
     [...s.rooms].sort((a, b) => Number(b.completed) - Number(a.completed)).map(r => ({
-      cells: [r.title, r.completed ? "Completed" : "In progress", String(r.tasks_done), String(r.xp_earned), fmtDate(r.completed_at)],
-      rgb: [null, r.completed ? GOOD : WARN, null, null, MUTED],
+      cells: [r.title, r.completed ? "Completed" : "In progress", String(r.tasks_done), String(r.xp_earned), r.completed_at ? fmtDate(r.completed_at) : "-"],
+      rgb: [null, r.completed ? GOOD : WARN, MUTED, ACCENT_SOFT, MUTED],
     })),
   );
 
   // ── Scenarios ──
   w.heading("Scenarios");
+  w.y += 1;
   w.table(
     [{ label: "Scenario", w: 84 }, { label: "Score", w: 18, align: "right" }, { label: "Verdict", w: 30 }, { label: "Report", w: 18 }, { label: "Date", w: 32 }],
     s.scenarios.map(sc => ({
       cells: [sc.title, sc.score === null ? "-" : `${sc.score}%`, VERDICT[sc.report?.verdict ?? ""] ?? sc.report?.verdict ?? "-", sc.report?.passed === undefined ? "-" : sc.report.passed ? "Passed" : "Failed", fmtDate(sc.completed_at)],
-      rgb: [null, null, null, sc.report?.passed === undefined ? MUTED : sc.report.passed ? GOOD : BAD, MUTED],
+      rgb: [null, sc.score !== null && sc.score < 60 ? BAD : WHITE, MUTED, sc.report?.passed === undefined ? MUTED : sc.report.passed ? GOOD : BAD, MUTED],
     })),
   );
 
   // ── Live SOC shifts ──
   w.heading("Live SOC dashboard shifts");
+  w.y += 1;
   w.table(
     [{ label: "Date", w: 50 }, { label: "Detection rate", w: 40, align: "right" }, { label: "Duration", w: 40, align: "right" }],
-    s.sessions.slice(0, 15).map(se => ({ cells: [fmtDate(se.played_at), pct(se.detect_rate), se.duration_ms ? fmtMs(se.duration_ms) : "-"] })),
+    s.sessions.slice(0, 15).map(se => ({
+      cells: [fmtDate(se.played_at), pct(se.detect_rate), se.duration_ms ? fmtMs(se.duration_ms) : "-"],
+      rgb: [null, se.detect_rate !== null && se.detect_rate < 60 ? BAD : WHITE, MUTED],
+    })),
   );
 
   // ── Mistakes ──
   w.heading("Where mistakes were made");
+  w.y += 1;
   const groups = [...s.mistake_groups].filter(g => g.mistakes.length > 0).sort((a, b) => b.mistakes.length - a.mistakes.length);
   w.table(
     [{ label: "Room", w: 92 }, { label: "Right first try", w: 34, align: "right" }, { label: "Mistakes", w: 24, align: "right" }, { label: "Still open", w: 32, align: "right" }],
-    groups.map(g => ({
-      cells: [g.room_title, `${g.first_try_correct}/${g.items}`, String(g.mistakes.length), String(g.mistakes.filter(m => !m.solved).length)],
-    })),
+    groups.map(g => {
+      const open = g.mistakes.filter(m => !m.solved).length;
+      return { cells: [g.room_title, `${g.first_try_correct}/${g.items}`, String(g.mistakes.length), String(open)], rgb: [null, MUTED, null, open > 0 ? WARN : GOOD] };
+    }),
     "No mistakes recorded.",
   );
   const sample = groups.flatMap(g => g.mistakes.filter(m => !m.solved).slice(0, 2).map(m => ({ room: g.room_title, m }))).slice(0, 8);
   if (sample.length) {
-    w.para("Open mistakes (question and first answer):", 9, MUTED);
+    w.y += 1;
+    w.label("Open mistakes: question and first answer", M, w.y, MUTED);
+    w.y += 4.5;
     for (const { room, m } of sample) {
-      w.para(`${room}: ${m.prompt ?? "question"}${m.chosen ? `  First answer: ${m.chosen}` : ""}`, 8, INK);
+      w.para(`${room}: ${m.prompt ?? "question"}${m.chosen ? `  First answer: ${m.chosen}` : ""}`, 7.8, INK);
     }
   }
 }
@@ -290,9 +453,10 @@ function footer(pdf: jsPDF, brand: string) {
   const n = pdf.getNumberOfPages();
   for (let i = 1; i <= n; i++) {
     pdf.setPage(i);
-    pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(...MUTED);
-    pdf.text(`${brand} · Confidential: learner records for the organisation's training staff`, M, PAGE_H - 8);
-    pdf.text(`Page ${i} of ${n}`, PAGE_W - M, PAGE_H - 8, { align: "right" });
+    pdf.setDrawColor(...BORDER); pdf.setLineWidth(0.2); pdf.line(M, PAGE_H - 12, PAGE_W - M, PAGE_H - 12);
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(7); pdf.setTextColor(...DIM);
+    pdf.text(`${needsCanvas(brand) ? "" : `${brand}  ·  `}Confidential: learner records for the organisation's training staff`, M, PAGE_H - 7.5);
+    pdf.text(`Page ${i} of ${n}`, PAGE_W - M, PAGE_H - 7.5, { align: "right" });
   }
 }
 
@@ -314,7 +478,7 @@ export async function downloadClassReport(inputs: ReportInput[], brand: string, 
   drawClassOverview(pdf, inputs, brand, orgName);
   inputs.forEach(input => {
     pdf.addPage();
-    drawStudentReport(pdf, input);
+    drawStudentReport(pdf, { ...input, orgName: input.orgName ?? orgName });
   });
   footer(pdf, brand);
   pdf.save(`class-report_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -323,32 +487,37 @@ export async function downloadClassReport(inputs: ReportInput[], brand: string, 
 /** Page 1 of the class report: one line per learner, the ones needing action first. */
 export function drawClassOverview(pdf: jsPDF, inputs: ReportInput[], brand: string, orgName?: string | null) {
   const w = new Writer(pdf, brand, "Class overview");
-  pdf.setFillColor(...ACCENT); pdf.rect(0, 0, PAGE_W, 4, "F");
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(...ACCENT);
-  pdf.text(`${brand.toUpperCase()}${orgName ? ` · ${ascii(orgName)}` : ""}`, M, 14);
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(...MUTED);
-  pdf.text(`Generated ${new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, PAGE_W - M, 14, { align: "right" });
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(20); pdf.setTextColor(...INK);
-  pdf.text("Class progress report", M, 26);
-  const rows = inputs.map(i => ({ i, n: reportNarrative(i.student, i.plan, i.previous ?? null) }));
+  const rows = inputs.map(i => ({ i, n: reportNarrative(i.student, i.plan, i.previous ?? null), seen: lastSeenAt(i.student) }));
   const order = { "not started": 0, inactive: 1, "needs attention": 2, "on track": 3 } as const;
   rows.sort((a, b) => order[a.n.status] - order[b.n.status] || nameOf(a.i.student).localeCompare(nameOf(b.i.student)));
   const count = (st: Narrative["status"]) => rows.filter(r => r.n.status === st).length;
-  w.y = 34;
-  w.para(`${rows.length} learners: ${count("on track")} on track, ${count("needs attention")} need attention, ${count("inactive")} inactive, ${count("not started")} not started. The learners who need action are listed first; each learner's full report follows.`, 9.5, MUTED);
+  const week = rows.filter(r => r.seen && Date.now() - Date.parse(r.seen) < 7 * DAY).length;
+
+  w.masthead(brand, orgName, "Class progress report", [
+    `${rows.length} learners  ·  ${week} on the platform in the last 7 days. The learners who need action are listed first; each learner's full report follows.`,
+  ]);
+  w.y += 2;
+  w.cards([
+    { label: "On track", value: String(count("on track")), hint: "active, no weak topic", tone: GOOD },
+    { label: "Need attention", value: String(count("needs attention")), hint: "a weak topic or many open mistakes", tone: count("needs attention") ? WARN : WHITE },
+    { label: "Inactive", value: String(count("inactive")), hint: "not seen for 14 days, or no activity in 30", tone: count("inactive") ? BAD : WHITE },
+    { label: "Not started", value: String(count("not started")), hint: "never opened the platform", tone: count("not started") ? MUTED : WHITE },
+  ]);
+  w.heading("Learners");
+  w.y += 1;
   w.table(
-    [{ label: "Learner", w: 40 }, { label: "Status", w: 26 }, { label: "Last sign-in", w: 24 }, { label: "Active days", w: 18, align: "right" }, { label: "Right 1st try", w: 20, align: "right" }, { label: "Since last report", w: 54 }],
-    rows.map(({ i, n }) => {
+    [{ label: "Learner", w: 40 }, { label: "Status", w: 27 }, { label: "Last seen", w: 25 }, { label: "Active days", w: 21, align: "right" }, { label: "Right 1st try", w: 25, align: "right" }, { label: "Since last report", w: 44 }],
+    rows.map(({ i, n, seen }) => {
       const s = i.student;
-      const rgb = n.status === "on track" ? GOOD : n.status === "needs attention" ? WARN : BAD;
+      const stale = seen ? (Date.now() - Date.parse(seen)) / DAY > 14 : false;
       return {
-        cells: [nameOf(s), n.status, s.activity?.last_sign_in_at ? fmtDate(s.activity.last_sign_in_at) : "never", String(s.activity?.active_days_30 ?? "-"), pct(s.summary.first_try.accuracy), n.change],
-        rgb: [null, rgb, s.activity?.last_sign_in_at ? null : BAD, null, null, MUTED],
+        cells: [nameOf(s), n.status, seen ? fmtDate(seen) : "never", String(s.activity?.active_days_30 ?? "-"), pct(s.summary.first_try.accuracy), n.change],
+        rgb: [WHITE, statusRgb(n.status), !seen ? BAD : stale ? WARN : null, null, null, MUTED],
       };
     }),
     "No learners in this class.",
   );
-  w.para("Active days: days with any learning activity in the last 30 days. Right 1st try: share of graded questions answered right on the first attempt.", 7.5, MUTED);
+  w.para("Last seen: the last time the learner was on the platform, also without typing a password again. Active days: days with any activity in the last 30 days. Right 1st try: share of graded questions answered right on the first attempt.", 7.2, DIM);
 }
 
 /** Reads one student's detail and plan the way the student page does (org-admin routes). */

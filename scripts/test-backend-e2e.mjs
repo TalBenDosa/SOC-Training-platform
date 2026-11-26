@@ -23,7 +23,8 @@ function group(t) { console.log(`\n\x1b[1m${t}\x1b[0m`); }
 
 const SHIM = `
 create schema if not exists auth;
-create table if not exists auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}', raw_app_meta_data jsonb default '{}', created_at timestamptz default now());
+create table if not exists auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}', raw_app_meta_data jsonb default '{}', created_at timestamptz default now(), last_sign_in_at timestamptz);
+create table if not exists auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid references auth.users(id) on delete cascade, created_at timestamptz default now(), updated_at timestamptz);
 create or replace function auth.uid() returns uuid language sql stable as $f$ select nullif(current_setting('request.jwt.claims',true)::jsonb->>'sub','')::uuid $f$;
 create or replace function auth.jwt() returns jsonb language sql stable as $f$ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}') $f$;
 do $d$ begin if not exists(select from pg_roles where rolname='anon') then create role anon; end if; if not exists(select from pg_roles where rolname='authenticated') then create role authenticated; end if; if not exists(select from pg_roles where rolname='supabase_auth_admin') then create role supabase_auth_admin; end if; if not exists(select from pg_roles where rolname='service_role') then create role service_role; end if; end $d$;
@@ -519,6 +520,43 @@ group("0111 — studied Lesson Library lessons (Recommended Tracks)");
   check("0111: learners cannot call set_library_read (server only)", rpc !== null, rpc ?? "called");
   let bad = null; try { await mark(u, orgA, "", true); } catch (e) { bad = e.message; }
   check("0111: an empty lesson id is refused", /invalid lesson/.test(bad ?? ""), bad ?? "accepted");
+}
+
+group("0123 — presence: when a learner was really last on the platform");
+{
+  const orgA = await makeOrg("Presence A", 10);
+  const u = await signup("present1@x.io", HARNESS);
+  const other = await signup("present2@x.io", HARNESS);
+  const beat = (uid, org, sec) => q(`select public.record_presence($1,$2,$3)`, [uid, org, sec]);
+  const row = (uid, org) => one(`select visits, active_seconds from public.user_presence_days where user_id=$1 and org_id is not distinct from $2`, [uid, org]);
+  await beat(u, orgA, 0);
+  await beat(u, orgA, 60);
+  await beat(u, orgA, 9999);
+  const r1 = await row(u, orgA);
+  check("0123: beats on one day keep one row, one visit", r1?.visits === 1, JSON.stringify(r1));
+  check("0123: a beat is capped at 120 seconds", r1?.active_seconds === 180, String(r1?.active_seconds));
+  await q(`update public.user_presence_days set last_seen_at = now() - interval '45 minutes' where user_id=$1`, [u]);
+  await beat(u, orgA, 30);
+  check("0123: a return after 30 minutes away is a new visit", (await row(u, orgA))?.visits === 2);
+  await beat(u, null, 10);
+  await beat(u, null, 10);
+  check("0123: no-organisation presence is its own single row", (await row(u, null))?.active_seconds === 20 && (await row(u, orgA))?.active_seconds === 210);
+  await beat(other, orgA, 5);
+  const seen = await asUser(other, async () => (await q(`select user_id from public.user_presence_days`)).rows);
+  check("0123: a learner reads only their own rows (RLS)", seen.length === 1 && seen.every(r => r.user_id === other), `${seen.length} rows`);
+  const direct = await asUser(other, async () => { try { await q(`update public.user_presence_days set active_seconds = 80000 where user_id=$1`, [other]); return null; } catch (e) { return e.message; } });
+  check("0123: learners cannot write the table directly", direct !== null, direct ?? "updated");
+  const rpc = await asUser(other, async () => { try { await q(`select public.record_presence($1, null, 60)`, [other]); return null; } catch (e) { return e.message; } });
+  check("0123: learners cannot call record_presence (server only)", rpc !== null, rpc ?? "called");
+  const peek = await asUser(other, async () => { try { await q(`select * from public.org_member_last_seen($1)`, [okOrg]); return null; } catch (e) { return e.message; } });
+  check("0123: learners cannot call org_member_last_seen (server only)", peek !== null, peek ?? "called");
+  // Password typed 8 days ago, the same session renewed 2 days ago: the renewal is what counts.
+  await q(`update auth.users set last_sign_in_at = now() - interval '8 days' where id=$1`, [okU]);
+  await q(`insert into auth.sessions (user_id, created_at, updated_at) values ($1, now() - interval '8 days', now() - interval '2 days')`, [okU]);
+  const ls = (await q(`select * from public.org_member_last_seen($1)`, [okOrg])).rows;
+  const mine = ls.find(r => r.user_id === okU);
+  check("0123: last session renewal is later than the last password sign-in", !!mine && new Date(mine.last_session_at) - new Date(mine.last_sign_in_at) > 5 * 86_400_000, JSON.stringify(mine));
+  check("0123: only that organisation's members are returned", ls.length >= 1 && !ls.some(r => r.user_id === u), `${ls.length} rows`);
 }
 
 console.log(`\n${"═".repeat(64)}`);

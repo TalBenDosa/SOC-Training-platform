@@ -65,6 +65,11 @@ function sinceLabel(iso: string | null): string {
   return `${days}d ago`;
 }
 
+/** Exact date and time for a tooltip. */
+function exactLabel(iso: string | null): string {
+  return iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "never";
+}
+
 /** RFC-4180-ish escaping: quote everything, double any inner quotes. */
 function toCsv(rows: string[][]): string {
   return rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
@@ -184,7 +189,7 @@ export default function ManagePage() {
     const header = [
       "Student", "Handle", "Status", "Role", "XP", "Level",
       "Rooms completed", "Rooms started", "Right first try %", "Questions answered", "Scenarios completed", "Avg scenario score",
-      "Dashboard sessions", "Avg detect rate %", "Last active", "Enrolment valid until",
+      "Dashboard sessions", "Avg detect rate %", "Last seen on the platform", "Last learning activity", "Last password sign-in", "Visits (30 days)", "Active minutes (30 days)", "Enrolment valid until",
     ];
     const body = students.map(s => [
       s.display_name ?? s.handle ?? s.user_id.slice(0, 8),
@@ -193,7 +198,9 @@ export default function ManagePage() {
       s.task_accuracy === null ? "" : String(s.task_accuracy), String(s.tasks_graded),
       String(s.scenarios_completed), s.scenario_avg_score === null ? "" : String(s.scenario_avg_score),
       String(s.sessions), s.avg_detect_rate === null ? "" : String(s.avg_detect_rate),
-      s.last_active_at ?? "",
+      s.last_seen_at ?? "", s.last_active_at ?? "", s.last_sign_in_at ?? "",
+      s.visits_30 === null || s.visits_30 === undefined ? "" : String(s.visits_30),
+      s.active_minutes_30 === null || s.active_minutes_30 === undefined ? "" : String(s.active_minutes_30),
       s.affiliation_expires_at ?? "",
     ]);
     const blob = new Blob([toCsv([header, ...body])], { type: "text/csv;charset=utf-8;" });
@@ -274,7 +281,7 @@ export default function ManagePage() {
     if (s.status !== "active" || s.role !== "student") return [];
     const r: string[] = [];
     if (s.rooms_started === 0 && s.scenarios_completed === 0 && s.sessions === 0) r.push("not started");
-    else if (s.last_active_at && Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000) r.push(`quiet ${Math.floor((Date.now() - Date.parse(s.last_active_at)) / 86_400_000)} days`);
+    else { const seen = s.last_seen_at ?? s.last_active_at; if (seen && Date.now() - Date.parse(seen) >= 14 * 86_400_000) r.push(`not seen for ${Math.floor((Date.now() - Date.parse(seen)) / 86_400_000)} days`); }
     if (s.task_accuracy !== null && s.tasks_graded >= 10 && s.task_accuracy < 60) r.push(`${s.task_accuracy}% right first try`);
     if (s.tasks_unsolved >= 5) r.push(`${s.tasks_unsolved} questions still unsolved`);
     return r;
@@ -293,7 +300,7 @@ export default function ManagePage() {
       case "name": return (m.display_name || m.handle || "").toLowerCase();
       case "first_try": return s?.task_accuracy ?? -1;
       case "path": return s ? studentPathPercent(s.completed_room_ids) : -1;
-      case "active": return s?.last_active_at ? Date.parse(s.last_active_at) : 0;
+      case "active": { const seen = s?.last_seen_at ?? s?.last_active_at; return seen ? Date.parse(seen) : 0; }
       default: return m.xp ?? 0;
     }
   };
@@ -473,7 +480,7 @@ export default function ManagePage() {
                           <th className="px-4 py-2.5 font-medium" title="Share of the graded room curriculum completed (Foundations, SOC Tier 1, Advanced)">Path progress</th>
                           <th className="px-4 py-2.5 font-medium" title="Average share of attacks caught in the live SOC feed">Live feed detection</th>
                           <th className="px-4 py-2.5 font-medium">XP</th>
-                          <th className="px-4 py-2.5 font-medium">Last active</th>
+                          <th className="px-4 py-2.5 font-medium" title="When the student was last on the platform: any visit counts, also without typing a password again. Hover a row for the last learning activity and the last password sign-in.">Last seen</th>
                           <th className="px-4 py-2.5 text-right font-medium">Actions</th>
                         </tr>
                       </thead>
@@ -507,9 +514,17 @@ export default function ManagePage() {
                               </td>
                               <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300">{s && s.avg_detect_rate !== null ? `${s.avg_detect_rate}%` : "n/a"}</td>
                               <td className="px-4 py-2.5 font-mono font-bold text-cyber-300">{(m.xp ?? 0).toLocaleString()}</td>
-                              <td className={`px-4 py-2.5 text-[12px] ${!s?.last_active_at ? "text-slate-500" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>
-                                {sinceLabel(s?.last_active_at ?? null)}
-                              </td>
+                              {(() => {
+                                const seen = s?.last_seen_at ?? s?.last_active_at ?? null;
+                                const stale = seen ? Date.now() - Date.parse(seen) >= 14 * 86_400_000 : false;
+                                return (
+                                  <td className={`px-4 py-2.5 text-[12px] ${!seen ? "text-slate-500" : stale ? "text-neon-amber" : "text-slate-400"}`}
+                                    title={`Last seen: ${exactLabel(seen)}\nLast learning activity: ${exactLabel(s?.last_active_at ?? null)}\nLast password sign-in: ${exactLabel(s?.last_sign_in_at ?? null)}`}>
+                                    {sinceLabel(seen)}
+                                    {seen && <span className="block font-mono text-[10px] text-slate-500">{new Date(seen).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>}
+                                  </td>
+                                );
+                              })()}
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center justify-end gap-1">
                                   {isActive ? (
@@ -537,7 +552,7 @@ export default function ManagePage() {
             {tab === "overview" && (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <MiniStat label="Active this week" value={classStats ? `${classStats.active_7d}/${classStats.size}` : "n/a"} tone={classStats && classStats.active_7d === 0 ? "warn" : undefined} hint="did anything in the last 7 days" />
+                  <MiniStat label="Active this week" value={classStats ? `${classStats.active_7d}/${classStats.size}` : "n/a"} tone={classStats && classStats.active_7d === 0 ? "warn" : undefined} hint="on the platform in the last 7 days" />
                   <MiniStat label="Right first try" value={classFirstTry === null ? "n/a" : `${classFirstTry}%`} tone={classFirstTry !== null && classFirstTry < 60 ? "warn" : undefined} hint={`class average, ${graded.length} students with 5+ questions`} />
                   <MiniStat label="Scenario score" value={classStats?.avg_scenario_score === null || !classStats ? "n/a" : `${classStats.avg_scenario_score}%`} hint={`${usage?.scenarios_completed ?? 0} scenarios completed`} />
                   <MiniStat label="Need attention" value={String(atRisk.length)} tone={atRisk.length > 0 ? "warn" : "good"} hint="see the list below" />

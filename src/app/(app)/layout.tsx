@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/nav/Sidebar";
 import { MotionProvider } from "@/components/MotionProvider";
 import { EarnMoment } from "@/components/EarnMoment";
 import { SyncStatus } from "@/components/system/SyncStatus";
+import { PresenceBeat } from "@/components/system/PresenceBeat";
 import { OrgContentNotice } from "@/components/system/OrgContentNotice";
 import { AccessDeniedNotice } from "@/components/system/AccessDeniedNotice";
 import { ReportProblem } from "@/components/feedback/ReportProblem";
@@ -44,6 +45,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <main id="main-content" className="flex-1 min-w-0">{children}</main>
       </div>
       <EarnMoment />
+      {/* "Last seen" for org admins: a beat while the learner is active (0123). Renders nothing. */}
+      <PresenceBeat />
       {/* Clear notice when the middleware bounced the user off a staff-only area
           (?reason=forbidden) — replaces the old silent redirect to the landing page. */}
       <AccessDeniedNotice />

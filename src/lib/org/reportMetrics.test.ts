@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { activityOf } from "./activity";
-import { metricsOf, reportNarrative, sanitizeReportMetrics } from "./reportMetrics";
+import { activityOf, lastSeenOf, latestOf } from "./activity";
+import { lastSeenAt, metricsOf, reportNarrative, sanitizeReportMetrics } from "./reportMetrics";
 import type { StudentDetail } from "@/app/api/org/students/[id]/route";
 
 const NOW = Date.parse("2026-11-11T12:00:00Z");
@@ -9,7 +9,7 @@ const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
 function student(over: Partial<StudentDetail> = {}): StudentDetail {
   return {
     user_id: "u", handle: "noa", display_name: "Noa Levi", role: "student", status: "active", joined_at: daysAgo(40), affiliation_expires_at: null,
-    xp: 1000, level: 3, last_active_at: daysAgo(1),
+    xp: 1000, level: 3, last_active_at: daysAgo(1), last_seen_at: daysAgo(1),
     summary: { rooms_completed: 3, rooms_started: 4, scenarios_completed: 1, scenario_avg_score: 70, sessions: 2, avg_detect_rate: 60, median_decision_latency_ms: 30_000, tasks_answered: 50,
       first_try: { items: 50, firstTryCorrect: 35, accuracy: 70, unsolved: 2 } },
     skills: [
@@ -32,13 +32,39 @@ describe("activity", () => {
     expect(a.answered_30).toBe(2);
     expect(a.weeks).toEqual([0, 0, 1, 2]); // oldest week first; 10 days ago is last week but one
   });
+
+  it("last seen is the latest signal, not the last password sign-in", () => {
+    // The reported case: password typed 8 days ago, session renewed and questions answered 2 days ago.
+    const a = activityOf([daysAgo(2)], [daysAgo(2)], daysAgo(8), NOW, { last_session_at: daysAgo(2) });
+    expect(a.last_sign_in_at).toBe(daysAgo(8));
+    expect(a.last_seen_at).toBe(daysAgo(2));
+    // Without the migration (no session, no presence) the learning records alone still give it.
+    expect(activityOf([daysAgo(2)], [], daysAgo(8), NOW).last_seen_at).toBe(daysAgo(2));
+    // A learner who only browsed: no learning record, but a presence beat today.
+    const seen = { last_sign_in_at: daysAgo(8), presence: [{ day: daysAgo(0).slice(0, 10), first_seen_at: daysAgo(0.1), last_seen_at: daysAgo(0.01), active_seconds: 600, visits: 2 }] };
+    expect(lastSeenOf(seen, [], NOW)).toBe(daysAgo(0.01));
+    const b = activityOf([], [], daysAgo(8), NOW, seen);
+    expect(b.active_days_7).toBe(1);
+    expect(b.visits_30).toBe(2);
+    expect(b.active_minutes_30).toBe(10);
+    expect(b.days).toHaveLength(30);
+    expect(b.days?.[29]).toMatchObject({ active: true, minutes: 10, answers: 0 });
+    // Presence not recorded yet: the totals are unknown, not zero.
+    expect(activityOf([daysAgo(1)], [], null, NOW).visits_30).toBeNull();
+  });
+
+  it("ignores missing, invalid and future dates", () => {
+    expect(latestOf([null, undefined, "nope", daysAgo(3), daysAgo(-5)], NOW)).toBe(daysAgo(3));
+    expect(latestOf([], NOW)).toBeNull();
+  });
 });
 
 describe("report narrative", () => {
   it("first report: sign-in, activity, strengths, topics to strengthen, recommendation", () => {
     const n = reportNarrative(student(), null, null, NOW);
     const text = n.paragraphs.map(p => p.text).join(" ");
-    expect(text).toMatch(/last signed in yesterday/);
+    expect(text).toMatch(/was last on the platform yesterday/);
+    expect(text).not.toMatch(/opened with a password/);   // same day: nothing to explain
     expect(text).toMatch(/Active on 9 of the last 30 days/);
     expect(text).toMatch(/first report/);
     expect(text).toMatch(/Strong in Email \(90%\)/);
@@ -61,10 +87,23 @@ describe("report narrative", () => {
   });
 
   it("flags a learner who never signed in, and one who stopped", () => {
-    expect(reportNarrative(student({ last_active_at: null, activity: { last_sign_in_at: null, active_days_7: 0, active_days_30: 0, answered_7: 0, answered_30: 0, weeks: [0, 0, 0, 0] } }), null, null, NOW).status).toBe("not started");
-    const gone = reportNarrative(student({ activity: { last_sign_in_at: daysAgo(30), active_days_7: 0, active_days_30: 0, answered_7: 0, answered_30: 0, weeks: [0, 0, 0, 0] } }), null, null, NOW);
+    expect(reportNarrative(student({ last_active_at: null, last_seen_at: null, activity: { last_sign_in_at: null, active_days_7: 0, active_days_30: 0, answered_7: 0, answered_30: 0, weeks: [0, 0, 0, 0] } }), null, null, NOW).status).toBe("not started");
+    const gone = reportNarrative(student({ last_active_at: daysAgo(30), last_seen_at: daysAgo(30), activity: { last_sign_in_at: daysAgo(30), active_days_7: 0, active_days_30: 0, answered_7: 0, answered_30: 0, weeks: [0, 0, 0, 0] } }), null, null, NOW);
     expect(gone.status).toBe("inactive");
-    expect(gone.paragraphs.find(p => p.title === "Needs action")?.text).toMatch(/no sign-in for 30 days/);
+    expect(gone.paragraphs.find(p => p.title === "Needs action")?.text).toMatch(/not seen on the platform for 30 days/);
+  });
+
+  it("a learner who stays signed in is reported by the last visit, not the last password sign-in", () => {
+    const s = student({ last_active_at: daysAgo(2), last_seen_at: daysAgo(2),
+      activity: { last_sign_in_at: daysAgo(20), last_seen_at: daysAgo(2), active_days_7: 1, active_days_30: 4, answered_7: 13, answered_30: 14, weeks: [0, 1, 2, 1], visits_30: 6, active_minutes_30: 95 } });
+    expect(lastSeenAt(s, NOW)).toBe(daysAgo(2));
+    const n = reportNarrative(s, null, null, NOW);
+    const text = n.paragraphs.map(p => p.text).join(" ");
+    expect(text).toMatch(/was last on the platform 2 days ago/);
+    expect(text).toMatch(/opened with a password on .* and has stayed signed in since/);
+    expect(text).toMatch(/6 visits and 95 active minutes/);
+    expect(text).not.toMatch(/follow up/);          // 20 days since the password, but seen 2 days ago
+    expect(n.status).not.toBe("inactive");
   });
 
   it("stored metrics are re-shaped and bounded", () => {

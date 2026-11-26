@@ -4,6 +4,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOMS_META } from "@/data/roomsMeta";
 import { fetchAll } from "@/lib/plans/server";
 import { groupItems, summarize } from "@/lib/org/firstTry";
+import { lastSeenOf, latestOf } from "@/lib/org/activity";
+import { loadSeenSources } from "@/lib/org/lastSeen";
 
 // Room ids are stored in the DB; titles live in the content corpus. Resolved
 // HERE rather than in the client so /manage doesn't have to bundle the entire
@@ -58,7 +60,15 @@ export interface StudentRow {
   tasks_unsolved: number;
   sessions: number;
   avg_detect_rate: number | null;
+  /** Last dated LEARNING record in this org (answers, rooms, scenarios, shifts, lessons, films). */
   last_active_at: string | null;
+  /** When the learner was last on the platform at all: sign-in, session renewal, presence, activity. */
+  last_seen_at: string | null;
+  /** Last password sign-in (the start of the current session); null if unknown. */
+  last_sign_in_at: string | null;
+  /** Visits and active minutes in the last 30 days (presence, 0123); null until recorded. */
+  visits_30: number | null;
+  active_minutes_30: number | null;
 }
 
 export async function GET() {
@@ -109,6 +119,9 @@ export async function GET() {
     return NextResponse.json({ error: "Could not load analytics right now. Please try again." }, { status: 500 });
   }
 
+  // Sign-in, session renewal, presence and lesson / film records (all optional, never throw).
+  const { seen, extra } = await loadSeenSources(admin, orgId);
+
   type MemberRow = { user_id: string; role: string; status: string; joined_at: string | null; affiliation_expires_at: string | null; profiles: unknown };
   type RoomRow = { user_id: string; room_id: string; completed_at: string | null; updated_at: string | null };
   type ScenarioRow = { user_id: string; score: number | null; completed_at: string | null };
@@ -134,15 +147,6 @@ export async function GET() {
   const sessionsBy  = byUser(sessionRows);
   const attemptsBy  = byUser(attemptRows);
 
-  const latest = (dates: (string | null | undefined)[]): string | null => {
-    let best: number | null = null;
-    for (const d of dates) {
-      if (!d) continue;
-      const t = Date.parse(d);
-      if (!Number.isNaN(t) && (best === null || t > best)) best = t;
-    }
-    return best === null ? null : new Date(best).toISOString();
-  };
   const avg = (nums: number[]): number | null =>
     nums.length === 0 ? null : Math.round(nums.reduce((s, n) => s + n, 0) / nums.length);
 
@@ -157,6 +161,14 @@ export async function GET() {
     const at = attemptsBy.get(m.user_id) ?? [];
     const completed = rp.filter(r => r.completed_at);
     const firstTry = summarize(groupItems(at));
+    const src = seen.get(m.user_id);
+    const presence = src?.presence ?? [];
+    // Answers count too: a learner who only answered questions in a room they had already
+    // opened used to look idle here.
+    const learning = [
+      ...rp.map(r => r.updated_at), ...rp.map(r => r.completed_at), ...sc.map(s => s.completed_at),
+      ...ds.map(s => s.played_at), ...at.map(a => a.created_at), ...(extra.get(m.user_id) ?? []),
+    ];
 
     return {
       user_id: m.user_id,
@@ -179,10 +191,11 @@ export async function GET() {
       tasks_unsolved: firstTry.unsolved,
       sessions: ds.length,
       avg_detect_rate: avg(ds.map(s => s.detect_rate ?? 0)),
-      last_active_at: latest([
-        ...rp.map(r => r.updated_at), ...rp.map(r => r.completed_at),
-        ...sc.map(s => s.completed_at), ...ds.map(s => s.played_at),
-      ]),
+      last_active_at: latestOf(learning),
+      last_seen_at: lastSeenOf(src, learning),
+      last_sign_in_at: src?.last_sign_in_at ?? null,
+      visits_30: presence.length ? presence.reduce((n, d) => n + d.visits, 0) : null,
+      active_minutes_30: presence.length ? Math.round(presence.reduce((n, d) => n + d.active_seconds, 0) / 60) : null,
     };
   });
 
@@ -226,11 +239,12 @@ export async function GET() {
       avg_scenario_score: avg(allScenarioScores),
       avg_rooms_completed: avg(activeStudents.map(s => s.rooms_completed)),
       total_rooms_completed: activeStudents.reduce((n, s) => n + s.rooms_completed, 0),
-      active_7d: activeStudents.filter(s => s.last_active_at && now - Date.parse(s.last_active_at) < 7 * DAY).length,
+      active_7d: activeStudents.filter(s => s.last_seen_at && now - Date.parse(s.last_seen_at) < 7 * DAY).length,
       never_started: activeStudents.filter(s => !s.last_active_at).length,
+      never_signed_in: activeStudents.filter(s => !s.last_seen_at).length,
       // Enrolled, did something once, but nothing for two weeks — the group an
       // instructor most needs surfaced while there's still time to intervene.
-      dormant_14d: activeStudents.filter(s => s.last_active_at && now - Date.parse(s.last_active_at) >= 14 * DAY).length,
+      dormant_14d: activeStudents.filter(s => s.last_seen_at && now - Date.parse(s.last_seen_at) >= 14 * DAY).length,
       hardest_rooms,
     },
   });

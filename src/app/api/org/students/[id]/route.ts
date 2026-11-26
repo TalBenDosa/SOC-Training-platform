@@ -3,7 +3,8 @@ import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOMS_META } from "@/data/roomsMeta";
 import { fetchAll } from "@/lib/plans/server";
-import { activityOf, type StudentActivity } from "@/lib/org/activity";
+import { activityOf, latestOf, type StudentActivity } from "@/lib/org/activity";
+import { loadSeenSources } from "@/lib/org/lastSeen";
 import { groupItems, summarize, type FirstTrySummary } from "@/lib/org/firstTry";
 import { buildMistakeGroups, type MistakeGroup, type StoredAttempt } from "@/lib/org/mistakeView";
 import { skillStats, judged, type AreaStat, type FirstAnswerRow } from "@/lib/org/skillStats";
@@ -42,7 +43,10 @@ export interface StudentDetail {
   affiliation_expires_at: string | null;
   xp: number;
   level: number;
+  /** Last dated LEARNING record in this org (answers, rooms, scenarios, shifts, lessons, films). */
   last_active_at: string | null;
+  /** When the learner was last on the platform at all (see lib/org/activity lastSeenOf). */
+  last_seen_at: string | null;
   summary: {
     rooms_completed: number;
     rooms_started: number;
@@ -83,11 +87,6 @@ const median = (n: number[]) => {
   const s = [...n].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
   return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
-};
-const latest = (dates: (string | null | undefined)[]) => {
-  let best: number | null = null;
-  for (const d of dates) { if (!d) continue; const t = Date.parse(d); if (!Number.isNaN(t) && (best === null || t > best)) best = t; }
-  return best === null ? null : new Date(best).toISOString();
 };
 
 export async function GET(_req: Request, { params }: Ctx) {
@@ -183,17 +182,23 @@ export async function GET(_req: Request, { params }: Ctx) {
 
   const p = member.profiles as unknown as { handle?: string; display_name?: string; xp?: number; level?: number } | null;
 
-  // Last sign-in (auth) and active days, for the written summary of the progress report.
-  let lastSignIn: string | null = null;
-  try {
-    const { data: au } = await admin.auth.admin.getUserById(id);
-    lastSignIn = au?.user?.last_sign_in_at ?? null;
-  } catch { /* unknown: the report says so */ }
+  // Sign-in, session renewal, presence beats (0123) and the dated records no room row holds.
+  // The last sign-in alone is the day a password was last typed, not the day the learner was here.
+  const { seen, extra } = await loadSeenSources(admin, orgId, id);
+  const mine = seen.get(id) ?? {};
+  let lastSignIn: string | null = mine.last_sign_in_at ?? null;
+  if (!lastSignIn) {
+    try {
+      const { data: au } = await admin.auth.admin.getUserById(id);
+      lastSignIn = au?.user?.last_sign_in_at ?? null;
+    } catch { /* unknown: the report says so */ }
+  }
   const answerDates = [...attemptRows.map(a => a.created_at), ...firsts.map(f => (f as { created_at?: string | null }).created_at)];
-  const activity = activityOf(
-    [...answerDates, ...roomRows.map(r => r.updated_at), ...roomRows.map(r => r.completed_at), ...scenarioRows.map(s => s.completed_at), ...sessionRows.map(s => s.played_at)],
-    answerDates, lastSignIn,
-  );
+  const learningDates = [
+    ...answerDates, ...roomRows.map(r => r.updated_at), ...roomRows.map(r => r.completed_at),
+    ...scenarioRows.map(s => s.completed_at), ...sessionRows.map(s => s.played_at), ...(extra.get(id) ?? []),
+  ];
+  const activity = activityOf(learningDates, answerDates, lastSignIn, Date.now(), mine);
 
   const detail: StudentDetail = {
     activity,
@@ -206,10 +211,8 @@ export async function GET(_req: Request, { params }: Ctx) {
     affiliation_expires_at: member.affiliation_expires_at ?? null,
     xp: p?.xp ?? 0,
     level: p?.level ?? 1,
-    last_active_at: latest([
-      ...roomRows.map(r => r.updated_at), ...roomRows.map(r => r.completed_at),
-      ...scenarioRows.map(s => s.completed_at), ...sessionRows.map(s => s.played_at),
-    ]),
+    last_active_at: latestOf(learningDates),
+    last_seen_at: activity.last_seen_at ?? null,
     summary: {
       rooms_completed: roomRows.filter(r => r.completed_at).length,
       rooms_started: roomRows.length,

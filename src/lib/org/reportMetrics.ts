@@ -10,6 +10,7 @@
  */
 import type { StudentDetail } from "@/app/api/org/students/[id]/route";
 import type { PersonalPlanResponse } from "@/app/api/org/students/[id]/plan/route";
+import { latestOf } from "./activity";
 
 export const MIN_ITEMS = 5;
 
@@ -95,6 +96,15 @@ const ago = (iso: string, now: number) => {
 const signed = (n: number, unit = "") => `${n > 0 ? "+" : ""}${n}${unit}`;
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
+/**
+ * When the learner was last on the platform. NOT the last sign-in: that is the day a password was
+ * last typed, and a learner who stays signed in works for weeks without typing it again (the
+ * report used to say "last signed in 18 Nov" for someone who worked on 24 Nov).
+ */
+export function lastSeenAt(s: StudentDetail, now = Date.now()): string | null {
+  return latestOf([s.last_seen_at, s.activity?.last_seen_at, s.activity?.last_session_at, s.activity?.last_sign_in_at, s.last_active_at], now);
+}
+
 export interface Narrative {
   /** One word for the class table and the colour of the summary: how the learner stands. */
   status: "on track" | "needs attention" | "inactive" | "not started";
@@ -115,12 +125,20 @@ export function reportNarrative(
   const act = s.activity;
   const paragraphs: Narrative["paragraphs"] = [];
 
-  // ── Activity and sign-in ──
-  const sign = act?.last_sign_in_at;
-  const signDays = sign ? Math.floor((now - Date.parse(sign)) / DAY) : null;
-  let activity = sign
-    ? `${name} last signed in ${ago(sign, now)} (${fmtDate(sign)}).`
-    : act ? `${name} has not signed in to the platform yet.` : `The last sign-in is not known.`;
+  // ── Presence and activity ──
+  const sign = act?.last_sign_in_at ?? null;
+  const seen = lastSeenAt(s, now);
+  const seenDays = seen ? Math.floor((now - Date.parse(seen)) / DAY) : null;
+  let activity = seen
+    ? `${name} was last on the platform ${ago(seen, now)} (${fmtDate(seen)}).`
+    : act ? `${name} has not signed in to the platform yet.` : `The last visit is not known.`;
+  // Only worth a sentence when the two dates differ: it explains why "signed in" looks old.
+  if (seen && sign && fmtDate(sign) !== fmtDate(seen)) {
+    activity += ` The current session was opened with a password on ${fmtDate(sign)} and has stayed signed in since.`;
+  }
+  if (act && typeof act.visits_30 === "number") {
+    activity += ` ${act.visits_30} ${act.visits_30 === 1 ? "visit" : "visits"} and ${act.active_minutes_30 ?? 0} active minutes in the last 30 days.`;
+  }
   if (act) {
     activity += ` Active on ${act.active_days_30} of the last 30 days (${act.active_days_7} in the last week), with ${act.answered_30} graded answers in the last 30 days.`;
     const w = act.weeks;
@@ -134,7 +152,8 @@ export function reportNarrative(
   paragraphs.push({ title: "Activity", text: activity });
 
   // ── Progress, and what changed since the previous report ──
-  let progress = `${s.summary.rooms_completed} rooms completed (${s.summary.rooms_started} started), ${s.summary.scenarios_completed} scenarios, ${s.summary.sessions} live SOC shifts`
+  const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+  let progress = `${n(s.summary.rooms_completed, "room", "rooms")} completed (${s.summary.rooms_started} started), ${n(s.summary.scenarios_completed, "scenario", "scenarios")}, ${n(s.summary.sessions, "live SOC shift", "live SOC shifts")}`
     + (m.first_try_pct !== null ? `; ${m.first_try_pct}% of ${m.first_try_items} graded questions answered right on the first try.` : `; no graded answers yet.`);
   let change = "first report";
   if (previous) {
@@ -198,15 +217,15 @@ export function reportNarrative(
 
   // ── What needs action ──
   const actions: string[] = [];
-  if (!sign) actions.push("make sure the learner can sign in");
-  else if (signDays !== null && signDays > 14) actions.push(`follow up: no sign-in for ${signDays} days`);
+  if (!seen) actions.push("make sure the learner can sign in");
+  else if (seenDays !== null && seenDays > 14) actions.push(`follow up: not seen on the platform for ${seenDays} days`);
   if (m.open_mistakes > 0) actions.push(`${m.open_mistakes === 1 ? "1 mistake is" : `${m.open_mistakes} mistakes are`} still not corrected; reviewing ${m.open_mistakes === 1 ? "it" : "them"} is the fastest gain`);
   if (weak.length) actions.push(`assign practice in ${list(weak.slice(0, 2).map(a => a.label))}`);
   if (s.affiliation_expires_at && Date.parse(s.affiliation_expires_at) < now + 14 * DAY) actions.push("the enrolment ends within two weeks");
   if (actions.length) paragraphs.push({ title: "Needs action", text: actions.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(". ") + "." });
 
-  const status: Narrative["status"] = !s.last_active_at && !sign ? "not started"
-    : (signDays !== null && signDays > 14) || (act && act.active_days_30 === 0) ? "inactive"
+  const status: Narrative["status"] = !seen ? "not started"
+    : (seenDays !== null && seenDays > 14) || (act && act.active_days_30 === 0) ? "inactive"
     : weak.length || m.open_mistakes > 10 ? "needs attention" : "on track";
   return { status, paragraphs, change };
 }

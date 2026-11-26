@@ -111,7 +111,10 @@ export default function StudentDetailPage() {
                   <p className="mt-0.5 font-mono text-xs text-slate-400">{data.handle ? `@${data.handle} · ` : ""}{data.role} · {data.status}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
                     <span><CalendarDays className="mr-1 inline h-3 w-3" />joined {fmtDate(data.joined_at)}</span>
-                    <span><Clock className="mr-1 inline h-3 w-3" />last active {fmtDate(data.last_active_at)}</span>
+                    <span title="When the student was last on the platform. Any visit counts, also without typing a password again.">
+                      <Clock className="mr-1 inline h-3 w-3" />last seen <span className="text-slate-200">{fmtDate(data.last_seen_at ?? data.last_active_at)}</span></span>
+                    <span title="The last dated learning record: an answer, a room, a scenario, a live shift, a lesson or a film.">
+                      <Activity className="mr-1 inline h-3 w-3" />last learning activity {fmtDate(data.last_active_at)}</span>
                     {affDays !== null && (
                       <span className={affDays < 0 ? "font-bold text-severity-high" : affDays <= 14 ? "text-neon-amber" : ""}>
                         <KeyRound className="mr-1 inline h-3 w-3" />{affDays < 0 ? "enrolment lapsed" : `enrolment ${affDays}d left`}
@@ -286,6 +289,7 @@ export default function StudentDetailPage() {
             {/* ── Activity ────────────────────────────────────────────── */}
             {tab === "activity" && (
               <div className="space-y-5">
+                {data.activity && <PresenceCard activity={data.activity} lastSeen={data.last_seen_at ?? data.last_active_at} />}
                 <Card>
                   <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white"><Target className="h-4 w-4 text-cyber-300" /> Scenarios</h2>
                   {data.scenarios.length === 0 ? (
@@ -363,6 +367,45 @@ export default function StudentDetailPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** When the student was on the platform: last seen, sign-in, visits, and the last 30 days. */
+function PresenceCard({ activity: a, lastSeen }: { activity: NonNullable<StudentDetail["activity"]>; lastSeen: string | null }) {
+  const days = a.days ?? [];
+  const maxAnswers = Math.max(1, ...days.map(d => d.answers));
+  const tracked = a.visits_30 !== null && a.visits_30 !== undefined;
+  const short = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  return (
+    <Card>
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white"><Clock className="h-4 w-4 text-cyber-300" /> Presence and activity</h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Metric icon={<Clock className="h-4 w-4" />} label="Last seen" value={lastSeen ? short(lastSeen) : "never"}
+          hint={lastSeen ? fmtDate(lastSeen) : "has not opened the platform"} tip="The latest of: a visit to any page, a renewal of the signed-in session, and any learning record." />
+        <Metric icon={<CalendarDays className="h-4 w-4" />} label="Active days" value={`${a.active_days_30}/30`} hint={`${a.active_days_7} in the last 7 days`} />
+        <Metric icon={<Activity className="h-4 w-4" />} label="Visits (30 days)" value={tracked ? String(a.visits_30) : "n/a"}
+          hint={tracked ? `${a.active_minutes_30 ?? 0} active minutes` : "recorded from the next visit on"} tip="A return after 30 minutes away counts as a new visit. Active minutes count only while the student is doing something." />
+        <Metric icon={<KeyRound className="h-4 w-4" />} label="Password sign-in" value={a.last_sign_in_at ? short(a.last_sign_in_at) : "never"}
+          hint="start of the current session" tip="The last time the student typed a password. A student who stays signed in keeps working for weeks without a new sign-in, so this is not the last visit." />
+      </div>
+      {days.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-1.5 text-[11px] uppercase tracking-wider text-slate-500">Last 30 days · bar height = graded answers</p>
+          <div className="flex h-16 items-end gap-[3px]" role="img" aria-label={`Active on ${a.active_days_30} of the last 30 days`}>
+            {days.map(d => (
+              <div key={d.date} className="flex h-full flex-1 flex-col justify-end"
+                title={`${short(`${d.date}T12:00:00Z`)}: ${d.active ? "active" : "not seen"}${d.answers ? `, ${d.answers} answers` : ""}${d.minutes !== null ? `, ${d.minutes} active minutes` : ""}`}>
+                <div className={cn("w-full rounded-sm", d.active ? "bg-cyber-400" : "bg-border")}
+                  style={{ height: d.active ? `${Math.max(18, Math.round((d.answers / maxAnswers) * 100))}%` : "6%" }} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-500">
+            <span>{short(`${days[0].date}T12:00:00Z`)}</span><span>today</span>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
