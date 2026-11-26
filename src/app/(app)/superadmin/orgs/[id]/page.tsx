@@ -680,7 +680,7 @@ export default function OrgDetailPage() {
                               <th className="px-4 py-2.5 font-medium">Email</th>
                               <th className="px-4 py-2.5 font-medium" title="Correct answers across all graded tasks">Score</th>
                               <th className="px-4 py-2.5 font-medium">XP</th>
-                              <th className="px-4 py-2.5 font-medium" title="When the member was last on the platform: any visit counts, also without typing a password again.">Last seen</th>
+                              <th className="px-4 py-2.5 font-medium" title="When the member was last on the platform: any visit counts, also without logging in again.">Last seen</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/60">
@@ -698,7 +698,7 @@ export default function OrgDetailPage() {
                           const exact = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "never");
                           return (
                             <td className={`px-4 py-2.5 text-[12px] ${!seen ? "text-slate-500" : Date.now() - Date.parse(seen) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}
-                              title={`Last seen: ${exact(seen)}\nLast learning activity: ${exact(s.last_active_at)}\nLast password sign-in: ${exact(s.last_sign_in_at)}${typeof s.visits_30 === "number" ? `\nLast 30 days: ${s.visits_30} visits, ${s.active_minutes_30 ?? 0} active minutes` : ""}`}>
+                              title={`Last seen: ${exact(seen)}\nLast learning activity: ${exact(s.last_active_at)}\nLast login: ${exact(s.last_sign_in_at)}${typeof s.visits_30 === "number" ? `\nLast 30 days: ${s.visits_30} visits, ${s.active_minutes_30 ?? 0} active minutes` : ""}`}>
                               {sinceLabel(seen)}
                             </td>
                           );

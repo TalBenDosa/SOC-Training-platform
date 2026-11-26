@@ -189,7 +189,7 @@ export default function ManagePage() {
     const header = [
       "Student", "Handle", "Status", "Role", "XP", "Level",
       "Rooms completed", "Rooms started", "Right first try %", "Questions answered", "Scenarios completed", "Avg scenario score",
-      "Dashboard sessions", "Avg detect rate %", "Last seen on the platform", "Last learning activity", "Last password sign-in", "Visits (30 days)", "Active minutes (30 days)", "Enrolment valid until",
+      "Dashboard sessions", "Avg detect rate %", "Last seen on the platform", "Last learning activity", "Last login", "Visits (30 days)", "Active minutes (30 days)", "Enrolment valid until",
     ];
     const body = students.map(s => [
       s.display_name ?? s.handle ?? s.user_id.slice(0, 8),
@@ -480,7 +480,7 @@ export default function ManagePage() {
                           <th className="px-4 py-2.5 font-medium" title="Share of the graded room curriculum completed (Foundations, SOC Tier 1, Advanced)">Path progress</th>
                           <th className="px-4 py-2.5 font-medium" title="Average share of attacks caught in the live SOC feed">Live feed detection</th>
                           <th className="px-4 py-2.5 font-medium">XP</th>
-                          <th className="px-4 py-2.5 font-medium" title="When the student was last on the platform: any visit counts, also without typing a password again. Hover a row for the last learning activity and the last password sign-in.">Last seen</th>
+                          <th className="px-4 py-2.5 font-medium" title="When the student was last on the platform: any visit counts, also without logging in again. Hover a row for the last learning activity and the last login.">Last seen</th>
                           <th className="px-4 py-2.5 text-right font-medium">Actions</th>
                         </tr>
                       </thead>
@@ -519,7 +519,7 @@ export default function ManagePage() {
                                 const stale = seen ? Date.now() - Date.parse(seen) >= 14 * 86_400_000 : false;
                                 return (
                                   <td className={`px-4 py-2.5 text-[12px] ${!seen ? "text-slate-500" : stale ? "text-neon-amber" : "text-slate-400"}`}
-                                    title={`Last seen: ${exactLabel(seen)}\nLast learning activity: ${exactLabel(s?.last_active_at ?? null)}\nLast password sign-in: ${exactLabel(s?.last_sign_in_at ?? null)}`}>
+                                    title={`Last seen: ${exactLabel(seen)}\nLast learning activity: ${exactLabel(s?.last_active_at ?? null)}\nLast login: ${exactLabel(s?.last_sign_in_at ?? null)}`}>
                                     {sinceLabel(seen)}
                                     {seen && <span className="block font-mono text-[10px] text-slate-500">{new Date(seen).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>}
                                   </td>

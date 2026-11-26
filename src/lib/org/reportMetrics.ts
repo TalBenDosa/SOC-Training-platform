@@ -134,7 +134,7 @@ export function reportNarrative(
     : act ? `${name} has not signed in to the platform yet.` : `The last visit is not known.`;
   // Only worth a sentence when the two dates differ: it explains why "signed in" looks old.
   if (seen && sign && fmtDate(sign) !== fmtDate(seen)) {
-    activity += ` The current session was opened with a password on ${fmtDate(sign)} and has stayed signed in since.`;
+    activity += ` The last login was on ${fmtDate(sign)}; the same session has stayed logged in since.`;
   }
   if (act && typeof act.visits_30 === "number") {
     activity += ` ${act.visits_30} ${act.visits_30 === 1 ? "visit" : "visits"} and ${act.active_minutes_30 ?? 0} active minutes in the last 30 days.`;

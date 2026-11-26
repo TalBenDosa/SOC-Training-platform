@@ -64,7 +64,7 @@ describe("report narrative", () => {
     const n = reportNarrative(student(), null, null, NOW);
     const text = n.paragraphs.map(p => p.text).join(" ");
     expect(text).toMatch(/was last on the platform yesterday/);
-    expect(text).not.toMatch(/opened with a password/);   // same day: nothing to explain
+    expect(text).not.toMatch(/The last login was on/);   // same day: nothing to explain
     expect(text).toMatch(/Active on 9 of the last 30 days/);
     expect(text).toMatch(/first report/);
     expect(text).toMatch(/Strong in Email \(90%\)/);
@@ -100,7 +100,7 @@ describe("report narrative", () => {
     const n = reportNarrative(s, null, null, NOW);
     const text = n.paragraphs.map(p => p.text).join(" ");
     expect(text).toMatch(/was last on the platform 2 days ago/);
-    expect(text).toMatch(/opened with a password on .* and has stayed signed in since/);
+    expect(text).toMatch(/The last login was on .*; the same session has stayed logged in since/);
     expect(text).toMatch(/6 visits and 95 active minutes/);
     expect(text).not.toMatch(/follow up/);          // 20 days since the password, but seen 2 days ago
     expect(n.status).not.toBe("inactive");

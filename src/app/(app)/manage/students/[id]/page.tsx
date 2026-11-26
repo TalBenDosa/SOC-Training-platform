@@ -111,7 +111,7 @@ export default function StudentDetailPage() {
                   <p className="mt-0.5 font-mono text-xs text-slate-400">{data.handle ? `@${data.handle} · ` : ""}{data.role} · {data.status}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
                     <span><CalendarDays className="mr-1 inline h-3 w-3" />joined {fmtDate(data.joined_at)}</span>
-                    <span title="When the student was last on the platform. Any visit counts, also without typing a password again.">
+                    <span title="When the student was last on the platform. Any visit counts, also without logging in again.">
                       <Clock className="mr-1 inline h-3 w-3" />last seen <span className="text-slate-200">{fmtDate(data.last_seen_at ?? data.last_active_at)}</span></span>
                     <span title="The last dated learning record: an answer, a room, a scenario, a live shift, a lesson or a film.">
                       <Activity className="mr-1 inline h-3 w-3" />last learning activity {fmtDate(data.last_active_at)}</span>
@@ -385,8 +385,8 @@ function PresenceCard({ activity: a, lastSeen }: { activity: NonNullable<Student
         <Metric icon={<CalendarDays className="h-4 w-4" />} label="Active days" value={`${a.active_days_30}/30`} hint={`${a.active_days_7} in the last 7 days`} />
         <Metric icon={<Activity className="h-4 w-4" />} label="Visits (30 days)" value={tracked ? String(a.visits_30) : "n/a"}
           hint={tracked ? `${a.active_minutes_30 ?? 0} active minutes` : "recorded from the next visit on"} tip="A return after 30 minutes away counts as a new visit. Active minutes count only while the student is doing something." />
-        <Metric icon={<KeyRound className="h-4 w-4" />} label="Password sign-in" value={a.last_sign_in_at ? short(a.last_sign_in_at) : "never"}
-          hint="start of the current session" tip="The last time the student typed a password. A student who stays signed in keeps working for weeks without a new sign-in, so this is not the last visit." />
+        <Metric icon={<KeyRound className="h-4 w-4" />} label="Last login" value={a.last_sign_in_at ? short(a.last_sign_in_at) : "never"}
+          hint="start of the current session" tip="The last time the student logged in. A student who stays logged in keeps working for weeks without a new login, so this is not the last visit." />
       </div>
       {days.length > 0 && (
         <div className="mt-4">

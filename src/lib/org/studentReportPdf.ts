@@ -384,7 +384,7 @@ export function drawStudentReport(pdf: jsPDF, input: ReportInput): void {
     { label: "Last seen", value: seen ? fmtDate(seen) : "Never", hint: seen ? `${agoLabel(seen)} at ${fmtTime(seen)}` : "has not opened the platform", tone: !seen ? BAD : stale ? WARN : ACCENT_SOFT },
     { label: "Active days (last 30)", value: act ? `${act.active_days_30} / 30` : "n/a", hint: act ? `${act.active_days_7} in the last 7 days` : undefined },
     { label: "Visits (last 30 days)", value: tracked ? String(act?.visits_30) : "n/a", hint: tracked ? `${act?.active_minutes_30 ?? 0} active minutes` : "recorded from the next visit on" },
-    { label: "Password sign-in", value: act?.last_sign_in_at ? fmtDate(act.last_sign_in_at) : "Never", hint: "start of the current session", tone: MUTED },
+    { label: "Last login", value: act?.last_sign_in_at ? fmtDate(act.last_sign_in_at) : "Never", hint: "start of the current session", tone: MUTED },
   ]);
   if (act?.days?.length) w.days(act.days, `${act.answered_30} graded answers  ·  bar height = answers that day`);
 
@@ -570,7 +570,7 @@ export function drawClassOverview(pdf: jsPDF, inputs: ReportInput[], brand: stri
     }),
     "No learners in this class.",
   );
-  w.para("Last seen: the last time the learner was on the platform, also without typing a password again. Active days: days with any activity in the last 30 days. Right 1st try: share of graded questions answered right on the first attempt.", 7.2, DIM);
+  w.para("Last seen: the last time the learner was on the platform, also without logging in again. Active days: days with any activity in the last 30 days. Right 1st try: share of graded questions answered right on the first attempt.", 7.2, DIM);
 }
 
 /**
