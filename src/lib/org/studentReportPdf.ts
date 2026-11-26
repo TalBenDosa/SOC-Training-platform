@@ -39,7 +39,18 @@ const BAD: RGB = [255, 107, 53];        // severity high
 const MIN_ITEMS = 5;
 const VERDICT: Record<string, string> = { true_positive: "True positive", benign_true_positive: "Benign true positive", false_positive: "False positive", escalate: "Escalate", benign: "Benign", malicious: "Malicious", informational: "Informational" };
 
+/** A white-label organisation's own logo, ready to place (loadReportLogo). */
+export interface ReportLogo {
+  dataUrl: string;
+  width: number;
+  height: number;
+  /** The logo already spells the name: the name is not written beside it. */
+  hasName: boolean;
+}
+
 export interface ReportInput {
+  /** The organisation's logo for a white-label brand; null or absent = the platform lockup. */
+  logo?: ReportLogo | null;
   student: StudentDetail;
   plan?: PersonalPlanResponse | null;
   /** Shown in the header and footer ("HACK THE SOC", or the white-label brand). */
@@ -293,11 +304,53 @@ class Writer {
     this.y += 2;
   }
 
+  /**
+   * The logo, top left; returns its width. The platform's lockup is drawn as in the app (the
+   * shield in its tile, then HACK THE SOC with THE in the accent); a white-label organisation
+   * gets its own logo, with its name beside it unless the logo already spells it.
+   */
+  logo(brand: string, logo?: ReportLogo | null): number {
+    const p = this.pdf;
+    const top = 6.8, size = 7.4, base = 12;
+    if (logo) {
+      const w = Math.min(46, (logo.width / Math.max(1, logo.height)) * size);
+      const h = (w * logo.height) / Math.max(1, logo.width);
+      try { p.addImage(logo.dataUrl, "PNG", M, top + (size - h) / 2, w, h); } catch { return this.tracked(brand.toUpperCase(), M, base, { size: 8.5, rgb: ACCENT, bold: true }, 0.35); }
+      if (logo.hasName) return w;
+      this.text(brand, M + w + 2.5, base, { size: 10.5, rgb: WHITE, bold: true });
+      p.setFont("helvetica", "bold"); p.setFontSize(10.5);
+      return w + 2.5 + p.getTextWidth(measurable(brand));
+    }
+    if (brand.trim().toUpperCase() !== "HACK THE SOC") {
+      // Another name without a logo image: the name alone, in the accent.
+      return this.tracked(brand.toUpperCase(), M, base, { size: 8.5, rgb: ACCENT, bold: true }, 0.35);
+    }
+    // The tile: accent border, tinted fill (border-cyber-500/60 bg-cyber-500/10).
+    p.setFillColor(...tint(ACCENT, 0.1)); p.setDrawColor(...tint(ACCENT, 0.6)); p.setLineWidth(0.25);
+    p.roundedRect(M, top, size, size, 1.4, 1.4, "FD");
+    // The shield and its tick, from the app's 24-unit icon.
+    const k = (size * 0.6) / 24, ox = M + size * 0.2, oy = top + size * 0.2;
+    p.setDrawColor(...ACCENT_SOFT); p.setLineWidth(0.38); p.setLineJoin("round"); p.setLineCap("round");
+    p.lines([[-9, 4], [0, 6], [0, 5, 3.5, 9.5, 9, 10], [5.5, -0.5, 9, -5, 9, -10], [0, -6]], ox + 12 * k, oy + 2 * k, [k, k], "S", true);
+    p.lines([[2, 2], [4, -4]], ox + 9 * k, oy + 12 * k, [k, k], "S", false);
+    p.setLineWidth(0.2); p.setLineJoin("miter"); p.setLineCap("butt");
+    // The wordmark, monospaced and tracked like the app's.
+    let x = M + size + 2.6;
+    for (const [word, rgb] of [["HACK", WHITE], ["THE", ACCENT], ["SOC", WHITE]] as [string, RGB][]) {
+      p.setFont("courier", "bold"); p.setFontSize(11.5); p.setTextColor(...rgb);
+      p.setCharSpace(0.45);
+      p.text(word, x, base - 0.1);
+      p.setCharSpace(0);
+      x += p.getTextWidth(word) + word.length * 0.45 + 1.5;
+    }
+    return x - 1.9 - M;
+  }
+
   /** The top of a report: brand line, generated date, big title, sub lines. */
-  masthead(brand: string, orgName: string | null | undefined, title: string, sub: string[]) {
+  masthead(brand: string, orgName: string | null | undefined, title: string, sub: string[], logo?: ReportLogo | null) {
     this.paint(true);
-    const bw = this.tracked(brand.toUpperCase(), M, 12, { size: 8.5, rgb: ACCENT, bold: true }, 0.35);
-    if (orgName) this.text(`·  ${orgName}`, M + bw + 2.5, 12, { size: 8.5, rgb: MUTED });
+    const bw = this.logo(brand, logo);
+    if (orgName) this.text(`·  ${orgName}`, M + bw + 3, 12, { size: 8.5, rgb: MUTED });
     this.text(`Generated ${new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, PAGE_W - M, 12, { size: 7.4, rgb: DIM, align: "right" });
     this.label("Progress report", M, 19.5, DIM);
     this.text(title, M, 28.5, { size: 21, rgb: WHITE, bold: true });
@@ -320,7 +373,7 @@ export function drawStudentReport(pdf: jsPDF, input: ReportInput): void {
   const affDays = s.affiliation_expires_at ? Math.ceil((Date.parse(s.affiliation_expires_at) - Date.now()) / DAY) : null;
   w.masthead(input.brand, input.orgName, name, [
     `${s.handle ? `@${s.handle}  ·  ` : ""}${s.role}  ·  ${s.status}  ·  joined ${fmtDate(s.joined_at)}${affDays !== null ? `  ·  ${affDays < 0 ? "enrolment lapsed" : `enrolment ends in ${affDays} days`}` : ""}`,
-  ]);
+  ], input.logo);
   w.chip(story.status, statusRgb(story.status), M, w.y + 1.5);
   w.y += 8;
 
@@ -472,20 +525,20 @@ export async function downloadStudentReport(input: ReportInput): Promise<void> {
 }
 
 /** Every student of a list in one PDF, each starting on a new page. */
-export async function downloadClassReport(inputs: ReportInput[], brand: string, orgName?: string | null): Promise<void> {
+export async function downloadClassReport(inputs: ReportInput[], brand: string, orgName?: string | null, logo?: ReportLogo | null): Promise<void> {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  drawClassOverview(pdf, inputs, brand, orgName);
+  drawClassOverview(pdf, inputs, brand, orgName, logo);
   inputs.forEach(input => {
     pdf.addPage();
-    drawStudentReport(pdf, { ...input, orgName: input.orgName ?? orgName });
+    drawStudentReport(pdf, { ...input, orgName: input.orgName ?? orgName, logo: input.logo ?? logo });
   });
   footer(pdf, brand);
   pdf.save(`class-report_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 /** Page 1 of the class report: one line per learner, the ones needing action first. */
-export function drawClassOverview(pdf: jsPDF, inputs: ReportInput[], brand: string, orgName?: string | null) {
+export function drawClassOverview(pdf: jsPDF, inputs: ReportInput[], brand: string, orgName?: string | null, logo?: ReportLogo | null) {
   const w = new Writer(pdf, brand, "Class overview");
   const rows = inputs.map(i => ({ i, n: reportNarrative(i.student, i.plan, i.previous ?? null), seen: lastSeenAt(i.student) }));
   const order = { "not started": 0, inactive: 1, "needs attention": 2, "on track": 3 } as const;
@@ -494,8 +547,8 @@ export function drawClassOverview(pdf: jsPDF, inputs: ReportInput[], brand: stri
   const week = rows.filter(r => r.seen && Date.now() - Date.parse(r.seen) < 7 * DAY).length;
 
   w.masthead(brand, orgName, "Class progress report", [
-    `${rows.length} learners  ·  ${week} on the platform in the last 7 days. The learners who need action are listed first; each learner's full report follows.`,
-  ]);
+    `${rows.length} ${rows.length === 1 ? "learner" : "learners"}  ·  ${week} on the platform in the last 7 days. The learners who need action are listed first; each learner's full report follows.`,
+  ], logo);
   w.y += 2;
   w.cards([
     { label: "On track", value: String(count("on track")), hint: "active, no weak topic", tone: GOOD },
@@ -520,8 +573,34 @@ export function drawClassOverview(pdf: jsPDF, inputs: ReportInput[], brand: stri
   w.para("Last seen: the last time the learner was on the platform, also without typing a password again. Active days: days with any activity in the last 30 days. Right 1st try: share of graded questions answered right on the first attempt.", 7.2, DIM);
 }
 
+/**
+ * A white-label organisation's logo as a PNG the PDF can hold (the logo route may serve SVG or
+ * WebP, which jsPDF cannot place). Null for the platform's own brand, which is drawn, and when
+ * the image cannot be read: the report then shows the name.
+ */
+export async function loadReportLogo(brand: { whiteLabel: boolean; logoSrc: string | null; logoHasName: boolean }): Promise<ReportLogo | null> {
+  if (!brand.whiteLabel || !brand.logoSrc || typeof document === "undefined") return null;
+  try {
+    const img = await new Promise<HTMLImageElement | null>(resolve => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = brand.logoSrc as string;
+    });
+    if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+    const scale = Math.min(1, 600 / img.naturalWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return { dataUrl: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height, hasName: brand.logoHasName };
+  } catch { return null; }
+}
+
 /** Reads one student's detail and plan the way the student page does (org-admin routes). */
-export async function loadReportInput(userId: string, brand: string, orgName?: string | null): Promise<ReportInput> {
+export async function loadReportInput(userId: string, brand: string, orgName?: string | null, logo?: ReportLogo | null): Promise<ReportInput> {
   const [d, p] = await Promise.all([
     fetch(`/api/org/students/${encodeURIComponent(userId)}`),
     fetch(`/api/org/students/${encodeURIComponent(userId)}/plan`).catch(() => null),
@@ -537,5 +616,5 @@ export async function loadReportInput(userId: string, brand: string, orgName?: s
     });
     if (r.ok) previous = ((await r.json()) as ReportSnapshotResponse).previous;
   } catch { /* no comparison this time */ }
-  return { student, plan, brand, orgName, previous };
+  return { student, plan, brand, orgName, previous, logo };
 }

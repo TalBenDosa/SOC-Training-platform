@@ -24,7 +24,7 @@ import type { StudentDetail } from "@/app/api/org/students/[id]/route";
 import { PersonalPrioritiesCard } from "@/components/manage/PersonalPrioritiesCard";
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/lib/brand/BrandContext";
-import { downloadStudentReport, loadReportInput } from "@/lib/org/studentReportPdf";
+import { downloadStudentReport, loadReportInput, loadReportLogo } from "@/lib/org/studentReportPdf";
 
 type Tab = "summary" | "mistakes" | "activity" | "plan";
 const MIN_ITEMS = 5; // fewer gradable questions than this in a topic is not enough to judge it
@@ -67,7 +67,7 @@ export default function StudentDetailPage() {
   const [pdfError, setPdfError] = useState<string | null>(null);
   async function downloadPdf() {
     setPdfBusy(true); setPdfError(null);
-    try { await downloadStudentReport(await loadReportInput(id, brand.productName)); }
+    try { await downloadStudentReport(await loadReportInput(id, brand.productName, null, await loadReportLogo(brand))); }
     catch (e) { setPdfError(e instanceof Error ? e.message : "Could not build the PDF."); }
     finally { setPdfBusy(false); }
   }

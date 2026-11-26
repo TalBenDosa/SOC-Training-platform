@@ -26,7 +26,7 @@ import { SkillsPanel } from "@/components/manage/SkillsPanel";
 import { InvitePanel } from "@/components/manage/InvitePanel";
 import { RoomAccessPanel } from "@/components/manage/RoomAccessPanel";
 import { useBrand } from "@/lib/brand/BrandContext";
-import { downloadClassReport, loadReportInput, type ReportInput } from "@/lib/org/studentReportPdf";
+import { downloadClassReport, loadReportInput, loadReportLogo, type ReportInput } from "@/lib/org/studentReportPdf";
 
 type ManageTab = "students" | "overview" | "skills" | "mistakes" | "plans" | "content";
 type SortKey = "xp" | "name" | "first_try" | "path" | "active";
@@ -176,7 +176,7 @@ export default function ManagePage() {
         setPdfBusy(`${i + 1}/${list.length}`);
         inputs.push(await loadReportInput(list[i].user_id, brand.productName, org?.name));
       }
-      await downloadClassReport(inputs, brand.productName, org?.name);
+      await downloadClassReport(inputs, brand.productName, org?.name, await loadReportLogo(brand));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not build the PDF reports.");
     } finally {
