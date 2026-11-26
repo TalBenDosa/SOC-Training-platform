@@ -988,6 +988,7 @@ import { NEW_TOPIC_LESSONS } from "./newTopicLessons";
 import { CURRICULUM_EXPANSION_LESSONS } from "./curriculumExpansionLessons";
 import { TRACK_GAP_LESSONS } from "./trackGapLessons";
 import { LESSON_VIDEOS } from "./lessonVideos";
+import { SECTION_VIDEOS } from "./sectionVideos";
 import { LESSON_SLIDES } from "./lessonSlides";
 
 export const BUILTIN_LESSONS = [
@@ -1084,6 +1085,17 @@ for (const lesson of BUILTIN_LESSONS as Array<{ slug?: string; sections?: Array<
   if (vid && first && !first.video) {
     first.video = vid;
   }
+}
+
+// Per-section films (one short film per page, lesson-videos/sections/<slug>/NN.mp4). Attached after the
+// lesson-level explainers on purpose: a section film covers exactly its page, so it takes that page's slot.
+for (const lesson of BUILTIN_LESSONS as Array<{ slug?: string; sections?: Array<{ video?: unknown }> }>) {
+  const films = lesson.slug ? SECTION_VIDEOS[lesson.slug] : undefined;
+  if (!films) continue;
+  lesson.sections?.forEach((section, i) => {
+    const film = films[i + 1];
+    if (film) section.video = film;
+  });
 }
 
 // Attach each lesson's slide deck (a branded PDF in Supabase Storage) from the
