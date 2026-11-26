@@ -187,3 +187,14 @@ select option:checked { background-color: rgb(var(--cyber-700)); color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .wl-endcard-in, .wl-endcard-in-late { animation: none; }
 }
+
+/* Operation-mode station panel: the labs and tasks use many small sizes that
+   learners reported as hard to read. Raise each small size one step inside the
+   station panel only (the handler and the hub keep their sizes). Plain rules
+   after the utilities layer, so they win over the Tailwind classes. */
+.op-readable .text-\[9px\]  { font-size: 0.6875rem; }
+.op-readable .text-\[10px\] { font-size: 0.75rem; }
+.op-readable .text-\[11px\] { font-size: 0.8125rem; }
+.op-readable .text-xs       { font-size: 0.875rem; }
+.op-readable .text-xs:not([class*="leading-"]) { line-height: 1.35rem; }
+.op-readable .text-sm       { font-size: 0.9375rem; }

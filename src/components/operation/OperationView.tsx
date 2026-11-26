@@ -677,7 +677,7 @@ export function OperationView(p: OperationViewProps) {
             <StudyContext.Provider value={studyCtx}>
             <div className="mx-auto flex max-w-[100rem] items-start justify-center gap-4">
             <div
-              className="relative min-w-0 max-w-5xl flex-1 overflow-hidden rounded-3xl border p-5 shadow-2xl backdrop-blur-xl sm:p-7"
+              className="op-readable relative min-w-0 max-w-5xl flex-1 overflow-hidden rounded-3xl border p-5 shadow-2xl backdrop-blur-xl sm:p-7"
               style={{
                 // Each room's labs wear the room's own colours, so no two rooms look alike.
                 ["--room-accent" as string]: experience.look?.primary ?? "#38bdf8",

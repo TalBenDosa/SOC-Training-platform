@@ -148,7 +148,7 @@ export const NETWORKING_FUNDAMENTALS: RoomExperience = {
         items: [
           { id: "port", text: "An unknown device is plugged into an empty wall port", bucket: "l1", why: "A physical connection to the medium: Layer 1. This is why NAC exists." },
           { id: "arp", text: "Forged ARP replies claim the gateway's IP belongs to another MAC", bucket: "l2", why: "ARP maps IPs to MACs on the local LAN: Layer 2, and it has no authentication." },
-          { id: "bgp", text: "A provider announces routes it does not own and pulls traffic toward it", bucket: "l3", why: "BGP hijacking abuses routing between networks: Layer 3." },
+          { id: "bgp", text: "An internet provider falsely claims other networks' addresses, so their traffic is sent to it", bucket: "l3", why: "This is BGP hijacking: a false route claim sends traffic the wrong way between networks. Routing between networks is Layer 3." },
           { id: "syn", text: "Half-open connections pile up until a server stops answering", bucket: "l4", why: "A SYN flood abuses TCP's handshake: Layer 4." },
           { id: "cookie", text: "A stolen session cookie takes over a signed-in user", bucket: "l5", why: "Hijacking the token that keeps a session alive: Layer 5." },
           { id: "tls", text: "Malware hides its command traffic inside TLS encryption", bucket: "l6", why: "Encryption is a Layer 6 job, which is why C2 hides there." },
