@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { fetchAll } from "@/lib/plans/server";
+import { lastSeenOf, latestOf, type SeenSources } from "@/lib/org/activity";
+import { loadSeenSources } from "@/lib/org/lastSeen";
 
 /**
  * Platform-wide student list for the super-admin — every member across every
@@ -34,15 +36,19 @@ export interface GlobalStudentRow {
   scenarios_completed: number;
   scenario_avg_score: number | null;
   mistakes: number;
+  /** Last dated LEARNING record (rooms, scenarios, shifts, lessons, films). */
   last_active_at: string | null;
+  /** When the member was last on the platform at all: sign-in, session renewal, presence, activity.
+   *  The last password sign-in alone is wrong for anyone who stays signed in. */
+  last_seen_at: string | null;
+  /** Last password sign-in (the start of the current session); null if unknown. */
+  last_sign_in_at: string | null;
+  /** Visits and active minutes in the last 30 days (presence, 0123); null until recorded. */
+  visits_30: number | null;
+  active_minutes_30: number | null;
 }
 
 const avg = (n: number[]) => (n.length === 0 ? null : Math.round(n.reduce((s, x) => s + x, 0) / n.length));
-const latest = (dates: (string | null | undefined)[]) => {
-  let best: number | null = null;
-  for (const d of dates) { if (!d) continue; const t = Date.parse(d); if (!Number.isNaN(t) && (best === null || t > best)) best = t; }
-  return best === null ? null : new Date(best).toISOString();
-};
 
 export async function GET() {
   const gate = await requireSuperAdmin("superadmin.students");
@@ -80,6 +86,16 @@ export async function GET() {
 
   const orgName = new Map<string, string>(orgRows.map(o => [o.id, o.name]));
 
+  // Sign-in, session renewal, presence and lesson / film records, read per organisation and kept
+  // per organisation (a member of two environments is seen separately in each). Never throws.
+  const seenBy = new Map<string, SeenSources>();
+  const extraBy = new Map<string, string[]>();
+  const perOrgSeen = await Promise.all(orgRows.map(async o => ({ id: o.id, ...(await loadSeenSources(admin, o.id)) })));
+  for (const o of perOrgSeen) {
+    for (const [uid, v] of o.seen) seenBy.set(`${o.id}:${uid}`, v);
+    for (const [uid, v] of o.extra) extraBy.set(`${o.id}:${uid}`, v);
+  }
+
   const group = <T extends { user_id: string }>(rows: T[]) => {
     const m = new Map<string, T[]>();
     for (const r of rows) { const l = m.get(r.user_id); if (l) l.push(r); else m.set(r.user_id, [r]); }
@@ -94,6 +110,12 @@ export async function GET() {
     const ds = dsBy.get(m.user_id) ?? [];
     const at = atBy.get(m.user_id) ?? [];
     const completed = rp.filter(r => r.completed_at);
+    const src = seenBy.get(`${m.org_id}:${m.user_id}`);
+    const presence = src?.presence ?? [];
+    const learning = [
+      ...rp.map(r => r.updated_at), ...rp.map(r => r.completed_at),
+      ...sc.map(s => s.completed_at), ...ds.map(s => s.played_at), ...(extraBy.get(`${m.org_id}:${m.user_id}`) ?? []),
+    ];
     return {
       user_id: m.user_id,
       org_id: m.org_id,
@@ -111,12 +133,13 @@ export async function GET() {
       scenarios_completed: sc.length,
       scenario_avg_score: avg(sc.map(s => s.score ?? 0)),
       mistakes: at.filter(a => !a.correct).length,
-      last_active_at: latest([
-        ...rp.map(r => r.updated_at), ...rp.map(r => r.completed_at),
-        ...sc.map(s => s.completed_at), ...ds.map(s => s.played_at),
-      ]),
+      last_active_at: latestOf(learning),
+      last_seen_at: lastSeenOf(src, learning),
+      last_sign_in_at: src?.last_sign_in_at ?? null,
+      visits_30: presence.length ? presence.reduce((n, d) => n + d.visits, 0) : null,
+      active_minutes_30: presence.length ? Math.round(presence.reduce((n, d) => n + d.active_seconds, 0) / 60) : null,
     };
-  }).sort((a, b) => (Date.parse(b.last_active_at ?? "0") || 0) - (Date.parse(a.last_active_at ?? "0") || 0));
+  }).sort((a, b) => (Date.parse(b.last_seen_at ?? "0") || 0) - (Date.parse(a.last_seen_at ?? "0") || 0));
 
   const orgs = [...orgName.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 

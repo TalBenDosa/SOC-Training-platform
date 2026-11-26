@@ -658,7 +658,7 @@ export default function OrgDetailPage() {
             <Card className="overflow-hidden p-0">
               {(() => {
                 const rows = (students ?? []).filter(s => s.role === "student");
-                const entered = rows.filter(r => r.last_active_at).length;
+                const entered = rows.filter(r => r.last_seen_at ?? r.last_active_at).length;
                 return (
                   <>
                     <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -680,7 +680,7 @@ export default function OrgDetailPage() {
                               <th className="px-4 py-2.5 font-medium">Email</th>
                               <th className="px-4 py-2.5 font-medium" title="Correct answers across all graded tasks">Score</th>
                               <th className="px-4 py-2.5 font-medium">XP</th>
-                              <th className="px-4 py-2.5 font-medium">Last active</th>
+                              <th className="px-4 py-2.5 font-medium" title="When the member was last on the platform: any visit counts, also without typing a password again.">Last seen</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/60">
@@ -693,7 +693,16 @@ export default function OrgDetailPage() {
                                   <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300">{s.email ?? "—"}</td>
                                   <td className="px-4 py-2.5 font-mono text-slate-200">{s.scenario_avg_score === null ? "—" : `${s.scenario_avg_score}%`}</td>
                                   <td className="px-4 py-2.5 font-mono font-bold text-cyber-300">{s.xp.toLocaleString()}</td>
-                                  <td className={`px-4 py-2.5 text-[12px] ${!s.last_active_at ? "text-slate-500" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>{sinceLabel(s.last_active_at)}</td>
+                                  {(() => {
+                          const seen = s.last_seen_at ?? s.last_active_at;
+                          const exact = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "never");
+                          return (
+                            <td className={`px-4 py-2.5 text-[12px] ${!seen ? "text-slate-500" : Date.now() - Date.parse(seen) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}
+                              title={`Last seen: ${exact(seen)}\nLast learning activity: ${exact(s.last_active_at)}\nLast password sign-in: ${exact(s.last_sign_in_at)}${typeof s.visits_30 === "number" ? `\nLast 30 days: ${s.visits_30} visits, ${s.active_minutes_30 ?? 0} active minutes` : ""}`}>
+                              {sinceLabel(seen)}
+                            </td>
+                          );
+                        })()}
                                 </tr>
                             ))}
                           </tbody>
