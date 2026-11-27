@@ -108,7 +108,8 @@ const STATUS_CARDS = new Set(["ciso_status", "ciso_bypass", "board_paragraph"]);
 const SEV_TRUTH_LABEL: Record<number, string> = { 1: "Sev-1 (critical)", 2: "Sev-2 (high)", 3: "Sev-3 (medium)", 4: "Sev-4 (low)" };
 
 const KEEP_LINE: Record<string, string> = {
-  "Incident declared on time": "You declared the incident quickly after the first real escalation.",
+  "Incident reported on time": "You reported the incident to management quickly after the first real escalation.",
+  "Reported the right case": "The case you reported to management was the real attack.",
   "Severity accuracy": "Your severity matched what the incident really was.",
   "Containment calls": "Your containment approvals matched where the attack really was.",
   "Time to decide containment": "You decided containment requests without leaving the analysts waiting.",
@@ -128,7 +129,8 @@ const KEEP_LINE: Record<string, string> = {
   "Promised updates kept": "You kept the update times you promised.",
 };
 const IMPROVE_LINE: Record<string, string> = {
-  "Incident declared on time": "Declare as soon as the first real escalation lands: a declaration can be downgraded later, a late one cannot be undone.",
+  "Incident reported on time": "Report as soon as the first real escalation is confirmed: a report can be downgraded later, a late one cannot be undone.",
+  "Reported the right case": "Report the case Tier-2 or Tier-3 confirmed as an attack, and read their report before you choose.",
   "Severity accuracy": "Set severity from impact (data, critical assets, spread). When unsure, go one level higher, not lower.",
   "Containment calls": "Check where the attack activity really is before approving or denying containment.",
   "Time to decide containment": "Decide containment requests within two minutes; the attacker keeps moving while the request waits.",
@@ -144,7 +146,7 @@ const IMPROVE_LINE: Record<string, string> = {
   "Accuracy to management": "Say 'no evidence so far' instead of 'not affected': never state what has not been verified.",
   "Stakeholder questions answered in time": "Answer every stakeholder before the deadline, even if the answer is 'not known yet, next update at 14:30'.",
   "Quality of stakeholder answers": "Answer the question asked: status, what is confirmed and what is not, and a time for the next update.",
-  "Stakeholder report": "Send the first stakeholder report within 10 minutes of declaring, then update it as the picture changes.",
+  "Stakeholder report": "Send the first stakeholder report within 10 minutes of reporting the incident, then update it as the picture changes.",
   "Promised updates kept": "When you promise the next update in 30 minutes, send it in 30 minutes.",
 };
 
@@ -273,11 +275,20 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   // it was a false alarm, and the declaration still scored "on time" / "severity matched".
   const declaredOnFalseAlarm = declTs != null && (firstAttackEscTs == null || declTs < firstAttackEscTs);
   const declCell: CommandCell = declaredOnFalseAlarm
-    ? { label: "Incident declared on time", score: 2, note: "declared before any real attack had been escalated: the escalation behind it was a false alarm. Wait for Tier-2 to confirm before declaring" }
-    : firstAttackEscTs == null ? { label: "Incident declared on time", score: null, note: "no real attack was escalated, nothing to declare" }
-    : declTs == null && tooLateToDeclare ? { label: "Incident declared on time", score: null, note: `the first real escalation came ${Math.round((declareRunway ?? 0) / 6000) / 10} min before the end: too late to judge` }
-    : declTs == null ? { label: "Incident declared on time", score: 0, note: "the incident was never declared" }
-      : (() => { const m = Math.max(0, runMs(firstAttackEscTs, declTs) / 60000); return { label: "Incident declared on time", score: bandLow(m, 3, 6, 10), note: `${Math.round(m * 10) / 10} min after the first real escalation (12 = within 3 min)` }; })();
+    ? { label: "Incident reported on time", score: 2, note: "reported before any real attack had been escalated: the escalation behind it was a false alarm. Wait for Tier-2 to confirm before reporting" }
+    : firstAttackEscTs == null ? { label: "Incident reported on time", score: null, note: "no real attack was escalated, nothing to report" }
+    : declTs == null && tooLateToDeclare ? { label: "Incident reported on time", score: null, note: `the first real escalation came ${Math.round((declareRunway ?? 0) / 6000) / 10} min before the end: too late to judge` }
+    : declTs == null ? { label: "Incident reported on time", score: 0, note: "the incident was never reported to management" }
+      : (() => { const m = Math.max(0, runMs(firstAttackEscTs, declTs) / 60000); return { label: "Incident reported on time", score: bandLow(m, 3, 6, 10), note: `${Math.round(m * 10) / 10} min after the first real escalation (12 = within 3 min)` }; })();
+  const caseCell: CommandCell = (() => {
+    const label = "Reported the right case";
+    const declEvent = mine.find(e => e.type === "incident.declared");
+    const eid = asStr(((declEvent?.payload as { case?: { event_id?: unknown } } | undefined)?.case)?.event_id);
+    if (!eid) return { label, score: null };
+    const t = ctx.truthOf(eid);
+    return t?.isAttack ? { label, score: 12, note: "the case you reported was part of the real attack" }
+      : { label, score: 0, note: "the case you reported to management was not part of an attack" };
+  })();
   const sevCell: CommandCell = (() => {
     const label = "Severity accuracy";
     if (declaredOnFalseAlarm && finalSeverity != null) return { label, score: 0, note: `you set Sev-${finalSeverity} on a false alarm, before any real attack was escalated` };
@@ -304,7 +315,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   const assigns = mine.filter(e => e.type === "case.assigned").map(tsOf).filter((x): x is number => x != null);
   const ownedMin = assigns.length ? Math.max(0, runMs(ctx.startedMs, Math.min(...assigns)) / 60000) : null;
   const pillarTeam: CommandCell[] = [
-    declCell, sevCell, contCell, latCell,
+    declCell, caseCell, sevCell, contCell, latCell,
     { label: "Internal decision cards", score: avgCards(internal), note: internal.length ? `${internal.length} card${internal.length > 1 ? "s" : ""} from your own team, confidence-calibrated` : undefined },
     { label: "Team organised", score: ownedMin == null ? null : bandLow(ownedMin, 3, 8, 15), note: ownedMin == null ? undefined : `first case owner set at ${Math.round(ownedMin)} min` },
     { label: "Load balancing", score: ctx.loadBalanceRate == null ? null : bandHigh(ctx.loadBalanceRate, 100, 50, 1), note: ctx.loadBalanceRate == null ? undefined : `${ctx.loadBalanceRate}% of overloaded analysts got help` },
@@ -340,7 +351,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
       if (g > 10 * 60000) gaps.push(i === 1 ? `${mins(g)} min from the first escalation to the first SITREP` : i === points.length - 1 ? `${mins(g)} min without a SITREP at the end of the shift` : `${mins(g)} min between two SITREPs`);
     }
   }
-  if (declaredOnFalseAlarm) gaps.unshift("declared the incident on an escalation Tier-2 had not confirmed, and it was a false alarm");
+  if (declaredOnFalseAlarm) gaps.unshift("reported the incident on an escalation Tier-2 had not confirmed, and it was a false alarm");
   if (declTs != null && firstAttackEscTs != null && runMs(firstAttackEscTs, declTs) > 6 * 60000) gaps.unshift(`declared ${mins(runMs(firstAttackEscTs, declTs))} min after the first real escalation`);
   const cadenceCell: CommandCell = firstAttackEscTs == null ? { label: "SITREP cadence", score: null }
     : !sitTs.length ? { label: "SITREP cadence", score: 0, note: "no SITREP during a live incident" }
@@ -406,7 +417,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
       if (first == null) return { label: "Stakeholder report", score: 0, note: "no incident report was sent to stakeholders" };
       const m = Math.max(0, runMs(declTs, first) / 60000);
       const comp = reports[0]?.completeness ?? 0;
-      return { label: "Stakeholder report", score: Math.round((bandLow(m, 10, 15, 25) + bandHigh(comp, 90, 70, 40)) / 2), note: `first report ${Math.round(m)} min after the declaration, ${comp}% complete` };
+      return { label: "Stakeholder report", score: Math.round((bandLow(m, 10, 15, 25) + bandHigh(comp, 90, 70, 40)) / 2), note: `first report ${Math.round(m)} min after the incident report, ${comp}% complete` };
     })(),
     (() => {
       const judged = reports.filter(r => r.promiseKept != null);
@@ -445,7 +456,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   // ── Critical errors (cap at 69) ─────────────────────────────────────────────
   for (const d of decisions) if (d.critical) criticalErrors.push({ label: d.critical, detail: `${d.from.name}: you chose "${d.optionLabel}". Better: "${d.bestLabel}"`, atS: d.firedS != null && d.decidedInS != null ? d.firedS + d.decidedInS : d.firedS });
   if (truthSeverity === 1 && firstAttackEscTs != null && declTs == null && !tooLateToDeclare) {
-    criticalErrors.push({ label: "A Sev-1 incident was never declared", detail: "The attack reached data, a critical asset or destructive impact, and the shift ended without an incident declaration.", atS: null });
+    criticalErrors.push({ label: "A Sev-1 incident was never reported", detail: "The attack reached data, a critical asset or destructive impact, and the shift ended without an incident report to management.", atS: null });
   }
   const score = uncappedScore == null ? null : criticalErrors.length ? Math.min(uncappedScore, MANAGER_SCORE_CAP) : uncappedScore;
   const level = score == null ? null : score >= 85 ? "command_ready" : score >= 70 ? "proficient" : score >= 50 ? "developing" : "needs_coaching";

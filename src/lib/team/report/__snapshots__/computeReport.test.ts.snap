@@ -57,8 +57,12 @@ exports[`computeReport — characterization (real ended session) > produces the 
       {
         "cells": [
           {
-            "label": "Incident declared on time",
-            "note": "no real attack was escalated, nothing to declare",
+            "label": "Incident reported on time",
+            "note": "no real attack was escalated, nothing to report",
+            "score": null,
+          },
+          {
+            "label": "Reported the right case",
             "score": null,
           },
           {

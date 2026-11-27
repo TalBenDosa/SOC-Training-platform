@@ -190,7 +190,7 @@ export const CHECK_LABEL: Record<CheckId, string> = {
   honest_data: "Says whether data loss is suspected, confirmed or not seen so far",
   business_impact: "Explains the impact on their system and people",
   reason: "Gives the reason",
-  severity_consistent: "Severity matches what you declared",
+  severity_consistent: "Severity matches what you reported",
   need_decision: "A clear yes or no",
   staff_message: "Says what to tell staff or what they should do",
 };

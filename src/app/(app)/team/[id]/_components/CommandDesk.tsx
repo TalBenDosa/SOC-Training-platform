@@ -10,6 +10,7 @@ import { useServerNow } from "@/lib/team/clock";
 import { requestPhase, LATE_GRACE_S } from "@/lib/team/manager/timing";
 import { confirmedAt } from "@/lib/team/manager/state";
 import { ChoiceGroup } from "./ChoiceGroup";
+import { confirmedCases, reportedIncident, casesOutsideIncident, INCIDENT_CASE_KIND, type IncidentCase } from "@/lib/team/incidentCases";
 
 /**
  * The SOC Manager's command desk: declare the incident and its severity, and decide the
@@ -52,7 +53,10 @@ const IND_LABEL: Record<keyof Indicators, string> = { continuity: "Business cont
 const channelIcon = (c?: string) => (c === "call" ? Phone : c === "email" ? Mail : c === "chat" ? MessageSquare : User);
 const fmtDelta = (d?: Partial<Indicators>) => Object.entries(d ?? {}).filter(([, v]) => v).map(([k, v]) => `${IND_LABEL[k as keyof Indicators]} ${Number(v) > 0 ? "+" : ""}${v}`).join(" · ");
 
-export function CommandDesk({ sessionId, events, act, running, onOpenEscalations }: { sessionId: string; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; running: boolean; onOpenEscalations?: () => void }) {
+export function CommandDesk({ sessionId, events, act, running, onOpenEscalations, onReported, nameOf }: { sessionId: string; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; running: boolean; onOpenEscalations?: () => void;
+  /** The incident was just reported: the page opens the first report to management, about that case. */
+  onReported?: (c: IncidentCase | null) => void;
+  nameOf?: (u: string | null) => string }) {
   const now = useServerNow(1_000);
   const cards = useMemo(() => events.filter(e => e.type === "staff.inject" && asStr((e.payload as { kind?: unknown }).kind) === "decision"), [events]);
   const answered = useMemo(() => new Map(events.filter(e => e.type === "decision.answered").map(e => [asStr((e.payload as { inject_id?: unknown }).inject_id), e])), [events]);
@@ -91,14 +95,18 @@ export function CommandDesk({ sessionId, events, act, running, onOpenEscalations
   const past = cards.map(c => ({ e: c, p: c.payload as unknown as CardBody })).filter(({ p }) => !open.some(o => o.p.inject_id === p.inject_id)).reverse();
 
   return (
-    <div data-command-desk className="scroll-mt-24">
+    <div data-command-desk className="scroll-mt-24 space-y-4">
     <Card className="border-neon-purple/40">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Gavel className="h-4 w-4 text-neon-purple" aria-hidden /> Command desk</h3>
-      <div data-tour="desk-incident"><IncidentControl declared={!!declared} severity={severity} act={act} confirmed={confirmedAt(events) != null} /></div>
+      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Megaphone className="h-4 w-4 text-neon-purple" aria-hidden /> Report an incident to management</h3>
+      <div data-tour="desk-incident"><IncidentControl events={events} declared={!!declared} severity={severity} act={act} confirmed={confirmedAt(events) != null} onReported={onReported} nameOf={nameOf} /></div>
+    </Card>
+    <Card className="border-neon-purple/40">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Gavel className="h-4 w-4 text-neon-purple" aria-hidden /> Decisions waiting for you
+        {open.length > 0 && <span className="rounded-full bg-neon-purple/30 px-1.5 font-mono text-[11px] text-white">{open.length}</span>}</h3>
       {fb && cards.length > 0 && <div data-tour="desk-impact"><IndicatorStrip ind={fb.indicators} /></div>}
-      <div className="mt-3 space-y-2">
+      <div className="mt-2 space-y-2">
         {open.length === 0 && past.length === 0 && (
-          <p className="text-[11px] leading-relaxed text-slate-400">No decisions waiting. Requests land here when the incident calls for them, each with a deadline.</p>
+          <p className="text-[11px] leading-relaxed text-slate-400">Nothing to decide right now. Requests from the CISO, Legal and the business, and disagreements inside your team, land here when the shift raises them. Each has a deadline.</p>
         )}
         {open.map(({ e, p }) => <OpenCard key={p.inject_id} e={e} p={p} now={now} act={act} onDone={loadFb} onOpenEscalations={onOpenEscalations} />)}
         {past.map(({ p }) => <PastCard key={p.inject_id} p={p} answer={answered.get(p.inject_id)} fb={fbOf(p.inject_id)} />)}
@@ -108,49 +116,134 @@ export function CommandDesk({ sessionId, events, act, running, onOpenEscalations
   );
 }
 
-function IncidentControl({ declared, severity, act, confirmed }: { declared: boolean; severity: number | null; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; confirmed: boolean }) {
+const TIER: Record<string, string> = { t1: "Tier-1", t2: "Tier-2", t3: "Tier-3" };
+
+function IncidentControl({ events, declared, severity, act, confirmed, onReported, nameOf }: {
+  events: Ev[]; declared: boolean; severity: number | null; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; confirmed: boolean;
+  onReported?: (c: IncidentCase | null) => void; nameOf?: (u: string | null) => string;
+}) {
   const [sev, setSev] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [early, setEarly] = useState(false);
+  const [joinWhy, setJoinWhy] = useState<Record<string, string>>({});
+  const cases = useMemo(() => confirmedCases(events), [events]);
+  const incident = useMemo(() => reportedIncident(events), [events]);
+  const outside = useMemo(() => casesOutsideIncident(events), [events]);
+  const chosen = cases.find(c => c.eid === picked) ?? (cases.length === 1 ? cases[0] : null);
+  const who = (c: { by: string | null; byRole: string | null }) => `${nameOf ? nameOf(c.by) : "an analyst"} (${TIER[c.byRole ?? ""] ?? "analyst"})`;
   // 2026-10-18 review: Sev-1 was declared on a Tier-1 escalation Tier-2 had not looked at (a false alarm).
   async function declare() {
-    if (sev == null) return;
-    if (!confirmed && !confirm("Tier-2 / Tier-3 haven't confirmed any escalation yet (no attack report, elevation or containment request). Declare anyway?")) return;
-    setBusy(true); await act("incident.declared", { severity: sev }); setBusy(false);
+    if (sev == null || (!chosen && !early)) return;
+    if (!chosen && !confirmed && !confirm("Tier-2 / Tier-3 haven't confirmed any escalation yet (no attack report, elevation or containment request). Report the incident anyway?")) return;
+    const c: IncidentCase | null = chosen ? { eid: chosen.eid, host: chosen.host, summary: chosen.summary } : null;
+    setBusy(true);
+    const ok = await act("incident.declared", { severity: sev, ...(c ? { case: { event_id: c.eid, host: c.host, summary: c.summary.slice(0, 300) } } : {}) });
+    setBusy(false);
+    if (ok) onReported?.(c);
   }
   async function change() {
     if (!reason.trim() || sev == null || sev === severity) return;
     setBusy(true); const ok = await act("incident.severity_changed", { severity: sev, reason: reason.trim() }); setBusy(false);
     if (ok) { setChanging(false); setReason(""); }
   }
+  async function join(c: IncidentCase) {
+    const why = (joinWhy[c.eid] ?? "").trim();
+    if (!why) return;
+    setBusy(true);
+    const ok = await act("decision.logged", { decision: `Added ${c.host || "a case"} to the reported incident: ${c.summary.slice(0, 160)}`, rationale: why.slice(0, 400), kind: INCIDENT_CASE_KIND, event_id: c.eid, host: c.host, summary: c.summary.slice(0, 300) });
+    setBusy(false);
+    if (ok) setJoinWhy(w => ({ ...w, [c.eid]: "" }));
+  }
+  const input = "mt-1 w-full rounded border border-border bg-bg-elevated px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60";
   const pick = <ChoiceGroup legend="Severity" options={SEVERITY.map(s => ({ value: s.v, label: s.label, hint: s.hint }))} value={sev} onChange={setSev} />;
+  const sevRows = (
+    <fieldset className="space-y-1">
+      <legend className="mb-1 text-[11px] font-semibold text-slate-300">How severe is it?</legend>
+      {SEVERITY.map(o => (
+        <label key={o.v} className={`flex cursor-pointer items-start gap-2 rounded border px-2 py-1.5 text-xs transition ${sev === o.v ? "border-neon-purple/60 bg-neon-purple/10 text-white" : "border-border bg-bg text-slate-300 hover:border-slate-500"}`}>
+          <input type="radio" name="incident-severity" value={o.v} checked={sev === o.v} onChange={() => setSev(o.v)} className="mt-0.5" />
+          <span><b className="font-mono">{o.label}</b> <span className="text-slate-400">{o.hint}</span></span>
+        </label>
+      ))}
+    </fieldset>
+  );
   if (!declared) return (
-    <div className="mt-2 space-y-1.5 rounded-lg border border-border bg-bg px-2.5 py-2">
-      <p className="text-[11px] text-slate-300">Not declared. Declare once Tier-2 / Tier-3 confirm an escalation is real; you can change the severity later.</p>
-      {!confirmed && <p className="text-[11px] text-slate-500">Nothing confirmed by Tier-2 / Tier-3 yet.</p>}
-      {pick}
-      <p className="text-[11px] text-slate-400">{sev == null ? "Pick the severity that matches the impact." : SEVERITY.find(s => s.v === sev)?.hint}</p>
-      <Button variant="primary" size="sm" disabled={busy || sev == null} onClick={declare}><Megaphone className="mr-1 h-3.5 w-3.5" aria-hidden /> Declare incident</Button>
+    <div className="mt-2 space-y-2">
+      <p className="text-xs leading-relaxed text-slate-300">No incident reported yet. Report a case once Tier-2 or Tier-3 confirm it is a real attack.</p>
+      {cases.length === 0 ? (
+        <div className="rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-400">
+          <p>Waiting: no case confirmed by Tier-2 / Tier-3 yet. Confirmed cases appear here to choose from.</p>
+          {!early && <button type="button" onClick={() => setEarly(true)} className="mt-1 text-cyber-300 underline-offset-2 hover:underline">Report without a confirmed case</button>}
+        </div>
+      ) : (
+        <fieldset className="space-y-1">
+          <legend className="mb-1 text-[11px] font-semibold text-slate-300">Which case are you reporting?</legend>
+          {cases.map(c => (
+            <label key={c.eid} className={`flex cursor-pointer items-start gap-2 rounded border px-2 py-1.5 text-xs transition ${chosen?.eid === c.eid ? "border-neon-purple/60 bg-neon-purple/10 text-white" : "border-border bg-bg text-slate-300 hover:border-slate-500"}`}>
+              <input type="radio" name="incident-case" value={c.eid} checked={chosen?.eid === c.eid} onChange={() => setPicked(c.eid)} className="mt-0.5" />
+              <span className="min-w-0">
+                <span className="block break-words">{c.host && <b className="mr-1 font-mono text-slate-100"><bdi>{c.host}</bdi></b>}<bdi>{c.summary}</bdi></span>
+                <span className="block text-[11px] text-slate-400">Confirmed by <bdi>{who(c)}</bdi>: {c.how}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {(cases.length > 0 || early) && sevRows}
+      {(cases.length > 0 || early) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" size="sm" disabled={busy || sev == null || (!chosen && !early)} onClick={declare}><Megaphone className="mr-1 h-3.5 w-3.5" aria-hidden /> Report incident</Button>
+          {(sev == null || (!chosen && !early)) && <span className="text-[11px] text-slate-400">{!chosen && !early ? "Choose the case" : "Pick a severity"} to report.</span>}
+        </div>
+      )}
+      <p className="text-[11px] leading-relaxed text-slate-400">Reporting tells management there is an incident. Your first report to them opens, and from then on the CISO, Legal and the business ask you questions under Stakeholders. You can change the severity later.</p>
     </div>
   );
   return (
-    <div className="mt-2 rounded-lg border border-border bg-bg px-2.5 py-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded px-2 py-0.5 font-mono text-xs font-bold ${severity === 1 ? "bg-severity-critical/20 text-severity-critical" : severity === 2 ? "bg-severity-high/20 text-severity-high" : "bg-neon-amber/15 text-neon-amber"}`}>Sev-{severity}</span>
-        <span className="text-[11px] text-slate-400">incident declared</span>
-        {!changing && <button type="button" onClick={() => { setSev(severity ?? 2); setChanging(true); }} className="ml-auto text-[11px] text-cyber-300 underline">Change severity</button>}
-      </div>
-      {changing && (
-        <div className="mt-2 space-y-1.5">
-          {pick}
-          <label className="block text-[11px] text-slate-300">Why (what changed in the picture)?
-            <input value={reason} maxLength={300} onChange={e => setReason(e.target.value)} placeholder="e.g. exfiltration confirmed from the file server" className="mt-1 w-full rounded border border-border bg-bg-elevated px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60" />
-          </label>
-          <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" disabled={busy || !reason.trim() || sev == null || sev === severity} onClick={change}>{sev == null ? "Pick a severity" : `Set Sev-${sev}`}</Button>
-            <Button variant="ghost" size="sm" onClick={() => setChanging(false)}>Cancel</Button>
+    <div className="mt-2 space-y-2">
+      <div className="rounded-lg border border-border bg-bg px-2.5 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded px-2 py-0.5 font-mono text-xs font-bold ${severity === 1 ? "bg-severity-critical/20 text-severity-critical" : severity === 2 ? "bg-severity-high/20 text-severity-high" : "bg-neon-amber/15 text-neon-amber"}`}>Sev-{severity}</span>
+          <span className="text-[11px] text-slate-400">incident reported to management</span>
+          {!changing && <button type="button" onClick={() => { setSev(severity ?? 2); setChanging(true); }} className="ml-auto text-[11px] text-cyber-300 underline">Change severity</button>}
+        </div>
+        {incident && incident.cases.length > 0 ? (
+          <ul className="mt-1.5 space-y-1">
+            {incident.cases.map(c => (
+              <li key={c.eid} className="break-words text-xs text-slate-200">{c.host && <b className="mr-1 font-mono text-slate-100"><bdi>{c.host}</bdi></b>}<bdi>{c.summary}</bdi></li>
+            ))}
+          </ul>
+        ) : <p className="mt-1.5 text-[11px] text-slate-400">Reported without a confirmed case.</p>}
+        {changing && (
+          <div className="mt-2 space-y-1.5">
+            {pick}
+            <label className="block text-[11px] text-slate-300">Why (what changed in the picture)?
+              <input value={reason} maxLength={300} onChange={e => setReason(e.target.value)} placeholder="e.g. exfiltration confirmed from the file server" className={input} />
+            </label>
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm" disabled={busy || !reason.trim() || sev == null || sev === severity} onClick={change}>{sev == null ? "Pick a severity" : `Set Sev-${sev}`}</Button>
+              <Button variant="ghost" size="sm" onClick={() => setChanging(false)}>Cancel</Button>
+            </div>
           </div>
+        )}
+      </div>
+      {outside.length > 0 && (
+        <div className="space-y-1.5 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.06] px-2.5 py-2">
+          <p className="text-[11px] font-semibold text-neon-amber">Confirmed since your report ({outside.length})</p>
+          <p className="text-[11px] text-slate-300">Is it part of the incident you reported? Add it with the reason, then update management.</p>
+          {outside.map(c => (
+            <div key={c.eid} className="rounded border border-border bg-bg px-2 py-1.5">
+              <p className="break-words text-xs text-slate-200">{c.host && <b className="mr-1 font-mono text-slate-100"><bdi>{c.host}</bdi></b>}<bdi>{c.summary}</bdi></p>
+              <p className="text-[11px] text-slate-400">Confirmed by <bdi>{who(c)}</bdi>: {c.how}</p>
+              <label className="mt-1 block text-[11px] text-slate-300">Why it belongs to this incident
+                <input value={joinWhy[c.eid] ?? ""} maxLength={400} onChange={e => setJoinWhy(w => ({ ...w, [c.eid]: e.target.value }))} placeholder="e.g. same account, minutes after the first host" className={input} />
+              </label>
+              <Button variant="outline" size="sm" className="mt-1.5" disabled={busy || !(joinWhy[c.eid] ?? "").trim()} onClick={() => join(c)}>Add to this incident</Button>
+            </div>
+          ))}
         </div>
       )}
     </div>

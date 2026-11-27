@@ -43,12 +43,12 @@ describe("StakeholderReportModal", () => {
   it("asks for a severity, then declares the incident and sends the report in one click", async () => {
     const calls: [string, Record<string, unknown>][] = [];
     const c = mount(full, calls);
-    expect(c.textContent).toContain("The incident is not declared yet");
+    expect(c.textContent).toContain("The incident is not reported yet");
     await act(async () => { button(c, "Send report").click(); });
     expect(c.textContent).toContain("Pick the incident severity");
     const sev3 = c.querySelector<HTMLInputElement>('input[name="sh-declare"][value="3"]')!;
     await act(async () => { sev3.click(); });
-    await act(async () => { button(c, "Declare Sev-3 and send").click(); });
+    await act(async () => { button(c, "Report Sev-3 and send").click(); });
     expect(calls.map(x => x[0])).toEqual(["incident.declared", "stakeholder.report_sent"]);
     expect(calls[0][1]).toEqual({ severity: 3 });
     expect(calls[1][1]).toMatchObject({ severity: 3, next_update_min: 30, affected: ["WS-SALES-1876"] });

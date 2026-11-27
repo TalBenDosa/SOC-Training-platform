@@ -130,11 +130,11 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
       return;
     }
     if (busy) return;
-    if (!severity && declareSev == null) { setSendErr("Pick the incident severity above the Send button: the report goes out once the incident is declared."); return; }
+    if (!severity && declareSev == null) { setSendErr("Pick the incident severity above the Send button: the report goes out once the incident is reported."); return; }
     setBusy(true);
     if (!severity) {
       const declared = await act("incident.declared", { severity: declareSev });
-      if (!declared) { setBusy(false); setSendErr("Couldn't declare the incident. Try again."); return; }
+      if (!declared) { setBusy(false); setSendErr("Couldn't report the incident. Try again."); return; }
     }
     const sent = await act("stakeholder.report_sent", {
       ...f, severity: severity ?? declareSev, next_update_min: Number(f.next_update_min),
@@ -162,7 +162,7 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
           <h2 id="sh-report-title" className="flex items-center gap-2 text-base font-semibold text-white"><FileText className="h-4 w-4 text-neon-purple" aria-hidden /> Incident report to stakeholders</h2>
           <button type="button" onClick={close} aria-label="Close (your draft is kept)" title="Close (your draft is kept)" className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"><X className="h-4 w-4" /></button>
         </div>
-        <p className="text-[11px] text-slate-400">Business language, no jargon. Say what is confirmed and what is not, never more than you know. {severity ? <>Severity: <b className="text-slate-200">Sev-{severity}</b> (from your declaration).</> : <span className="text-neon-amber">The incident is not declared yet: pick its severity above the Send button.</span>} Fields marked {req} are required.{dirty && " Closing keeps your draft."}</p>
+        <p className="text-[11px] text-slate-400">Business language, no jargon. Say what is confirmed and what is not, never more than you know. {severity ? <>Severity: <b className="text-slate-200">Sev-{severity}</b> (from your incident report).</> : <span className="text-neon-amber">The incident is not reported yet: pick its severity above the Send button.</span>} Fields marked {req} are required.{dirty && " Closing keeps your draft."}</p>
         {merge && (
           <div role="status" className="space-y-1 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.06] px-3 py-2 text-[11px]">
             <p className="font-semibold text-neon-amber">This is your earlier report, not sent yet.</p>
@@ -233,8 +233,8 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
 
         {!severity && (
           <fieldset className="space-y-1.5 rounded-lg border border-neon-purple/40 bg-neon-purple/[0.06] px-3 py-2">
-            <legend className="px-1 text-[11px] font-semibold text-neon-purple">The incident is not declared yet</legend>
-            <p className="text-[11px] text-slate-300">A report to stakeholders goes out for a declared incident. Pick its severity and Send declares it and sends the report together. You can change the severity later.</p>
+            <legend className="px-1 text-[11px] font-semibold text-neon-purple">The incident is not reported yet</legend>
+            <p className="text-[11px] text-slate-300">A report to stakeholders goes out for a reported incident. Pick its severity and Send reports it and sends this report together. You can change the severity later.</p>
             <div className="flex flex-wrap gap-1.5">
               {SEVERITY.map(s => (
                 <label key={s.v} className="cursor-pointer" title={s.hint}>
@@ -247,7 +247,7 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
           </fieldset>
         )}
         <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-          <Button variant="primary" size="sm" disabled={busy} onClick={send}>{severity ? "Send report" : declareSev != null ? `Declare Sev-${declareSev} and send` : "Send report"}</Button>
+          <Button variant="primary" size="sm" disabled={busy} onClick={send}>{severity ? "Send report" : declareSev != null ? `Report Sev-${declareSev} and send` : "Send report"}</Button>
           <Button variant="ghost" size="sm" onClick={close}>Close, keep draft</Button>
           {tried && !ok && <span className="text-[11px] text-neon-amber" role="alert">Still needed: {Object.keys(errors).map(k => FIELD_NAME[k] ?? k).join(", ")}.</span>}
           {sendErr && <span className="basis-full text-[11px] text-neon-amber" role="alert">{sendErr}</span>}

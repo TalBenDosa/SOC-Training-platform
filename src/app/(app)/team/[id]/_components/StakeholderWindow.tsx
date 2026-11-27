@@ -43,7 +43,7 @@ export function StakeholderWindow({ sessionId, events, act, declared }: { sessio
   if (!declared) return (
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><MessagesSquare className="h-4 w-4 text-neon-purple" aria-hidden /> Stakeholders</h3>
-      <p className="mt-1 text-[11px] text-slate-400">Opens when you declare the incident. From then on the CISO, executives, Legal and the business ask you for status here.</p>
+      <p className="mt-1 text-[11px] text-slate-400">Opens when you report the incident to management. From then on the CISO, executives, Legal and the business ask you for status here.</p>
     </Card>
   );
 

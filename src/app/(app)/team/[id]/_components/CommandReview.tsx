@@ -86,7 +86,7 @@ function Headline({ r }: { r: ManagerReview }) {
         <span className={`font-mono text-3xl font-bold ${LEVEL_TONE[r.level ?? ""] ?? "text-slate-300"}`}>{r.score ?? "-"}</span>
         <span className={`pb-1 text-sm font-semibold ${LEVEL_TONE[r.level ?? ""] ?? "text-slate-400"}`}>{r.level ? LEVEL_LABEL[r.level] ?? r.levelLabel : "Not enough evidence yet"}</span>
         {r.uncappedScore != null && r.score != null && r.uncappedScore > r.score && <span className="pb-1 text-[11px] text-slate-400">({r.uncappedScore} before the critical-error cap)</span>}
-        {r.declared && <span className="ml-auto pb-1 text-[11px] text-slate-400">Declared Sev-{r.declared.severity} at {fmt(r.declared.atS)}{r.truthSeverity && <> · the incident was Sev-{r.truthSeverity}</>}</span>}
+        {r.declared && <span className="ml-auto pb-1 text-[11px] text-slate-400">Reported Sev-{r.declared.severity} at {fmt(r.declared.atS)}{r.truthSeverity && <> · the incident was Sev-{r.truthSeverity}</>}</span>}
       </div>
       <div className="mt-2 space-y-0.5 text-[11px] text-slate-400">
         <p>Your score out of 100 has four parts: how you ran the team and the incident (35%), the stakeholders (25%), reporting to management (25%), and the team&apos;s outcome (15%).</p>

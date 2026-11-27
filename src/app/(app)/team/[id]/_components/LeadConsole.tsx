@@ -77,14 +77,14 @@ export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals"
                 if (!card) return null;
                 const cp = card.payload as { inject_id?: unknown; options?: { id: string; label: string }[] };
                 const a = events.find(x => x.type === "decision.answered" && asStr((x.payload as { inject_id?: unknown }).inject_id) === asStr(cp.inject_id));
-                return a ? (cp.options?.find(o => o.id === asStr((a.payload as { option?: unknown }).option))?.label ?? "decided") : "pending on your Command desk";
+                return a ? (cp.options?.find(o => o.id === asStr((a.payload as { option?: unknown }).option))?.label ?? "decided") : "pending under Decisions waiting for you";
               })();
               // Earlier requests on the same case (e.g. a denied wrong target) — context for this one.
               const prior = allReqs.filter(x => x.eid === eid && x.seq < r.seq);
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">{containmentVerb(asStr(p.containment_type))} <b className="text-white">{asStr(p.target) || "-"}</b>{asStr(p.incident) && <span className="ml-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-0.5 font-mono text-[11px] text-cyber-300">{asStr(p.incident)}</span>}</p>
-                  {deskCall && <p className="mt-1 rounded border border-neon-purple/30 bg-neon-purple/[0.06] px-2 py-1 text-[11px] text-slate-200">Your desk decision on this request: <bdi>{deskCall.replace(/\.$/, "")}</bdi>. Approve or deny accordingly.</p>}
+                  {deskCall && <p className="mt-1 rounded border border-neon-purple/30 bg-neon-purple/[0.06] px-2 py-1 text-[11px] text-slate-200">Your decision on this request: <bdi>{deskCall.replace(/\.$/, "")}</bdi>. Approve or deny accordingly.</p>}
                   {prior.length > 0 && <p className="mt-0.5 text-[11px] text-slate-400">request #{prior.length + 1} on this case, before: {prior.map(x => `${asStr((x.request.payload as { target?: string }).target) || "?"} (${x.status}${x.decisionReason ? `: ${x.decisionReason}` : ""})`).join(" · ")}</p>}
                   {/* The full request and the case behind it, open (owner, 2026-11-08): why, the trade-off, teammates'
                       views, the Tier-1 escalation and the Tier-2 report with its scope. */}

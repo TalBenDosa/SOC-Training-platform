@@ -1569,7 +1569,7 @@ export default function TeamRoomPage() {
                     {updateDue && chip(sinceUpdateMin, "min since your last update", () => setMgrView("reporting"), "border-neon-amber/50 bg-neon-amber/10 text-neon-amber")}
                     <button data-tour="report-button" type="button" disabled={!declaredNow} onClick={() => setReportSeed({ hosts: [], lines: [] })}
                       className="rounded-md border border-neon-purple/40 px-3 py-1.5 text-xs font-semibold text-neon-purple transition hover:bg-neon-purple/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 disabled:cursor-not-allowed disabled:opacity-60">
-                      {declaredNow ? "Report to stakeholders" : "Report to stakeholders (declare first)"}
+                      {declaredNow ? "Report to stakeholders" : "Report to stakeholders (report the incident first)"}
                     </button>
                   </div>
                 </nav>
@@ -1767,8 +1767,8 @@ export default function TeamRoomPage() {
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
-                {/* Command desk first: declaration, severity and the decision cards the director raises from what is really happening. */}
-                {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} onOpenEscalations={() => setMgrView("escalations")} /></div>}
+                {/* The incident report first: the case, its severity and the decision cards the director raises from what is really happening. */}
+                {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} onOpenEscalations={() => setMgrView("escalations")} nameOf={nameOf} onReported={c => setReportSeed({ hosts: c?.host ? [c.host] : [], lines: c?.summary ? [c.summary] : [] })} /></div>}
                 {me.role === "t2" && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
                 {/* The manager's consoles live behind the menu (one view at a time, no visual overload). */}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}

@@ -28,8 +28,8 @@ const ROLE_GUIDE: Record<string, RoleGuide> = {
     steps: ["Follow the incident's indicators.", "Publish an intel note: actor or technique, confidence, the action you recommend, and the next expected step.", "Tell the team what to block and what is coming."],
     flow: "Your notes reach the whole team in the Team intel card.", measured: ["Actionable notes", "Attribution accuracy", "Predicting the next step"] },
   mgr: { mission: "SOC Manager: you command the incident. You manage the team, handle the stakeholders and keep management informed. You do not investigate yourself.",
-    steps: ["Declare the incident and its severity on your Command desk as soon as the first real escalation lands.", "Decide the cards on your Command desk before their deadline, and say how sure you are.", "Approve or deny isolation and containment requests: they wait for you at the side of your screen.", "Watch the team line: an idle seat is flagged. Give every case an owner.", "Answer stakeholders, send the incident report and SITREPs, and sign the passdown at the end."],
-    flow: "In: escalations, containment and isolation requests, stakeholder questions. Out: declarations, decisions, SITREPs and the passdown.", measured: ["Team and incident 35%", "Stakeholders 25%", "Reporting to management 25%", "Team outcome 15%"] },
+    steps: ["Report the incident to management, with the case and its severity, as soon as Tier-2 or Tier-3 confirm a real attack.", "Decide the cards under Decisions waiting for you before their deadline, and say how sure you are.", "Approve or deny isolation and containment requests: they wait for you at the side of your screen.", "Watch the team line: an idle seat is flagged. Give every case an owner.", "Answer stakeholders, send the incident report and SITREPs, and sign the passdown at the end."],
+    flow: "In: escalations, containment and isolation requests, stakeholder questions. Out: the incident report, decisions, SITREPs and the passdown.", measured: ["Team and incident 35%", "Stakeholders 25%", "Reporting to management 25%", "Team outcome 15%"] },
   instructor: { mission: "You run the exercise: watch every seat, help a stuck player, and end the shift.",
     steps: ["The Seats board shows each player's last action, idle minutes and open load. Send a coach message to one seat when it is stuck.", "Add pressure with an inject when you want, or release a planned attack now.", "You approve isolation requests when no SOC Manager or Tier-3 is online.", "End the shift: it ends two minutes later so everyone can send their work. End now skips the wait."],
     flow: "You control the session; the players work their roles.", measured: ["Not scored"] },
@@ -45,7 +45,7 @@ export function roleDirective(role: string | null | undefined): string {
     case "lead": return "Command the incident: approve or deny containment and drive the case status.";
     case "de": return "Write and publish detection rules that catch the attack (they test against the live feed).";
     case "ti": return "Publish intel: actor, technique, and the next expected step.";
-    case "mgr": return "Declare the incident, decide your Command desk, approve containment, and keep management informed.";
+    case "mgr": return "Report the incident to management, decide what waits for you, approve containment, and keep management informed.";
     case "instructor": return "Watch the seats, coach a stuck player, end the shift when it is time.";
     default: return "Watch the shared feed.";
   }

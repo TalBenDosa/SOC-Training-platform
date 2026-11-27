@@ -60,7 +60,7 @@ describe("Command Review", () => {
     expect(r.truthSeverity).toBe(1);                                        // exfiltration in the feed
     expect(r.criticalErrors).toEqual([]);
     expect(r.decisions.map(d => [d.card, d.rank, d.score])).toEqual([["ciso_status", "great", 12], ["isolate_or_wait", "great", 11]]);
-    expect(r.pillars.find(p => p.key === "team")!.cells.find(c => c.label === "Incident declared on time")!.score).toBe(12);
+    expect(r.pillars.find(p => p.key === "team")!.cells.find(c => c.label === "Incident reported on time")!.score).toBe(12);
     expect(r.pillars.find(p => p.key === "team")!.cells.find(c => c.label === "Severity accuracy")!.score).toBe(12);
     expect(r.pillars.find(p => p.key === "reporting")!.cells.find(c => c.label === "Status requests answered")!.score).toBe(12);
     expect(r.score).toBeGreaterThanOrEqual(85);
@@ -97,7 +97,7 @@ describe("Command Review", () => {
     card(add, answers, "44444444-4444-4444-8444-444444444444", "ciso_status", 200, "external");
     add("session.ended", "instr", 900);
     const r = review(events, answers);
-    expect(r.criticalErrors.map(c => c.label)).toContain("A Sev-1 incident was never declared");
+    expect(r.criticalErrors.map(c => c.label)).toContain("A Sev-1 incident was never reported");
     expect(r.decisions[0]).toMatchObject({ state: "expired", score: 0, rank: null });
     expect(r.pillars.find(p => p.key === "stakeholders")!.cells.find(c => c.label === "Answered before the deadline")!.score).toBe(8);
     expect(r.indicators.trust).toBe(2);                                     // the timeout delta applied
@@ -178,9 +178,9 @@ describe("Command Review fairness at the end of the shift (Sdema review 2026-10-
     add("escalation.requested", "t1", 900, { event_id: "a1", summary: "rclone upload" }, "t1");
     add("session.ended", "instr", 940);
     const r = computeReport(events, roster).managerReview!;
-    const decl = r.pillars.flatMap(p => p.cells).find(c => c.label === "Incident declared on time")!;
+    const decl = r.pillars.flatMap(p => p.cells).find(c => c.label === "Incident reported on time")!;
     expect(decl.score).toBeNull();
-    expect(r.criticalErrors.map(e => e.label)).not.toContain("A Sev-1 incident was never declared");
+    expect(r.criticalErrors.map(e => e.label)).not.toContain("A Sev-1 incident was never reported");
   });
 
   it("the true severity comes from incidents that reached the team, not from one nobody escalated", () => {

@@ -90,7 +90,7 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
               <div key={e.seq} className="rounded-lg border border-neon-purple/30 bg-neon-purple/[0.05] px-2 py-1.5 text-xs">
                 <p className="text-slate-200"><span className="mr-1 font-mono text-[11px] uppercase text-slate-400">{injectLabel("decision", false)}</span><b className="text-slate-100"><bdi>{asStr(dp.from?.name)}</bdi></b>{asStr(dp.from?.role) && <span className="text-slate-400"> ({asStr(dp.from?.role)})</span>}: <bdi>{asStr(p.text)}</bdi></p>
                 {done ? <p className="mt-0.5 text-[11px] text-neon-green">✓ the SOC Manager decided</p>
-                  : isMgr ? <Button variant="outline" size="sm" className="mt-1.5" onClick={() => document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Decide on the Command desk</Button>
+                  : isMgr ? <Button variant="outline" size="sm" className="mt-1.5" onClick={() => document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Decide it now</Button>
                     : <p className="mt-0.5 text-[11px] text-neon-purple">The SOC Manager is deciding. Keep your case notes current: they decide from what you write.</p>}
               </div>
             );
