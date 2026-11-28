@@ -86,7 +86,16 @@ const SOURCE_LABEL: Record<string, string> = {
  * is for what the SOAR itself produced (review 2026-11-28).
  */
 function sourceLabelFor(ev: Pick<TelemetryEvent, "source" | "vendor" | "raw">): string {
-  if (/servicenow/i.test(ev.vendor ?? "")) return String(ev.raw?.["servicenow.table"] ?? "").startsWith("cmdb_ci") ? "ServiceNow CMDB" : "ServiceNow ITSM";
+  if (/servicenow/i.test(ev.vendor ?? "")) {
+    const table = String(ev.raw?.["servicenow.table"] ?? "");
+    if (table.startsWith("cmdb_ci")) return "ServiceNow CMDB";
+    // A work note is written through the SOAR, and a ticket the Microsoft Sentinel automation created is listed
+    // under the Azure source that created it (Tal, 2026-11-28). The record itself stays the ServiceNow object:
+    // a vendor maps to one source in the data (integrity gate), so this is the row's label only.
+    if (table === "sys_journal_field") return "SOAR";
+    if (ev.raw?.["event.action"] === "incident.created" && /sentinel/i.test(String(ev.raw?.["servicenow.opened_by"] ?? ""))) return "CLOUD_AZURE";
+    return "ServiceNow ITSM";
+  }
   return SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase();
 }
 /** A CMDB configuration item: an asset record that was looked up, not something that happened on the asset. */
