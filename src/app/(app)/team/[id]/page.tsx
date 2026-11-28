@@ -188,6 +188,7 @@ export default function TeamRoomPage() {
   const [hostsOpen, setHostsOpen] = useState(false);
   // Ending: the exercise admin chooses "in 2 minutes" (default) or "now"; a trainee Manager asks the exercise admin.
   const [endAsk, setEndAsk] = useState<{ warn: string } | null>(null);
+  const [pauseAsk, setPauseAsk] = useState(false);
   const [endNote, setEndNote] = useState<string | null>(null);
   // Lobby: the briefing is open on the first visit, folded after; a pop-up test for the Sentinel window.
   const [briefOpen, setBriefOpen] = useState(true);
@@ -1287,6 +1288,21 @@ export default function TeamRoomPage() {
           </div>
         )}
 
+        {/* Pause stops the clock and the feed for the whole team: one stray click used to do it (Tal, 2026-11-28). */}
+        {pauseAsk && (
+          <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 px-4" onClick={() => setPauseAsk(false)}>
+            <div role="dialog" aria-modal="true" aria-labelledby="pause-ask-title" className="w-full max-w-md rounded-xl border border-border bg-bg-elevated p-5 shadow-2xl" onClick={e => e.stopPropagation()}
+              onKeyDown={e => { if (e.key === "Escape") setPauseAsk(false); }}>
+              <h2 id="pause-ask-title" className="text-base font-bold text-white">Pause the shift for the whole team?</h2>
+              <p className="mt-1.5 text-sm text-slate-300">The clock and the log feed stop for everyone until you resume. Paused time is not counted in the review.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button variant="primary" size="sm" autoFocus disabled={busy} onClick={async () => { setPauseAsk(false); await pauseSession(true); }}>Pause the shift</Button>
+                <Button variant="outline" size="sm" className="ml-auto" onClick={() => setPauseAsk(false)}>Cancel</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* End the shift: in two minutes (default, so everyone can send their work) or now. */}
         {endAsk && (
           <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 px-4" onClick={() => setEndAsk(null)}>
@@ -1506,7 +1522,7 @@ export default function TeamRoomPage() {
                     <span data-tour="guide-button"><Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setShowGuide(true)}>Guide</Button></span>
                     {canRunSession && (paused
                       ? <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => pauseSession(false)}>Resume</Button>
-                      : <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => pauseSession(true)}><PauseCircle className="mr-1 h-3.5 w-3.5" aria-hidden /> Pause</Button>)}
+                      : <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => setPauseAsk(true)}><PauseCircle className="mr-1 h-3.5 w-3.5" aria-hidden /> Pause</Button>)}
                     {canRunSession && !clk.endsAt && <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={end}>{me.role === "mgr" && !me.is_staff && instructor && online.has(instructor.user_id) ? "Ask to end" : "End shift"}</Button>}
                   </>}
                   team={<div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
