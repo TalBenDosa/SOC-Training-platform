@@ -36,10 +36,17 @@ export interface LessonVideoData {
 }
 
 export function LessonVideo({ video }: { video: LessonVideoData }) {
+  if (!video?.src) return null;
+  // Keyed by src: readers reuse this component when the learner pages between sections, and a
+  // <video> never reloads when only its <source> child changes, so without a remount the
+  // previous section's film kept playing under the new section's subtitles.
+  return <LessonVideoPlayer key={video.src} video={video} />;
+}
+
+function LessonVideoPlayer({ video }: { video: LessonVideoData }) {
   const brand = useBrand();
   const ref = useRef<HTMLVideoElement>(null);
   const [endCard, setEndCard] = useState(false);
-  if (!video?.src) return null;
   // White label: hold playback (and any seek) before the platform outro, and end on the
   // organization's own card instead. A video rendered without the outro plays to its real end.
   const withOutro = hasPlatformOutro(video.src);
