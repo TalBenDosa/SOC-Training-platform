@@ -16,6 +16,7 @@ import type { Ev, RosterMember } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { decisionScore, indicatorsAfter, type CardAnswerKey } from "@/lib/team/manager/director";
 import { CRITICAL_NAME } from "@/lib/team/manager/state";
+import { reportedIncidents, worstSeverity } from "@/lib/team/incidentCases";
 import type { Delta, Indicators, Rank } from "@/lib/team/manager/cards";
 import { checkReply, NO_DATA_CLAIM as REPLY_NO_DATA, type QuestionKey } from "@/lib/team/manager/questions";
 
@@ -185,7 +186,8 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   const declEv = mine.find(e => e.type === "incident.declared");
   const declTs = declEv ? tsOf(declEv) : null;
   const declared = declEv ? { severity: Number((declEv.payload as { severity?: unknown }).severity), atS: relS(declTs) } : null;
-  const finalSeverity = sevEvents.length ? Number((sevEvents[sevEvents.length - 1].payload as { severity?: unknown }).severity) : null;
+  // Several incidents can be reported in one shift: the level judged is the most severe one standing at the end.
+  const finalSeverity = worstSeverity(mine);
   const isRealEid = (eid: string) => { const t = ctx.truthOf(eid); return !!t && (t.isAttack || !!t.incident); };
   const firstAttackEscTs = events.filter(e => e.type === "escalation.requested" && isRealEid(eidOf(e)))
     .map(tsOf).filter((x): x is number => x != null).sort((a, b) => a - b)[0] ?? null;
@@ -282,12 +284,12 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
       : (() => { const m = Math.max(0, runMs(firstAttackEscTs, declTs) / 60000); return { label: "Incident reported on time", score: bandLow(m, 3, 6, 10), note: `${Math.round(m * 10) / 10} min after the first real escalation (12 = within 3 min)` }; })();
   const caseCell: CommandCell = (() => {
     const label = "Reported the right case";
-    const declEvent = mine.find(e => e.type === "incident.declared");
-    const eid = asStr(((declEvent?.payload as { case?: { event_id?: unknown } } | undefined)?.case)?.event_id);
-    if (!eid) return { label, score: null };
-    const t = ctx.truthOf(eid);
-    return t?.isAttack ? { label, score: 12, note: "the case you reported was part of the real attack" }
+    const eids = reportedIncidents(mine).flatMap(i => i.cases.map(c => c.eid));
+    if (!eids.length) return { label, score: null };
+    const real = eids.filter(eid => ctx.truthOf(eid)?.isAttack).length;
+    if (eids.length === 1) return real ? { label, score: 12, note: "the case you reported was part of the real attack" }
       : { label, score: 0, note: "the case you reported to management was not part of an attack" };
+    return { label, score: real === eids.length ? 12 : real === 0 ? 0 : 4, note: `${real} of the ${eids.length} cases you reported were part of a real attack` };
   })();
   const sevCell: CommandCell = (() => {
     const label = "Severity accuracy";
@@ -477,7 +479,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   if (firstAttackEscTs != null) timeline.push({ t: relS(firstAttackEscTs) ?? 0, lane: "attacker", label: "first real escalation", tone: "neutral" });
   if (exfilTs != null) timeline.push({ t: relS(exfilTs) ?? 0, lane: "attacker", label: "data exfiltration", tone: "bad" });
   if (impactTs != null) timeline.push({ t: relS(impactTs) ?? 0, lane: "attacker", label: "destructive impact", tone: "bad" });
-  for (const e of sevEvents) timeline.push({ t: relS(tsOf(e)) ?? 0, lane: "manager", label: e.type === "incident.declared" ? `declared Sev-${(e.payload as { severity?: unknown }).severity}` : `severity → Sev-${(e.payload as { severity?: unknown }).severity}`, tone: "neutral" });
+  for (const e of sevEvents) timeline.push({ t: relS(tsOf(e)) ?? 0, lane: "manager", label: e.type === "incident.declared" ? `reported Sev-${(e.payload as { severity?: unknown }).severity}` : `severity → Sev-${(e.payload as { severity?: unknown }).severity}`, tone: "neutral" });
   for (const e of contDecisions) timeline.push({ t: relS(tsOf(e)) ?? 0, lane: "manager", label: e.type === "containment.approved" ? "approved containment" : "denied containment", tone: (e.type === "containment.approved") === isRealEid(eidOf(e)) ? "good" : "bad" });
   sitreps.forEach((e, i) => timeline.push({ t: relS(tsOf(e)) ?? 0, lane: "manager", label: `SITREP ${i + 1}`, tone: "neutral" }));
   for (const d of decisions) {

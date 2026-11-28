@@ -10,7 +10,7 @@ import { useServerNow } from "@/lib/team/clock";
 import { requestPhase, LATE_GRACE_S } from "@/lib/team/manager/timing";
 import { confirmedAt } from "@/lib/team/manager/state";
 import { ChoiceGroup } from "./ChoiceGroup";
-import { confirmedCases, reportedIncident, casesOutsideIncident, INCIDENT_CASE_KIND, type IncidentCase } from "@/lib/team/incidentCases";
+import { confirmedCases, reportedIncidents, casesOutsideIncident, INCIDENT_CASE_KIND, type IncidentCase } from "@/lib/team/incidentCases";
 
 /**
  * The SOC Manager's command desk: declare the incident and its severity, and decide the
@@ -55,7 +55,7 @@ const fmtDelta = (d?: Partial<Indicators>) => Object.entries(d ?? {}).filter(([,
 
 export function CommandDesk({ sessionId, events, act, running, onOpenEscalations, onReported, nameOf }: { sessionId: string; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; running: boolean; onOpenEscalations?: () => void;
   /** The incident was just reported: the page opens the first report to management, about that case. */
-  onReported?: (c: IncidentCase | null) => void;
+  onReported?: (c: IncidentCase | null, severity: number) => void;
   nameOf?: (u: string | null) => string }) {
   const now = useServerNow(1_000);
   const cards = useMemo(() => events.filter(e => e.type === "staff.inject" && asStr((e.payload as { kind?: unknown }).kind) === "decision"), [events]);
@@ -120,17 +120,19 @@ const TIER: Record<string, string> = { t1: "Tier-1", t2: "Tier-2", t3: "Tier-3" 
 
 function IncidentControl({ events, declared, severity, act, confirmed, onReported, nameOf }: {
   events: Ev[]; declared: boolean; severity: number | null; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; confirmed: boolean;
-  onReported?: (c: IncidentCase | null) => void; nameOf?: (u: string | null) => string;
+  onReported?: (c: IncidentCase | null, severity: number) => void; nameOf?: (u: string | null) => string;
 }) {
   const [sev, setSev] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [changing, setChanging] = useState(false);
+  const [changing, setChanging] = useState<string | null>(null);   // the incident whose severity is being changed
+  const [apart, setApart] = useState<Record<string, number | null>>({});   // case -> severity picked for a separate incident
+  const [joinTo, setJoinTo] = useState<Record<string, string>>({});
   const [picked, setPicked] = useState<string | null>(null);
   const [early, setEarly] = useState(false);
   const [joinWhy, setJoinWhy] = useState<Record<string, string>>({});
   const cases = useMemo(() => confirmedCases(events), [events]);
-  const incident = useMemo(() => reportedIncident(events), [events]);
+  const incidents = useMemo(() => reportedIncidents(events), [events]);
   const outside = useMemo(() => casesOutsideIncident(events), [events]);
   const chosen = cases.find(c => c.eid === picked) ?? (cases.length === 1 ? cases[0] : null);
   const who = (c: { by: string | null; byRole: string | null }) => `${nameOf ? nameOf(c.by) : "an analyst"} (${TIER[c.byRole ?? ""] ?? "analyst"})`;
@@ -142,18 +144,29 @@ function IncidentControl({ events, declared, severity, act, confirmed, onReporte
     setBusy(true);
     const ok = await act("incident.declared", { severity: sev, ...(c ? { case: { event_id: c.eid, host: c.host, summary: c.summary.slice(0, 300) } } : {}) });
     setBusy(false);
-    if (ok) onReported?.(c);
+    if (ok) onReported?.(c, sev);
+  }
+  /** A case confirmed after the first report, reported as an incident of its own. */
+  async function reportApart(c: IncidentCase) {
+    const lvl = apart[c.eid];
+    if (lvl == null) return;
+    setBusy(true);
+    const ok = await act("incident.declared", { severity: lvl, case: { event_id: c.eid, host: c.host, summary: c.summary.slice(0, 300) } });
+    setBusy(false);
+    if (ok) onReported?.(c, lvl);
   }
   async function change() {
-    if (!reason.trim() || sev == null || sev === severity) return;
-    setBusy(true); const ok = await act("incident.severity_changed", { severity: sev, reason: reason.trim() }); setBusy(false);
-    if (ok) { setChanging(false); setReason(""); }
+    const inc = incidents.find(i => i.id === changing);
+    if (!inc || !reason.trim() || sev == null || sev === inc.severity) return;
+    setBusy(true); const ok = await act("incident.severity_changed", { severity: sev, reason: reason.trim(), incident: inc.id }); setBusy(false);
+    if (ok) { setChanging(null); setReason(""); }
   }
   async function join(c: IncidentCase) {
     const why = (joinWhy[c.eid] ?? "").trim();
     if (!why) return;
     setBusy(true);
-    const ok = await act("decision.logged", { decision: `Added ${c.host || "a case"} to the reported incident: ${c.summary.slice(0, 160)}`, rationale: why.slice(0, 400), kind: INCIDENT_CASE_KIND, event_id: c.eid, host: c.host, summary: c.summary.slice(0, 300) });
+    const inc = incidents.find(i => i.id === joinTo[c.eid]) ?? incidents[0];
+    const ok = await act("decision.logged", { decision: `Added ${c.host || "a case"} to ${incidents.length > 1 ? `incident ${inc?.number}` : "the reported incident"}: ${c.summary.slice(0, 160)}`, rationale: why.slice(0, 400), kind: INCIDENT_CASE_KIND, incident: inc?.id, event_id: c.eid, host: c.host, summary: c.summary.slice(0, 300) });
     setBusy(false);
     if (ok) setJoinWhy(w => ({ ...w, [c.eid]: "" }));
   }
@@ -202,46 +215,67 @@ function IncidentControl({ events, declared, severity, act, confirmed, onReporte
       <p className="text-[11px] leading-relaxed text-slate-400">Reporting tells management there is an incident. Your first report to them opens, and from then on the CISO, Legal and the business ask you questions under Stakeholders. You can change the severity later.</p>
     </div>
   );
+  const sevChip = (n: number | null) => <span className={`rounded px-2 py-0.5 font-mono text-xs font-bold ${n === 1 ? "bg-severity-critical/20 text-severity-critical" : n === 2 ? "bg-severity-high/20 text-severity-high" : "bg-neon-amber/15 text-neon-amber"}`}>Sev-{n ?? severity}</span>;
   return (
     <div className="mt-2 space-y-2">
-      <div className="rounded-lg border border-border bg-bg px-2.5 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded px-2 py-0.5 font-mono text-xs font-bold ${severity === 1 ? "bg-severity-critical/20 text-severity-critical" : severity === 2 ? "bg-severity-high/20 text-severity-high" : "bg-neon-amber/15 text-neon-amber"}`}>Sev-{severity}</span>
-          <span className="text-[11px] text-slate-400">incident reported to management</span>
-          {!changing && <button type="button" onClick={() => { setSev(severity ?? 2); setChanging(true); }} className="ml-auto text-[11px] text-cyber-300 underline">Change severity</button>}
-        </div>
-        {incident && incident.cases.length > 0 ? (
-          <ul className="mt-1.5 space-y-1">
-            {incident.cases.map(c => (
-              <li key={c.eid} className="break-words text-xs text-slate-200">{c.host && <b className="mr-1 font-mono text-slate-100"><bdi>{c.host}</bdi></b>}<bdi>{c.summary}</bdi></li>
-            ))}
-          </ul>
-        ) : <p className="mt-1.5 text-[11px] text-slate-400">Reported without a confirmed case.</p>}
-        {changing && (
-          <div className="mt-2 space-y-1.5">
-            {pick}
-            <label className="block text-[11px] text-slate-300">Why (what changed in the picture)?
-              <input value={reason} maxLength={300} onChange={e => setReason(e.target.value)} placeholder="e.g. exfiltration confirmed from the file server" className={input} />
-            </label>
-            <div className="flex gap-1.5">
-              <Button variant="outline" size="sm" disabled={busy || !reason.trim() || sev == null || sev === severity} onClick={change}>{sev == null ? "Pick a severity" : `Set Sev-${sev}`}</Button>
-              <Button variant="ghost" size="sm" onClick={() => setChanging(false)}>Cancel</Button>
-            </div>
+      {incidents.map(inc => (
+        <div key={inc.id} className="rounded-lg border border-border bg-bg px-2.5 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {sevChip(inc.severity)}
+            <span className="text-[11px] text-slate-400">{incidents.length > 1 ? `incident ${inc.number}, reported to management` : "incident reported to management"}</span>
+            {changing !== inc.id && <button type="button" onClick={() => { setSev(inc.severity ?? 2); setReason(""); setChanging(inc.id); }} className="ml-auto text-[11px] text-cyber-300 underline">Change severity</button>}
           </div>
-        )}
-      </div>
+          {inc.cases.length > 0 ? (
+            <ul className="mt-1.5 space-y-1">
+              {inc.cases.map(c => (
+                <li key={c.eid} className="break-words text-xs text-slate-200">{c.host && <b className="mr-1 font-mono text-slate-100"><bdi>{c.host}</bdi></b>}<bdi>{c.summary}</bdi></li>
+              ))}
+            </ul>
+          ) : <p className="mt-1.5 text-[11px] text-slate-400">Reported without a confirmed case.</p>}
+          {changing === inc.id && (
+            <div className="mt-2 space-y-1.5">
+              {pick}
+              <label className="block text-[11px] text-slate-300">Why (what changed in the picture)?
+                <input value={reason} maxLength={300} onChange={e => setReason(e.target.value)} placeholder="e.g. exfiltration confirmed from the file server" className={input} />
+              </label>
+              <div className="flex gap-1.5">
+                <Button variant="outline" size="sm" disabled={busy || !reason.trim() || sev == null || sev === inc.severity} onClick={change}>{sev == null ? "Pick a severity" : `Set Sev-${sev}`}</Button>
+                <Button variant="ghost" size="sm" onClick={() => setChanging(null)}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
       {outside.length > 0 && (
         <div className="space-y-1.5 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.06] px-2.5 py-2">
           <p className="text-[11px] font-semibold text-neon-amber">Confirmed since your report ({outside.length})</p>
-          <p className="text-[11px] text-slate-300">Is it part of the incident you reported? Add it with the reason, then update management.</p>
+          <p className="text-[11px] text-slate-300">Same incident, or a new one? Add it to an incident you reported, with the reason, or report it as a separate incident.</p>
           {outside.map(c => (
-            <div key={c.eid} className="rounded border border-border bg-bg px-2 py-1.5">
-              <p className="break-words text-xs text-slate-200">{c.host && <b className="mr-1 font-mono text-slate-100"><bdi>{c.host}</bdi></b>}<bdi>{c.summary}</bdi></p>
-              <p className="text-[11px] text-slate-400">Confirmed by <bdi>{who(c)}</bdi>: {c.how}</p>
-              <label className="mt-1 block text-[11px] text-slate-300">Why it belongs to this incident
-                <input value={joinWhy[c.eid] ?? ""} maxLength={400} onChange={e => setJoinWhy(w => ({ ...w, [c.eid]: e.target.value }))} placeholder="e.g. same account, minutes after the first host" className={input} />
-              </label>
-              <Button variant="outline" size="sm" className="mt-1.5" disabled={busy || !(joinWhy[c.eid] ?? "").trim()} onClick={() => join(c)}>Add to this incident</Button>
+            <div key={c.eid} className="space-y-1.5 rounded border border-border bg-bg px-2 py-1.5">
+              <div>
+                <p className="break-words text-xs text-slate-200">{c.host && <b className="mr-1 font-mono text-slate-100"><bdi>{c.host}</bdi></b>}<bdi>{c.summary}</bdi></p>
+                <p className="text-[11px] text-slate-400">Confirmed by <bdi>{who(c)}</bdi>: {c.how}</p>
+              </div>
+              <div className="rounded border border-border/60 px-2 py-1.5">
+                <p className="text-[11px] font-semibold text-slate-300">Same incident</p>
+                {incidents.length > 1 && (
+                  <label className="mt-1 block text-[11px] text-slate-300">Which incident
+                    <select value={joinTo[c.eid] ?? incidents[0].id} onChange={e => setJoinTo(j => ({ ...j, [c.eid]: e.target.value }))} className={input}>
+                      {incidents.map(i => <option key={i.id} value={i.id}>Incident {i.number}{i.cases[0]?.host ? `: ${i.cases[0].host}` : ""}</option>)}
+                    </select>
+                  </label>
+                )}
+                <label className="mt-1 block text-[11px] text-slate-300">Why it belongs to it
+                  <input value={joinWhy[c.eid] ?? ""} maxLength={400} onChange={e => setJoinWhy(w => ({ ...w, [c.eid]: e.target.value }))} placeholder="e.g. same account, minutes after the first host" className={input} />
+                </label>
+                <Button variant="outline" size="sm" className="mt-1.5" disabled={busy || !(joinWhy[c.eid] ?? "").trim()} onClick={() => join(c)}>{incidents.length > 1 ? "Add to that incident" : "Add to this incident"}</Button>
+              </div>
+              <div className="rounded border border-border/60 px-2 py-1.5">
+                <p className="text-[11px] font-semibold text-slate-300">A separate incident</p>
+                <div className="mt-1"><ChoiceGroup legend={`Severity of the new incident for ${c.host || "this case"}`} options={SEVERITY.map(o => ({ value: o.v, label: o.label, hint: o.hint }))} value={apart[c.eid] ?? null} onChange={v => setApart(a => ({ ...a, [c.eid]: v }))} /></div>
+                {apart[c.eid] != null && <p className="mt-1 text-[11px] text-slate-400">{SEVERITY.find(o => o.v === apart[c.eid])?.hint}</p>}
+                <Button variant="outline" size="sm" className="mt-1.5" disabled={busy || apart[c.eid] == null} onClick={() => reportApart(c)}><Megaphone className="mr-1 h-3.5 w-3.5" aria-hidden /> Report as a new incident</Button>
+              </div>
             </div>
           ))}
         </div>

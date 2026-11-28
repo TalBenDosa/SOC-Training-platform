@@ -7,6 +7,7 @@
  *
  * Pure and isomorphic, so the director route and the tests share it.
  */
+import { worstSeverity } from "@/lib/team/incidentCases";
 import type { Ev } from "@/lib/team/types";
 import { asStr, hostKey } from "@/lib/team/format";
 import { containmentRequests, escalationStates, isOpenEscalation, latestScope, openLoadByUser, isolationState } from "@/lib/team/projections";
@@ -178,8 +179,8 @@ export function buildMgrState(input: DirectorInput): MgrState {
   for (const c of containments) if (c.status === "executed" && !isolatedHosts.some(h => hostKey(h.host) === hostKey(c.target))) isolatedHosts.push({ host: c.target, atMs: c.atMs });
 
   const decl = events.find(e => e.type === "incident.declared");
-  let declared = decl ? { severity: Number((decl.payload as { severity?: unknown }).severity), atMs: ms(decl) } : null;
-  for (const e of events) if (e.type === "incident.severity_changed" && declared) declared = { ...declared, severity: Number((e.payload as { severity?: unknown }).severity) };
+  // Several incidents can be reported in one shift: the cards and questions read the first report's time and the most severe level now.
+  const declared = decl ? { severity: worstSeverity(events) ?? Number((decl.payload as { severity?: unknown }).severity), atMs: ms(decl) } : null;
 
   const lastActionMs = new Map<string, number>();
   for (const e of events) if (e.actor_id && e.type !== "event.opened") lastActionMs.set(e.actor_id, ms(e));

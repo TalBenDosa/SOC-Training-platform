@@ -15,7 +15,6 @@ export interface ConfirmedCase extends IncidentCase {
   /** Who stood behind it first, and how. */
   by: string | null; byRole: string | null; how: string; atMs: number | null;
 }
-export interface ReportedIncident { severity: number | null; atMs: number | null; cases: IncidentCase[] }
 
 const SENIOR = new Set(["t2", "t3"]);
 const ATTACK_REPORT = new Set(["true_positive", "tp", "escalate", "suspicious"]);
@@ -62,28 +61,52 @@ export function confirmedCases(events: Ev[]): ConfirmedCase[] {
   return out.sort((a, b) => (a.atMs ?? 0) - (b.atMs ?? 0));
 }
 
-/** The incident as reported to management: its severity now, and every case in it. Null before the report. */
-export function reportedIncident(events: Ev[]): ReportedIncident | null {
-  const declared = events.find(e => e.type === "incident.declared");
-  if (!declared) return null;
-  const sevEv = [...events].reverse().find(e => e.type === "incident.declared" || e.type === "incident.severity_changed");
-  const sev = Number((sevEv?.payload as { severity?: unknown } | undefined)?.severity);
-  const cases: IncidentCase[] = [];
-  const add = (c: unknown) => {
+/** One incident reported to management: its severity now, and every case in it. */
+export interface Incident { id: string; number: number; severity: number | null; atMs: number | null; cases: IncidentCase[] }
+
+/**
+ * Every incident the manager reported, oldest first. A shift can hold several: each report names
+ * its case (0124), and a later confirmed case either joins one of them or is reported on its own.
+ * A severity change names its incident; one without a name is the first incident's (older shifts).
+ */
+export function reportedIncidents(events: Ev[]): Incident[] {
+  const out: Incident[] = [];
+  const caseOf = (c: unknown): IncidentCase | null => {
     const x = (c ?? {}) as { event_id?: unknown; host?: unknown; summary?: unknown };
     const eid = asStr(x.event_id);
-    if (eid && !cases.some(k => k.eid === eid)) cases.push({ eid, host: asStr(x.host), summary: asStr(x.summary) });
+    return eid ? { eid, host: asStr(x.host), summary: asStr(x.summary) } : null;
   };
-  add((declared.payload as { case?: unknown }).case);
-  for (const e of events) if (e.type === "decision.logged" && asStr((e.payload as { kind?: unknown }).kind) === INCIDENT_CASE_KIND) add(e.payload);
-  const t = ms(declared);
-  return { severity: Number.isFinite(sev) ? sev : null, atMs: Number.isFinite(t) ? t : null, cases };
+  const taken = (eid: string) => out.some(i => i.cases.some(k => k.eid === eid));
+  for (const e of events) {
+    const p = (e.payload ?? {}) as Record<string, unknown>;
+    if (e.type === "incident.declared") {
+      const c = caseOf(p.case);
+      if (c && taken(c.eid)) continue;
+      const t = ms(e); const sev = Number(p.severity);
+      out.push({ id: c ? c.eid : `seq:${e.seq}`, number: out.length + 1, severity: Number.isFinite(sev) ? sev : null, atMs: Number.isFinite(t) ? t : null, cases: c ? [c] : [] });
+    } else if (e.type === "incident.severity_changed" && out.length) {
+      const inc = out.find(i => i.id === asStr(p.incident)) ?? out[0];
+      const sev = Number(p.severity);
+      if (Number.isFinite(sev)) inc.severity = sev;
+    } else if (e.type === "decision.logged" && asStr(p.kind) === INCIDENT_CASE_KIND && out.length) {
+      const c = caseOf(p);
+      if (!c || taken(c.eid)) continue;
+      (out.find(i => i.id === asStr(p.incident)) ?? out[0]).cases.push(c);
+    }
+  }
+  return out;
 }
 
-/** Confirmed cases that are not part of the reported incident yet. */
+/** The most severe level among the reported incidents (Sev-1 is the most severe); null before any report. */
+export function worstSeverity(events: Ev[]): number | null {
+  const sevs = reportedIncidents(events).map(i => i.severity).filter((x): x is number => x != null);
+  return sevs.length ? Math.min(...sevs) : null;
+}
+
+/** Confirmed cases that are not part of any reported incident yet. */
 export function casesOutsideIncident(events: Ev[]): ConfirmedCase[] {
-  const inc = reportedIncident(events);
-  if (!inc) return [];
-  const inIt = new Set(inc.cases.map(c => c.eid));
+  const incs = reportedIncidents(events);
+  if (!incs.length) return [];
+  const inIt = new Set(incs.flatMap(i => i.cases.map(c => c.eid)));
   return confirmedCases(events).filter(c => !inIt.has(c.eid));
 }

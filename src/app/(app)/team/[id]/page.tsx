@@ -78,6 +78,7 @@ import { HuntConsole } from "./_components/HuntConsole";
 import { DEConsole } from "./_components/DEConsole";
 import { TIConsole } from "./_components/TIConsole";
 import { MgrConsole } from "./_components/MgrConsole";
+import { worstSeverity } from "@/lib/team/incidentCases";
 import { CommandDesk, openDecisionCards } from "./_components/CommandDesk";
 import { EscalationsPanel, waitingEscalations, pendingApprovals } from "./_components/EscalationsPanel";
 import { StakeholderWindow, openStakeholderQuestions } from "./_components/StakeholderWindow";
@@ -1768,7 +1769,7 @@ export default function TeamRoomPage() {
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
                 {/* The incident report first: the case, its severity and the decision cards the director raises from what is really happening. */}
-                {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} onOpenEscalations={() => setMgrView("escalations")} nameOf={nameOf} onReported={c => setReportSeed({ hosts: c?.host ? [c.host] : [], lines: c?.summary ? [c.summary] : [] })} /></div>}
+                {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} onOpenEscalations={() => setMgrView("escalations")} nameOf={nameOf} onReported={(c, sev) => { setReportDraft(null); setReportSeed({ hosts: c?.host ? [c.host] : [], lines: c?.summary ? [c.summary] : [], severity: sev }); }} /></div>}
                 {me.role === "t2" && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
                 {/* The manager's consoles live behind the menu (one view at a time, no visual overload). */}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
@@ -1820,7 +1821,7 @@ export default function TeamRoomPage() {
         <StakeholderReportModal events={events} seed={reportSeed} onClose={() => setReportSeed(null)} act={act}
           draft={reportDraft} onDraft={setReportDraft}
           onSent={msg => { setReportDraft(null); if (me?.id) saveDraft(id, me.id, "stakeholder-report", "", ""); setMgrNotice({ text: msg, go: "stakeholders" }); }}
-          severity={(() => { const e = [...events].reverse().find(x => x.type === "incident.declared" || x.type === "incident.severity_changed"); return e ? Number((e.payload as { severity?: unknown }).severity) : null; })()} />
+          severity={reportSeed.severity ?? worstSeverity(events)} />
       )}
       {caseLog && (me?.role === "t2" || me?.role === "t3") && (
         <OpenCaseModal log={caseLog} role={me.role} onClose={() => setCaseLog(null)} act={act} actR={actR} sessionId={id} meId={me.id} />

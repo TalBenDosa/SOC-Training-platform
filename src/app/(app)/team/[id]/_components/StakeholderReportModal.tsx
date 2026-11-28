@@ -36,7 +36,7 @@ export const DATA_IMPACT = [
 const AUD_LABEL: Record<string, string> = Object.fromEntries(AUDIENCES.map(a => [a.v, a.label]));
 const NEXT_CHOICES = ["15", "30", "60"] as const;
 
-export interface ReportSeed { hosts: string[]; lines: string[] }
+export interface ReportSeed { hosts: string[]; lines: string[]; /** The level of the incident this report is about, when the shift holds several. */ severity?: number | null }
 export interface ReportDraft {
   audience: string; status: string; title: string; what_happened: string; business_impact: string; affected: string;
   data_impact: string; data_types: string; actions_taken: string; known: string; unknown: string; asks: string; next_update_min: string;
