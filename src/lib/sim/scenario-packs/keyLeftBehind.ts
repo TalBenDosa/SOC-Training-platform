@@ -251,7 +251,7 @@ export function buildKeyLeftBehindScenario(scenarioId = "key-left-behind-2026"):
       id: "evt_klb_07_helpdesk_ticket", ts: "2026-11-12T10:41:00.000Z", incidentId: INCIDENT, user: victim.email,
       table: "incident", number: deskTicket, state: "Resolved", callerId: victim.email, severity: "low",
       shortDescription: "Supplier e-signature link shows a blank page after Microsoft sign-in",
-      eventType: "policy_modification",
+      eventType: "policy_modification", action: "incident.resolved",
       extra: {
         "servicenow.description": "Caller received a Meridian Supplies agreement through an e-signature notice. She signed in with her Microsoft account, accepted the prompt and then got an empty page. Asks whether the document can be opened another way.",
         "servicenow.category": "Software",
@@ -443,8 +443,9 @@ export function buildKeyLeftBehindScenario(scenarioId = "key-left-behind-2026"):
       user_email: victim.email,
       user: { full_name: victim.name, email: victim.email, department: "Procurement", title: victim.title },
       severity: "informational",
-      description: "CMDB record for WS-PRC-3318: Windows 11 Enterprise laptop, assigned to a.feldman (Procurement), installed and operational, last discovered at 10.10.60.23.",
+      description: "CMDB record: WS-PRC-3318 (Computer, Windows 11 Enterprise laptop). Owner a.feldman (Procurement), installed and operational, last discovered at 10.10.60.23.",
       raw: {
+        "event.action": "cmdb.ci.lookup",
         "servicenow.table": "cmdb_ci_computer",
         "servicenow.name": laptop.host,
         "servicenow.asset_tag": "NXC-AST-03318",
@@ -471,8 +472,9 @@ export function buildKeyLeftBehindScenario(scenarioId = "key-left-behind-2026"):
       event_type: "policy_modification",
       hostname: "PA-GP-LON-01",
       severity: "informational",
-      description: "CMDB record for PA-GP-LON-01: the GlobalProtect gateway firewall in London, public NAT address 192.0.2.151, owned by Network Operations.",
+      description: "CMDB record: PA-GP-LON-01 (IP Firewall, GlobalProtect gateway). Public NAT address 192.0.2.151, London, owned by Network Operations.",
       raw: {
+        "event.action": "cmdb.ci.lookup",
         "servicenow.table": "cmdb_ci_ip_firewall",
         "servicenow.name": "PA-GP-LON-01",
         "servicenow.asset_tag": "NXC-NET-00412",
@@ -502,11 +504,11 @@ export function buildKeyLeftBehindScenario(scenarioId = "key-left-behind-2026"):
       },
     }),
 
-    // ── 02:21 · the case: opened by the SIEM integration, Tier 1 proposes closing ──
+    // ── 02:21 · the case, as the SIEM integration created it ──
     serviceNowRecord({
-      id: "evt_klb_20_soc_case", ts: "2026-11-13T02:31:00.000Z", incidentId: INCIDENT, user: victim.email,
-      table: "incident", number: socTicket, state: "In Progress", callerId: victim.email, severity: "medium",
-      shortDescription: "Sentinel: Mailbox sign-in outside business hours (a.feldman)",
+      id: "evt_klb_20_soc_case", ts: "2026-11-13T02:21:00.000Z", incidentId: INCIDENT, user: victim.email,
+      table: "incident", number: socTicket, state: "New", callerId: victim.email, severity: "medium",
+      shortDescription: "Sentinel: Mailbox sign-in outside business hours (a.feldman)", action: "incident.created",
       extra: {
         "servicenow.description": "Created from Microsoft Sentinel alert \"Mailbox sign-in outside business hours\". Entities: account a.feldman, IP 192.0.2.151, host WS-PRC-3318.",
         "servicenow.category": "Security",
@@ -517,14 +519,35 @@ export function buildKeyLeftBehindScenario(scenarioId = "key-left-behind-2026"):
         "servicenow.urgency": "2 - Medium",
         "servicenow.opened_by": "svc-sentinel-itsm",
         "servicenow.assignment_group": "SOC Tier 1",
-        "servicenow.assigned_to": soc,
         "servicenow.cmdb_ci": laptop.host,
         "servicenow.opened_at": "2026-11-13 02:21:00",
         "servicenow.sys_created_on": "2026-11-13 02:21:00",
-        "servicenow.work_notes": "Checked the alert entities. 192.0.2.151 is our GlobalProtect egress (CMDB PA-GP-LON-01). WS-PRC-3318 is her own laptop, compliant, no Defender alerts. VirusTotal 0/94 on the alert IP. Proposing to close as benign: user laptop left on VPN overnight.",
       },
-      description: `SOC case ${socTicket}, opened by the Sentinel integration at 02:21. The Tier 1 work note proposes closing it as benign after checking the alert's IP, host and VirusTotal score.`,
+      description: `SOC case ${socTicket}, created by the Sentinel integration at 02:21 from the alert "Mailbox sign-in outside business hours": account a.feldman, IP 192.0.2.151, host WS-PRC-3318.`,
     }),
+
+    // ── 02:31 · Tier 1 adds a work note to the case and proposes closing it ──
+    // A journal entry of its own (sys_journal_field): the ticket record does not say when a note was written, or by whom.
+    {
+      id: "evt_klb_21_soc_work_note",
+      ts: "2026-11-13T02:31:00.000Z",
+      source: "soar",
+      vendor: "ServiceNow ITSM",
+      event_type: "policy_modification",
+      severity: "medium",
+      incident_id: INCIDENT,
+      description: `Work note added to ${socTicket} by soc-tier1 at 02:31: proposes closing the case as benign after checking the alert's IP, host and VirusTotal score.`,
+      raw: {
+        "event.action": "incident.work_note_added",
+        "servicenow.table": "sys_journal_field",
+        "servicenow.name": "incident",
+        "servicenow.number": socTicket,
+        "servicenow.element": "work_notes",
+        "servicenow.value": "Checked the alert entities. 192.0.2.151 is our GlobalProtect egress (CMDB PA-GP-LON-01). WS-PRC-3318 is her own laptop, compliant, no Defender alerts. VirusTotal 0/94 on the alert IP. Proposing to close as benign: user laptop left on VPN overnight.",
+        "servicenow.sys_created_by": soc,
+        "servicenow.sys_created_on": "2026-11-13 02:31:00",
+      },
+    },
   ];
 
   events.sort((a, b) => a.ts.localeCompare(b.ts));

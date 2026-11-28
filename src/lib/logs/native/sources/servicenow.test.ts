@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { source, kindOf, sysId } from "./servicenow";
+import { source, kindOf, sysId, ciSysId } from "./servicenow";
 import { corpusFor, type CorpusEvent } from "../testing/corpus";
 import { runUseCase } from "../engine";
 import { makeCtx } from "../ctx";
@@ -158,7 +158,30 @@ describe("servicenow - CMDB configuration items (display-value mode)", () => {
     expect(laptop.operational_status).toBe("Operational");
     expect(laptop.assigned_to).toEqual({ display_value: "Anna Feldman", link: expect.stringMatching(/\/api\/now\/table\/sys_user\/[0-9a-f]{32}$/) });
     expect((laptop.department as { display_value: string }).display_value).toBe("Procurement");
-    expect(laptop.sys_id).toBe(sysId(ctx, "cmdb_ci_computer", "WS-PRC-3318"));
+    expect(laptop.sys_id).toBe(ciSysId(ctx, "WS-PRC-3318"));
+  });
+  it("the SOC ticket's cmdb_ci points at the laptop's own CI record", () => {
+    const laptop = logs[0]!.record.result as { sys_id: string };
+    const evs = buildKeyLeftBehindScenario().events;
+    const ticket = evs.find(e => e.id === "evt_klb_20_soc_case")!;
+    const rec = source.fromTelemetry(ticket, ctx)!.record.result as { cmdb_ci: { value: string; link: string } };
+    expect(rec.cmdb_ci.value).toBe(laptop.sys_id);
+    expect(rec.cmdb_ci.link.endsWith(`/cmdb_ci/${laptop.sys_id}`)).toBe(true);
+  });
+  it("the Tier 1 work note is a sys_journal_field entry of that ticket, with its own author and time", () => {
+    const evs = buildKeyLeftBehindScenario().events;
+    const created = evs.find(e => e.id === "evt_klb_20_soc_case")!;
+    const note = evs.find(e => e.id === "evt_klb_21_soc_work_note")!;
+    const ticket = source.fromTelemetry(created, ctx)!.record.result as Record<string, unknown>;
+    const log = source.fromTelemetry(note, ctx)!;
+    const j = log.record.result as Record<string, string>;
+    expect(log.kind).toBe("sys_journal_field");
+    expect(kindOf(log.record)).toBe("sys_journal_field");
+    expect(violationsOf(log, source)).toEqual([]);
+    expect(j).toMatchObject({ element: "work_notes", name: "incident", element_id: ticket.sys_id, sys_created_by: "soc-tier1", sys_created_on: "2026-11-13 02:31:00" });
+    expect(j.value).toContain("Proposing to close as benign");
+    // The ticket as created by the integration: state New, opened at 02:21, no note yet.
+    expect(ticket).toMatchObject({ state: "1", opened_at: "2026-11-13 02:21:00", sys_updated_on: "2026-11-13 02:21:00", sys_created_by: "svc-sentinel-itsm", work_notes: "" });
   });
   it("the owner's sys_user link is the same record the tickets reference", () => {
     const laptop = logs[0]!.record.result as { assigned_to: { link: string } };

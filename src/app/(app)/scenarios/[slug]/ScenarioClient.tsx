@@ -80,6 +80,18 @@ const SOURCE_LABEL: Record<string, string> = {
   infra_monitor: "Infra Monitoring",
 };
 
+/**
+ * The source a row is labelled with: the product that holds the record. A ServiceNow record is
+ * ServiceNow's (a ticket is ITSM, a configuration item is the CMDB), whoever collected it; "SOAR"
+ * is for what the SOAR itself produced (review 2026-11-28).
+ */
+function sourceLabelFor(ev: Pick<TelemetryEvent, "source" | "vendor" | "raw">): string {
+  if (/servicenow/i.test(ev.vendor ?? "")) return String(ev.raw?.["servicenow.table"] ?? "").startsWith("cmdb_ci") ? "ServiceNow CMDB" : "ServiceNow ITSM";
+  return SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase();
+}
+/** A CMDB configuration item: an asset record that was looked up, not something that happened on the asset. */
+const isAssetRecord = (ev: Pick<TelemetryEvent, "raw">) => String(ev.raw?.["servicenow.table"] ?? "").startsWith("cmdb_ci");
+
 const SOURCE_COLORS: Record<string, string> = {
   edr:        "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
   sysmon:     "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
@@ -137,11 +149,24 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   const vendorAction = String(
     ev.raw?.["event.action"] ?? ev.raw?.["ActionType"] ?? ev.raw?.["event.dataset"] ?? "",
   );
-  const basicInfo: [string, string][] = [
+  // An asset record is read, not emitted: its time is when it was retrieved (the record's own times are
+  // last_discovered / sys_updated_on), it has no severity, and the person on it is the owner, not an actor.
+  const asset = isAssetRecord(ev);
+  const when = `${new Date(ev.ts).toLocaleString("en-GB", { timeZone: "UTC" })} UTC`;
+  const basicInfo: [string, string][] = asset ? [
+    ["Event Action",     vendorAction || "cmdb.ci.lookup"],
+    ["Event Class",      "Asset record, read from the CMDB (no severity)"],
+    ["Source Type",      sourceLabelFor(ev)],
+    ["Retrieved at",     when],
+    ["Severity",         "-"],
+    ["Owner",            String(ev.raw?.["servicenow.assigned_to"] ?? ev.raw?.["servicenow.department"] ?? "-")],
+    ["Hostname",         ev.hostname ?? "-"],
+    ["IP Address",       String(ev.raw?.["servicenow.ip_address"] ?? ev.src_ip ?? "-")],
+  ] : [
     ["Event Action",     vendorAction || ev.event_type.replace(/_/g, " ")],
     ["Event Class",      isAlert ? "Alert, raised by a detection analytic" : "Telemetry, raw event (no vendor severity)"],
-    ["Source Type",      SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase()],
-    ["Timestamp",        `${new Date(ev.ts).toLocaleString("en-GB", { timeZone: "UTC" })} UTC`],
+    ["Source Type",      sourceLabelFor(ev)],
+    ["Timestamp",        when],
     ["Severity",         effSev.toUpperCase()],
     ["Username",         ev.user_email ?? "-"],
     ["Hostname",         ev.hostname ?? "-"],
@@ -152,8 +177,8 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   const ecsCore: [string, string][] = [
     ["event.id",       ev.id],
     ["event.provider", ev.vendor ?? ev.source.toUpperCase()],
-    ["event.type",     ev.event_type.replace(/_/g, " ")],
-    ["event.severity", effSev.toUpperCase()],
+    ["event.type",     /servicenow/i.test(ev.vendor ?? "") && vendorAction ? vendorAction : ev.event_type.replace(/_/g, " ")],
+    ...(asset ? [] : [["event.severity", effSev.toUpperCase()] as [string, string]]),
     ...(Object.entries(ecsTechnique(ev.mitre_technique)) as [string, string][]),
     ...(ev.user_email ? [["user.email",    ev.user_email]           as [string, string]] : []),
     ...(ev.hostname   ? [["host.name",     ev.hostname]             as [string, string]] : []),
@@ -346,7 +371,7 @@ const LogRow = memo(function LogRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const rowRef = useRef<HTMLTableRowElement>(null);
   const sevBadge = SEV_BADGE[effSev];
-  const srcLabel = SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase();
+  const srcLabel = sourceLabelFor(ev);
   const srcColor = SOURCE_COLORS[ev.source] ?? SOURCE_COLORS.proxy;
   // Render in UTC explicitly. This is deterministic on the server AND the client
   // (a fixed timeZone, not the runtime's), which closes the React #418 hydration
@@ -504,7 +529,7 @@ const LogRow = memo(function LogRow({
             title={isAlert ? "Vendor severity of the alert" : "Raw telemetry carries no vendor severity"}
             className={cn("inline-flex h-5 min-w-[2.5rem] items-center justify-center rounded border px-1 font-mono text-[9px] font-bold tracking-wider", sevBadge)}
           >
-            {severityLabel(effSev)}
+            {isAssetRecord(ev) ? "-" : severityLabel(effSev)}
           </span>
         </td>
       </tr>
@@ -752,8 +777,8 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                 key={e.id}
                 type="button"
                 onClick={() => focusEvent(e.id)}
-                title={`${utcTime(e.ts)} UTC · ${e.hostname ?? "-"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · ALERT" : ""}`}
-                aria-label={`Open event ${utcTime(e.ts)} UTC · ${e.hostname ?? "no host"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · alert" : ""}`}
+                title={`${utcTime(e.ts)} UTC · ${e.hostname ?? "-"} · ${sourceLabelFor(e)}${alertIds.has(e.id) ? " · ALERT" : ""}`}
+                aria-label={`Open event ${utcTime(e.ts)} UTC · ${e.hostname ?? "no host"} · ${sourceLabelFor(e)}${alertIds.has(e.id) ? " · alert" : ""}`}
                 className={cn(
                   "h-2.5 w-2.5 rounded-full border",
                   alertIds.has(e.id) ? "bg-cyber-400 border-cyber-300" : "bg-slate-500/50 border-slate-500",
@@ -822,7 +847,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                     <td className={cn("whitespace-nowrap py-2 pr-3 font-mono text-[11px]", hostChanged ? "text-cyber-200" : "text-slate-200")}>{host}</td>
                     <td className="whitespace-nowrap py-2 pr-3">
                       <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", SOURCE_COLORS[e.source] ?? SOURCE_COLORS.proxy)}>
-                        {SOURCE_LABEL[e.source] ?? e.source.toUpperCase()}
+                        {sourceLabelFor(e)}
                       </span>
                       {alertIds.has(e.id) && (
                         <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wider text-cyber-300">Alert</span>
@@ -832,7 +857,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                       <span className="line-clamp-1">
                         {e.process?.name
                           ? `${e.process.name}${e.process.cmdline ? `: ${e.process.cmdline}` : ""}`
-                          : e.network?.domain ?? e.network?.url ?? e.file?.path ?? e.event_type.replace(/_/g, " ")}
+                          : e.network?.domain ?? e.network?.url ?? e.file?.path ?? (String(e.raw?.["event.action"] ?? "") || e.event_type.replace(/_/g, " "))}
                       </span>
                     </td>
                   </tr>

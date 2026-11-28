@@ -62,6 +62,9 @@ const CMDB_OPTIONAL = P("asset_tag", "serial_number", "manufacturer", "model_id"
   "department", "location", "company", "install_status", "operational_status", "discovery_source", "last_discovered", "short_description",
   "sys_created_on", "sys_created_by");
 for (const table of Object.keys(CMDB_CLASS)) kinds[table] = { required: CMDB_REQUIRED, optional: CMDB_OPTIONAL };
+// One journal entry (a work note or a comment) of a ticket: where the Table API keeps the text that the
+// ticket's own work_notes / comments columns return empty. element_id is the ticket's sys_id.
+kinds.sys_journal_field = { required: P("sys_id", "element", "element_id", "name", "value", "sys_created_by", "sys_created_on"), optional: [] };
 const CMDB_BY_LABEL = new Map(Object.entries(CMDB_CLASS).map(([t, l]) => [l, t]));
 // install_status / operational_status choice labels (out-of-the-box values).
 const INSTALL_STATUS: Record<string, string> = { "1": "Installed", "2": "On Order", "3": "In Maintenance", "4": "Pending Install", "5": "Pending Repair", "6": "In Stock", "7": "Retired", "100": "Absent" };
@@ -70,6 +73,7 @@ const OPERATIONAL_STATUS: Record<string, string> = { "1": "Operational", "2": "N
 export function kindOf(record: Record<string, unknown>): string | null {
   const r = record.result as Record<string, unknown> | undefined;
   if (!r || typeof r !== "object" || Array.isArray(r)) return null;
+  if (typeof r.element === "string" && typeof r.element_id === "string") return "sys_journal_field";
   // Display-value mode (sysparm_display_value=all) wraps every field in {display_value, value}; not rendered.
   if (typeof r.sys_class_name !== "string") return null;
   if (kinds[r.sys_class_name] && !CMDB_CLASS[r.sys_class_name]) return r.sys_class_name;
@@ -113,6 +117,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const sn = (k: string) => str(raw[`servicenow.${k}`]);
   const table = sn("table");
   if (table && CMDB_CLASS[table]) return cmdbRecord(ev, ctx, table, sn);
+  if (table === "sys_journal_field") return journalRecord(ev, ctx, sn);
   const number = sn("number");
   if (!table || !kinds[table] || !number) return null;
 
@@ -150,7 +155,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   put("approval", sn("approval")?.toLowerCase());
   put("assignment_group", sn("assignment_group") ? ref(ctx, "sys_user_group", sn("assignment_group")!) : undefined);
   put("assigned_to", assignee ? ref(ctx, "sys_user", assignee) : undefined);
-  put("cmdb_ci", sn("cmdb_ci") ? ref(ctx, "cmdb_ci", sn("cmdb_ci")!) : undefined);
+  // A CI has ONE sys_id, in cmdb_ci and in its class table alike (table-per-class): the ticket's
+  // reference and the CI record read from cmdb_ci_computer carry the same value (ciSysId).
+  put("cmdb_ci", sn("cmdb_ci") ? { link: `https://${ctx.org}.service-now.com/api/now/table/cmdb_ci/${ciSysId(ctx, sn("cmdb_ci")!)}`, value: ciSysId(ctx, sn("cmdb_ci")!) } : undefined);
 
   if (table === "incident") {
     const caller = sn("caller_id") ?? ev.user_email;
@@ -202,6 +209,35 @@ ${text}` : "";
   return { sourceId: "servicenow", kind: table, format: "json", record: { result }, timeMs: Date.parse(ev.ts) };
 }
 
+/** sys_id of a configuration item, by its name: the same in cmdb_ci and in every class table. */
+export function ciSysId(ctx: NativeCtx, name: string): string {
+  return sysId(ctx, "cmdb_ci", name);
+}
+
+/**
+ * One journal entry, as GET /api/now/table/sys_journal_field?sysparm_query=element_id=<ticket sys_id>
+ * returns it: the field it belongs to (work_notes | comments), the ticket's table and sys_id, the
+ * text, and who wrote it when. The ticket record itself does not say when a note was added.
+ */
+function journalRecord(ev: TelemetryEvent, ctx: NativeCtx, sn: (k: string) => string | undefined): NativeLog | null {
+  const number = sn("number");
+  const value = sn("value") ?? sn("work_notes");
+  if (!number || !value) return null;
+  const parent = sn("name") ?? "incident";
+  const element = sn("element") ?? "work_notes";
+  const created = sn("sys_created_on") ? snowTime(sn("sys_created_on")!) : snowTime(ev.ts);
+  const result: Record<string, unknown> = {
+    sys_id: sysId(ctx, "sys_journal_field", `${number}:${element}:${created}`),
+    element,
+    element_id: sysId(ctx, parent, number),
+    name: parent,
+    value,
+    sys_created_by: userName(sn("sys_created_by") ?? "system"),
+    sys_created_on: created,
+  };
+  return { sourceId: "servicenow", kind: "sys_journal_field", format: "json", record: { result }, timeMs: Date.parse(ev.ts) };
+}
+
 /** One CMDB CI, as GET /api/now/table/<cmdb_ci_*>/<sys_id>?sysparm_display_value=true returns it. */
 function cmdbRecord(ev: TelemetryEvent, ctx: NativeCtx, table: string, sn: (k: string) => string | undefined): NativeLog | null {
   const name = sn("name");
@@ -211,7 +247,7 @@ function cmdbRecord(ev: TelemetryEvent, ctx: NativeCtx, table: string, sn: (k: s
     key ? { display_value: display ?? key, link: ref(ctx, refTable, key).link } : undefined;
   const owner = sn("assigned_to");
   const ownerName = owner ? (owner.includes("@") && ev.user?.email === owner && ev.user?.full_name ? ev.user.full_name : displayName(owner)) : undefined;
-  const result: Record<string, unknown> = { sys_id: sysId(ctx, table, name), name, sys_class_name: CMDB_CLASS[table] };
+  const result: Record<string, unknown> = { sys_id: ciSysId(ctx, name), name, sys_class_name: CMDB_CLASS[table] };
   const put = (k: string, v: unknown) => { if (v !== undefined) result[k] = v; };
   put("short_description", sn("short_description"));
   put("asset_tag", sn("asset_tag"));

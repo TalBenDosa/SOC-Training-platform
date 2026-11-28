@@ -66,6 +66,20 @@ CIs are not tickets: no `number`, `state` or journal. An analyst reads them to a
 | `install_status` / `operational_status` | Lifecycle / health | labels above |
 | `discovery_source`, `last_discovered` | What last confirmed the CI and when (UTC) | `SCCM`, `ServiceNow` (Discovery) |
 
+### sys_journal_field (one work note or comment of a ticket)
+
+The ticket record does not say when a note was written or by whom: `work_notes` and `comments` come back empty. Each entry is a row of `sys_journal_field`, read with `sysparm_query=element_id=<ticket sys_id>^element=work_notes`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `sys_id` | GUID | the entry's own id |
+| `element` | string | the journal field it belongs to: `work_notes` or `comments` |
+| `element_id` | GUID | sys_id of the ticket the note is on |
+| `name` | string | the ticket's table (`incident`, `change_request`) |
+| `value` | string | the text of the note |
+| `sys_created_by` | string | user_name of the author |
+| `sys_created_on` | datetime | when the note was added (UTC) |
+
 ## 4. Realistic samples (raw mode, trimmed to the investigation-relevant columns — a real response returns ~80–100 columns)
 
 ### 4.1 Approved, scheduled normal change (justifies an admin login at night)
@@ -242,6 +256,22 @@ CIs are not tickets: no `number`, `state` or journal. An analyst reads them to a
 }
 ```
 A CMDB answer proves ownership of the device, not who used an account: a mailbox read by a cloud app never touches the CI.
+
+### 4.7 A work note on a SOC incident (`sys_journal_field`)
+
+```json
+{
+  "result": {
+    "sys_id": "5c1d0e7a9b2f4c6e8a1b3d5f7e9c0a2b",
+    "element": "work_notes",
+    "element_id": "96c2e17c40c4a951305056faaa7358b6",
+    "name": "incident",
+    "value": "Checked the alert entities. 192.0.2.151 is our GlobalProtect egress. Proposing to close as benign.",
+    "sys_created_by": "soc-tier1",
+    "sys_created_on": "2026-11-13 02:31:00"
+  }
+}
+```
 
 ## 5. Investigation notes
 

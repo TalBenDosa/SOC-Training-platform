@@ -24,6 +24,8 @@ export interface ServiceNowRecordOpts extends Ctx {
   shortDescription?: string;        // servicenow.short_description
   eventType?: EventType;            // default "policy_modification"
   callerId?: string;                // servicenow.caller_id (also user_email)
+  /** What happened to the record at this row's time (incident.created | incident.resolved ...): event.action. */
+  action?: string;
   /** any other servicenow.* / incident.* / sla.* / client.* / edr.* fields */
   extra?: Record<string, string | number>;
   mitre?: string;
@@ -44,6 +46,7 @@ export function serviceNowRecord(o: ServiceNowRecordOpts): TelemetryEvent {
       ...(o.state ? { "servicenow.state": o.state } : {}),
       ...(o.shortDescription ? { "servicenow.short_description": o.shortDescription } : {}),
       ...(o.callerId ? { "servicenow.caller_id": o.callerId } : {}),
+      ...(o.action ? { "event.action": o.action } : {}),
       ...recordDefaults(o, extra),
       ...extra,
     },

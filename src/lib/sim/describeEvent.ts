@@ -128,6 +128,11 @@ const LOGON_TYPES: Record<string, string> = {
 /** Event types whose own fields describe them better than the Event Viewer title. */
 const FIELD_RICH = new Set(["process_create", "dns_query", "net_connection", "file_create", "file_modify", "file_access", "file_copy", "registry_set", "registry_delete", "scheduled_task"]);
 
+const CMDB_CLASS_LABEL: Record<string, string> = {
+  cmdb_ci_computer: "Computer", cmdb_ci_ip_firewall: "IP Firewall", cmdb_ci_server: "Server",
+  cmdb_ci_win_server: "Windows Server", cmdb_ci_linux_server: "Linux Server",
+};
+
 export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {}): string {
   // L-05 — the authored description states the CONCLUSION on attack events (names
   // the tool, does the base32/base64 math, gives the domain age, decodes the TXT),
@@ -225,6 +230,20 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
 
   // A service-desk record (ServiceNow): the ticket's own number, state and summary
   // are the observable — not a generic "policy modified".
+  // A CMDB configuration item is an asset record somebody looked up, and a journal entry is a note on a
+  // ticket: neither is a policy change (review 2026-11-28, "The key left behind").
+  const snowTable = rawStr(event.raw, "servicenow.table");
+  if (snowTable.startsWith("cmdb_ci")) {
+    const name = rawStr(event.raw, "servicenow.name") || event.hostname || "asset";
+    const cls = CMDB_CLASS_LABEL[snowTable] ?? "Configuration item";
+    const what = rawStr(event.raw, "servicenow.short_description").split(",")[0].trim();
+    return `CMDB record: ${name} (${cls}${what ? `, ${what}` : ""})`;
+  }
+  if (snowTable === "sys_journal_field") {
+    const by = rawStr(event.raw, "servicenow.sys_created_by").split("@")[0];
+    const kind = rawStr(event.raw, "servicenow.element") === "comments" ? "Comment" : "Work note";
+    return `${kind} added to ${rawStr(event.raw, "servicenow.number") || "the ticket"}${by ? ` by ${by}` : ""}`;
+  }
   const ticket = rawStr(event.raw, "servicenow.number");
   if (ticket) {
     const state = rawStr(event.raw, "servicenow.state");
@@ -483,7 +502,11 @@ export function capitalizeAction(s: string): string {
  */
 export function describeEventForRow(event: TelemetryEvent, opts: DescribeOptions = { preferFields: true }): { user?: string; title?: string; action: string } {
   const full = describeEvent(event, opts);
-  const email = event.user_email ?? event.user?.email;
+  const snowTable = String(event.raw?.["servicenow.table"] ?? "");
+  // A ticket somebody else opened (the SIEM integration, a service-desk agent) is about its caller, not by them.
+  const opener = String(event.raw?.["servicenow.opened_by"] ?? "");
+  const others = snowTable.startsWith("cmdb_ci") || snowTable === "sys_journal_field" || (!!snowTable && !!opener && opener !== (event.user_email ?? event.user?.email));
+  const email = others ? undefined : event.user_email ?? event.user?.email;
   if (!email) return { action: full };
   const user = email.split("@")[0];
   const escaped = user.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

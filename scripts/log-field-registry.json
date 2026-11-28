@@ -12181,7 +12181,10 @@
         "servicenow.install_status",
         "servicenow.operational_status",
         "servicenow.discovery_source",
-        "servicenow.last_discovered"
+        "servicenow.last_discovered",
+        "servicenow.element",
+        "servicenow.value",
+        "event.action"
       ],
       "prefixes": []
     },
